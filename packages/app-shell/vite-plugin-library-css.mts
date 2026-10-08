@@ -142,7 +142,12 @@ export function libraryCss(): Plugin {
       return undefined;
     },
     load(id) {
-      return id === RESOLVED_CSS_ID ? css : undefined;
+      if (id !== RESOLVED_CSS_ID) return undefined;
+      // The library module's transform fills `css`; loading the virtual module first would ship
+      // the editor without its styles, so fail the build instead.
+      if (css.trim() === '')
+        throw new Error(`${CSS_ID} loaded before the library's CSS was extracted`);
+      return css;
     },
     transform(code, id) {
       if (STYLE_MOD.test(id)) return { code: styleModPageNonce(code), map: null };

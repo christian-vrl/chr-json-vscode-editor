@@ -17,10 +17,12 @@ import type {
 import {
   PROTOCOL_VERSION,
   type DocumentChange,
+  type EditErrorCode,
   type EditorSettings,
   type Format,
   type JsonPatchOperation,
   type Mode,
+  type UpdateOrigin,
 } from './protocol.js';
 
 /** One change the UI handed over through `save`, as received. */
@@ -89,10 +91,10 @@ export class DevHostAdapter implements HostAdapter {
     try {
       text = change.kind === 'text' ? change.text : applyJsonPatch(this.#text, change.patch);
     } catch (e) {
-      this.#emitError('edit-failed', e instanceof Error ? e.message : String(e));
+      this.#emitError('patch-failed', e instanceof Error ? e.message : String(e));
       return;
     }
-    this.#setText(text);
+    this.#setText(text, 'edit');
   }
 
   onExternalChange(listener: (event: HostEvent) => void): Disposable {
@@ -111,7 +113,7 @@ export class DevHostAdapter implements HostAdapter {
 
   /** Plays another editor changing the document: bumps the version and sends `update`. */
   externalChange(text: string): void {
-    this.#setText(text);
+    this.#setText(text, 'external');
   }
 
   /** Plays the host asking the UI to switch mode (`setMode`). */
@@ -130,13 +132,19 @@ export class DevHostAdapter implements HostAdapter {
     });
   }
 
-  #setText(text: string): void {
+  #setText(text: string, origin: UpdateOrigin): void {
     this.#text = text;
     this.#docVersion += 1;
-    this.#emit({ protocol: PROTOCOL_VERSION, type: 'update', docVersion: this.#docVersion, text });
+    this.#emit({
+      protocol: PROTOCOL_VERSION,
+      type: 'update',
+      docVersion: this.#docVersion,
+      text,
+      origin,
+    });
   }
 
-  #emitError(code: string, message: string): void {
+  #emitError(code: EditErrorCode, message: string): void {
     this.#emit({
       protocol: PROTOCOL_VERSION,
       type: 'error',

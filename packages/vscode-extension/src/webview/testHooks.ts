@@ -1,8 +1,10 @@
 // Webview side of the e2e test hooks (003 T5; e2e builds only, see main.ts and esbuild.mjs). The
 // extension host's hooks (editorProvider.ts) post `{ chrTest: 'probe', id }` and get back what the
-// webview renders: which mode the library shows, whether its stylesheet applied, and every CSP
-// violation since the script started. It also reports each `validation` message it sees (004 T2).
+// webview renders: which mode the library shows, whether its stylesheet applied, what it holds, and
+// every CSP violation since the script started. `{ chrTest: 'patch', patch }` sends a patch as a
+// tree edit would (criterion 1). It also reports each `validation` message it sees (004 T2).
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
+import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { RenderedProbe } from '../testProbe';
 
 const MODE_ROOTS = [
@@ -11,7 +13,10 @@ const MODE_ROOTS = [
   ['table', '.jse-table-mode'],
 ] as const;
 
-export function installTestHooks(api: { postMessage(message: unknown): void }) {
+export function installTestHooks(
+  api: { postMessage(message: unknown): void },
+  app: () => AppHandle | undefined,
+) {
   const violations: string[] = [];
   document.addEventListener('securitypolicyviolation', (e) => {
     violations.push(`${e.effectiveDirective} ${e.blockedURI} at ${e.sourceFile}:${e.lineNumber}`);
@@ -30,6 +35,9 @@ export function installTestHooks(api: { postMessage(message: unknown): void }) {
       mainMinHeight: main ? getComputedStyle(main).minHeight : null,
       shownText: root?.textContent ?? '',
       violations: [...violations],
+      content: app()?.content() ?? null,
+      format: document.querySelector('[role="toolbar"] .format')?.textContent?.trim() ?? '',
+      notice: document.querySelector('.notice')?.textContent ?? '',
       styleElements: [...document.querySelectorAll('style')].map((s) => ({
         id: s.id,
         nonce: s.nonce !== '',
@@ -39,9 +47,13 @@ export function installTestHooks(api: { postMessage(message: unknown): void }) {
 
   /** Returns true for a test message, which the editor never sees. */
   return (data: unknown): boolean => {
-    const message = data as { chrTest?: unknown; id?: unknown };
+    const message = data as { chrTest?: unknown; id?: unknown; patch?: unknown };
     if (typeof message === 'object' && message !== null && message.chrTest === 'probe') {
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'patch') {
+      app()?.patch(message.patch as Parameters<AppHandle['patch']>[0]);
       return true;
     }
     const decoded = decodeToWebview(data);

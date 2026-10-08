@@ -19,7 +19,14 @@ const toWebview: ToWebviewMessage[] = [
     mode: 'tree',
     settings: { indent: 2, nested: { list: [true, null, 'x'] } },
   },
-  { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 2, text: "{a: 'b'}" },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'update',
+    docVersion: 2,
+    text: "{a: 'b'}",
+    origin: 'external',
+  },
+  { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 2, text: '{}', origin: 'edit' },
   { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 2, mode: 'table' },
   { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'json5' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'stale', message: 'Edit on 2' },
@@ -118,7 +125,13 @@ describe('protocol round trip', () => {
 });
 
 describe('protocol rejects malformed messages', () => {
-  const update = { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 1, text: 'x' };
+  const update = {
+    protocol: PROTOCOL_VERSION,
+    type: 'update',
+    docVersion: 1,
+    text: 'x',
+    origin: 'external',
+  };
   const validation = (result: unknown, dialect: unknown = null) => ({
     protocol: PROTOCOL_VERSION,
     type: 'validation',
@@ -138,10 +151,16 @@ describe('protocol rejects malformed messages', () => {
     ['null', null],
     ['an array', [update]],
     ['another protocol version', { ...update, protocol: PROTOCOL_VERSION + 1 }],
-    ['no protocol version', { type: 'update', docVersion: 1, text: 'x' }],
+    ['no protocol version', { type: 'update', docVersion: 1, text: 'x', origin: 'edit' }],
+    [
+      'an update without origin',
+      { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 1, text: 'x' },
+    ],
+    ['an unknown update origin', { ...update, origin: 'undo' }],
+    ['protocol 5 (before update origins)', { ...update, protocol: 5 }],
     ['an unknown type', { ...update, type: 'save' }],
     ['a direction it cannot travel', edit],
-    ['no docVersion', { protocol: PROTOCOL_VERSION, type: 'update', text: 'x' }],
+    ['no docVersion', { protocol: PROTOCOL_VERSION, type: 'update', text: 'x', origin: 'edit' }],
     ['a negative docVersion', { ...update, docVersion: -1 }],
     ['a fractional docVersion', { ...update, docVersion: 1.5 }],
     ['a string docVersion', { ...update, docVersion: '1' }],

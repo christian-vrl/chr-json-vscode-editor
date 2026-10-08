@@ -4,7 +4,7 @@
 // in the webview, not the extension host, so it must not import `vscode` or Node modules.
 import '@chr-json-editor/app-shell/page.css';
 import '@chr-json-editor/app-shell/ui.css';
-import { mountApp } from '@chr-json-editor/app-shell/ui';
+import { mountApp, type AppHandle } from '@chr-json-editor/app-shell/ui';
 import { installTestHooks } from './testHooks';
 import { VscodeHostAdapter } from './vscodeHostAdapter';
 
@@ -14,8 +14,9 @@ declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
 const vscode = acquireVsCodeApi();
 const listeners = new Set<(data: unknown) => void>();
+let app: AppHandle | undefined;
 const consume: (data: unknown) => boolean = __CHR_TEST_HOOKS__
-  ? installTestHooks(vscode)
+  ? installTestHooks(vscode, () => app)
   : () => false;
 
 window.addEventListener('message', (event: MessageEvent) => {
@@ -28,4 +29,4 @@ const host = new VscodeHostAdapter(vscode, (listener) => {
   return () => listeners.delete(listener);
 });
 const target = document.getElementById('app');
-if (target) mountApp(target, host);
+if (target) app = mountApp(target, host);

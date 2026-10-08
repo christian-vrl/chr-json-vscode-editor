@@ -59,7 +59,7 @@ export function describeHostAdapterContract(
       const rec = recorder(adapter);
       adapter.save(doc.docVersion, { kind: 'text', text: '{"a": 2}' });
       const [event] = await rec.next();
-      expect(event).toMatchObject({ type: 'update', text: '{"a": 2}' });
+      expect(event).toMatchObject({ type: 'update', text: '{"a": 2}', origin: 'edit' });
       expect(event!.docVersion).toBeGreaterThan(doc.docVersion);
     });
 
@@ -72,7 +72,7 @@ export function describeHostAdapterContract(
         patch: [{ op: 'replace', path: '/a', value: 3 }],
       });
       const [event] = await rec.next();
-      expect(event?.type).toBe('update');
+      expect(event).toMatchObject({ type: 'update', origin: 'edit' });
       expect(JSON.parse((event as Extract<HostEvent, { type: 'update' }>).text)).toEqual({ a: 3 });
       expect(event!.docVersion).toBeGreaterThan(doc.docVersion);
     });
@@ -86,7 +86,44 @@ export function describeHostAdapterContract(
       const [update] = await rec.next();
       adapter.save(doc.docVersion, { kind: 'text', text: '{"stale": true}' });
       const [error] = await rec.next();
-      expect(error).toMatchObject({ type: 'error', docVersion: update!.docVersion });
+      expect(error).toMatchObject({
+        type: 'error',
+        code: 'stale-edit',
+        docVersion: update!.docVersion,
+      });
+      await settle();
+      expect(rec.events).toEqual([]);
+    });
+
+    it('answers each of two edits on the same version: the second one is stale', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.save(doc.docVersion, { kind: 'text', text: '[1]' });
+      adapter.save(doc.docVersion, { kind: 'text', text: '[2]' });
+      const [first, second] = await rec.next(2);
+      expect(first).toMatchObject({ type: 'update', origin: 'edit', text: '[1]' });
+      expect(second).toMatchObject({
+        type: 'error',
+        code: 'stale-edit',
+        docVersion: first!.docVersion,
+      });
+    });
+
+    it('answers a patch that does not apply with patch-failed and keeps the text', async () => {
+      const harness = await create(TEXT);
+      const doc = await harness.adapter.open();
+      const rec = recorder(harness.adapter);
+      harness.adapter.save(doc.docVersion, {
+        kind: 'patch',
+        patch: [{ op: 'test', path: '/a', value: 99 }],
+      });
+      const [error] = await rec.next();
+      expect(error).toMatchObject({
+        type: 'error',
+        code: 'patch-failed',
+        docVersion: doc.docVersion,
+      });
       await settle();
       expect(rec.events).toEqual([]);
     });
@@ -97,7 +134,7 @@ export function describeHostAdapterContract(
       const rec = recorder(harness.adapter);
       await harness.externalChange('[1, 2]');
       const [event] = await rec.next();
-      expect(event).toMatchObject({ type: 'update', text: '[1, 2]' });
+      expect(event).toMatchObject({ type: 'update', text: '[1, 2]', origin: 'external' });
       expect(event!.docVersion).toBeGreaterThan(doc.docVersion);
     });
 

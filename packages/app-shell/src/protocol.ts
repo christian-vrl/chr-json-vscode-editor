@@ -7,8 +7,9 @@
  *  2: adds the host → UI `validation` message (004 T2).
  *  3: `validation` carries the schema's `dialect` (004 T4).
  *  4: adds the draft-04 and draft-06 dialects (004 T4, UNK-031).
- *  5: adds the UI → host `ready` message (003 T5). */
-export const PROTOCOL_VERSION = 5;
+ *  5: adds the UI → host `ready` message (003 T5).
+ *  6: `update` says whether it answers the UI's edit (`origin`); edit errors have fixed codes (003 T5). */
+export const PROTOCOL_VERSION = 6;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -64,10 +65,17 @@ export interface InitMessage extends Envelope<'init'> {
   mode: Mode;
   settings: EditorSettings;
 }
-/** The document changed outside the UI (another editor, undo, Git, ...). */
+/**
+ * The document's text at `docVersion`. `origin: 'edit'` answers the UI's oldest unanswered `edit`:
+ * the host applied it, and this is the text it produced (`docVersion` stays the same when the edit
+ * changed nothing). `origin: 'external'` is a change made anywhere else (another editor, undo, Git).
+ */
 export interface UpdateMessage extends Envelope<'update'> {
   text: string;
+  origin: UpdateOrigin;
 }
+export type UpdateOrigin = 'edit' | 'external';
+export const UPDATE_ORIGINS: readonly UpdateOrigin[] = ['edit', 'external'];
 /** The UI's change to the document. */
 export interface EditMessage extends Envelope<'edit'> {
   change: DocumentChange;
@@ -84,6 +92,20 @@ export interface SetFormatMessage extends Envelope<'setFormat'> {
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
   message: string;
+}
+
+/**
+ * The host's answers to an `edit` it did not apply; each one answers the UI's oldest unanswered
+ * `edit`, like an `update` with `origin: 'edit'`, and carries the document's current `docVersion`.
+ * - `stale-edit`: the edit was made on an older `docVersion` than the document's.
+ * - `patch-failed`: a patch operation did not apply to the text (core's `PatchError`).
+ * - `edit-failed`: the editor refused the change (VS Code's `applyEdit` returned false).
+ */
+export const EDIT_ERROR_CODES = ['stale-edit', 'patch-failed', 'edit-failed'] as const;
+export type EditErrorCode = (typeof EDIT_ERROR_CODES)[number];
+
+export function isEditError(message: ErrorMessage): boolean {
+  return (EDIT_ERROR_CODES as readonly string[]).includes(message.code);
 }
 
 /** JSON Schema dialects the validator supports (spec 004 criterion 2, UNK-017, UNK-031). */
@@ -160,7 +182,7 @@ const BASE: Fields = {
 
 const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   init: { text: str, format: oneOf(FORMATS), mode: oneOf(MODES), settings: jsonObject },
-  update: { text: str },
+  update: { text: str, origin: oneOf(UPDATE_ORIGINS) },
   setMode: { mode: oneOf(MODES) },
   setFormat: { format: oneOf(FORMATS) },
   error: { code: str, message: str },

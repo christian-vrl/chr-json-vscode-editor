@@ -1,6 +1,8 @@
 // Binds the format badge (formatBadge.ts) to VS Code (spec 003 T10, criterion 8): one status-bar
 // item that shows the format of the active CHR JSON Editor tab, and the "Change Format" command
-// behind it. Choosing a format re-parses the document's text in the host and never edits it.
+// behind it. Choosing a format re-parses the document's text in the host and never edits it; the
+// editor's webviews parse again too (`onDidChangeFormat`, the `setFormat` message, 003 T5). A
+// chosen format is kept for the document until the window closes, even after its last tab closes.
 import * as vscode from 'vscode';
 import { detect, getAdapter } from '@chr-json-editor/core';
 import {
@@ -32,10 +34,24 @@ export class FormatBadgeController implements vscode.Disposable {
   /** Per document URI, shared by every tab showing that document. */
   private readonly states = new Map<string, FormatState>();
   private readonly panels = new Map<vscode.WebviewPanel, vscode.TextDocument>();
+  /** Formats the user chose, per document URI, kept after the document's last tab closes. */
+  private readonly chosen = new Map<string, Format>();
+  /** Re-parses waiting after a text change, per document URI. */
+  private readonly pending = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly formatChanges = new vscode.EventEmitter<{
+    document: vscode.TextDocument;
+    format: Format;
+  }>();
+  /** Fires when the user picks a format for a document. */
+  readonly onDidChangeFormat = this.formatChanges.event;
   private readonly disposables: vscode.Disposable[] = [];
   private visible = false;
 
-  constructor(private readonly core: FormatCore) {
+  constructor(
+    private readonly core: FormatCore,
+    /** How long the badge waits after a text change before parsing again. */
+    private readonly reparseDelayMs = 150,
+  ) {
     this.item = vscode.window.createStatusBarItem(
       'chrJsonEditor.format',
       vscode.StatusBarAlignment.Right,
@@ -45,16 +61,26 @@ export class FormatBadgeController implements vscode.Disposable {
     this.item.command = SELECT_FORMAT_COMMAND;
     this.disposables.push(
       this.item,
+      this.formatChanges,
       vscode.commands.registerCommand(SELECT_FORMAT_COMMAND, (format?: unknown) =>
         this.select(format),
       ),
-      // Re-parse on every change, so the badge's error state follows the text.
+      // Re-parse after changes, so the badge's error state follows the text. A burst of changes
+      // (typing, a webview edit) is parsed once, when it settles.
       vscode.workspace.onDidChangeTextDocument(({ document }) => {
         const key = document.uri.toString();
-        const state = this.states.get(key);
-        if (!state) return;
-        this.states.set(key, withFormat(this.core, state, document.getText(), state.format));
-        this.refresh();
+        if (!this.states.has(key)) return;
+        clearTimeout(this.pending.get(key));
+        this.pending.set(
+          key,
+          setTimeout(() => {
+            this.pending.delete(key);
+            const state = this.states.get(key);
+            if (!state) return;
+            this.states.set(key, withFormat(this.core, state, document.getText(), state.format));
+            this.refresh();
+          }, this.reparseDelayMs),
+        );
       }),
     );
   }
@@ -63,10 +89,10 @@ export class FormatBadgeController implements vscode.Disposable {
   track(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const key = document.uri.toString();
     if (!this.states.has(key)) {
-      this.states.set(
-        key,
-        initialState(this.core, document.uri.path, document.languageId, document.getText()),
-      );
+      const text = document.getText();
+      const state = initialState(this.core, document.uri.path, document.languageId, text);
+      const chosen = this.chosen.get(key);
+      this.states.set(key, chosen ? withFormat(this.core, state, text, chosen) : state);
     }
     this.panels.set(panel, document);
     panel.onDidChangeViewState(() => this.refresh());
@@ -74,6 +100,8 @@ export class FormatBadgeController implements vscode.Disposable {
       this.panels.delete(panel);
       if (![...this.panels.values()].some((d) => d.uri.toString() === key)) {
         this.states.delete(key);
+        clearTimeout(this.pending.get(key));
+        this.pending.delete(key);
       }
       this.refresh();
     });
@@ -108,7 +136,10 @@ export class FormatBadgeController implements vscode.Disposable {
       chosen = picked.format;
     }
     this.states.set(key, withFormat(this.core, state, document.getText(), chosen));
+    if (chosen === state.detected) this.chosen.delete(key);
+    else this.chosen.set(key, chosen);
     this.refresh();
+    if (chosen !== state.format) this.formatChanges.fire({ document, format: chosen });
   }
 
   /** The document of the active CHR JSON Editor tab, if one is active. */
@@ -147,6 +178,7 @@ export class FormatBadgeController implements vscode.Disposable {
   }
 
   dispose(): void {
+    for (const timer of this.pending.values()) clearTimeout(timer);
     for (const d of this.disposables) d.dispose();
   }
 }

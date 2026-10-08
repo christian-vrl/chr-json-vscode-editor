@@ -3,9 +3,16 @@
 // library build (vite.lib.config.mts) exports it as `@chr-json-editor/app-shell/ui`.
 import { mount, unmount } from 'svelte';
 import App from './App.svelte';
-import type { MountApp } from './mount.js';
+import type { AppHandle, MountApp } from './mount.js';
+
+/** What App.svelte exports (typed here for tools that do not read .svelte files). */
+type AppExports = Pick<AppHandle, 'patch' | 'content'>;
 
 export const mountApp: MountApp = (target, host) => {
-  const app = mount(App, { target, props: { host } });
-  return { dispose: () => void unmount(app) };
+  const app = mount(App, { target, props: { host } }) as AppExports;
+  return {
+    patch: (operations) => app.patch(operations),
+    content: () => app.content(),
+    dispose: () => void unmount(app),
+  };
 };
