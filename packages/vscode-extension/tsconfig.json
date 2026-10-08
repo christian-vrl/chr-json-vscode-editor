@@ -1,5 +1,6 @@
-// Type-checks the extension host and webview code (`tsc --noEmit`); esbuild (esbuild.mjs) bundles
-// it, so modules resolve the way a bundler does. That lets the CommonJS bundle import the ESM
+// Type-checks the extension host code (`tsc --noEmit`; the webview script has its own
+// src/webview/tsconfig.json with the DOM library). esbuild (esbuild.mjs) bundles it, so modules
+// resolve the way a bundler does. That lets the CommonJS bundle import the ESM
 // workspace packages by value (004 T2). `paths` points them at source, as the root tsconfig does,
 // so type checks and type-aware lint never depend on a build.
 {
@@ -14,5 +15,6 @@
       "@chr-json-editor/app-shell/protocol": ["../app-shell/src/protocol.ts"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/webview"]
 }

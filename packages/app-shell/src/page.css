@@ -1,0 +1,8 @@
+/* The editor fills the page (standalone page and VS Code webview). A file, not an inline <style>,
+   so the page also runs under the webview CSP (spec 003 criterion 6). */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}

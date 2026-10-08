@@ -92,18 +92,18 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit && node esbuild.mjs",
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p src/webview/tsconfig.json --noEmit && node esbuild.mjs",
     "package": "pnpm --filter chr-json-editor... run build && node scripts/copy-license.mjs && node ../../scripts/check-licenses.mjs --package . --notice THIRD_PARTY_LICENSES.md && vsce package --no-dependencies",
     "test:e2e": "node test/e2e/run.mjs"
   },
   "dependencies": {
+    "@chr-json-editor/app-shell": "workspace:*",
     "@chr-json-editor/core": "workspace:*",
     "ajv": "8.20.0",
     "ajv-draft-04": "1.0.0",
     "ajv-formats": "3.0.1"
   },
   "devDependencies": {
-    "@chr-json-editor/app-shell": "workspace:*",
     "@types/vscode": "1.95.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "4.0.0",

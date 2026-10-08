@@ -11,9 +11,21 @@ test('serves the app-shell sample page with no request leaving the local origin'
   expect(blockedRequests).toEqual([]);
 });
 
+test('serves the page under the webview CSP, with the library stylesheet applied', async ({
+  page,
+}) => {
+  const response = await page.goto('/');
+  const csp = response?.headers()['content-security-policy'] ?? '';
+  expect(csp).toMatch(/^default-src 'none'; script-src 'nonce-[^']+';/);
+  expect(csp).not.toMatch(/unsafe-inline|unsafe-eval/);
+  // vanilla-jsoneditor's own rule, now loaded from the stylesheet file instead of an inline <style>.
+  await expect(page.locator('.jse-main')).toHaveCSS('min-height', '150px');
+});
+
 test.describe('a page that tries to leave the local origin', () => {
   // These tests make foreign requests on purpose; any other test fails if it does (001 T8).
-  test.use({ expectBlockedRequests: true });
+  // The webview CSP would refuse the fetch before the fixture saw it, so it is off here.
+  test.use({ expectBlockedRequests: true, webviewCsp: false });
 
   for (const url of ['https://example.com/', 'http://127.0.0.1:9/']) {
     test(`is blocked by the client: ${url}`, async ({ page, blockedRequests }) => {
