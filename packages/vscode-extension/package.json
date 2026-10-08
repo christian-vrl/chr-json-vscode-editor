@@ -54,7 +54,7 @@
       "commandPalette": [
         {
           "command": "chrJsonEditor.openInEditor",
-          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !activeCustomEditorId == chrJsonEditor.editor"
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && activeCustomEditorId != chrJsonEditor.editor"
         },
         {
           "command": "chrJsonEditor.reopenAsText",

@@ -158,6 +158,20 @@ exports.run = async function run() {
   await expectOnly(fixture('json5'), 'custom', isCustom);
   await closeAll();
 
+  // UNK-004's "setting" is VS Code's own editor association (README): with it, a plain open uses
+  // the custom editor.
+  const workbench = vscode.workspace.getConfiguration('workbench');
+  await workbench.update(
+    'editorAssociations',
+    { '*.json5': VIEW_TYPE },
+    vscode.ConfigurationTarget.Global,
+  );
+  await vscode.commands.executeCommand('vscode.open', fixture('json5'));
+  await expectOnly(fixture('json5'), 'custom', isCustom);
+  await workbench.update('editorAssociations', undefined, vscode.ConfigurationTarget.Global);
+  await closeAll();
+  console.log('workbench.editorAssociations makes it the default editor');
+
   console.log(
     `${EXTENSION_ID} ${extension.packageJSON.version} is active from ${extension.extensionPath}`,
   );
