@@ -1,2 +1,5 @@
-// Skeleton (001 T2). Formats, diff, CSV and detection land with spec 002.
+// Public API of core. Formats, diff and CSV land with the rest of spec 002 and later specs.
 export const packageName = '@chr-json-editor/core';
+
+export { detect, strictJsonDiagnostics } from './detect.js';
+export type { Detection, DetectionSource, Diagnostic, Format } from './detect.js';
