@@ -1,7 +1,8 @@
 # check:offline allowlist (001 T8, AGENTS.md rule 3). URLs that may appear in build output (dist/**)
 # because nothing fetches them at runtime, e.g. a link in a license header or a JSON Schema `$id`.
-# One URL per line, matched exactly (never as a prefix); `#` starts a comment. A Reviewer names each
-# new entry in the PR that adds it. Never widen this to make a real network call pass.
+# One URL per line, matched exactly (never as a prefix); `#` at the start of a line or after a
+# space starts a comment, so a URL keeps its `#fragment`. A Reviewer names each new entry in the
+# PR that adds it. Never widen this to make a real network call pass.
 
 # 003 T2: app-shell bundles vanilla-jsoneditor 3.13.0 and Svelte 5.
 # XML namespace names passed to document.createElementNS; identifiers, never fetched.
@@ -29,3 +30,26 @@ https://svelte.dev/e/svelte_boundary_reset_onerror
 # vanilla-jsoneditor's transform dialog shows this as a target=_blank link in the JSONQuery
 # help text: a page the user may open, not a request the editor makes. 003 T8 owns that dialog.
 https://jsonquerylang.org
+
+# 004 T2: the extension host bundles Ajv 8.20.0 and ajv-formats 3.0.1 (ADR-010).
+# JSON Schema `$id`s of the meta-schemas Ajv adds itself; Ajv has no `loadSchema`, nothing fetches them.
+http://json-schema.org/draft-07/schema
+http://json-schema.org/draft-07/schema#
+http://json-schema.org/schema
+https://raw.githubusercontent.com/ajv-validator/ajv/master/lib/refs/data.json#
+# ajv-formats source comments cite where each format regex comes from; nothing fetches them.
+http://stackoverflow.com/questions/201323/using-a-regular-expression-to-validate-an-email-address#answer-8829363
+http://tools.ietf.org/html/draft-luff-relative-json-pointer-00
+http://tools.ietf.org/html/rfc3339#section-5.6
+http://tools.ietf.org/html/rfc4122
+http://www.w3.org/TR/html5/forms.html#valid-e-mail-address
+https://gist.github.com/dperini/729294
+https://github.com/mafintosh/is-my-json-valid/blob/master/formats.js
+https://github.com/miguelmota/is-base64
+https://mathiasbynens.be/demo/url-regex
+https://spec.openapis.org/oas/v3.0.0#data-types
+https://tools.ietf.org/html/rfc3339#appendix-A
+https://tools.ietf.org/html/rfc3986#appendix-A
+https://tools.ietf.org/html/rfc6570
+https://tools.ietf.org/html/rfc6901
+https://www.safaribooksonline.com/library/view/regular-expressions-cookbook/9780596802837/ch07s16.html

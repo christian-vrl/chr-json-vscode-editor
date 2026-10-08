@@ -60,6 +60,18 @@ importers:
         specifier: 5.0.3
         version: 5.0.3(@types/node@22.20.5)(vite@8.3.4(@types/node@22.20.5)(esbuild@0.28.2))
 
+  bench:
+    devDependencies:
+      '@chr-json-editor/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@playwright/test':
+        specifier: 1.64.0
+        version: 1.64.0
+      '@vscode/test-electron':
+        specifier: 3.1.0
+        version: 3.1.0
+
   packages/app-shell:
     dependencies:
       immutable-json-patch:
@@ -97,7 +109,16 @@ importers:
       '@chr-json-editor/core':
         specifier: workspace:*
         version: link:../core
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.20.0)
     devDependencies:
+      '@chr-json-editor/app-shell':
+        specifier: workspace:*
+        version: link:../app-shell
       '@types/vscode':
         specifier: 1.95.0
         version: 1.95.0

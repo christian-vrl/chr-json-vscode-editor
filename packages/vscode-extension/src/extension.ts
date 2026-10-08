@@ -4,19 +4,52 @@
 import * as vscode from 'vscode';
 import { registerCommands } from './commands';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
+import {
+  FormatBadgeController,
+  loadFormatCore,
+  type FormatBadgeSnapshot,
+} from './formatBadgeVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
 /** Returned from `activate` only in the e2e build (`extension.exports.testHooks`). */
 export interface TestHooks {
   webviews(): WebviewSnapshot[];
+  formatBadge(): FormatBadgeSnapshot | undefined;
+  /** Validates the open editor of `uri` against `schema` (004 T2; 004 T5 adds association). */
+  setSchema(uri: string, schema: object | boolean | undefined): boolean;
 }
 
-export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
-  const { provider, disposable } = JsonEditorProvider.register(context);
+export async function activate(
+  context: vscode.ExtensionContext,
+): Promise<{ testHooks: TestHooks } | undefined> {
+  // The editor still opens if core fails to load; only the format badge is missing then.
+  let formatBadge: FormatBadgeController | undefined;
+  try {
+    formatBadge = new FormatBadgeController(await loadFormatCore());
+    context.subscriptions.push(formatBadge);
+  } catch (error) {
+    console.error('CHR JSON Editor: the format badge is off, core failed to load', error);
+  }
+  const { provider, disposable } = JsonEditorProvider.register(context, formatBadge);
   context.subscriptions.push(disposable, ...registerCommands());
   if (__CHR_TEST_HOOKS__) {
-    return { testHooks: { webviews: () => [...provider.snapshots.values()] } };
+    return {
+      testHooks: {
+        webviews: () => [...provider.snapshots.values()],
+        formatBadge: () => formatBadge?.snapshot(),
+        setSchema(uri, schema) {
+          let found = false;
+          for (const [panel, validation] of provider.validations) {
+            const snapshot = provider.snapshots.get(panel);
+            if (snapshot?.uri !== uri) continue;
+            validation.setSchema(schema);
+            found = true;
+          }
+          return found;
+        },
+      },
+    };
   }
   return undefined;
 }

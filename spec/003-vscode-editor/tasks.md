@@ -19,8 +19,8 @@
 ## Phase D — Features (risk-free / additive)
 - [ ] **T8** Wire format, compact, sort, search/replace, repair-on-open and transform (JSONQuery, JMESPath, JSONPath labelled "JSONPath (Goessner)"; JS/Lodash not registered); whole-document actions routed through `core` (002 R12–R14, UNK-018 for repair); "Repair JSON" command for the text editor. — needs: 002 T9, T10 — *gate: criteria 4, 5, 10 green*
 - [x] **T9** Theme mapping `--jse-*` → `--vscode-*`; `scripts/capture-themes.ts` and `tests/themes/*.json`. `parallel` — *gate: criterion 7 green*
-- [ ] **T10** Status-bar format badge and picker. `parallel` — *gate: criterion 8 green*
-- [ ] **T11** Benchmark open, first render and one edit at 1, 10, 50, 100 MB on the CI runner; commit `bench/vscode-open.md` (evidence for UNK-014). `parallel` — *gate: file committed with numbers*
+- [x] **T10** Status-bar format badge and picker. `parallel` — *gate: criterion 8 green*
+- [x] **T11** Benchmark open, first render and one edit at 1, 10, 50, 100 MB on the CI runner; commit `bench/vscode-open.md` (evidence for UNK-014). `parallel` — *gate: file committed with numbers*
 
 ## Phase E — Owner try-out (requires approval)
 - [~] **T12** Owner installs the `.vsix` artifact from the latest `main` CI run and tries it. — *gate: owner replies "G1 pass"*

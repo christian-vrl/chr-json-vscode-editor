@@ -56,7 +56,12 @@ const byContent: Row[] = [
   ['data.txt', undefined, '{"a": 0x1F}', 'json5'],
   ['data.txt', undefined, '[Infinity, NaN]', 'json5'],
   ['data.txt', undefined, '{"a": ', 'json5'],
-  ['data.txt', undefined, '', 'json5'],
+  // UNK-020: empty or JSON-whitespace-only text is json; a comment alone is not empty.
+  ['data.txt', undefined, '', 'json'],
+  ['untitled:Untitled-1', undefined, ' \t\r\n ', 'json'],
+  ['', undefined, '\uFEFF', 'json'],
+  ['data.txt', undefined, '// only a comment', 'json5'],
+  ['data.txt', undefined, '\u00A0', 'json5'],
   ['', undefined, '\ufeff{"a": 1}', 'json'],
   ['README', undefined, '[1, 2]', 'json'],
 ];
