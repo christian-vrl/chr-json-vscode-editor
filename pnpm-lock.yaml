@@ -87,6 +87,10 @@ importers:
   packages/sandbox: {}
 
   packages/vscode-extension:
+    dependencies:
+      '@chr-json-editor/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@types/vscode':
         specifier: 1.95.0
