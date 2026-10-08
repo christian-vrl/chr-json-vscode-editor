@@ -1,0 +1,11 @@
+/* config list */
+[
+  {
+    id: 1, /* first */
+  },
+  {
+    id: 2,
+    name: 'two',
+    tags: ['a', 'c'], // mixed
+  },
+]

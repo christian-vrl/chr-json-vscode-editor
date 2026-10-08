@@ -1,0 +1,8 @@
+{
+  a: 1,
+
+  // section: b stuff
+
+  b: 2,
+  c: 3,
+}

@@ -1,0 +1,4 @@
+{
+  "op": "add",
+  "feature": "tab indentation, nested object; new member takes the sibling indent (R1)"
+}

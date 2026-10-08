@@ -1,0 +1,7 @@
+{
+  a: 1,
+  // about b
+  // more about b
+  b: 2, // trailing b
+  c: 3,
+}

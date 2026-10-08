@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "reserved words and $/_ as unquoted keys"
+}

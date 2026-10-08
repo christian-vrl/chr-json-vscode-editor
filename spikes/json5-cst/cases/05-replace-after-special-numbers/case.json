@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "+Infinity, -Infinity, NaN, leading and trailing decimal point, explicit plus sign"
+}
