@@ -1,0 +1,173 @@
+{
+  "spike": "004-T1",
+  "vscode": "1.141.0",
+  "electron": "43.7.7",
+  "chrome": "150.0.7871.250",
+  "node": "24.21.0",
+  "platform": "linux-x64",
+  "fixture": {
+    "bytes": 1000791,
+    "items": 775,
+    "rules": 200,
+    "sha256": "33c244ab807d48b4d975e0e149f42229de51433d262f1e9bb0f14a9d4d05c32d"
+  },
+  "nodeReference": {
+    "errorCount": 12
+  },
+  "variants": {
+    "main-frame": {
+      "validates": false,
+      "error": "EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'nonce-ilAllgkWmy35tEsinykikQ=='\".\n",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "policy": "default-src 'none'; script-src 'nonce-ilAllgkWmy35tEsinykikQ=='; style-src 'self' https://*.vscode-cdn.net 'nonce-ilAllgkWmy35tEsinykikQ=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [],
+      "cspViolations": [
+        {
+          "violatedDirective": "script-src",
+          "blockedURI": "eval",
+          "sourceFile": "https://file+.vscode-resource.vscode-cdn.net/home/claude/chr-json-vscode-editor/spikes/eval-location/dist/page.js"
+        }
+      ],
+      "frameProbe": null,
+      "frameLoadMs": null,
+      "compileMs": null,
+      "totalMs": null,
+      "validateMs": null,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "iframe-src-unchanged-csp": {
+      "validates": false,
+      "error": "Error: no frameReady from the frame within 10000 ms",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "policy": "default-src 'none'; script-src 'nonce-Ue8rmy0BYPiVDbscVnDxJQ=='; style-src 'self' https://*.vscode-cdn.net 'nonce-Ue8rmy0BYPiVDbscVnDxJQ=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [],
+      "cspViolations": [
+        {
+          "violatedDirective": "frame-src",
+          "blockedURI": "https://file+.vscode-resource.vscode-cdn.net",
+          "sourceFile": ""
+        }
+      ],
+      "frameProbe": null,
+      "frameLoadMs": null,
+      "compileMs": null,
+      "totalMs": null,
+      "validateMs": null,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "iframe-src": {
+      "validates": false,
+      "error": "Error: no frameReady from the frame within 10000 ms",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "policy": "default-src 'none'; script-src 'nonce-AGpfwI7gooSoREve2sx6wg=='; style-src 'self' https://*.vscode-cdn.net 'nonce-AGpfwI7gooSoREve2sx6wg=='; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'self' https://*.vscode-cdn.net",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [],
+      "cspViolations": [],
+      "frameProbe": null,
+      "frameLoadMs": null,
+      "compileMs": null,
+      "totalMs": null,
+      "validateMs": null,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "iframe-src-unsandboxed": {
+      "validates": false,
+      "error": "Error: no frameReady from the frame within 10000 ms",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "policy": "default-src 'none'; script-src 'nonce-Lv5jnLVWRmvcV52JCDaWIA=='; style-src 'self' https://*.vscode-cdn.net 'nonce-Lv5jnLVWRmvcV52JCDaWIA=='; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'self' https://*.vscode-cdn.net",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [],
+      "cspViolations": [],
+      "frameProbe": null,
+      "frameLoadMs": null,
+      "compileMs": null,
+      "totalMs": null,
+      "validateMs": null,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "iframe-srcdoc": {
+      "validates": false,
+      "error": "Error: no frameReady from the frame within 10000 ms",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "policy": "default-src 'none'; script-src 'nonce-vfd680oHU9I5a79ah0B9vQ=='; style-src 'self' https://*.vscode-cdn.net 'nonce-vfd680oHU9I5a79ah0B9vQ=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [],
+      "cspViolations": [],
+      "frameProbe": {
+        "evalAllowed": false,
+        "evalError": "EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'nonce-vfd680oHU9I5a79ah0B9vQ=='\".\n"
+      },
+      "frameLoadMs": null,
+      "compileMs": null,
+      "totalMs": null,
+      "validateMs": null,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "iframe-blob": {
+      "validates": false,
+      "error": "Error: no frameReady from the frame within 10000 ms",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "policy": "default-src 'none'; script-src 'nonce-qfGgirVfld06M2szZQMguw=='; style-src 'self' https://*.vscode-cdn.net 'nonce-qfGgirVfld06M2szZQMguw=='; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-src blob:",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [
+        "frame-src allows blob:"
+      ],
+      "cspViolations": [],
+      "frameProbe": {
+        "evalAllowed": false,
+        "evalError": "EvalError: Evaluating a string as JavaScript violates the following Content Security Policy directive because 'unsafe-eval' is not an allowed source of script: script-src 'nonce-qfGgirVfld06M2szZQMguw=='\".\n"
+      },
+      "frameLoadMs": null,
+      "compileMs": null,
+      "totalMs": null,
+      "validateMs": null,
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "host": {
+      "validates": true,
+      "error": null,
+      "errorCount": 12,
+      "errorsMatchNodeReference": true,
+      "policy": "default-src 'none'; script-src 'nonce-Cz5GnBH8E8hBogAVfYijQw=='; style-src 'self' https://*.vscode-cdn.net 'nonce-Cz5GnBH8E8hBogAVfYijQw=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "cspSource": "'self' https://*.vscode-cdn.net",
+      "criterion6Failures": [],
+      "cspViolations": [],
+      "frameProbe": null,
+      "frameLoadMs": null,
+      "compileMs": 102.9,
+      "totalMs": {
+        "median": 17,
+        "min": 13.3,
+        "max": 129.2,
+        "runs": [
+          129.2,
+          15.8,
+          13.3,
+          20.7,
+          17
+        ]
+      },
+      "validateMs": {
+        "median": 12.6,
+        "min": 9.2,
+        "max": 15.6,
+        "runs": [
+          15.6,
+          11.6,
+          9.2,
+          14.3,
+          12.6
+        ]
+      },
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    }
+  }
+}

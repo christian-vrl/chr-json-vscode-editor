@@ -1,0 +1,11 @@
+// Type-checks spike 004 T1 (esbuild only strips types). One config for host, page and frame code:
+// the page and frame files use DOM types, the host file uses vscode and Node.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM"],
+    "types": ["node", "vscode"]
+  },
+  "include": ["src"]
+}
