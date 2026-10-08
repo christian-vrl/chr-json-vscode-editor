@@ -4,7 +4,64 @@ const path = require('node:path');
 const vscode = require('vscode');
 
 const EXTENSION_ID = 'christian-vrl.chr-json-editor';
-const NOOP_COMMAND = 'chrJsonEditor.noop';
+const VIEW_TYPE = 'chrJsonEditor.editor';
+const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
+const REOPEN_AS_TEXT_COMMAND = 'chrJsonEditor.reopenAsText';
+const FIXTURES = path.resolve(__dirname, '../../../../tests/e2e/fixtures/open');
+const FORMATS = ['json', 'jsonc', 'json5'];
+
+function fixture(format) {
+  return vscode.Uri.file(path.join(FIXTURES, `sample.${format}`));
+}
+
+function tabsFor(uri) {
+  return vscode.window.tabGroups.all
+    .flatMap((group) => group.tabs)
+    .filter((tab) => tab.input && tab.input.uri && tab.input.uri.toString() === uri.toString());
+}
+
+function isCustom(tab) {
+  return tab.input instanceof vscode.TabInputCustom && tab.input.viewType === VIEW_TYPE;
+}
+
+function isText(tab) {
+  return tab.input instanceof vscode.TabInputText;
+}
+
+function describe(tab) {
+  if (!tab) return 'no tab';
+  if (isCustom(tab)) return `custom editor ${tab.input.viewType}`;
+  return isText(tab) ? 'text editor' : 'other editor';
+}
+
+// Editor switches settle asynchronously; poll the tab model instead of sleeping a fixed time.
+async function waitFor(what, predicate, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) {
+      throw new Error(`timed out waiting for ${what}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+function activeTab() {
+  return vscode.window.tabGroups.activeTabGroup.activeTab;
+}
+
+async function closeAll() {
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  await waitFor('all editors to close', () =>
+    vscode.window.tabGroups.all.every((g) => !g.tabs.length),
+  );
+}
+
+async function expectOnly(uri, kind, check) {
+  await waitFor(`${path.basename(uri.fsPath)} to show only in the ${kind} editor`, () => {
+    const tabs = tabsFor(uri);
+    return tabs.length === 1 && check(tabs[0]) && activeTab() === tabs[0];
+  });
+}
 
 exports.run = async function run() {
   const extension = vscode.extensions.getExtension(EXTENSION_ID);
@@ -19,11 +76,101 @@ exports.run = async function run() {
     `${EXTENSION_ID} loaded from ${extension.extensionPath}, outside ${extensionsDir}`,
   );
 
-  // Invoking the contributed command activates the extension, whose activate() registers it.
-  await vscode.commands.executeCommand(NOOP_COMMAND);
+  // UNK-004: "Open With" only, so the manifest offers the editor at priority "option".
+  const editors = extension.packageJSON.contributes?.customEditors ?? [];
+  const editor = editors.find((e) => e.viewType === VIEW_TYPE);
+  assert.ok(editor, `${VIEW_TYPE} is not contributed`);
+  assert.equal(editor.priority, 'option');
+  assert.deepEqual(
+    editor.selector.map((s) => s.filenamePattern),
+    FORMATS.map((f) => `*.${f}`),
+  );
+  const titles = Object.fromEntries(
+    (extension.packageJSON.contributes?.commands ?? []).map((c) => [c.command, c.title]),
+  );
+  assert.equal(titles[OPEN_COMMAND], 'Open in CHR JSON Editor');
+  assert.equal(titles[REOPEN_AS_TEXT_COMMAND], 'Reopen as Text');
+
+  // Gate (003 T3): one fixture per format opens in the custom editor.
+  for (const format of FORMATS) {
+    await closeAll();
+    const uri = fixture(format);
+    await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE);
+    await expectOnly(uri, 'custom', isCustom);
+    console.log(`sample.${format}: ${describe(activeTab())}`);
+  }
   assert.equal(extension.isActive, true, `${EXTENSION_ID} did not activate`);
-  const commands = await vscode.commands.getCommands(true);
-  assert.ok(commands.includes(NOOP_COMMAND), `${NOOP_COMMAND} is not registered`);
+
+  // Priority "option": a plain open still uses the text editor.
+  await closeAll();
+  await vscode.commands.executeCommand('vscode.open', fixture('json'));
+  await expectOnly(fixture('json'), 'text', isText);
+
+  // The two commands swap the active editor in place, with no argument (palette) and with a URI
+  // (editor title and explorer menus).
+  for (const format of FORMATS) {
+    await closeAll();
+    const uri = fixture(format);
+    await vscode.window.showTextDocument(uri);
+    await expectOnly(uri, 'text', isText);
+    await vscode.commands.executeCommand(OPEN_COMMAND);
+    await expectOnly(uri, 'custom', isCustom);
+    await vscode.commands.executeCommand(REOPEN_AS_TEXT_COMMAND);
+    await expectOnly(uri, 'text', isText);
+    await vscode.commands.executeCommand(OPEN_COMMAND, uri);
+    await expectOnly(uri, 'custom', isCustom);
+    await vscode.commands.executeCommand(REOPEN_AS_TEXT_COMMAND, uri);
+    await expectOnly(uri, 'text', isText);
+    console.log(`sample.${format}: commands switch text <-> custom`);
+  }
+
+  // A swap never closes a tab with unsaved edits: closing it would ask to save, and "Don't Save"
+  // (the answer VS Code gives in extension tests) reverts the shared document.
+  await closeAll();
+  const dirtyUri = fixture('jsonc');
+  const document = await vscode.workspace.openTextDocument(dirtyUri);
+  const original = document.getText();
+  const edited = `// unsaved\n${original}`;
+  await vscode.window.showTextDocument(document);
+  const edit = new vscode.WorkspaceEdit();
+  edit.insert(dirtyUri, new vscode.Position(0, 0), '// unsaved\n');
+  assert.equal(await vscode.workspace.applyEdit(edit), true);
+  await vscode.commands.executeCommand(OPEN_COMMAND);
+  await waitFor('the custom editor beside the unsaved text tab', () => {
+    const tabs = tabsFor(dirtyUri);
+    return tabs.length === 2 && tabs.some(isText) && isCustom(activeTab());
+  });
+  assert.equal(document.isDirty, true);
+  assert.equal(document.getText(), edited);
+  await vscode.commands.executeCommand(REOPEN_AS_TEXT_COMMAND);
+  await waitFor('the unsaved text tab to be active again', () => isText(activeTab()));
+  assert.equal(tabsFor(dirtyUri).length, 2);
+  assert.equal(document.isDirty, true);
+  assert.equal(document.getText(), edited);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the unsaved edit to revert', () => !document.isDirty);
+  assert.equal(document.getText(), original);
+  console.log('unsaved edits survive both commands');
+
+  // Opening from the explorer with nothing open lands in the custom editor too.
+  await closeAll();
+  await vscode.commands.executeCommand(OPEN_COMMAND, fixture('json5'));
+  await expectOnly(fixture('json5'), 'custom', isCustom);
+  await closeAll();
+
+  // UNK-004's "setting" is VS Code's own editor association (README): with it, a plain open uses
+  // the custom editor.
+  const workbench = vscode.workspace.getConfiguration('workbench');
+  await workbench.update(
+    'editorAssociations',
+    { '*.json5': VIEW_TYPE },
+    vscode.ConfigurationTarget.Global,
+  );
+  await vscode.commands.executeCommand('vscode.open', fixture('json5'));
+  await expectOnly(fixture('json5'), 'custom', isCustom);
+  await workbench.update('editorAssociations', undefined, vscode.ConfigurationTarget.Global);
+  await closeAll();
+  console.log('workbench.editorAssociations makes it the default editor');
 
   console.log(
     `${EXTENSION_ID} ${extension.packageJSON.version} is active from ${extension.extensionPath}`,

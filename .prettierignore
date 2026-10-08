@@ -6,6 +6,9 @@ tests/golden/json/
 tests/golden/jsonc/
 tests/golden/json5/
 
+# E2E fixtures are opened as-is, in each format's own syntax.
+tests/e2e/fixtures/
+
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/
 
