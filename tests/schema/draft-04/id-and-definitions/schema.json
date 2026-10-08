@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "urn:example:positives",
+  "definitions": {
+    "pos": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/pos"
+  }
+}

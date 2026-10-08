@@ -1,0 +1,3 @@
+{
+  n: 10, // equal to the maximum, which is exclusive in draft-04's boolean form
+}

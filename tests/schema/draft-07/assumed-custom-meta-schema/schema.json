@@ -1,0 +1,15 @@
+{
+  "$schema": "https://example.com/my-meta-schema#",
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "number"
+    }
+  },
+  "if": {
+    "required": ["a"]
+  },
+  "then": {
+    "required": ["b"]
+  }
+}

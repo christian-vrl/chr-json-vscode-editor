@@ -5,8 +5,9 @@
 
 /** Bump on any change a receiver built against the previous version could not decode.
  *  2: adds the host → UI `validation` message (004 T2).
- *  3: `validation` carries the schema's `dialect` (004 T4). */
-export const PROTOCOL_VERSION = 3;
+ *  3: `validation` carries the schema's `dialect` (004 T4).
+ *  4: adds the draft-04 and draft-06 dialects (004 T4, UNK-031). */
+export const PROTOCOL_VERSION = 4;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -75,9 +76,15 @@ export interface ErrorMessage extends Envelope<'error'> {
   message: string;
 }
 
-/** JSON Schema dialects the validator supports (spec 004 criterion 2, UNK-017). */
-export type SchemaDialect = 'draft-07' | '2019-09' | '2020-12';
-export const SCHEMA_DIALECTS: readonly SchemaDialect[] = ['draft-07', '2019-09', '2020-12'];
+/** JSON Schema dialects the validator supports (spec 004 criterion 2, UNK-017, UNK-031). */
+export type SchemaDialect = 'draft-04' | 'draft-06' | 'draft-07' | '2019-09' | '2020-12';
+export const SCHEMA_DIALECTS: readonly SchemaDialect[] = [
+  'draft-04',
+  'draft-06',
+  'draft-07',
+  '2019-09',
+  '2020-12',
+];
 
 /** One JSON Schema error. `instancePath` is the RFC 6901 pointer to the value (Ajv's own field). */
 export interface SchemaError {
@@ -94,8 +101,9 @@ export interface SchemaError {
  */
 export interface ValidationMessage extends Envelope<'validation'> {
   /** The JSON Schema dialect the schema ran as (spec 004 criterion 2), `assumed` when the schema
-   *  has no `$schema` and none was chosen, so the UI can say "assumed draft-07" and offer a
-   *  switch. `null` when no dialect applies (the schema names a draft that is not supported). */
+   *  has no `$schema`, or one naming no known dialect, and none was chosen, so the UI can say
+   *  "assumed draft-07" and offer a switch. `null` when no dialect applies (the schema names a
+   *  draft before 04, which is not supported). */
   dialect: { name: SchemaDialect; assumed: boolean } | null;
   result: { kind: 'errors'; errors: SchemaError[] } | { kind: 'skipped'; reason: string };
 }

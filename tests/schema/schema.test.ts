@@ -75,7 +75,7 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
       if (!compiled.ok) throw new Error(compiled.reason);
       expect(compiled.dialect).toEqual({
         name: c.dialect,
-        assumed: typeof c.schema === 'boolean' || !('$schema' in c.schema),
+        assumed: c.name.startsWith('assumed-'),
       });
       const result = validateText(
         read(`${c.dialect}/${c.name}/${c.docFile}`),
@@ -104,6 +104,10 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
     ['http://json-schema.org/draft-07/schema#', 'draft-07'],
     ['http://json-schema.org/draft-07/schema', 'draft-07'],
     ['https://json-schema.org/draft-07/schema#', 'draft-07'],
+    ['http://json-schema.org/draft-04/schema#', 'draft-04'],
+    ['http://json-schema.org/draft-04/schema', 'draft-04'],
+    ['http://json-schema.org/draft-06/schema#', 'draft-06'],
+    ['https://json-schema.org/draft-06/schema', 'draft-06'],
     ['https://json-schema.org/draft/2019-09/schema', '2019-09'],
     ['https://json-schema.org/draft/2019-09/schema#', '2019-09'],
     ['https://json-schema.org/draft/2020-12/schema', '2020-12'],
@@ -114,15 +118,24 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
   });
 
   it.each([
-    ['http://json-schema.org/draft-04/schema#', /^Schema draft not supported \(draft-04\)/],
-    ['http://json-schema.org/draft-06/schema#', /^Schema draft not supported \(draft-06\)/],
     ['http://json-schema.org/draft-03/schema#', /^Schema draft not supported \(draft-03\)/],
-    ['https://example.com/my-meta-schema', /^Schema dialect not supported: https:\/\/example/],
+    ['http://json-schema.org/draft-00/schema#', /^Schema draft not supported \(draft-00\)/],
     [42, /\$schema is not a string/],
-  ])('does not validate with $schema %s (UNK-017)', ($schema, reason) => {
+  ])('does not validate with $schema %s', ($schema, reason) => {
     const compiled = compileSchema({ $schema });
     expect(compiled).toMatchObject({ ok: false, dialect: null });
     expect(!compiled.ok && compiled.reason).toMatch(reason);
+  });
+
+  it('runs an unknown $schema as assumed draft-07, or as the dialect switched to (UNK-031)', () => {
+    const custom = { $schema: 'https://example.com/my-meta-schema', minimum: 1 };
+    expect(compileSchema(custom)).toMatchObject({
+      ok: true,
+      dialect: { name: 'draft-07', assumed: true },
+    });
+    expect(selectDialect(custom, 'draft-04')).toEqual({ name: 'draft-04', assumed: false });
+    const compiled = compileSchema(custom, '2020-12');
+    expect(compiled.ok && compiled.validate(0).map((e) => e.keyword)).toEqual(['minimum']);
   });
 });
 

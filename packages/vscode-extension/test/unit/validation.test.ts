@@ -103,7 +103,7 @@ describe('DocumentValidation', () => {
     validation.setSchema(schema);
     expect(posted).toEqual([
       {
-        protocol: 3,
+        protocol: 4,
         type: 'validation',
         docVersion: 1,
         dialect: { name: 'draft-07', assumed: true },
@@ -161,7 +161,7 @@ describe('DocumentValidation', () => {
 
   it('posts no dialect and skips a schema whose draft is not supported', () => {
     const { posted, validation } = setup('{}');
-    validation.setSchema({ $schema: 'http://json-schema.org/draft-04/schema#' });
+    validation.setSchema({ $schema: 'http://json-schema.org/draft-03/schema#' });
     expect(posted[0]).toMatchObject({
       dialect: null,
       result: {
