@@ -37,8 +37,11 @@ jobs:
       - run: CHR_TEST_HOOKS=1 pnpm package
       # VS Code stable is downloaded by @vscode/test-electron, as in ci.yml's e2e job.
       - run: xvfb-run -a pnpm --filter @chr-json-editor/bench bench
-      - name: Report in the run summary
-        run: cat bench/vscode-open.md >> "$GITHUB_STEP_SUMMARY"
+      # Also printed to the log, so the report and its raw results can be read without the artifact.
+      - name: Report in the run summary and the log
+        run: |
+          cat bench/vscode-open.md >> "$GITHUB_STEP_SUMMARY"
+          cat bench/vscode-open.md bench/.results/vscode.json bench/.results/web.json
       - uses: actions/upload-artifact@v4
         with:
           name: bench-vscode-open
