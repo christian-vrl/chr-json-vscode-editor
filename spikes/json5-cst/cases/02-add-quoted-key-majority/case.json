@@ -1,0 +1,4 @@
+{
+  "op": "add",
+  "feature": "double-quoted keys, no trailing comma; new key quoted, comma added to previous member"
+}

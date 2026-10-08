@@ -1,0 +1,53 @@
+{
+  "spike": "004-T1",
+  "browser": "141.0.7390.37",
+  "manifest": {
+    "manifest_version": 3,
+    "name": "CHR JSON Editor eval-location spike",
+    "version": "0.0.0",
+    "sandbox": {
+      "pages": [
+        "sandbox.html",
+        "sandbox-plain.html"
+      ]
+    }
+  },
+  "fixture": {
+    "bytes": 1000791,
+    "items": 775,
+    "rules": 200,
+    "sha256": "33c244ab807d48b4d975e0e149f42229de51433d262f1e9bb0f14a9d4d05c32d"
+  },
+  "frames": {
+    "sandbox.html": {
+      "validates": true,
+      "error": null,
+      "errorCount": 12,
+      "errorsMatchNodeReference": true,
+      "compileMs": 50,
+      "totalMsMedian": 61.6,
+      "validateMsMedian": 11.3,
+      "console": []
+    },
+    "sandbox-plain.html": {
+      "validates": true,
+      "error": null,
+      "errorCount": 12,
+      "errorsMatchNodeReference": true,
+      "compileMs": 43.6,
+      "totalMsMedian": 66,
+      "validateMsMedian": 12.3,
+      "console": []
+    },
+    "sandbox-unlisted.html": {
+      "validates": false,
+      "error": "eval blocked in the frame: EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: \"script-src 'self'\".\n",
+      "errorCount": null,
+      "errorsMatchNodeReference": false,
+      "compileMs": null,
+      "totalMsMedian": null,
+      "validateMsMedian": null,
+      "console": []
+    }
+  }
+}

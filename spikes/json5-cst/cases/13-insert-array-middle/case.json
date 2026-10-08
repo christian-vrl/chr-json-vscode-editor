@@ -1,0 +1,4 @@
+{
+  "op": "add",
+  "feature": "array index insert goes before the comments attached to the item now at that index"
+}

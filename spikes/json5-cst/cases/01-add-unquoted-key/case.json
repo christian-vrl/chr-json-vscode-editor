@@ -1,0 +1,4 @@
+{
+  "op": "add",
+  "feature": "unquoted keys, single quotes, trailing comma; new key follows the unquoted majority"
+}
