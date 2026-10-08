@@ -14,6 +14,7 @@
     "tests/**/*.mts",
     "packages/*/test/**/*.ts",
     "packages/*/*.mts",
+    "scripts/**/*.ts",
     "scripts/**/*.d.mts"
   ]
 }
