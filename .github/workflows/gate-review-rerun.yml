@@ -1,0 +1,33 @@
+# Re-runs the gate-review check when a `Gate review …` comment is posted, edited or deleted on a PR
+# (001 T9). issue_comment runs on the default branch, so its own result never shows on the PR; it
+# re-runs the PR head's gate-review.yml run instead (scripts/gate-review/rerun.mjs). Being an
+# issue_comment workflow, it only takes effect once it is on main.
+name: gate-review-rerun
+
+on:
+  issue_comment:
+    types: [created, edited, deleted]
+
+permissions:
+  actions: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  rerun:
+    if: >-
+      github.event.issue.pull_request &&
+      (startsWith(github.event.comment.body, 'Gate review ') ||
+       startsWith(github.event.changes.body.from, 'Gate review '))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/gate-review/rerun.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
