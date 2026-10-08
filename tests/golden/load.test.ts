@@ -102,6 +102,25 @@ describe('loadGoldenCases', () => {
     );
   });
 
+  it('rejects a folder that is not a format, such as a misspelled one', () => {
+    const files = { ...validCase, 'jscon/b/input.jsonc': '1' };
+    expect(() => loadGoldenCases(corpus(files))).toThrow(
+      'golden corpus: unknown folder jscon (formats: json, jsonc, json5)',
+    );
+  });
+
+  it('accepts files beside the format folders', () => {
+    const files = { ...validCase, 'load.ts': '', 'tags.json': '{}' };
+    expect(loadGoldenCases(corpus(files))).toHaveLength(1);
+  });
+
+  it('rejects a file directly inside a format folder', () => {
+    const files = { ...validCase, 'jsonc/input.jsonc': '1' };
+    expect(() => loadGoldenCases(corpus(files))).toThrow(
+      'golden corpus: jsonc/ holds files outside a case: input.jsonc',
+    );
+  });
+
   it('rejects invalid JSON in case.json', () => {
     const files = { ...validCase, 'jsonc/a/case.json': '{op: replace}' };
     expect(() => loadGoldenCases(corpus(files))).toThrow(

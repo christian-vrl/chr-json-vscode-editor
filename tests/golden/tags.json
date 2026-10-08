@@ -1,0 +1,23 @@
+{
+  "formats": ["json", "jsonc", "json5"],
+  "tags": {
+    "op": [
+      "add",
+      "replace",
+      "remove",
+      "move",
+      "copy",
+      "test",
+      "test-fail",
+      "compact",
+      "sort",
+      "data-diff"
+    ],
+    "location": ["root", "nested-object", "array-start", "array-middle", "array-end"],
+    "comments": ["none", "before", "after", "inline"],
+    "trailingComma": ["yes", "no"],
+    "quote": ["single", "double"],
+    "keyStyle": ["quoted", "unquoted"],
+    "special": ["none", "hex", "infinity-nan", "multiline-string"]
+  }
+}

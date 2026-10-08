@@ -29,16 +29,37 @@ export interface GoldenCase {
 
 export const goldenRoot = import.meta.dirname;
 
-/** Loads every case under `root`, sorted by format then name. Throws on any malformed case. */
+/**
+ * Loads every case under `root`, sorted by format then name. Throws on any malformed case, on a
+ * directory under `root` that is not a format (a misspelled format folder would otherwise be
+ * skipped), and on a file directly inside a format folder (cases are folders).
+ */
 export function loadGoldenCases(root: string = goldenRoot): GoldenCase[] {
+  const unknown = readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !isGoldenFormat(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+  if (unknown.length > 0) {
+    throw new Error(
+      `golden corpus: unknown folder ${unknown.join(', ')} (formats: ${goldenFormats.join(', ')})`,
+    );
+  }
   return goldenFormats.flatMap((format) => {
     const formatDir = path.join(root, format);
-    return readdirSync(formatDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
+    const entries = readdirSync(formatDir, { withFileTypes: true });
+    const stray = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
+    if (stray.length > 0) {
+      throw new Error(`golden corpus: ${format}/ holds files outside a case: ${stray.join(', ')}`);
+    }
+    return entries
       .map((entry) => entry.name)
       .sort()
       .map((name) => loadCase(path.join(formatDir, name), format, name));
   });
+}
+
+function isGoldenFormat(name: string): name is GoldenFormat {
+  return (goldenFormats as readonly string[]).includes(name);
 }
 
 function loadCase(dir: string, format: GoldenFormat, name: string): GoldenCase {
