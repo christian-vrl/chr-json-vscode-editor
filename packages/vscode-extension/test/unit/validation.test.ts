@@ -14,8 +14,14 @@ const keys = (result: ValidationMessage['result']) =>
     ? result.errors.map(({ instancePath, keyword }) => ({ instancePath, keyword }))
     : result;
 
+function validatorFor(source: object | boolean) {
+  const compiled = compileSchema(source);
+  if (!compiled.ok) throw new Error(compiled.reason);
+  return compiled.validate;
+}
+
 describe('validateText', () => {
-  const validator = compileSchema(schema);
+  const validator = validatorFor(schema);
 
   it('reports every error of the sample document, sorted, with ajv-formats applied', () => {
     expect(keys(validateText(invalid, 'jsonc', validator))).toEqual([
@@ -54,13 +60,17 @@ describe('validateText', () => {
 });
 
 describe('compileSchema', () => {
-  it('never loads a remote $ref: compiling throws instead (no loadSchema)', () => {
-    expect(() => compileSchema({ $ref: 'https://example.com/schema.json' })).toThrow();
+  it('never loads a remote $ref: it reports the offline message instead (no loadSchema)', () => {
+    expect(compileSchema({ $ref: 'https://example.com/schema.json' })).toEqual({
+      ok: false,
+      dialect: { name: 'draft-07', assumed: true },
+      reason: 'Remote schema references are not loaded (offline): https://example.com/schema.json',
+    });
   });
 
   it('treats a schema without $schema as draft-07 (UNK-017)', () => {
     // `dependencies` is a draft-07 keyword (2019-09 split it into dependentRequired/Schemas).
-    const validate = compileSchema({ dependencies: { a: ['b'] } });
+    const validate = validatorFor({ dependencies: { a: ['b'] } });
     expect(validate({ a: 1 }).map((e) => e.keyword)).toEqual(['dependencies']);
   });
 });
@@ -92,7 +102,13 @@ describe('DocumentValidation', () => {
     const { posted, validation } = setup('{"name": "Ada", "age": 36}');
     validation.setSchema(schema);
     expect(posted).toEqual([
-      { protocol: 2, type: 'validation', docVersion: 1, result: { kind: 'errors', errors: [] } },
+      {
+        protocol: 4,
+        type: 'validation',
+        docVersion: 1,
+        dialect: { name: 'draft-07', assumed: true },
+        result: { kind: 'errors', errors: [] },
+      },
     ]);
   });
 
@@ -114,8 +130,45 @@ describe('DocumentValidation', () => {
 
   it('reports a schema that does not compile as skipped', () => {
     const { posted, validation } = setup('{}');
+    validation.setSchema({ type: 'object', properties: { a: { $ref: '#/missing' } } });
+    expect(posted[0]?.result).toMatchObject({
+      kind: 'skipped',
+      reason: expect.stringMatching(/^The schema does not compile: /) as unknown,
+    });
+  });
+
+  it('reports a remote $ref as skipped with the offline message (spec 004 criterion 3)', () => {
+    const { posted, validation } = setup('{}');
     validation.setSchema({ $ref: 'https://example.com/schema.json' });
-    expect(posted[0]?.result).toMatchObject({ kind: 'skipped' });
+    expect(posted[0]?.result).toEqual({
+      kind: 'skipped',
+      reason: 'Remote schema references are not loaded (offline): https://example.com/schema.json',
+    });
+  });
+
+  it('runs a schema without $schema as the dialect the user switched to (UNK-017)', () => {
+    const { posted, validation } = setup('{"a": 1}');
+    const noSchema = { dependentRequired: { a: ['b'] } };
+    validation.setSchema(noSchema);
+    expect(posted[0]).toMatchObject({
+      dialect: { name: 'draft-07', assumed: true },
+      result: { kind: 'errors', errors: [] },
+    });
+    validation.setSchema(noSchema, '2019-09');
+    expect(posted[1]?.dialect).toEqual({ name: '2019-09', assumed: false });
+    expect(keys(posted[1]!.result)).toEqual([{ instancePath: '', keyword: 'dependentRequired' }]);
+  });
+
+  it('posts no dialect and skips a schema whose draft is not supported', () => {
+    const { posted, validation } = setup('{}');
+    validation.setSchema({ $schema: 'http://json-schema.org/draft-03/schema#' });
+    expect(posted[0]).toMatchObject({
+      dialect: null,
+      result: {
+        kind: 'skipped',
+        reason: expect.stringMatching(/^Schema draft not supported/) as unknown,
+      },
+    });
   });
 
   it('stops after dispose', () => {

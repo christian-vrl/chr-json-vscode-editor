@@ -1,0 +1,4 @@
+{
+  "name": "root",
+  "children": [{ "name": 1 }, { "children": [] }],
+}

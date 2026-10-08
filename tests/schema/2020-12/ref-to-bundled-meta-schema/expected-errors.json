@@ -1,0 +1,18 @@
+[
+  {
+    "instancePath": "/prefixItems",
+    "keyword": "type"
+  },
+  {
+    "instancePath": "/type",
+    "keyword": "anyOf"
+  },
+  {
+    "instancePath": "/type",
+    "keyword": "enum"
+  },
+  {
+    "instancePath": "/type",
+    "keyword": "type"
+  }
+]

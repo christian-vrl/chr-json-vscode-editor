@@ -1,0 +1,26 @@
+[
+  {
+    "instancePath": "",
+    "keyword": "maxLength"
+  },
+  {
+    "instancePath": "",
+    "keyword": "propertyNames"
+  },
+  {
+    "instancePath": "/a",
+    "keyword": "const"
+  },
+  {
+    "instancePath": "/list",
+    "keyword": "contains"
+  },
+  {
+    "instancePath": "/list/0",
+    "keyword": "const"
+  },
+  {
+    "instancePath": "/list/1",
+    "keyword": "const"
+  }
+]

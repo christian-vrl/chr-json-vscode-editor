@@ -1,0 +1,6 @@
+{
+  row: ['id', 1.5, 'extra'],
+  ip: '999.1.1.1',
+  tags: ['x', 'y'],
+  more: true,
+}
