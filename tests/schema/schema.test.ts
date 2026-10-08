@@ -76,6 +76,7 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
       expect(compiled.dialect).toEqual({
         name: c.dialect,
         assumed: c.name.startsWith('assumed-'),
+        switchable: c.name.startsWith('assumed-'),
       });
       const result = validateText(
         read(`${c.dialect}/${c.name}/${c.docFile}`),
@@ -91,13 +92,18 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
   );
 
   it('assumes draft-07 only when $schema is missing, and the user can switch it', () => {
-    expect(selectDialect({ type: 'object' })).toEqual({ name: 'draft-07', assumed: true });
-    expect(selectDialect(true)).toEqual({ name: 'draft-07', assumed: true });
-    expect(selectDialect({}, '2020-12')).toEqual({ name: '2020-12', assumed: false });
+    const assumed = { name: 'draft-07', assumed: true, switchable: true };
+    expect(selectDialect({ type: 'object' })).toEqual(assumed);
+    expect(selectDialect(true)).toEqual(assumed);
+    expect(selectDialect({}, '2020-12')).toEqual({
+      name: '2020-12',
+      assumed: false,
+      switchable: true,
+    });
     // A stated `$schema` wins over the switch.
     expect(
       selectDialect({ $schema: 'http://json-schema.org/draft-07/schema#' }, '2020-12'),
-    ).toEqual({ name: 'draft-07', assumed: false });
+    ).toEqual({ name: 'draft-07', assumed: false, switchable: false });
   });
 
   it.each([
@@ -113,7 +119,7 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
     ['https://json-schema.org/draft/2020-12/schema', '2020-12'],
     ['http://json-schema.org/draft/2020-12/schema#', '2020-12'],
   ])('reads $schema %s as %s, and it compiles', ($schema, name) => {
-    expect(selectDialect({ $schema })).toEqual({ name, assumed: false });
+    expect(selectDialect({ $schema })).toEqual({ name, assumed: false, switchable: false });
     expect(compileSchema({ $schema, type: 'object' })).toMatchObject({ ok: true });
   });
 
@@ -131,9 +137,13 @@ describe('spec 004 criterion 2: dialect fixtures', () => {
     const custom = { $schema: 'https://example.com/my-meta-schema', minimum: 1 };
     expect(compileSchema(custom)).toMatchObject({
       ok: true,
-      dialect: { name: 'draft-07', assumed: true },
+      dialect: { name: 'draft-07', assumed: true, switchable: true },
     });
-    expect(selectDialect(custom, 'draft-04')).toEqual({ name: 'draft-04', assumed: false });
+    expect(selectDialect(custom, 'draft-04')).toEqual({
+      name: 'draft-04',
+      assumed: false,
+      switchable: true,
+    });
     const compiled = compileSchema(custom, '2020-12');
     expect(compiled.ok && compiled.validate(0).map((e) => e.keyword)).toEqual(['minimum']);
   });

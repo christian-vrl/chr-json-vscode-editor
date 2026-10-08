@@ -1,0 +1,5 @@
+{
+  // 004 T5: $schema names the schema next to this file, which names no dialect of its own.
+  "$schema": "./limits.schema.json",
+  "count": 0
+}

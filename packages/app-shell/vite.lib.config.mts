@@ -3,11 +3,17 @@
 // extension's esbuild bundles both into its webview script and stylesheet, which the webview loads
 // from its own source with the CSP nonce (spec 003 criterion 6, UNK-029).
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { libraryCss } from './vite-plugin-library-css.mts';
 
 export default defineConfig({
   plugins: [libraryCss(), svelte()],
+  // The library's text mode places validation errors with json-source-map, which reads strict
+  // JSON only; src/source-map.ts maps JSONC and JSON5 too (004 T5).
+  resolve: {
+    alias: { 'json-source-map': fileURLToPath(new URL('./src/source-map.ts', import.meta.url)) },
+  },
   build: {
     outDir: 'dist/lib',
     emptyOutDir: true,

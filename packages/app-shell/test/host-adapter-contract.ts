@@ -166,5 +166,11 @@ export function describeHostAdapterContract(
         adapter.showMessage({ docVersion: doc.docVersion, code: 'test', message: 'shown' }),
       ).not.toThrow();
     });
+
+    it('setSchemaDialect accepts a dialect without throwing (004 T5)', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      expect(() => adapter.setSchemaDialect(doc.docVersion, 'draft-04')).not.toThrow();
+    });
   });
 }

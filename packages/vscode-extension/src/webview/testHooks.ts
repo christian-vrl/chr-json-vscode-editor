@@ -2,7 +2,8 @@
 // extension host's hooks (editorProvider.ts) post `{ chrTest: 'probe', id }` and get back what the
 // webview renders: which mode the library shows, whether its stylesheet applied, what it holds, and
 // every CSP violation since the script started. `{ chrTest: 'patch', patch }` sends a patch as a
-// tree edit would (criterion 1). It also reports each `validation` message it sees (004 T2).
+// tree edit would (criterion 1). It also reports each `validation` message it sees (004 T2), and
+// `{ chrTest: 'selectDialect', dialect }` picks a dialect in the toolbar switch (004 T5).
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { RenderedProbe } from '../testProbe';
@@ -38,11 +39,35 @@ export function installTestHooks(
       content: app()?.content() ?? null,
       format: document.querySelector('[role="toolbar"] .format')?.textContent?.trim() ?? '',
       notice: document.querySelector('.notice')?.textContent ?? '',
+      validationMarks: validationMarks(root ?? null),
+      schemaStatus: schemaStatus(),
+
       styleElements: [...document.querySelectorAll('style')].map((s) => ({
         id: s.id,
         nonce: s.nonce !== '',
       })),
     };
+  }
+
+  /** The toolbar's schema status as a person reads it: the chosen option, then any reason. */
+  function schemaStatus(): string {
+    const schema = document.querySelector('[role="toolbar"] .schema');
+    if (!schema) return '';
+    const select = schema.querySelector('select');
+    const parts = [...schema.children].map((child) =>
+      child === select ? (select.selectedOptions[0]?.textContent ?? '') : (child.textContent ?? ''),
+    );
+    return parts
+      .map((part) => part.replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  function selectDialect(dialect: string): void {
+    const select = document.querySelector<HTMLSelectElement>('[role="toolbar"] .schema select');
+    if (!select) throw new Error('no dialect switch in the toolbar');
+    select.value = dialect;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   /** Returns true for a test message, which the editor never sees. */
@@ -52,20 +77,47 @@ export function installTestHooks(
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
       return true;
     }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'selectDialect') {
+      selectDialect(String((message as { dialect?: unknown }).dialect));
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'patch') {
       app()?.patch(message.patch as Parameters<AppHandle['patch']>[0]);
       return true;
     }
     const decoded = decodeToWebview(data);
     if (decoded.ok && decoded.message.type === 'validation') {
-      const { docVersion, result } = decoded.message;
+      const { docVersion, result, dialect } = decoded.message;
       api.postMessage({
         chrTest: 'validationShown',
         docVersion,
+        dialect,
         errors: result.kind === 'errors' ? result.errors : null,
         reason: result.kind === 'skipped' ? result.reason : null,
       });
     }
     return false;
   };
+}
+
+const SEVERITIES = ['error', 'warning', 'info'] as const;
+
+/** The inline validation marks under `root` (see RenderedProbe.validationMarks). */
+function validationMarks(root: Element | null): RenderedProbe['validationMarks'] {
+  if (!root) return [];
+  const marks: RenderedProbe['validationMarks'] = [];
+  // Tree and table: the library's ValidationErrorIcon, a button classed by severity. The error
+  // list under the contents uses the same classes on table rows, so only buttons count.
+  for (const severity of SEVERITIES) {
+    for (const icon of root.querySelectorAll(`button.jse-validation-${severity}`)) {
+      const owner = icon.closest('[data-path]');
+      const path = owner ? decodeURIComponent(owner.getAttribute('data-path') ?? '') : null;
+      marks.push({ path, severity, text: owner?.textContent ?? '' });
+    }
+    // Text: CodeMirror's lint decoration over the range the error points at.
+    for (const range of root.querySelectorAll(`.cm-lintRange-${severity}`)) {
+      marks.push({ path: null, severity, text: range.textContent ?? '' });
+    }
+  }
+  return marks;
 }

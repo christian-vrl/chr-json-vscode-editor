@@ -19,6 +19,12 @@ export interface RenderedProbe {
   notice: string;
   /** `securitypolicyviolation` events: directive, blocked URI, source location. */
   violations: string[];
+  /** Inline validation marks (004 T5) in the mode shown: tree and table draw an icon at the node
+   *  or cell (`path`, the RFC 6901 pointer of its `data-path`; null for a table row's gutter), and
+   *  text mode underlines a range (`path` null, `text` the underlined text). */
+  validationMarks: { path: string | null; severity: string; text: string }[];
+  /** The toolbar's schema status: the dialect ("assumed draft-07"), and why it is not validated. */
+  schemaStatus: string;
   /** `<style>` elements in the page: VS Code's own (`_defaultStyles`) and CodeMirror's, which
    *  must carry the nonce (UNK-029). */
   styleElements: { id: string; nonce: boolean }[];
