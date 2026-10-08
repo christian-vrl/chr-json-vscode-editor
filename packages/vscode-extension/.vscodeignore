@@ -1,0 +1,6 @@
+# Only the bundle, the manifest, README and LICENSE go into the .vsix (001 T5).
+**
+!dist/extension.js
+!package.json
+!README.md
+!LICENSE
