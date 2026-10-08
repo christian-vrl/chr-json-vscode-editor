@@ -18,6 +18,9 @@ await build({
   // VS Code 1.95 (engines.vscode, UNK-016) ships Electron 32, which runs Node 20.
   target: 'node20',
   external: ['vscode'],
+  // Prefer ESM builds: jsonc-parser's `main` is a UMD bundle whose inner `require('./impl/…')`
+  // calls esbuild cannot follow, so the bundle would throw at activation (004 T2).
+  mainFields: ['module', 'main'],
   define: { __CHR_TEST_HOOKS__: JSON.stringify(testHooks) },
   sourcemap: true,
   // The map points at the sources instead of embedding them, so the comments in bundled
