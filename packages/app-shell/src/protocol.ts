@@ -3,8 +3,9 @@
 // webview and the Chrome app can all import it. Every message carries `protocol` (bumped on any
 // incompatible change) and `docVersion`, so a receiver can drop echoes and stale messages.
 
-/** Bump on any change a receiver built against the previous version could not decode. */
-export const PROTOCOL_VERSION = 1;
+/** Bump on any change a receiver built against the previous version could not decode.
+ *  2: adds the host → UI `validation` message (004 T2). */
+export const PROTOCOL_VERSION = 2;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -73,8 +74,30 @@ export interface ErrorMessage extends Envelope<'error'> {
   message: string;
 }
 
+/** One JSON Schema error. `instancePath` is the RFC 6901 pointer to the value (Ajv's own field). */
+export interface SchemaError {
+  instancePath: string;
+  keyword: string;
+  message: string;
+}
+
+/**
+ * Schema validation of the document at `docVersion` (004 T2, ADR-010: the host runs the validator,
+ * since the webview CSP forbids eval). `errors` lists every error, empty when the document is
+ * valid; `skipped` says why the document was not validated (it does not parse, the format has no
+ * parser yet, or the schema does not compile). A UI shows only the result for its current version.
+ */
+export interface ValidationMessage extends Envelope<'validation'> {
+  result: { kind: 'errors'; errors: SchemaError[] } | { kind: 'skipped'; reason: string };
+}
+
 export type ToWebviewMessage =
-  InitMessage | UpdateMessage | SetModeMessage | SetFormatMessage | ErrorMessage;
+  | InitMessage
+  | UpdateMessage
+  | SetModeMessage
+  | SetFormatMessage
+  | ErrorMessage
+  | ValidationMessage;
 export type ToHostMessage = EditMessage | ErrorMessage;
 export type ProtocolMessage = ToWebviewMessage | ToHostMessage;
 
@@ -114,6 +137,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   setMode: { mode: oneOf(MODES) },
   setFormat: { format: oneOf(FORMATS) },
   error: { code: str, message: str },
+  validation: { result: validationResult },
 };
 
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
@@ -235,4 +259,28 @@ function documentChange(v: unknown, name: string): DocumentChange {
 function patchList(v: unknown, name: string): JsonPatchOperation[] {
   if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
   return v.map((op, i) => patchOperation(op, `${name}[${i}]`));
+}
+
+function validationResult(v: unknown, name: string): ValidationMessage['result'] {
+  const raw = record(v, name);
+  if (raw.kind === 'skipped') {
+    return readFields(raw, { kind: str, reason: str }, name) as ValidationMessage['result'];
+  }
+  if (raw.kind === 'errors') {
+    return readFields(
+      raw,
+      { kind: str, errors: schemaErrorList },
+      name,
+    ) as ValidationMessage['result'];
+  }
+  throw new Invalid(`${name}.kind must be errors or skipped`);
+}
+
+function schemaErrorList(v: unknown, name: string): SchemaError[] {
+  if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
+  return v.map((e, i) => {
+    const where = `${name}[${i}]`;
+    const fields = { instancePath: pointer, keyword: str, message: str };
+    return readFields(record(e, where), fields, where) as unknown as SchemaError;
+  });
 }

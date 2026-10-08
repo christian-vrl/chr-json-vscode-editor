@@ -1,0 +1,6 @@
+{
+  // 004 T2 e2e: three errors against person.schema.json until the test fixes them.
+  "name": "",
+  "age": 1.5,
+  "email": "not an email"
+}

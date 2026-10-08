@@ -9,6 +9,7 @@ const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
 const REOPEN_AS_TEXT_COMMAND = 'chrJsonEditor.reopenAsText';
 const FIXTURES = path.resolve(__dirname, '../../../../tests/e2e/fixtures/open');
 const FORMATS = ['json', 'jsonc', 'json5'];
+const VALIDATION = path.resolve(__dirname, '../../../../tests/e2e/fixtures/validation');
 
 function fixture(format) {
   return vscode.Uri.file(path.join(FIXTURES, `sample.${format}`));
@@ -214,6 +215,49 @@ exports.run = async function run() {
     console.log(`sample.${format}: CSP meets criterion 6 and the nonce script ran`);
   }
   assert.equal(nonces.size, FORMATS.length, 'each webview must get its own nonce');
+
+  // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
+  // keyed by docVersion. The placeholder webview decodes each message with app-shell's protocol
+  // decoder and reports what it got; the CSP checked above has no unsafe-eval.
+  await closeAll();
+  const personUri = vscode.Uri.file(path.join(VALIDATION, 'person.jsonc'));
+  const schema = JSON.parse(
+    require('node:fs').readFileSync(path.join(VALIDATION, 'person.schema.json'), 'utf8'),
+  );
+  const person = await vscode.workspace.openTextDocument(personUri);
+  await vscode.commands.executeCommand('vscode.openWith', personUri, VIEW_TYPE);
+  await expectOnly(personUri, 'custom', isCustom);
+  const personView = () => hooks.webviews().find((w) => w.uri === personUri.toString());
+  await waitFor('the person.jsonc webview script to run', () => personView()?.scriptLoaded);
+  assertCriterion6(personView());
+  assert.equal(hooks.setSchema(personUri.toString(), schema), true, 'no editor for person.jsonc');
+  const shown = () => personView().validationsShown;
+  await waitFor('validation errors in the webview', () => shown().length === 1);
+  const keys = (errors) => errors.map(({ instancePath, keyword }) => ({ instancePath, keyword }));
+  assert.equal(shown()[0].docVersion, person.version, 'validation must carry the document version');
+  assert.deepEqual(keys(shown()[0].errors), [
+    { instancePath: '/age', keyword: 'type' },
+    { instancePath: '/email', keyword: 'format' },
+    { instancePath: '/name', keyword: 'minLength' },
+  ]);
+  console.log(`person.jsonc v${person.version}: 3 schema errors reached the webview`);
+
+  // A fix to the document is validated again and the result names the new version.
+  const before = person.version;
+  const fix = new vscode.WorkspaceEdit();
+  fix.replace(
+    personUri,
+    new vscode.Range(person.positionAt(0), person.positionAt(person.getText().length)),
+    '{\n  "name": "Ada",\n  "age": 36\n}\n',
+  );
+  assert.equal(await vscode.workspace.applyEdit(fix), true);
+  assert.ok(person.version > before, 'the edit must bump the document version');
+  await waitFor('validation of the fixed document', () => shown().length === 2);
+  assert.equal(shown()[1].docVersion, person.version);
+  assert.deepEqual(shown()[1].errors, []);
+  console.log(`person.jsonc v${person.version}: valid after the fix`);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the fix to revert', () => !person.isDirty);
 
   // Priority "option": a plain open still uses the text editor.
   await closeAll();

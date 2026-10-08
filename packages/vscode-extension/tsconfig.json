@@ -1,11 +1,11 @@
+// Type-checks the extension host and webview code; esbuild (esbuild.mjs) bundles it, so modules
+// resolve the way a bundler does. That lets the CommonJS bundle import the ESM workspace packages
+// (`@chr-json-editor/core`, app-shell's protocol) by value (004 T2).
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "verbatimModuleSyntax": false,
     "types": ["node"]
   },
   "include": ["src"]

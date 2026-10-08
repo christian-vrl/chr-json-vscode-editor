@@ -10,6 +10,9 @@ export default defineConfig({
       '@chr-json-editor/core': fileURLToPath(
         new URL('packages/core/src/index.ts', import.meta.url),
       ),
+      '@chr-json-editor/app-shell/protocol': fileURLToPath(
+        new URL('packages/app-shell/src/protocol.ts', import.meta.url),
+      ),
     },
   },
   test: {
