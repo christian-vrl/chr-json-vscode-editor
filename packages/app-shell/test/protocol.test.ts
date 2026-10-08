@@ -69,6 +69,19 @@ describe('protocol round trip', () => {
     );
   });
 
+  it('keeps a "__proto__" settings key as data', () => {
+    const data: unknown = JSON.parse(
+      `{"protocol":${PROTOCOL_VERSION},"type":"init","docVersion":0,"text":"","format":"json",` +
+        `"mode":"text","settings":{"__proto__":{"polluted":true}}}`,
+    );
+    const result = decodeToWebview(data);
+    expect(result.ok).toBe(true);
+    const settings = result.ok && result.message.type === 'init' ? result.message.settings : {};
+    expect(Object.keys(settings)).toEqual(['__proto__']);
+    expect(Object.getPrototypeOf(settings)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
   it('returns a fresh object, not the input', () => {
     const input = structuredClone(toWebview[1]);
     const result = decodeToWebview(input);
@@ -102,10 +115,7 @@ describe('protocol rejects malformed messages', () => {
     ['an unknown mode', { protocol: 1, type: 'setMode', docVersion: 1, mode: 'graph' }],
     ['an unknown format', { protocol: 1, type: 'setFormat', docVersion: 1, format: 'yaml' }],
     ['an error without code', { protocol: 1, type: 'error', docVersion: 1, message: 'm' }],
-    [
-      'init settings that are not JSON',
-      { ...toWebview[0], settings: { f: Number.NaN } } as unknown,
-    ],
+    ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);
     expect(result.ok).toBe(false);
