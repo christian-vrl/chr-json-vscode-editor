@@ -3,12 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ValidationMessage } from '@chr-json-editor/app-shell/protocol';
-import {
-  DocumentValidation,
-  compileSchema,
-  formatOfPath,
-  validateText,
-} from '../../src/validation';
+import { DocumentValidation, compileSchema, validateText } from '../../src/validation';
 
 const fixtures = new URL('../../../../tests/e2e/fixtures/validation/', import.meta.url);
 const schema = JSON.parse(readFileSync(new URL('person.schema.json', fixtures), 'utf8')) as object;
@@ -51,11 +46,10 @@ describe('validateText', () => {
     expect(validateText('', 'json', validator)).toMatchObject({ kind: 'skipped' });
   });
 
-  it('skips JSON5 until its adapter exists (002 T5)', () => {
-    expect(validateText("{name: 'Ada', age: 36}", 'json5', validator)).toMatchObject({
-      kind: 'skipped',
-      reason: expect.stringContaining('json5') as unknown,
-    });
+  it('validates JSON5 with its own parser', () => {
+    expect(keys(validateText("{name: 'Ada', age: 1.5, /* note */}", 'json5', validator))).toEqual([
+      { instancePath: '/age', keyword: 'type' },
+    ]);
   });
 });
 
@@ -133,12 +127,4 @@ describe('DocumentValidation', () => {
     vi.runAllTimers();
     expect(posted).toHaveLength(1);
   });
-});
-
-describe('formatOfPath', () => {
-  it.each([
-    ['/a/b.json', 'json'],
-    ['/a/b.JSONC', 'jsonc'],
-    ['/a/b.json5', 'json5'],
-  ] as const)('%s → %s', (path, format) => expect(formatOfPath(path)).toBe(format));
 });

@@ -1,11 +1,14 @@
 // CustomTextEditorProvider for *.json, *.jsonc and *.json5 (spec 003 T3). The document stays a
 // normal VS Code TextDocument; the webview only shows it. The webview runs scripts only with a
 // per-render nonce and loads files only from the extension's dist folder (003 T4, criterion 6;
-// see webviewHtml.ts). Document sync (003 T5) builds on this. Schema validation runs here in the
-// host and reaches the webview as `validation` messages (004 T2, ADR-010; see validation.ts).
+// see webviewHtml.ts). Each tab reports to the status-bar format badge (003 T10). Document sync
+// (003 T5) builds on this. Schema validation runs here in the host and reaches the webview as
+// `validation` messages (004 T2, ADR-010; see validation.ts).
 import * as vscode from 'vscode';
 import type { SchemaError } from '@chr-json-editor/app-shell/protocol';
-import { DocumentValidation, formatOfPath } from './validation';
+import { detect } from '@chr-json-editor/core';
+import type { FormatBadgeController } from './formatBadgeVscode';
+import { DocumentValidation } from './validation';
 import { createNonce, escapeHtml, renderWebviewHtml } from './webviewHtml';
 
 export const VIEW_TYPE = 'chrJsonEditor.editor';
@@ -38,13 +41,19 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** One per open panel. 004 T5 sets each one's schema from the association rules. */
   readonly validations = new Map<vscode.WebviewPanel, DocumentValidation>();
 
-  private constructor(private readonly extensionUri: vscode.Uri) {}
+  private constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly formatBadge: FormatBadgeController | undefined,
+  ) {}
 
-  static register(context: vscode.ExtensionContext): {
+  static register(
+    context: vscode.ExtensionContext,
+    formatBadge: FormatBadgeController | undefined,
+  ): {
     provider: JsonEditorProvider;
     disposable: vscode.Disposable;
   } {
-    const provider = new JsonEditorProvider(context.extensionUri);
+    const provider = new JsonEditorProvider(context.extensionUri, formatBadge);
     return {
       provider,
       disposable: vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider),
@@ -65,6 +74,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       body: `<p>${escapeHtml(name)} is open in CHR JSON Editor. The tree, text and table views are
 not built yet; use "Reopen as Text" to edit it.</p>`,
     });
+    this.formatBadge?.track(document, panel);
 
     if (__CHR_TEST_HOOKS__) {
       const snapshot: WebviewSnapshot = {
@@ -92,7 +102,8 @@ not built yet; use "Reopen as Text" to edit it.</p>`,
 
     const validation = new DocumentValidation({
       snapshot: () => ({ text: document.getText(), docVersion: document.version }),
-      format: formatOfPath(document.uri.path),
+      // The format at open time; 004 T5 follows a switch made from the format badge (003 T10).
+      format: detect(document.uri.path, document.languageId, document.getText()).format,
       post: (message) => void webview.postMessage(message),
     });
     this.validations.set(panel, validation);

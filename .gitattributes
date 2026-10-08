@@ -2,3 +2,9 @@
 
 # Golden-master fixtures are compared byte for byte (constitution D3): no line-ending conversion.
 tests/golden/** -text
+
+# JSON5 spike cases (002 T4) are compared byte for byte too; case 08 is CRLF on purpose.
+spikes/json5-cst/cases/** -text
+
+# json5-tests conformance fixtures (002 T5) are read byte for byte; new-lines/ holds CR and CRLF files.
+packages/core/test/fixtures/json5-tests/** -text

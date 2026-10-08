@@ -1,0 +1,10 @@
+{
+  "name": "chr-json-editor-capture-themes-harness",
+  "description": "Empty development extension: VS Code runs --extensionTestsPath (../in-vscode.cjs) only beside an --extensionDevelopmentPath.",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "chr-json-editor-tests",
+  "engines": {
+    "vscode": "^1.95.0"
+  }
+}

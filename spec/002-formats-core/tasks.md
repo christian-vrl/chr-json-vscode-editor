@@ -5,12 +5,12 @@
 
 ## Phase A — Contract (risk-free / additive)
 - [x] **T1** (Large) Write the golden corpus covering every cell of criterion 4, hand-written `expected.*` bytes, `case.json` tags, plus the coverage test. Needs UNK-008 resolved for `remove`/`move` cases. — needs: 001 T4 — *gate: `pnpm test:golden -- --coverage-only` green (every cell covered); Reviewer PASS on R1–R10 per case*
-- [ ] **T2** `detect` per R11 with strict-JSON diagnostics. `parallel` — *gate: criterion 5 table test green*
+- [x] **T2** `detect` per R11 with strict-JSON diagnostics. `parallel` — *gate: criterion 5 table test green*
 
 ## Phase B — Adapters (risk-free / additive)
 - [x] **T3** `FormatAdapter` + `Style` detection + JSON/JSONC adapter primitives on `jsonc-parser`. — *gate: `pnpm test:golden -- --format json,jsonc --op add,replace,remove` green*
-- [ ] **T4** (Large) Spike per UNK-012's evidence rule; `spikes/json5-cst/REPORT.md` with pass counts per option; fill ADR-009. `parallel` with T3 — *gate: report committed; UNK-012 resolved per the delegation rule*
-- [ ] **T5** JSON5 adapter per ADR-009. — *gate: `pnpm test:golden -- --format json5 --op add,replace,remove` green*
+- [x] **T4** (Large) Spike per UNK-012's evidence rule; `spikes/json5-cst/REPORT.md` with pass counts per option; fill ADR-009. `parallel` with T3 — *gate: report committed; UNK-012 resolved per the delegation rule*
+- [x] **T5** JSON5 adapter per ADR-009. — *gate: `pnpm test:golden -- --format json5 --op add,replace,remove` green*
 
 ## Phase C — Proof (risk-free / additive)
 - [ ] **T6** (Large) Patch layer `applyPatch(text, patch, format)` with `move`/`copy`/`test`, atomic per R9; fast-check suite per criterion 3. — *gate: `pnpm test:golden` all cases green and property suite 10 000 runs/format green*

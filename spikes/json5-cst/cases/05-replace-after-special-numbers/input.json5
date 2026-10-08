@@ -1,0 +1,8 @@
+{
+  max: +Infinity,
+  min: -Infinity,
+  bad: NaN,
+  step: .5,
+  end: 5.,
+  pos: +1,
+}

@@ -126,7 +126,8 @@ describe('applyPatch', () => {
     expect(() => apply('{"a": ', { op: 'add', path: '/b', value: 1 })).toThrow(PatchError);
   });
 
-  it('has no JSON5 adapter until 002 T5', () => {
-    expect(() => getAdapter('json5')).toThrow(/002 T5/);
+  it('has an adapter for each format', () => {
+    for (const format of ['json', 'jsonc', 'json5'] as const)
+      expect(getAdapter(format).format).toBe(format);
   });
 });

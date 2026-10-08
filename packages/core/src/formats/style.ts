@@ -1,14 +1,18 @@
 // `Style` detection (002 T3, AGENTS.md §Glossary). JSON and JSONC always write double quotes and
-// quoted keys (R4); the indent unit, line ending, final newline and trailing commas come from the text.
+// quoted keys (R4); the indent unit, line ending, final newline and trailing commas come from the
+// text, and for JSON5 also the quote and key style (002 T5).
+import { parseJson5 } from './json5-parser.js';
 import { isComment, Kind, tokenize, type Token } from './tokens.js';
 import type { Format, Style } from './types.js';
 
+/** `tokens` are the text's tokens when the caller has them: from jsonc-parser's scanner for JSON
+ *  and JSONC, from `parseJson5` for JSON5. */
 export function detectStyle(
   text: string,
   format: Format,
-  tokens: readonly Token[] = tokenize(text),
+  tokens: readonly Token[] = format === 'json5' ? parseJson5(text).tokens : tokenize(text),
 ): Style {
-  return {
+  const style: Style = {
     indent: detectIndent(text, tokens),
     eol: detectEol(text),
     finalNewline: text.endsWith('\n'),
@@ -16,8 +20,39 @@ export function detectStyle(
     unquotedKeys: false,
     trailingCommas: format !== 'json' && hasTrailingComma(tokens),
   };
-  // JSON5's quote and key style are detected by its adapter (002 T5).
+  return format === 'json5' ? { ...style, ...detectJson5Quoting(text, tokens) } : style;
 }
+
+/**
+ * R4 for JSON5. `quote` is the majority quote of string values, else of quoted keys when there are
+ * no string values; double on a tie or with no strings at all. `unquotedKeys` holds when more keys
+ * are unquoted than quoted.
+ */
+function detectJson5Quoting(
+  text: string,
+  tokens: readonly Token[],
+): Pick<Style, 'quote' | 'unquotedKeys'> {
+  const values = { '"': 0, "'": 0 };
+  const keys = { '"': 0, "'": 0 };
+  let unquoted = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]!;
+    if (t.kind !== Kind.StringLiteral && t.kind !== Kind.Unknown) continue;
+    let j = i + 1;
+    while (j < tokens.length && isTrivia(tokens[j]!)) j++;
+    const isKey = tokens[j]?.kind === Kind.Colon;
+    if (t.kind === Kind.Unknown) unquoted++;
+    else (isKey ? keys : values)[text[t.offset] as '"' | "'"]++;
+  }
+  const counts = values['"'] + values["'"] > 0 ? values : keys;
+  return {
+    quote: counts["'"] > counts['"'] ? "'" : '"',
+    unquotedKeys: unquoted > keys['"'] + keys["'"],
+  };
+}
+
+const isTrivia = (t: Token) =>
+  t.kind === Kind.Whitespace || t.kind === Kind.LineBreak || isComment(t);
 
 /** Majority line ending; a text with no line break gets `\n`. */
 function detectEol(text: string): Style['eol'] {

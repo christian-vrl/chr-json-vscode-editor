@@ -50,7 +50,7 @@ export function validateText(text: string, format: Format, validator: Validator)
   try {
     parsed = getAdapter(format).parse(text);
   } catch (error) {
-    return { kind: 'skipped', reason: `No ${format} parser yet: ${describe(error)}` };
+    return { kind: 'skipped', reason: `The ${format} parser failed: ${describe(error)}` };
   }
   if (parsed.tree === undefined || parsed.diagnostics.some((d) => d.severity === 'error')) {
     return { kind: 'skipped', reason: 'The document does not parse, so it was not validated.' };
@@ -121,14 +121,6 @@ export class DocumentValidation {
     clearTimeout(this.timer);
     this.timer = undefined;
   }
-}
-
-/** The format a file name implies; 002 T2's `detect` replaces this once it merges. */
-export function formatOfPath(path: string): Format {
-  const lower = path.toLowerCase();
-  if (lower.endsWith('.json5')) return 'json5';
-  if (lower.endsWith('.jsonc')) return 'jsonc';
-  return 'json';
 }
 
 function describe(error: unknown): string {

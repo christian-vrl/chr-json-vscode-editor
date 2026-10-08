@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "astral-plane characters before the edit (offsets must be UTF-16 code units)"
+}

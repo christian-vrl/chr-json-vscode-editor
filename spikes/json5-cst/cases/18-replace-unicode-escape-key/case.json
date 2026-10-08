@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "unquoted key written with a \\u escape resolves to its decoded name"
+}

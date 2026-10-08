@@ -1,0 +1,6 @@
+{
+  // header comment
+  host: 'localhost', // dev only
+  port: 8080, // default
+  tls: false
+}
