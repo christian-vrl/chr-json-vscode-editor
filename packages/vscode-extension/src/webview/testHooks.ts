@@ -4,6 +4,8 @@
 // every CSP violation since the script started. `{ chrTest: 'patch', patch }` sends a patch as a
 // tree edit would (criterion 1). It also reports each `validation` message it sees (004 T2), and
 // `{ chrTest: 'selectDialect', dialect }` picks a dialect in the toolbar switch (004 T5).
+// `{ chrTest: 'whenShown', id, text }` answers once the editor renders `text`, without sending
+// what it holds, so the large-file benchmark (003 T11) can time renders of big documents.
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { RenderedProbe } from '../testProbe';
@@ -70,9 +72,34 @@ export function installTestHooks(
     select.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
+  /** The rendered mode's text with whitespace runs as single spaces. */
+  function shownText(): string {
+    const found = MODE_ROOTS.find(([, selector]) => document.querySelector(selector));
+    const root = found && document.querySelector(found[1]);
+    return (root?.textContent ?? '').replace(/\s+/g, ' ');
+  }
+
+  /** Answers `id` in the first frame whose rendered text contains `text` (003 T11 benchmark). */
+  function whenShown(id: unknown, text: string): void {
+    const check = () => {
+      if (shownText().includes(text)) api.postMessage({ chrTest: 'shown', id });
+      else requestAnimationFrame(check);
+    };
+    check();
+  }
+
   /** Returns true for a test message, which the editor never sees. */
   return (data: unknown): boolean => {
-    const message = data as { chrTest?: unknown; id?: unknown; patch?: unknown };
+    const message = data as { chrTest?: unknown; id?: unknown; patch?: unknown; text?: unknown };
+    if (
+      typeof message === 'object' &&
+      message !== null &&
+      message.chrTest === 'whenShown' &&
+      typeof message.text === 'string'
+    ) {
+      whenShown(message.id, message.text);
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'probe') {
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
       return true;

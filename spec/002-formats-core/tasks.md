@@ -15,10 +15,10 @@
 ## Phase C — Proof (risk-free / additive)
 - [x] **T6** (Large) Patch layer `applyPatch(text, patch, format)` with `move`/`copy`/`test`, atomic per R9; fast-check suite per criterion 3. — *gate: `pnpm test:golden` all cases green and property suite 10 000 runs/format green*
 - [x] **T7** `stringify(data, format, style)`. `parallel` — *gate: criterion 6 property test green*
-- [ ] **T8** Benchmark per criterion 7. — *gate: `bench/RESULTS.md` committed*
+- [x] **T8** Benchmark per criterion 7. — *gate: `bench/RESULTS.md` committed*
 
 ## Phase D — Whole-document actions keep comments (risk-free / additive)
-- [ ] **T9** (Large) Structural `diff(a, b) → JSON Patch` with LCS on deep-equal array items (reused by spec 007 compare). — *gate: criterion 9 property suite green*
+- [x] **T9** (Large) Structural `diff(a, b) → JSON Patch` with LCS on deep-equal array items (reused by spec 007 compare). — *gate: criterion 9 property suite green*
 - [ ] **T10** Comment-keeping `compact` (R12) and `sort` (R13) for all three formats, plus golden cases tagged `compact`, `sort`, `data-diff` (R14). `parallel` with T9 — *gate: criterion 8 green*
 - [x] **T11** (Large) Spike per UNK-018: comment-keeping repair of 20 broken commented JSONC/JSON5 fixtures (mask comments, repair, re-anchor); `spikes/repair-comments/REPORT.md`. `parallel` — *gate: report with keep-count per fixture; UNK-018 resolved per the delegation rule*
 

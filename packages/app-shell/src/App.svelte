@@ -306,6 +306,7 @@
     --jse-text-readonly: var(--vscode-descriptionForeground);
     --jse-main-border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
     --jse-error-color: var(--vscode-errorForeground);
+    --jse-warning-color: var(--vscode-editorWarning-foreground);
     --jse-info-color: var(--vscode-editorInfo-foreground);
 
     /* modals and tooltips */

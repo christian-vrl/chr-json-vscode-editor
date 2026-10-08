@@ -174,6 +174,36 @@ exports.runInline = async function runInline({ hooks, waitFor, closeAll, expectO
   assert.equal(after.schemaStatus, 'draft-04');
   console.log('limits.jsonc: its $schema applies, and the dialect switch re-validates as draft-04');
 
+  // An unsaved edit to the schema in another tab applies at once (the binding reads the open
+  // document, not the file), and keeps the dialect the user chose for that schema.
+  const schemaDoc = await vscode.workspace.openTextDocument(
+    vscode.Uri.file(path.join(INLINE, 'limits.schema.json')),
+  );
+  const loosen = new vscode.WorkspaceEdit();
+  const minimum = schemaDoc.getText().indexOf('"minimum": 0');
+  assert.ok(minimum >= 0, 'limits.schema.json: no "minimum": 0');
+  loosen.replace(
+    schemaDoc.uri,
+    new vscode.Range(
+      schemaDoc.positionAt(minimum),
+      schemaDoc.positionAt(minimum + '"minimum": 0'.length),
+    ),
+    '"minimum": -1',
+  );
+  assert.equal(await vscode.workspace.applyEdit(loosen), true);
+  await waitFor(
+    'limits.jsonc re-validated against the edited schema',
+    () => Array.isArray(limits.last().errors) && limits.last().errors.length === 0,
+  );
+  assert.equal(limits.last().dialect?.name, 'draft-04');
+  await rendered(limits.key, 'tree', 'limits.jsonc valid', (p) => !p.validationMarks.length);
+  // Beside, so limits.jsonc's webview stays visible (a hidden webview drops its messages).
+  await vscode.window.showTextDocument(schemaDoc, vscode.ViewColumn.Beside);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the schema edit to revert', () => !schemaDoc.isDirty);
+  await waitFor('limits.jsonc invalid again', () => limits.last().errors?.length === 1);
+  console.log('limits.jsonc: an unsaved edit to its schema in another tab re-validates it');
+
   // Removing the settings drops the schema: the open editor is told, and its marks go.
   await closeAll();
   const people = await open('people.json');
