@@ -1,0 +1,22 @@
+[
+  {
+    "instancePath": "",
+    "keyword": "dependentRequired"
+  },
+  {
+    "instancePath": "",
+    "keyword": "maxLength"
+  },
+  {
+    "instancePath": "",
+    "keyword": "propertyNames"
+  },
+  {
+    "instancePath": "",
+    "keyword": "unevaluatedProperties"
+  },
+  {
+    "instancePath": "/a",
+    "keyword": "type"
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "instancePath": "",
+    "keyword": "if"
+  },
+  {
+    "instancePath": "/contact",
+    "keyword": "format"
+  },
+  {
+    "instancePath": "/point",
+    "keyword": "additionalItems"
+  },
+  {
+    "instancePath": "/point/1",
+    "keyword": "type"
+  }
+]

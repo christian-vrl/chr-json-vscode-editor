@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "dependencies": {
+    "card": ["billing"]
+  },
+  "properties": {
+    "card": {
+      "type": "string",
+      "pattern": "^[0-9]{4}$"
+    },
+    "billing": {
+      "type": "string"
+    }
+  }
+}

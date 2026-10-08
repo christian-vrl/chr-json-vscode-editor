@@ -1,0 +1,30 @@
+[
+  {
+    "instancePath": "",
+    "keyword": "required"
+  },
+  {
+    "instancePath": "",
+    "keyword": "unevaluatedProperties"
+  },
+  {
+    "instancePath": "/ip",
+    "keyword": "format"
+  },
+  {
+    "instancePath": "/row",
+    "keyword": "items"
+  },
+  {
+    "instancePath": "/row/1",
+    "keyword": "type"
+  },
+  {
+    "instancePath": "/tags",
+    "keyword": "contains"
+  },
+  {
+    "instancePath": "/tags/1",
+    "keyword": "const"
+  }
+]

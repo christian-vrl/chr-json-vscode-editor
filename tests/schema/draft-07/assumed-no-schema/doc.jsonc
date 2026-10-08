@@ -1,0 +1,4 @@
+// No $schema in schema.json: runs as draft-07 (UNK-017).
+{
+  "card": "12a4", // not four digits
+}

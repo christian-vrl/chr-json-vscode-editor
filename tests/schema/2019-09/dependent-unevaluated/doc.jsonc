@@ -1,0 +1,4 @@
+{
+  "a": 1.5, // not an integer, and b is missing
+  "extra": 1, // unevaluated, and too long a name
+}

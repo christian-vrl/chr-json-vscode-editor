@@ -1,0 +1,5 @@
+{
+  point: [1, 'two', 3],
+  kind: 'email',
+  contact: 'not an email', // fails `format` via if/then
+}

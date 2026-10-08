@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "a": {
+      "type": "integer"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "b": {
+          "type": "string"
+        }
+      }
+    }
+  ],
+  "dependentRequired": {
+    "a": ["b"]
+  },
+  "unevaluatedProperties": false,
+  "$defs": {
+    "positive": {
+      "exclusiveMinimum": 0
+    }
+  },
+  "propertyNames": {
+    "maxLength": 3
+  }
+}
