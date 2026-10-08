@@ -15,7 +15,7 @@
     "test:golden": "node scripts/test-golden.mjs",
     "test:e2e": "pnpm --filter chr-json-editor run test:e2e",
     "test:web": "pnpm --filter @chr-json-editor/app-shell run build && playwright test",
-    "check:licenses": "node scripts/not-yet.mjs check:licenses \"001 T7\"",
+    "check:licenses": "node scripts/check-licenses.mjs",
     "check:offline": "node scripts/not-yet.mjs check:offline \"001 T8\"",
     "check:readme": "node scripts/not-yet.mjs check:readme \"spec 005\"",
     "package": "pnpm --filter chr-json-editor run package"

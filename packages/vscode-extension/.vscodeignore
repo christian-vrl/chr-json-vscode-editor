@@ -1,6 +1,8 @@
-# Only the bundle, the manifest, README and LICENSE go into the .vsix (001 T5).
+# Only the bundle, the manifest, README, LICENSE (001 T5) and the third-party notice (001 T7)
+# go into the .vsix.
 **
 !dist/extension.js
 !package.json
 !README.md
 !LICENSE
+!THIRD_PARTY_LICENSES.md
