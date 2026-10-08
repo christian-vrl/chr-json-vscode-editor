@@ -1,0 +1,8 @@
+// json5 config
+{
+  zed: 0x1F, // hex
+  'quoted-key': Infinity,
+  alpha: 'a\
+b',
+  list: [3, 1, 2,], // trailing
+}

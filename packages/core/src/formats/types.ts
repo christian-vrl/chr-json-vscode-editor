@@ -58,6 +58,23 @@ export interface FormatAdapter {
   applyPatch(text: string, patch: readonly PatchOperation[]): string;
   /** Writes data as a new document in this format and style (002 T7, see `stringify.ts`). */
   stringify(data: unknown, style: Style): string;
+  /** R12: the text with no white space between tokens, keeping its comments (002 T10, `actions.ts`).
+   *  Throws a `PatchError` when the text does not parse. */
+  compact(text: string): string;
+  /** R13: the text with one object's keys or one array's items sorted, each member moving with
+   *  its attached comments (002 T10, `actions.ts`). Throws a `PatchError` for a text that does not
+   *  parse or a path that is not an object or array. */
+  sort(text: string, options?: SortOptions): string;
+}
+
+/** What `FormatAdapter.sort` sorts and how (002 T10). */
+export interface SortOptions {
+  /** JSON Pointer to the object or array to sort; the whole document (`""`) by default. */
+  path?: string;
+  /** For an array: JSON Pointer, inside each item, to the value the items are sorted by; the item
+   *  itself (`""`) by default. Ignored for an object, whose keys are sorted. */
+  property?: string;
+  direction?: 'asc' | 'desc';
 }
 
 export class PatchError extends Error {
