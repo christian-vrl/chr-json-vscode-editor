@@ -62,5 +62,8 @@
 ### ADR-009 — JSON5 style-preserving approach (reserved)
 - Filled by 002 T4 under UNK-012.
 
-### ADR-010 — Eval location in VS Code (reserved)
-- Filled by 004 T1 under UNK-011.
+### ADR-010 — Eval location in VS Code: extension host
+- **Date:** 2026-10-08 · **Confirmation:** delegated under UNK-011 (Gate review 004-T1 PASS on PR #22; authority: UNK-005 owner message cmsg_01Wz9SKzwQD2da69nuNGPcid3BtyRnySyH8Wa69pcGe3wL)
+- **Decision:** In VS Code, code that needs eval (Ajv now, JS/Lodash queries in spec 011) runs in the extension host (option B). The webview receives results by message; its CSP keeps no `unsafe-eval` and gains no `frame-src`.
+- **Evidence:** `spikes/eval-location/REPORT.md` and `results/` (spike 004 T1): in a custom editor webview with the 003 T4 CSP, a child frame loaded from `dist/` never loads (its navigation is not served locally and goes to the network), and srcdoc/blob: frames inherit the page CSP so eval throws, on VS Code 1.141.0 and 1.95.3; Ajv in the host validates a 1 MB document against a 200-rule schema in ~17 ms per run with errors equal to a Node reference. The same frame bundle works as an MV3 sandbox page in Chromium 141.
+- **Consequences:** 004 T2 builds validation in the extension host, results keyed by `docVersion`. `packages/sandbox` is not used by the VS Code extension; the Chrome app (spec 020) can use it as an MV3 sandbox page. Spec 011 must isolate user query code, which in the host would otherwise have Node's file and network access.
