@@ -11,7 +11,8 @@
 // - `json`: double quotes, quoted keys, no trailing commas, whatever the style says.
 // - `jsonc`: double quotes and quoted keys; trailing commas follow the style.
 // - `json5`: strings use `style.quote`; keys are unquoted when `unquotedKeys` and the key is an ASCII
-//   identifier name; `Infinity`, `-Infinity` and `NaN` are written as JSON5 literals.
+//   identifier name; `Infinity`, `-Infinity` and `NaN` are written as JSON5 literals; U+2028 and
+//   U+2029 in strings are escaped.
 // Numbers are written as `JSON.stringify` would, except `-0`, written `-0` so it reads back as -0.
 // A value the format cannot hold (a non-finite number in JSON or JSONC, `undefined`, a function, a
 // symbol or a bigint) throws a `TypeError` rather than being dropped or changed.
@@ -20,6 +21,8 @@ import type { Format, Style } from './types.js';
 /** Keys JSON5 can write without quotes: an ES5 IdentifierName. Limited to ASCII so the check does
  *  not depend on a Unicode version; other keys are quoted. */
 const identifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+const escapeLineSeparator = (c: string): string => `\\u${c.charCodeAt(0).toString(16)}`;
 
 export function stringify(data: unknown, format: Format, style: Style): string {
   const json5 = format === 'json5';
@@ -30,7 +33,11 @@ export function stringify(data: unknown, format: Format, style: Style): string {
   const eol = style.eol;
 
   const string = (s: string): string => {
-    const json = JSON.stringify(s);
+    // JSON5 escapes U+2028 and U+2029: older ECMAScript reads them as line breaks, and the json5
+    // package warns on them.
+    const json = json5
+      ? JSON.stringify(s).replace(/[\u2028\u2029]/g, escapeLineSeparator)
+      : JSON.stringify(s);
     if (quote === '"') return json;
     // Swap the quote character: `\"` becomes `"` and `'` becomes `\'`. Matching `\\.` first keeps
     // an escaped backslash from being read as the start of `\"`.

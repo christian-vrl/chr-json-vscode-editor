@@ -121,6 +121,12 @@ describe('stringify layout', () => {
     );
   });
 
+  it('escapes U+2028 and U+2029 in JSON5 strings only', () => {
+    const s = style({ indent: 0, finalNewline: false });
+    expect(stringify('a\u2028b\u2029', 'json5', s)).toBe('"a\\u2028b\\u2029"');
+    expect(stringify('a\u2028', 'json', s)).toBe('"a\u2028"');
+  });
+
   it('keeps JSON and JSONC double-quoted with quoted keys whatever the style says', () => {
     const s = style({ quote: "'", unquotedKeys: true, indent: 0, finalNewline: false });
     expect(stringify({ a: "'" }, 'json', s)).toBe(`{"a":"'"}`);
