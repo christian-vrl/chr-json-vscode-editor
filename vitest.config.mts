@@ -13,6 +13,7 @@ export default defineConfig({
             'tests/licenses/**/*.test.ts',
             'tests/offline/**/*.test.ts',
             'tests/gate-review/**/*.test.ts',
+            'tests/ci/**/*.test.ts',
           ],
         },
       },
