@@ -4,12 +4,14 @@
 import path from 'node:path';
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier/flat';
-import { defineConfig, includeIgnoreFile } from 'eslint/config';
+import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
   includeIgnoreFile(path.join(import.meta.dirname, '.gitignore'), '.gitignore'),
+  // Vendored json5-tests fixtures (002 T5): some `.js` cases are invalid on purpose.
+  globalIgnores(['packages/core/test/fixtures/json5-tests/']),
   {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [js.configs.recommended],

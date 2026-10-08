@@ -27,7 +27,7 @@ const style = (overrides: Partial<Style> = {}): Style => ({
 });
 
 describe('criterion 6: parse(stringify(x, format, style)).data deep-equals x', () => {
-  for (const format of ['json', 'jsonc'] as const) {
+  for (const format of ['json', 'jsonc', 'json5'] as const) {
     it(`${format}: ${RUNS} runs, seed ${SEED}`, () => {
       fc.assert(
         fc.property(dataArbitrary(format), styleArbitrary, (data, s) => {
@@ -35,23 +35,15 @@ describe('criterion 6: parse(stringify(x, format, style)).data deep-equals x', (
           const parsed = getAdapter(format).parse(text);
           expect(parsed.diagnostics).toEqual([]);
           expectSameData(parsed.data, data);
+          // The format's reference parser agrees: JSON.parse, and the json5 package (the reference
+          // the golden corpus uses for criterion 2).
           if (format === 'json') expectSameData(JSON.parse(text), data);
+          if (format === 'json5') expectSameData(JSON5.parse(text), data);
         }),
         { seed: SEED, numRuns: RUNS },
       );
     });
   }
-
-  // There is no JSON5 adapter until 002 T5 (ADR-009), so the `json5` package (the reference the
-  // golden corpus already uses for criterion 2) parses the output. T5 adds its adapter here.
-  it(`json5: ${RUNS} runs, seed ${SEED} (parsed with the json5 package)`, () => {
-    fc.assert(
-      fc.property(dataArbitrary('json5'), styleArbitrary, (data, s) => {
-        expectSameData(JSON5.parse(stringify(data, 'json5', s)), data);
-      }),
-      { seed: SEED, numRuns: RUNS },
-    );
-  });
 
   it('json with no final newline and a space indent is JSON.stringify with that indent', () => {
     fc.assert(

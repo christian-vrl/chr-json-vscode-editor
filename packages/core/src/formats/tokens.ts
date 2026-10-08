@@ -1,7 +1,8 @@
 // Token stream of a JSON or JSONC text, comments and line breaks included, from jsonc-parser's
 // scanner (node_modules/jsonc-parser/lib/esm/main.d.ts:5 `createScanner`, :15 `SyntaxKind`).
 // `SyntaxKind` is an ambient const enum, which `isolatedModules` cannot read, so its values are
-// repeated here.
+// repeated here. The JSON5 parser (`json5-parser.ts`) emits the same kinds, with `Unknown` for an
+// unquoted key.
 import { createScanner } from 'jsonc-parser';
 
 export const Kind = {
@@ -10,10 +11,17 @@ export const Kind = {
   OpenBracket: 3,
   CloseBracket: 4,
   Comma: 5,
+  Colon: 6,
+  NullKeyword: 7,
+  TrueKeyword: 8,
+  FalseKeyword: 9,
+  StringLiteral: 10,
+  NumericLiteral: 11,
   LineComment: 12,
   BlockComment: 13,
   LineBreak: 14,
   Whitespace: 15,
+  Unknown: 16,
   EOF: 17,
 } as const;
 
