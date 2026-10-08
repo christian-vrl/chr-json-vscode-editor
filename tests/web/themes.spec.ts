@@ -24,25 +24,28 @@ function loadTheme(name: string): CapturedTheme {
   return JSON.parse(readFileSync(path.join(THEME_DIR, `${name}.json`), 'utf8')) as CapturedTheme;
 }
 
-/** Applies a captured theme the way a VS Code webview does: variables on <html>, class and data on <body>. */
+/**
+ * Applies a captured theme the way a VS Code webview does: variables on <html>, class and data on
+ * <body>. Init scripts run before the parser creates either element, so this waits for them.
+ */
 async function applyTheme(page: Page, theme: CapturedTheme): Promise<void> {
   await page.addInitScript((captured: CapturedTheme) => {
-    for (const [name, value] of Object.entries(captured.variables)) {
-      document.documentElement.style.setProperty(name, value);
-    }
-    const styleBody = (body: HTMLElement) => {
-      body.className = captured.bodyClass;
-      Object.assign(body.dataset, captured.dataset);
+    const apply = (): boolean => {
+      const html = document.documentElement;
+      if (!html) return false;
+      for (const [name, value] of Object.entries(captured.variables)) {
+        html.style.setProperty(name, value);
+      }
+      if (!document.body) return false;
+      document.body.className = captured.bodyClass;
+      Object.assign(document.body.dataset, captured.dataset);
+      return true;
     };
-    if (document.body) styleBody(document.body);
-    else {
-      const observer = new MutationObserver(() => {
-        if (!document.body) return;
-        observer.disconnect();
-        styleBody(document.body);
-      });
-      observer.observe(document.documentElement, { childList: true });
-    }
+    if (apply()) return;
+    const observer = new MutationObserver(() => {
+      if (apply()) observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
   }, theme);
 }
 
@@ -58,6 +61,16 @@ function computedColor(page: Page, value: string): Promise<string> {
   }, value);
 }
 
+async function expectContrast(page: Page): Promise<void> {
+  const results = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
+  const failures = results.violations.flatMap((violation) =>
+    violation.nodes.map((node) => `${node.target.join(' ')}: ${node.failureSummary ?? ''}`),
+  );
+  expect(failures).toEqual([]);
+  // The rule really ran and checked text, so an empty violation list means something.
+  expect(results.passes.flatMap((pass) => pass.nodes).length).toBeGreaterThan(0);
+}
+
 for (const name of THEMES) {
   const theme = loadTheme(name);
 
@@ -68,16 +81,17 @@ for (const name of THEMES) {
         await page.goto(`/?mode=${mode}`);
         await expect(page.locator(MODE_ROOT[mode])).toBeVisible();
         await expect(page.locator(MODE_ROOT[mode])).toContainText('COBOL');
-
-        const results = await new AxeBuilder({ page }).withRules(['color-contrast']).analyze();
-        const failures = results.violations.flatMap((violation) =>
-          violation.nodes.map((node) => `${node.target.join(' ')}: ${node.failureSummary ?? ''}`),
-        );
-        expect(failures).toEqual([]);
-        // The rule really ran and checked text, so an empty violation list means something.
-        expect(results.passes.flatMap((pass) => pass.nodes).length).toBeGreaterThan(0);
+        await expectContrast(page);
       });
     }
+
+    test('tree mode with a selected value passes axe color-contrast', async ({ page }) => {
+      await applyTheme(page, theme);
+      await page.goto('/');
+      await page.locator(MODE_ROOT.tree).getByText('COBOL').click();
+      await expect(page.locator(`${MODE_ROOT.tree} .jse-selected`).first()).toBeVisible();
+      await expectContrast(page);
+    });
 
     test('the editor and toolbar take their colours from the theme', async ({ page }) => {
       await applyTheme(page, theme);
