@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "pnpm -r run build",
-    "lint": "node scripts/not-yet.mjs lint \"001 T3\"",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
     "test:unit": "node scripts/not-yet.mjs test:unit \"001 T4\"",
     "test:golden": "node scripts/not-yet.mjs test:golden \"001 T4\"",
     "test:e2e": "node scripts/not-yet.mjs test:e2e \"001 T5\"",
@@ -20,6 +21,12 @@
     "package": "node scripts/not-yet.mjs package \"001 T5\""
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "@eslint/js": "10.0.1",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.1"
   }
 }

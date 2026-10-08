@@ -1,0 +1,12 @@
+# Prettier reads .gitignore too; these are tracked files it must not touch.
+
+# Golden-master fixtures are compared byte for byte (constitution D3).
+tests/golden/
+
+# Owner-reserved method files (AGENTS.md rule 7).
+governance/
+
+# Prose is wrapped by hand; Prettier would rewrap tables and lists across the specs.
+*.md
+
+pnpm-lock.yaml
