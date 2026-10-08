@@ -1,0 +1,18 @@
+[
+  {
+    "instancePath": "/minItems",
+    "keyword": "minimum"
+  },
+  {
+    "instancePath": "/type",
+    "keyword": "anyOf"
+  },
+  {
+    "instancePath": "/type",
+    "keyword": "enum"
+  },
+  {
+    "instancePath": "/type",
+    "keyword": "type"
+  }
+]

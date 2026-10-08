@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "type": "object",
+  "required": ["n", "id"],
+  "properties": {
+    "n": {
+      "type": "number",
+      "maximum": 10,
+      "exclusiveMaximum": true
+    }
+  }
+}

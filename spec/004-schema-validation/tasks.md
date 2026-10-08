@@ -9,7 +9,7 @@
 ## Phase B — Build (risk-free / additive)
 - [x] **T2** Implement the chosen eval location. — *gate: spec 003 criterion 6 still green; one sample schema validates in e2e*
 - [x] **T3** Association resolver per criterion 1; confirm the `json5.schemas` setting name from the Better JSON5 extension's `package.json` and cite it. `parallel` — *gate: criterion 1 table test green*
-- [ ] **T4** Ajv / `Ajv2019` / `Ajv2020` selected per UNK-017, `ajv-formats`, bundled meta-schemas, no `loadSchema`; fixtures in `tests/schema/`. — *gate: criteria 2, 3 green*
+- [x] **T4** Ajv / `Ajv2019` / `Ajv2020` selected per UNK-017, `ajv-formats`, bundled meta-schemas, no `loadSchema`; fixtures in `tests/schema/`. — *gate: criteria 2, 3 green*
 - [ ] **T5** Inline errors in tree, table, text for all three formats. — needs: 003 T5 — *gate: criterion 5 green*
 
 ## Off the critical path

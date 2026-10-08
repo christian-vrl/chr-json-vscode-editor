@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "row": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "items": false
+    },
+    "when": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "ip": {
+      "type": "string",
+      "format": "ipv4"
+    },
+    "tags": {
+      "type": "array",
+      "contains": {
+        "const": "x"
+      },
+      "minContains": 2
+    }
+  },
+  "dependentSchemas": {
+    "ip": {
+      "required": ["when"]
+    }
+  },
+  "unevaluatedProperties": false
+}

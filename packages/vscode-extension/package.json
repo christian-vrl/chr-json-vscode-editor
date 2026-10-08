@@ -100,6 +100,7 @@
     "@chr-json-editor/app-shell": "workspace:*",
     "@chr-json-editor/core": "workspace:*",
     "ajv": "8.20.0",
+    "ajv-draft-04": "1.0.0",
     "ajv-formats": "3.0.1"
   },
   "devDependencies": {
