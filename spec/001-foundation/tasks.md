@@ -20,7 +20,7 @@
 - [x] **T9** `gate-review` workflow: on `pull_request` and `issue_comment`, pass only if a comment `Gate review <NNN>-<Tn>: PASS @ <head sha>` exists from a collaborator with write access for the current head SHA. — *gate: criterion 4 shown on two test PRs (one without, one with the comment)*
 
 ## Phase D — CI (requires approval for repo settings)
-- [ ] **T10** `.github/workflows/ci.yml` running every standard script plus the expected-failure fixture jobs; uploads the `.vsix` as an artifact. — *gate: green on `main`*
+- [x] **T10** `.github/workflows/ci.yml` running every standard script plus the expected-failure fixture jobs; uploads the `.vsix` as an artifact. — *gate: green on `main`*
 - [~] **T11** When the repo turns public after the beta (UNK-001), the owner (or an agent with the owner's go-ahead) protects `main`: required checks = CI jobs + `gate-review`; allow auto-merge (UNK-006). Until then agents merge only when CI is green and `gate-review` passes. — *gate: `gh api repos/christian-vrl/chr-json-vscode-editor/branches/main/protection` lists the required checks*
 
 ## Off the critical path
