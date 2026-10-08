@@ -23,4 +23,7 @@ governance/
 # Prose is wrapped by hand; Prettier would rewrap tables and lists across the specs.
 *.md
 
+# Spike measurements, written by the spike scripts as JSON.stringify output.
+spikes/*/results/
+
 pnpm-lock.yaml
