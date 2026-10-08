@@ -21,8 +21,10 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
 - `load.test.ts` — the loader. It rejects folders under `tests/golden/` that are not a format and
   files directly inside a format folder.
 - `actions.test.ts` — criterion 8 (002 T10): cases tagged `compact` or `sort` run through the
-  format adapter's `compact` / `sort`, are byte-equal to `expected`, and keep every input comment.
-  `apply.test.ts` skips these cases. Cases tagged `data-diff` (R14) come with 002 T9's `diff`.
+  format adapter's `compact` / `sort`, are byte-equal to `expected`, and keep every input comment
+  not listed in `removedComments`.
+  `data-diff` cases (R14) apply `diff(parse(input).data, value)` with `applyPatch`. `apply.test.ts`
+  skips these cases.
 - `coverage.test.ts` — criterion 4: every case carries all seven tags with known values, and every
   grid cell has a case per format.
 - `corpus.test.ts` — checks the hand-written bytes against references independent of our format
@@ -41,7 +43,11 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
 A case tagged `compact`, `sort` or `data-diff` holds one action in `patch.json` instead of an
 RFC 6902 patch: `[{"op": "compact", "path": ""}]`, or `[{"op": "sort", "path": "<container>",
 "property": "<pointer inside each item>", "direction": "asc" | "desc"}]` (`property` and
-`direction` optional, as in `SortOptions`). Its `location` tag names where the action's container
+`direction` optional, as in `SortOptions`), or `[{"op": "data-diff", "path": "", "value": <new
+data>, "removedComments": [...]}]`: the data a data-level action (transform, repair, compare,
+CSV merge) produced, and the input comments attached to members it removes (R5, UNK-015), as
+written; `corpus.test.ts` checks that expected parses to `value` and keeps every other comment.
+`value` holds no `-0`, which R8 writes as `0`. Its `location` tag names where the action's container
 is: `root` for the root container (`path` `""`) or a member of it, `nested-object` deeper.
 
 ## Tags (`case.json`)

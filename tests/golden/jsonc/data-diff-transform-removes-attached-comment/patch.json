@@ -1,0 +1,1 @@
+[{"op": "data-diff", "path": "", "value": {"name": "api", "port": 9090, "tags": ["a", "c", "d"]}, "removedComments": ["/* legacy flag, to be dropped */"]}]

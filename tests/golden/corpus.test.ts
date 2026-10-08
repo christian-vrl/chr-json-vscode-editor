@@ -5,8 +5,9 @@
 // - R10: expected keeps the input's line endings and final newline (R15's exception aside);
 // - strict JSON stays strict JSON (R6, R4);
 // - the case.json tags describe the input and patch (facts.ts);
-// - whole-document actions (R12, R13): `compact` keeps the data and its key order, `sort` gives the
-//   data the library's sort gives (sort-reference.ts), and both keep every comment.
+// - whole-document actions (R12–R14): `compact` keeps the data and its key order, `sort` gives the
+//   data the library's sort gives (sort-reference.ts), and both keep every comment; `data-diff`
+//   gives the action's new data and keeps every comment it does not list as removed.
 // JSON5.parse reads all three formats as data: JSONC's comments and trailing commas are JSON5.
 import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
 import JSON5 from 'json5';
@@ -46,6 +47,18 @@ describe.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))('%s', (_,
       // A `//` comment may become a block comment where it no longer ends its line (R13, R12).
       const comments = (text: string) => commentsOf(text).map(asBlock).sort();
       expect(comments(c.expected)).toEqual(comments(c.input));
+    });
+  } else if (c.tags.op === 'data-diff') {
+    it('expected has the new data and the comments not listed as removed (R14)', () => {
+      const action = c.patch[0] as unknown as { value: unknown; removedComments?: string[] };
+      expect(JSON5.parse(c.expected)).toEqual(action.value);
+      const removed = action.removedComments ?? [];
+      for (const comment of removed) expect(commentsOf(c.input)).toContain(comment);
+      expect(commentsOf(c.expected).sort()).toEqual(
+        commentsOf(c.input)
+          .filter((comment) => !removed.includes(comment))
+          .sort(),
+      );
     });
   } else if (c.tags.op === 'test-fail') {
     it('has a patch that fails and an unchanged expected (R9)', () => {

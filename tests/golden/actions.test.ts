@@ -1,8 +1,10 @@
 // Spec 002 criterion 8 (002 T10): golden cases of whole-document actions. `compact` (R12) and
-// `sort` (R13) run through the case's format adapter; the output is byte-equal to `expected`, and
-// every comment of the input is in the output (none is attached to a removed member, since these
-// actions remove none). `pnpm test:golden -- --op compact,sort` runs only these cases.
-import { getAdapter } from '../../packages/core/src/index.js';
+// `sort` (R13) run through the case's format adapter; `data-diff` (R14) applies
+// `diff(parse(input).data, value)` with `applyPatch`. The output is byte-equal to `expected`, and
+// every comment of the input is in the output except those the action lists in `removedComments`
+// (attached to members the data change removes; compact and sort remove none).
+// `pnpm test:golden -- --op compact,sort,data-diff` runs only these cases.
+import { diff, getAdapter } from '../../packages/core/src/index.js';
 import { describe, expect, it } from 'vitest';
 import { commentsOf } from './facts.js';
 import { filterFromEnv, selectGoldenCases } from './filter.js';
@@ -20,6 +22,8 @@ function run(c: GoldenCase): string {
       return adapter.compact(c.input);
     case 'sort':
       return adapter.sort(c.input, action);
+    case 'data-diff':
+      return adapter.applyPatch(c.input, diff(adapter.parse(c.input).data, action.value));
     default:
       throw new Error(`no runner for op "${c.tags.op}"`);
   }
@@ -41,10 +45,12 @@ describe.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))('%s', (_,
     expect(run(c)).toBe(c.expected);
   });
 
-  it('keeps every comment of the input', () => {
+  it('keeps every comment of the input not attached to a removed member', () => {
     const output = commentsOf(run(c)).map((comment) =>
       commentText(comment).replace(/\*\\\//g, '*/'),
     );
-    for (const comment of commentsOf(c.input)) expect(output).toContain(commentText(comment));
+    const removed = (c.patch[0]!.removedComments as string[] | undefined) ?? [];
+    for (const comment of commentsOf(c.input).filter((k) => !removed.includes(k)))
+      expect(output).toContain(commentText(comment));
   });
 });

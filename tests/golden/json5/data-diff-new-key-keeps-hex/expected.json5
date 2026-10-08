@@ -1,0 +1,10 @@
+// app config
+{
+  name: 'demo', // shown in title
+  limits: {
+    max: 0x10,
+    // per minute
+    rate: 10,
+  },
+  debug: false,
+}
