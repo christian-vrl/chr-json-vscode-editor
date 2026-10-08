@@ -26,6 +26,8 @@ function median(values) {
 }
 
 const ms = (value) => Math.round(value).toLocaleString('en-US');
+const gib = (bytes) => (bytes / 2 ** 30).toFixed(1);
+const mib = (bytes) => Math.round(bytes / 2 ** 20).toLocaleString('en-US');
 const cell = (runs) => `**${ms(median(runs))}** (${runs.map(ms).join(', ')})`;
 
 const commit = process.env.BENCH_COMMIT || process.env.GITHUB_SHA || 'local';
@@ -47,8 +49,8 @@ add(
   '',
   `- Where: ${runUrl ? `GitHub Actions, [run ${process.env.GITHUB_RUN_ID}](${runUrl})` : 'local machine (not the CI runner)'}; commit \`${commit}\`.`,
   `- Machine: ${process.env.RUNNER_OS ?? os.type()} ${os.arch()} (\`${process.env.ImageOS ?? os.release()}\`), ${cpus.length} × ${cpus[0]?.model ?? 'unknown CPU'}, ${Math.round(os.totalmem() / 2 ** 30)} GiB RAM.`,
-  `- Node ${results.node}, \`@chr-json-editor/core\` built from that commit, called directly (no editor, no webview, no message passing).${results.gc ? ' The heap is collected (`--expose-gc`) before every timed call.' : ''}`,
-  `- ${results.runs} runs per cell after a warm-up on a 256 KiB document per format; each cell is **median** (run 1, run 2, run 3), in milliseconds.`,
+  `- Node ${results.node}, \`@chr-json-editor/core\` built from that commit, called directly (no editor, no webview, no message passing). Each format and size runs in its own process (\`--expose-gc\`, heap collected before every timed call; \`--max-old-space-size=${results.heapMiB}\`, Node's default heap limit on this machine: ${gib(results.defaultHeapLimitBytes)} GiB, see Memory).`,
+  `- ${results.runs} runs per cell after a warm-up on a 256 KiB document; each cell is **median** (run 1, run 2, run 3), in milliseconds.`,
   '',
   '## Files',
   '',
@@ -100,6 +102,26 @@ for (const f of results.formats) {
 
 add(
   '',
+  '## Memory',
+  '',
+  '**Retained heap** is what one parse result (data, tree, tokens, style, diagnostics) keeps alive',
+  'after a full collection, so what a host holding the parsed document pays. **Max RSS** is the',
+  'peak resident memory of the measuring process over the whole cell (source text, every parse and',
+  "edit), in MiB. The heap ceiling is raised because with the GitHub runner's default (about 2 GiB)",
+  'the first run of this benchmark ran out of heap in the json 50 MiB cell',
+  '([run 37852960823](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37852960823)).',
+  '',
+  `| Size | ${results.formats.map((f) => `${f.format} retained heap | ${f.format} max RSS`).join(' | ')} |`,
+  `|---|${results.formats.map(() => '---|---|').join('')}`,
+);
+for (const [i, s] of results.formats[0].sizes.entries()) {
+  add(
+    `| ${s.mib} MiB | ${results.formats.map((f) => `${mib(f.sizes[i].retainedHeapBytes)} | ${mib(f.sizes[i].maxRssBytes)}`).join(' | ')} |`,
+  );
+}
+
+add(
+  '',
   "## Against UNK-014's edit budget (< 500 ms)",
   '',
   'applyPatch is only the host part of an edit: the UI, the message and `workspace.applyEdit` come on',
@@ -132,8 +154,7 @@ add(
   'parses twice, so edit time grows with file size like parse time does.',
   '',
   'To reproduce: `pnpm --filter @chr-json-editor/core build`, then',
-  '`node --expose-gc bench/core/run.mjs bench/.results/core.json && node bench/core/report.mjs',
-  'bench/.results/core.json bench/RESULTS.md` (or the `bench` workflow, `.github/workflows/bench.yml`).',
+  '`pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`).',
 );
 
 writeFileSync(out, lines.join('\n') + '\n');

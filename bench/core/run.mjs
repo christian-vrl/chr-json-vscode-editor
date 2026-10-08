@@ -2,12 +2,14 @@
 // jsonc, json5) and size (1, 10, 50 MiB), times `parse` and one-operation `applyPatch` calls
 // (replace, add, remove, move) on `@chr-json-editor/core` in Node, with no editor around it.
 // Writes the raw results as JSON; `bench/core/report.mjs` turns them into bench/RESULTS.md.
-// Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Run with
-// `--expose-gc` so every timed call starts from a collected heap.
+// Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Each format and size
+// runs in its own Node process with `--expose-gc`, so every timed call starts from a collected heap.
 //
-//   node --expose-gc bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB)
+//   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB)
+import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';
+import { fileURLToPath } from 'node:url';
 import { getAdapter } from '@chr-json-editor/core';
 import { documentText, LAST_MARKER, MIB } from '../generate.mjs';
 
@@ -123,17 +125,36 @@ function time(fn) {
   return { ms: performance.now() - start, result };
 }
 
+/** Checks the document parses to `records` records and returns the heap that one parse result
+ *  keeps alive (what a host holding it pays), after a full collection. */
+function checkAndMeasureRetained(adapter, text, records, label) {
+  gc();
+  const before = process.memoryUsage().heapUsed;
+  const parsed = adapter.parse(text);
+  gc();
+  const bytes = process.memoryUsage().heapUsed - before;
+  const errors = parsed.diagnostics.filter((d) => d.severity === 'error');
+  if (errors.length) throw new Error(`${label} does not parse: ${errors[0].message}`);
+  if (!Array.isArray(parsed.data) || parsed.data.length !== records) {
+    throw new Error(`${label}: expected ${records} records`);
+  }
+  return bytes;
+}
+
+/** One format and size, in a process of its own (see below). */
 function measure(format, mib) {
   const bytes = mib * MIB;
   const { text, records } = benchDocument(format, bytes);
   const adapter = getAdapter(format);
-  const parsed = adapter.parse(text);
-  const errors = parsed.diagnostics.filter((d) => d.severity === 'error');
-  if (errors.length) throw new Error(`${format} ${mib} MiB does not parse: ${errors[0].message}`);
-  if (!Array.isArray(parsed.data) || parsed.data.length !== records) {
-    throw new Error(`${format} ${mib} MiB: expected ${records} records`);
+  // Warm the JIT on a small document so the first measured run is not the cold one.
+  const warm = benchDocument(format, MIB / 4);
+  for (let i = 0; i < 3; i++) {
+    adapter.parse(warm.text);
+    for (const patch of Object.values(operations(warm.records)))
+      adapter.applyPatch(warm.text, patch);
   }
-  const result = { mib, bytes, records, parse: [] };
+  const retained = checkAndMeasureRetained(adapter, text, records, `${format} ${mib} MiB`);
+  const result = { format, mib, bytes, records, retainedHeapBytes: retained, parse: [] };
   for (let run = 0; run < RUNS; run++) result.parse.push(time(() => adapter.parse(text)).ms);
   for (const [name, patch] of Object.entries(operations(records))) {
     result[name] = [];
@@ -143,38 +164,58 @@ function measure(format, mib) {
       result[name].push(ms);
     }
   }
-  console.log(
-    `bench core: ${format} ${mib} MiB parse ${result.parse.map(Math.round).join('/')} ms, ` +
-      `replace ${result.replace.map(Math.round).join('/')} ms, move ${result.move.map(Math.round).join('/')} ms`,
-  );
+  // Peak resident memory of this process (KiB on Linux): the source text, the parse and the edits.
+  result.maxRssBytes = process.resourceUsage().maxRSS * 1024;
   return result;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Heap ceiling for the measuring processes. Node's default (about 2 GiB on the 8 GiB runner) is too
+// small for one 50 MiB parse; the default is recorded so the report can say which sizes exceed it.
+const HEAP_MIB = 6144;
+const here = fileURLToPath(import.meta.url);
+
+if (process.argv[2] === '--child') {
+  const [format, mib] = process.argv.slice(3);
+  process.stdout.write(JSON.stringify(measure(format, Number(mib))) + '\n');
+} else if (import.meta.url === `file://${process.argv[1]}`) {
   const [out, ...sizeArgs] = process.argv.slice(2);
   if (!out) {
-    console.error('usage: node --expose-gc bench/core/run.mjs <out.json> [sizes...]');
+    console.error('usage: node bench/core/run.mjs <out.json> [sizes...]');
     process.exit(2);
   }
-  if (!globalThis.gc) console.warn('bench core: run with --expose-gc for stable numbers');
   const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
-  // Warm the JIT on a small document per format so the first measured run is not the cold one.
-  for (const format of FORMATS) {
-    const { text, records } = benchDocument(format, MIB / 4);
-    const adapter = getAdapter(format);
-    for (let i = 0; i < 3; i++) {
-      adapter.parse(text);
-      for (const patch of Object.values(operations(records))) adapter.applyPatch(text, patch);
-    }
-  }
+  const defaultHeapLimitBytes = Number(
+    execFileSync(
+      process.execPath,
+      ['-p', 'require("node:v8").getHeapStatistics().heap_size_limit'],
+      {
+        encoding: 'utf8',
+      },
+    ).trim(),
+  );
+  // One process per format and size, so the heap, the JIT and maxRSS of one cell never carry over.
   const formats = FORMATS.map((format) => ({
     format,
-    sizes: sizes.map((mib) => measure(format, mib)),
+    sizes: sizes.map((mib) => {
+      const stdout = execFileSync(
+        process.execPath,
+        ['--expose-gc', `--max-old-space-size=${HEAP_MIB}`, here, '--child', format, String(mib)],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 20 },
+      );
+      const result = JSON.parse(stdout.trim().split('\n').pop());
+      const round = (runs) => runs.map(Math.round).join('/');
+      console.log(
+        `bench core: ${format} ${mib} MiB parse ${round(result.parse)} ms, replace ${round(result.replace)} ms, ` +
+          `move ${round(result.move)} ms, retained heap ${Math.round(result.retainedHeapBytes / MIB)} MiB, ` +
+          `max RSS ${Math.round(result.maxRssBytes / MIB)} MiB`,
+      );
+      return result;
+    }),
   }));
   writeFileSync(
     out,
     JSON.stringify(
-      { node: process.version, runs: RUNS, gc: Boolean(globalThis.gc), formats },
+      { node: process.version, runs: RUNS, heapMiB: HEAP_MIB, defaultHeapLimitBytes, formats },
       null,
       2,
     ) + '\n',

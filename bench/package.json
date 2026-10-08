@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "bench": "node run.mjs",
-    "bench:core": "node --expose-gc core/run.mjs .results/core.json && node core/report.mjs .results/core.json RESULTS.md"
+    "bench:core": "node core/run.mjs .results/core.json && node core/report.mjs .results/core.json RESULTS.md"
   },
   "devDependencies": {
     "@chr-json-editor/core": "workspace:*",
