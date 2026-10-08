@@ -18,7 +18,8 @@ describe('golden corpus', () => {
   it.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))(
     '%s loads every field',
     (_, c) => {
-      expect(c.input.length).toBeGreaterThan(0);
+      // R15 cases edit a text with no value, which may be empty.
+      if (c.tags.location !== 'document') expect(c.input.length).toBeGreaterThan(0);
       expect(c.expected.length).toBeGreaterThan(0);
       expect(c.patch.length).toBeGreaterThan(0);
       expect(typeof c.tags.op).toBe('string');

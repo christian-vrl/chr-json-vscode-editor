@@ -1,7 +1,7 @@
-// The edit layer shared by the format adapters (002 T3, 002 T5): `add`, `replace` and `remove` as
-// minimal text edits computed from a parse tree's offsets and its token stream, following rules
-// R1–R6, R8 and R10 of spec 002 and the readings in tests/golden/README.md. Each adapter supplies
-// the tree and tokens from its own parser, and a `Writer` for the bytes it adds (R4, R8).
+// The edit layer shared by the format adapters (002 T3, 002 T5, 002 T6): every RFC 6902 operation
+// as minimal text edits computed from a parse tree's offsets and its token stream, following rules
+// R1–R10 and R15 of spec 002 and the readings in tests/golden/README.md. Each adapter supplies the
+// tree and tokens from its own parser, and a `Writer` for the bytes it adds (R4, R8).
 import { parseIndex, parsePointer } from './pointer.js';
 import { isComment, Kind, tokenAt, tokenFrom, type Token } from './tokens.js';
 import { PatchError, type FormatNode, type PatchOperation, type Style } from './types.js';
@@ -26,7 +26,8 @@ interface Edit {
 export class Doc {
   constructor(
     readonly text: string,
-    readonly root: FormatNode,
+    /** Undefined when the text holds no value: empty, white space or comments only (R15). */
+    readonly root: FormatNode | undefined,
     readonly tokens: readonly Token[],
     readonly style: Style,
     readonly writer: Writer,
@@ -120,7 +121,7 @@ export class Doc {
   }
 }
 
-/** The node `tokens` lead to, with its parent container and its member node (the property for an
+/** The node a pointer leads to, with its parent container and its member node (the property for an
  *  object member, the value for an array item). */
 interface Target {
   container?: FormatNode;
@@ -171,7 +172,113 @@ function resolve(root: FormatNode, path: string): Target {
   throw new Error('unreachable');
 }
 
-function replace(doc: Doc, value: FormatNode, newValue: unknown, container?: FormatNode): string {
+/** The existing value at `path`; a `PatchError` when there is none. */
+function existing(root: FormatNode, path: string): Target & { value: FormatNode } {
+  const target = resolve(root, path);
+  if (!target.value) throw new PatchError(`path "${path}" does not exist`);
+  return target as Target & { value: FormatNode };
+}
+
+/** The bytes a new member is written with. `add` and `copy` write data (R8, README reading 4);
+ *  `move` carries the member's own text and its comments (R7, README reading 3). */
+interface Piece {
+  /** The value for a member at `indent`, in a multi-line container or not. */
+  value(indent: string, multiLine: boolean): string;
+  /** Comment lines that go above the member, each indented with `indent` and ending its line. */
+  above(indent: string): string;
+  /** The same comments for a member that shares its line with others: block comments, each
+   *  followed by a space. */
+  aboveInline: string;
+  /** Comments after the value on its line, each preceded by white space. `inline` converts line
+   *  comments to block comments, for a member that has more text after it on its line. */
+  after(inline: boolean): string;
+}
+
+function dataPiece(doc: Doc, value: unknown): Piece {
+  return {
+    value: (indent, multiLine) => doc.serialize(value, indent, multiLine),
+    above: () => '',
+    aboveInline: '',
+    after: () => '',
+  };
+}
+
+/** A comment that can share its line with code: a line comment becomes a block comment, with a `*\/`
+ *  in its text escaped as R12 does. */
+function blockComment(comment: string): string {
+  return comment.startsWith('//') ? `/*${comment.slice(2).replace(/\*\//g, '*\\/')} */` : comment;
+}
+
+/** The text of `start`–`end` with the line indentation `from` replaced by `to`: on the first line
+ *  when `start` begins a line, and after each line break between tokens. Line breaks inside strings
+ *  and comments are bytes of those tokens and stay as written. */
+function relocate(doc: Doc, start: number, end: number, from: string, to: string): string {
+  let out = '';
+  let lineStart = doc.lineStart(start) === start;
+  for (let i = tokenFrom(doc.tokens, start); i < doc.tokens.length; i++) {
+    const t = doc.tokens[i]!;
+    if (t.offset >= end) break;
+    let text = doc.text.slice(t.offset, Math.min(t.end, end));
+    if (lineStart && t.kind === Kind.Whitespace && text.startsWith(from)) {
+      text = to + text.slice(from.length);
+    } else if (lineStart && t.kind !== Kind.Whitespace && t.kind !== Kind.LineBreak) {
+      if (from === '') text = to + text;
+    }
+    lineStart = t.kind === Kind.LineBreak;
+    out += text;
+  }
+  return out;
+}
+
+function commentsIn(doc: Doc, start: number, end: number): string[] {
+  const comments: string[] = [];
+  for (let i = tokenFrom(doc.tokens, start); i < doc.tokens.length; i++) {
+    const t = doc.tokens[i]!;
+    if (t.offset >= end) break;
+    if (isComment(t)) comments.push(doc.text.slice(t.offset, t.end));
+  }
+  return comments;
+}
+
+/** The member at `target` as `move` carries it: its value's text as written, with the comments
+ *  `remove` takes away with it (UNK-008), re-indented for its new place (R1, R7). */
+function movedPiece(doc: Doc, target: Target & { value: FormatNode }): Piece {
+  const member = target.member ?? target.value;
+  const from = doc.indentAt(member.offset);
+  let start = target.value.offset;
+  if (member.type === 'property') {
+    // Comments between the key and the value travel with the value.
+    let i = tokenFrom(doc.tokens, children(member)[0]!.offset + children(member)[0]!.length);
+    while (doc.tokens[i]!.kind !== Kind.Colon) i++;
+    i++;
+    while (doc.tokens[i]!.kind === Kind.Whitespace || doc.tokens[i]!.kind === Kind.LineBreak) i++;
+    start = doc.tokens[i]!.offset;
+  }
+  const end = member.offset + member.length;
+  const ownLines = target.container !== undefined && doc.ownLines(member);
+  const aboveStart = ownLines ? doc.blockStart(member) : doc.lineStart(member.offset);
+  const aboveEnd = doc.lineStart(member.offset);
+  const above = commentsIn(doc, aboveStart, aboveEnd);
+  const tail = target.container ? doc.tail(member) : { end, comma: undefined };
+  const after = commentsIn(doc, end, tail.end);
+  const afterText = tail.comma
+    ? doc.text.slice(end, tail.comma.offset) + doc.text.slice(tail.comma.end, tail.end)
+    : doc.text.slice(end, tail.end);
+  return {
+    value: (indent) => relocate(doc, start, end, from, indent),
+    above: (indent) =>
+      above.length === 0 ? '' : relocate(doc, aboveStart, aboveEnd, from, indent),
+    aboveInline: above.map((c) => `${blockComment(c)} `).join(''),
+    after: (inline) =>
+      after.length === 0
+        ? ''
+        : inline
+          ? after.map((c) => ` ${blockComment(c)}`).join('')
+          : afterText,
+  };
+}
+
+function replace(doc: Doc, value: FormatNode, piece: Piece, container?: FormatNode): string {
   const multiLine =
     container === undefined ||
     doc.text.slice(container.offset, container.offset + container.length).includes('\n');
@@ -180,7 +287,7 @@ function replace(doc: Doc, value: FormatNode, newValue: unknown, container?: For
     {
       offset: value.offset,
       end: value.offset + value.length,
-      text: doc.serialize(newValue, indent, multiLine),
+      text: piece.value(indent, multiLine),
     },
   ]);
 }
@@ -194,11 +301,11 @@ function separator(doc: Doc, items: readonly FormatNode[]): string {
   return comma ? doc.text.slice(comma.offset, second.offset) : ', ';
 }
 
-function add(doc: Doc, target: Target, newValue: unknown): string {
+function add(doc: Doc, target: Target, piece: Piece): string {
   const { container, member, value, index, key } = target;
-  if (!container) return replace(doc, value!, newValue);
+  if (!container) return replace(doc, value!, piece);
   // RFC 6902 §4.1: adding an existing object member replaces its value.
-  if (container.type === 'object' && member) return replace(doc, value!, newValue, container);
+  if (container.type === 'object' && member) return replace(doc, value!, piece, container);
   const items = children(container);
   const name = container.type === 'object' ? `${doc.writer.key(key, container)}: ` : '';
   const eol = doc.style.eol;
@@ -209,51 +316,64 @@ function add(doc: Doc, target: Target, newValue: unknown): string {
     if (doc.ownLines(next)) {
       const indent = doc.indentAt(next.offset);
       const at = doc.blockStart(next);
-      const text = `${indent}${name}${doc.serialize(newValue, indent, true)},${eol}`;
+      const text = `${piece.above(indent)}${indent}${name}${piece.value(indent, true)},${piece.after(false)}${eol}`;
       return doc.apply([{ offset: at, end: at, text }]);
     }
-    const text = `${name}${doc.serialize(newValue, '', false)}${separator(doc, items)}`;
+    const sep = separator(doc, items);
+    // A carried comment keeps a space before the next member, also after a bare `,` (R3).
+    const after = piece.after(true);
+    const text = `${piece.aboveInline}${name}${piece.value(doc.indentAt(next.offset), false)}${sep.slice(0, 1)}${after}${after && !sep.slice(1) ? ' ' : sep.slice(1)}`;
     return doc.apply([{ offset: next.offset, end: next.offset, text }]);
   }
 
   const last = items[items.length - 1];
-  if (!last) return addToEmpty(doc, container, name, newValue);
+  if (!last) return addToEmpty(doc, container, name, piece);
   const tail = doc.tail(last);
   const trailing = tail.comma !== undefined;
+  const lastEnd = last.offset + last.length;
   if (doc.ownLines(last)) {
     // Append on a new line after the last member's tail, indented like it (R1, R2). Its comma goes
     // right after its value, before a same-line comment (README reading 1); a trailing comma stays
     // trailing (R6).
     const indent = doc.indentAt(last.offset);
-    const text = `${eol}${indent}${name}${doc.serialize(newValue, indent, true)}${trailing ? ',' : ''}`;
-    const lastEnd = last.offset + last.length;
+    const text = `${eol}${piece.above(indent)}${indent}${name}${piece.value(indent, true)}${trailing ? ',' : ''}${piece.after(false)}`;
     const edits: Edit[] = [{ offset: tail.end, end: tail.end, text }];
     if (!trailing) edits.push({ offset: lastEnd, end: lastEnd, text: ',' });
     return doc.apply(edits);
   }
   // Single-line container: join with the separator already used (R3).
   const sep = separator(doc, items);
-  const member_ = `${name}${doc.serialize(newValue, '', false)}`;
+  const indent = doc.indentAt(last.offset);
+  const member_ = `${piece.aboveInline}${name}${piece.value(indent, false)}`;
   if (trailing)
     return doc.apply([
-      { offset: tail.comma!.end, end: tail.comma!.end, text: `${sep.slice(1)}${member_},` },
+      {
+        offset: tail.comma!.end,
+        end: tail.comma!.end,
+        text: `${sep.slice(1)}${member_},${piece.after(true)}`,
+      },
     ]);
-  return doc.apply([{ offset: tail.end, end: tail.end, text: `${sep}${member_}` }]);
+  // A line comment ends the last member's tail: the new member goes before it, after the value.
+  const at =
+    tail.lineBreak && doc.text.slice(lastEnd, tail.end).includes('//') ? lastEnd : tail.end;
+  return doc.apply([{ offset: at, end: at, text: `${sep}${member_}${piece.after(true)}` }]);
 }
 
 /** A container with no members. One already written over several lines gets the member on its
  *  own line at the parent's indent plus one unit (R1); otherwise it stays on one line (R3). */
-function addToEmpty(doc: Doc, container: FormatNode, name: string, newValue: unknown): string {
+function addToEmpty(doc: Doc, container: FormatNode, name: string, piece: Piece): string {
   const open = container.offset + 1;
   const close = container.offset + container.length - 1;
-  if (!doc.text.slice(open, close).includes('\n')) {
-    return doc.apply([
-      { offset: open, end: close, text: `${name}${doc.serialize(newValue, '', false)}` },
-    ]);
+  const inner = doc.text.slice(open, close);
+  if (!inner.includes('\n')) {
+    const text = `${piece.aboveInline}${name}${piece.value(doc.indentAt(container.offset), false)}${piece.after(true)}`;
+    // Comments already inside the container stay; the member goes after them.
+    if (inner.trim() !== '') return doc.apply([{ offset: close, end: close, text }]);
+    return doc.apply([{ offset: open, end: close, text }]);
   }
   const indent = doc.indentAt(container.offset) + doc.unit;
   const at = doc.text.lastIndexOf('\n', close) + 1;
-  const text = `${indent}${name}${doc.serialize(newValue, indent, true)}${doc.style.eol}`;
+  const text = `${piece.above(indent)}${indent}${name}${piece.value(indent, true)}${piece.after(false)}${doc.style.eol}`;
   return doc.apply([{ offset: at, end: at, text }]);
 }
 
@@ -287,19 +407,106 @@ function remove(doc: Doc, target: Target): string {
     : doc.apply([{ offset: prevComma.offset, end: tail.end, text: '' }]);
 }
 
-/** Applies one operation to the document and returns the new text. */
-export function applyOperation(doc: Doc, op: PatchOperation): string {
+/** The data a node holds. */
+function dataOf(node: FormatNode): unknown {
+  if (node.type === 'array') return children(node).map(dataOf);
+  if (node.type === 'object') {
+    const object: Record<string, unknown> = {};
+    for (const property of children(node)) {
+      // Defined, not assigned, so a `__proto__` key is a member rather than the prototype.
+      Object.defineProperty(object, children(property)[0]!.value as string, {
+        value: dataOf(children(property)[1]!),
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+    return object;
+  }
+  return node.value;
+}
+
+/** RFC 6902 §4.6 equality: same type; numbers by value; arrays item by item; objects with the same
+ *  members, in any order. */
+function equal(a: unknown, b: unknown): boolean {
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return a === b;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    return (
+      Array.isArray(a) &&
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((item, i) => equal(item, b[i]))
+    );
+  }
+  const keys = Object.keys(a);
+  return (
+    keys.length === Object.keys(b).length &&
+    keys.every(
+      (k) =>
+        Object.prototype.hasOwnProperty.call(b, k) &&
+        equal((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+    )
+  );
+}
+
+function isPrefix(prefix: readonly string[], tokens: readonly string[]): boolean {
+  return prefix.length < tokens.length && prefix.every((t, i) => t === tokens[i]);
+}
+
+/** A document with no value (R15, UNK-026): `add` or `replace` at `""` writes the value as the
+ *  whole document, after any comments; every other operation is an error (R9). */
+function writeDocument(doc: Doc, op: PatchOperation): string {
+  if ((op.op !== 'add' && op.op !== 'replace') || op.path !== '') {
+    const path = op.op === 'move' || op.op === 'copy' ? op.from : op.path;
+    throw new PatchError(`path "${path}" does not exist: the document has no value`);
+  }
+  const lineBreak = doc.tokens.some((t) => t.kind === Kind.LineBreak);
+  const eol = lineBreak ? doc.style.eol : '\n';
+  const finalNewline = lineBreak ? doc.style.finalNewline : true;
+  const comments = doc.tokens.filter(isComment);
+  const prefix = comments.length > 0 ? doc.text.slice(0, comments.at(-1)!.end) + eol : '';
+  const value = doc.writer.value(op.value, '  ').replace(/\n/g, eol);
+  return `${prefix}${value}${finalNewline ? eol : ''}`;
+}
+
+/** Parses a text for editing; throws a `PatchError` when it does not parse. */
+export type Open = (text: string) => Doc;
+
+/** Applies one operation to the text and returns the new text. Throws a `PatchError` when it
+ *  cannot apply; the caller keeps its text (R9). */
+export function applyOperation(text: string, op: PatchOperation, open: Open): string {
+  const doc = open(text);
+  const root = doc.root;
+  if (!root) return writeDocument(doc, op);
   switch (op.op) {
     case 'add':
-      return add(doc, resolve(doc.root, op.path), op.value);
+      return add(doc, resolve(root, op.path), dataPiece(doc, op.value));
     case 'replace': {
-      const target = resolve(doc.root, op.path);
-      if (!target.value) throw new PatchError(`path "${op.path}" does not exist`);
-      return replace(doc, target.value, op.value, target.container);
+      const target = existing(root, op.path);
+      return replace(doc, target.value, dataPiece(doc, op.value), target.container);
     }
     case 'remove':
-      return remove(doc, resolve(doc.root, op.path));
+      return remove(doc, resolve(root, op.path));
+    case 'test': {
+      if (!equal(dataOf(existing(root, op.path).value), op.value))
+        throw new PatchError(`test failed: the value at "${op.path}" differs`);
+      return text;
+    }
+    case 'copy': {
+      const value = dataOf(existing(root, op.from).value);
+      return add(doc, resolve(root, op.path), dataPiece(doc, value));
+    }
+    case 'move': {
+      // RFC 6902 §4.4: remove at `from`, then add at `path`, which may not lie inside `from`.
+      const source = existing(root, op.from);
+      if (isPrefix(parsePointer(op.from), parsePointer(op.path)))
+        throw new PatchError(`cannot move "${op.from}" into itself`);
+      if (op.path === op.from) return text;
+      const piece = movedPiece(doc, source);
+      const after = open(remove(doc, source));
+      return add(after, resolve(after.root!, op.path), piece);
+    }
     default:
-      throw new PatchError(`operation "${op.op}" is not supported yet (002 T6)`);
+      throw new PatchError(`unknown operation "${(op as { op: unknown }).op as string}"`);
   }
 }
