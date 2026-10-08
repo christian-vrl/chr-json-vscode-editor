@@ -3,10 +3,10 @@
 // here in Node and the webview gets the errors as a `validation` message keyed by `docVersion`.
 //
 // No `vscode` import, so the unit tests run it directly; editorProvider.ts wires it to a document
-// and a webview. 004 T4: the dialect comes from the schema's own `$schema` (UNK-017): draft-07,
-// 2019-09 and 2020-12 each run on their own Ajv class, whose meta-schemas ship inside the `ajv`
-// package and so inside this bundle; a missing `$schema` is assumed draft-07; older drafts are not
-// validated. Where the schema comes from is 004 T5 (association, 004 T3's resolver).
+// and a webview. 004 T4: the dialect comes from the schema's own `$schema` (UNK-017, UNK-031):
+// draft-04 runs on `ajv-draft-04`, draft-06 and draft-07 on `Ajv`, 2019-09 and 2020-12 on their own
+// Ajv classes; every meta-schema ships inside those packages and so inside this bundle. A missing
+// or unknown `$schema` is assumed draft-07; drafts before 04 are not validated. Where the schema comes from is 004 T5 (association, 004 T3's resolver).
 import { getAdapter, type Format } from '@chr-json-editor/core';
 import {
   PROTOCOL_VERSION,
@@ -17,6 +17,8 @@ import {
 import Ajv, { MissingRefError } from 'ajv';
 import Ajv2019 from 'ajv/dist/2019';
 import Ajv2020 from 'ajv/dist/2020';
+import draft06MetaSchema from 'ajv/dist/refs/json-schema-draft-06.json';
+import AjvDraft04 from 'ajv-draft-04';
 import addFormats from 'ajv-formats';
 
 export type ValidationResult = ValidationMessage['result'];
@@ -35,34 +37,37 @@ export const REMOTE_REF_REASON = 'Remote schema references are not loaded (offli
 
 /** The `$schema` URI Ajv registers each dialect's bundled meta-schema under. */
 const META_SCHEMA: Record<SchemaDialect, string> = {
+  'draft-04': 'http://json-schema.org/draft-04/schema',
+  'draft-06': 'http://json-schema.org/draft-06/schema',
   'draft-07': 'http://json-schema.org/draft-07/schema',
   '2019-09': 'https://json-schema.org/draft/2019-09/schema',
   '2020-12': 'https://json-schema.org/draft/2020-12/schema',
 };
 
-/** `$schema` values of drafts before 07 (UNK-017: "Schema draft not supported", no validation). */
-const OLD_DRAFTS = /^https?:\/\/json-schema\.org\/(draft-0[0-6])\/schema#?$/;
+/** `$schema` values of drafts before 04 ("Schema draft not supported", no validation). */
+const OLD_DRAFTS = /^https?:\/\/json-schema\.org\/(draft-0[0-3])\/schema#?$/;
 
 /**
- * Picks the dialect from the schema's own `$schema` (UNK-017). `override` is the user's switch
- * for a schema without `$schema`; a `$schema` the schema states always wins. Returns a string, the
- * reason not to validate, when `$schema` names a draft before 07 or no dialect this editor knows.
+ * Picks the dialect from the schema's own `$schema` (UNK-017, UNK-031). A missing `$schema`, or
+ * one naming no dialect this editor knows (a custom meta-schema), runs as draft-07, `assumed`;
+ * `override` is the user's switch for those, and a known `$schema` always wins over it. Returns a
+ * string, the reason not to validate, when `$schema` names a draft before 04 or is not a string.
  */
 export function selectDialect(
   schema: object | boolean,
   override?: SchemaDialect,
 ): DialectChoice | string {
   const stated = typeof schema === 'object' ? (schema as { $schema?: unknown }).$schema : undefined;
-  if (stated === undefined)
-    return { name: override ?? 'draft-07', assumed: override === undefined };
+  const assumed: DialectChoice = { name: override ?? 'draft-07', assumed: override === undefined };
+  if (stated === undefined) return assumed;
   if (typeof stated !== 'string') return "The schema's $schema is not a string.";
   const uri = stated.replace(/^http:\/\//, 'https://').replace(/#$/, '');
   for (const [name, meta] of Object.entries(META_SCHEMA) as [SchemaDialect, string][]) {
     if (uri === meta.replace(/^http:\/\//, 'https://')) return { name, assumed: false };
   }
   const old = OLD_DRAFTS.exec(stated);
-  if (old) return `Schema draft not supported (${old[1]}); use draft-07, 2019-09 or 2020-12.`;
-  return `Schema dialect not supported: ${stated}`;
+  if (old) return `Schema draft not supported (${old[1]}); use draft-04 or later.`;
+  return assumed;
 }
 
 /**
@@ -79,7 +84,10 @@ export function compileSchema(schema: object | boolean, override?: SchemaDialect
       ? new Ajv2020(options)
       : dialect.name === '2019-09'
         ? new Ajv2019(options)
-        : new Ajv(options);
+        : dialect.name === 'draft-04'
+          ? new AjvDraft04(options)
+          : new Ajv(options);
+  if (dialect.name === 'draft-06') ajv.addMetaSchema(draft06MetaSchema);
   addFormats(ajv);
   // Ajv finds the meta-schema by `$schema`; write it as Ajv registered it (no `#`, its scheme)
   // so every spelling selectDialect accepts, and the user's switch, compile the same way.

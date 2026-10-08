@@ -48,7 +48,7 @@ const toWebview: ToWebviewMessage[] = [
     type: 'validation',
     docVersion: 6,
     dialect: null,
-    result: { kind: 'skipped', reason: 'Schema draft not supported (draft-04).' },
+    result: { kind: 'skipped', reason: 'Schema draft not supported (draft-03).' },
   },
 ];
 
@@ -160,6 +160,7 @@ describe('protocol rejects malformed messages', () => {
     ],
     ['protocol 1 (before validation existed)', { ...update, protocol: 1 }],
     ['protocol 2 (before validation carried its dialect)', { ...update, protocol: 2 }],
+    ['protocol 3 (before draft-04 and draft-06)', { ...update, protocol: 3 }],
     [
       'a validation without result',
       { protocol: PROTOCOL_VERSION, type: 'validation', docVersion: 1 },
@@ -189,7 +190,7 @@ describe('protocol rejects malformed messages', () => {
     ],
     [
       'an unknown schema dialect',
-      validation({ kind: 'errors', errors: [] }, { name: 'draft-04', assumed: false }),
+      validation({ kind: 'errors', errors: [] }, { name: 'draft-03', assumed: false }),
     ],
     [
       'a dialect whose assumed flag is not a boolean',

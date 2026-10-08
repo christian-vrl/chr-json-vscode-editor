@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-06/schema#",
+  "type": "object",
+  "properties": {
+    "a": {
+      "const": 2
+    },
+    "list": {
+      "contains": {
+        "const": 3
+      }
+    }
+  },
+  "propertyNames": {
+    "maxLength": 1
+  }
+}

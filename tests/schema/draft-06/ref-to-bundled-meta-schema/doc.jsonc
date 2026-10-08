@@ -1,0 +1,4 @@
+{
+  "type": "text",
+  "minLength": -1, // must be non-negative
+}

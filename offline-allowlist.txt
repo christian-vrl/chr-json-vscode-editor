@@ -85,3 +85,11 @@ https://json-schema.org/draft/2020-12/vocab/format-annotation
 https://json-schema.org/draft/2020-12/vocab/meta-data
 https://json-schema.org/draft/2020-12/vocab/unevaluated
 https://json-schema.org/draft/2020-12/vocab/validation
+
+# 004 T4 follow-up (UNK-031): draft-04 runs on ajv-draft-04 1.0.0 and draft-06 on Ajv with its bundled
+# draft-06 meta-schema. These are the `id`/`$id`s of those bundled meta-schemas and the keys
+# validation.ts registers them under; Ajv has no `loadSchema`, so nothing fetches them.
+http://json-schema.org/draft-04/schema
+http://json-schema.org/draft-04/schema#
+http://json-schema.org/draft-06/schema
+http://json-schema.org/draft-06/schema#

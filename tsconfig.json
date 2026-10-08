@@ -5,6 +5,8 @@
     "noEmit": true,
     "lib": ["ES2022"],
     "types": ["node"],
+    // validation.ts imports the draft-06 meta-schema JSON that ships in `ajv` (004 T4, UNK-031).
+    "resolveJsonModule": true,
     // Tests import workspace packages from source, so type-aware lint never depends on a build.
     "paths": {
       "@chr-json-editor/core": ["./packages/core/src/index.ts"],
