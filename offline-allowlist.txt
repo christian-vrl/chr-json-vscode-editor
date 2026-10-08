@@ -1,0 +1,4 @@
+# check:offline allowlist (001 T8, AGENTS.md rule 3). URLs that may appear in build output (dist/**)
+# because nothing fetches them at runtime, e.g. a link in a license header or a JSON Schema `$id`.
+# One URL per line, matched exactly (never as a prefix); `#` starts a comment. A Reviewer names each
+# new entry in the PR that adds it. Never widen this to make a real network call pass.
