@@ -1,0 +1,7 @@
+{
+  doc: {
+    // body text
+    text: 'line one \
+line two',
+  },
+}

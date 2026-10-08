@@ -1,0 +1,8 @@
+{
+  "server": {
+    "host": "a"
+  },
+  "name": "x",
+  // listen port
+  "port": 80
+}

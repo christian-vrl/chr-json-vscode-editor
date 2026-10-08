@@ -1,0 +1,6 @@
+{
+  cfg: {
+    size: 3,
+    color: 'red' // UK
+  }
+}
