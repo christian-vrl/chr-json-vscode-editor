@@ -14,7 +14,7 @@
 
 ## Phase C — Proof (risk-free / additive)
 - [ ] **T6** (Large) Patch layer `applyPatch(text, patch, format)` with `move`/`copy`/`test`, atomic per R9; fast-check suite per criterion 3. — *gate: `pnpm test:golden` all cases green and property suite 10 000 runs/format green*
-- [ ] **T7** `stringify(data, format, style)`. `parallel` — *gate: criterion 6 property test green*
+- [x] **T7** `stringify(data, format, style)`. `parallel` — *gate: criterion 6 property test green*
 - [ ] **T8** Benchmark per criterion 7. — *gate: `bench/RESULTS.md` committed*
 
 ## Phase D — Whole-document actions keep comments (risk-free / additive)
