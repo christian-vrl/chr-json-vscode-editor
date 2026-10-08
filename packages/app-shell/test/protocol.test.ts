@@ -27,6 +27,7 @@ const toWebview: ToWebviewMessage[] = [
     protocol: PROTOCOL_VERSION,
     type: 'validation',
     docVersion: 4,
+    dialect: { name: '2020-12', assumed: false },
     result: {
       kind: 'errors',
       errors: [
@@ -39,13 +40,15 @@ const toWebview: ToWebviewMessage[] = [
     protocol: PROTOCOL_VERSION,
     type: 'validation',
     docVersion: 5,
+    dialect: { name: 'draft-07', assumed: true },
     result: { kind: 'errors', errors: [] },
   },
   {
     protocol: PROTOCOL_VERSION,
     type: 'validation',
     docVersion: 6,
-    result: { kind: 'skipped', reason: 'The document does not parse.' },
+    dialect: null,
+    result: { kind: 'skipped', reason: 'Schema draft not supported (draft-04).' },
   },
 ];
 
@@ -115,10 +118,11 @@ describe('protocol round trip', () => {
 
 describe('protocol rejects malformed messages', () => {
   const update = { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 1, text: 'x' };
-  const validation = (result: unknown) => ({
+  const validation = (result: unknown, dialect: unknown = null) => ({
     protocol: PROTOCOL_VERSION,
     type: 'validation',
     docVersion: 1,
+    dialect,
     result,
   });
   const edit = {
@@ -155,6 +159,7 @@ describe('protocol rejects malformed messages', () => {
       { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 1, message: 'm' },
     ],
     ['protocol 1 (before validation existed)', { ...update, protocol: 1 }],
+    ['protocol 2 (before validation carried its dialect)', { ...update, protocol: 2 }],
     [
       'a validation without result',
       { protocol: PROTOCOL_VERSION, type: 'validation', docVersion: 1 },
@@ -173,6 +178,23 @@ describe('protocol rejects malformed messages', () => {
       validation({ kind: 'errors', errors: [{ instancePath: '', message: 'm' }] }),
     ],
     ['a skipped validation without reason', validation({ kind: 'skipped' })],
+    [
+      'a validation without dialect',
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'validation',
+        docVersion: 1,
+        result: { kind: 'skipped', reason: 'r' },
+      },
+    ],
+    [
+      'an unknown schema dialect',
+      validation({ kind: 'errors', errors: [] }, { name: 'draft-04', assumed: false }),
+    ],
+    [
+      'a dialect whose assumed flag is not a boolean',
+      validation({ kind: 'errors', errors: [] }, { name: 'draft-07', assumed: 'yes' }),
+    ],
     ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);

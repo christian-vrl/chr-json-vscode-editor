@@ -4,8 +4,9 @@
 // incompatible change) and `docVersion`, so a receiver can drop echoes and stale messages.
 
 /** Bump on any change a receiver built against the previous version could not decode.
- *  2: adds the host → UI `validation` message (004 T2). */
-export const PROTOCOL_VERSION = 2;
+ *  2: adds the host → UI `validation` message (004 T2).
+ *  3: `validation` carries the schema's `dialect` (004 T4). */
+export const PROTOCOL_VERSION = 3;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -74,6 +75,10 @@ export interface ErrorMessage extends Envelope<'error'> {
   message: string;
 }
 
+/** JSON Schema dialects the validator supports (spec 004 criterion 2, UNK-017). */
+export type SchemaDialect = 'draft-07' | '2019-09' | '2020-12';
+export const SCHEMA_DIALECTS: readonly SchemaDialect[] = ['draft-07', '2019-09', '2020-12'];
+
 /** One JSON Schema error. `instancePath` is the RFC 6901 pointer to the value (Ajv's own field). */
 export interface SchemaError {
   instancePath: string;
@@ -88,6 +93,10 @@ export interface SchemaError {
  * parser yet, or the schema does not compile). A UI shows only the result for its current version.
  */
 export interface ValidationMessage extends Envelope<'validation'> {
+  /** The JSON Schema dialect the schema ran as (spec 004 criterion 2), `assumed` when the schema
+   *  has no `$schema` and none was chosen, so the UI can say "assumed draft-07" and offer a
+   *  switch. `null` when no dialect applies (the schema names a draft that is not supported). */
+  dialect: { name: SchemaDialect; assumed: boolean } | null;
   result: { kind: 'errors'; errors: SchemaError[] } | { kind: 'skipped'; reason: string };
 }
 
@@ -137,7 +146,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   setMode: { mode: oneOf(MODES) },
   setFormat: { format: oneOf(FORMATS) },
   error: { code: str, message: str },
-  validation: { result: validationResult },
+  validation: { dialect: schemaDialect, result: validationResult },
 };
 
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
@@ -184,6 +193,11 @@ function record(v: unknown, name: string): Record<string, unknown> {
 
 function str(v: unknown, name: string): string {
   if (typeof v !== 'string') throw new Invalid(`${name} must be a string`);
+  return v;
+}
+
+function bool(v: unknown, name: string): boolean {
+  if (typeof v !== 'boolean') throw new Invalid(`${name} must be a boolean`);
   return v;
 }
 
@@ -259,6 +273,12 @@ function documentChange(v: unknown, name: string): DocumentChange {
 function patchList(v: unknown, name: string): JsonPatchOperation[] {
   if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
   return v.map((op, i) => patchOperation(op, `${name}[${i}]`));
+}
+
+function schemaDialect(v: unknown, name: string): ValidationMessage['dialect'] {
+  if (v === null) return null;
+  const fields = { name: oneOf(SCHEMA_DIALECTS), assumed: bool };
+  return readFields(record(v, name), fields, name) as ValidationMessage['dialect'];
 }
 
 function validationResult(v: unknown, name: string): ValidationMessage['result'] {

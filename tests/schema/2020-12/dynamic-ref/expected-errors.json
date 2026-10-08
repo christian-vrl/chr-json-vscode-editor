@@ -1,0 +1,10 @@
+[
+  {
+    "instancePath": "/children/0/name",
+    "keyword": "type"
+  },
+  {
+    "instancePath": "/children/1",
+    "keyword": "required"
+  }
+]

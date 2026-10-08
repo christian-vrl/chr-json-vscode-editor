@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "point": {
+      "type": "array",
+      "items": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "additionalItems": false
+    },
+    "kind": {
+      "enum": ["email", "host"]
+    },
+    "contact": {
+      "type": "string"
+    }
+  },
+  "if": {
+    "properties": {
+      "kind": {
+        "const": "email"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "contact": {
+        "format": "email"
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "contact": {
+        "format": "hostname"
+      }
+    }
+  }
+}

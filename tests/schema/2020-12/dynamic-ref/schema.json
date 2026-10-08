@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:example:tree",
+  "$dynamicAnchor": "node",
+  "type": "object",
+  "properties": {
+    "children": {
+      "type": "array",
+      "items": {
+        "$dynamicRef": "#node"
+      }
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": ["name"]
+}

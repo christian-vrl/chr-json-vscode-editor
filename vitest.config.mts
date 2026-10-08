@@ -26,6 +26,7 @@ export default defineConfig({
             'tests/offline/**/*.test.ts',
             'tests/gate-review/**/*.test.ts',
             'tests/ci/**/*.test.ts',
+            'tests/schema/**/*.test.ts',
           ],
         },
       },
