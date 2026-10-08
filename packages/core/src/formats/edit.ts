@@ -320,7 +320,9 @@ function add(doc: Doc, target: Target, piece: Piece): string {
       return doc.apply([{ offset: at, end: at, text }]);
     }
     const sep = separator(doc, items);
-    const text = `${piece.aboveInline}${name}${piece.value(doc.indentAt(next.offset), false)}${sep.slice(0, 1)}${piece.after(true)}${sep.slice(1)}`;
+    // A carried comment keeps a space before the next member, also after a bare `,` (R3).
+    const after = piece.after(true);
+    const text = `${piece.aboveInline}${name}${piece.value(doc.indentAt(next.offset), false)}${sep.slice(0, 1)}${after}${after && !sep.slice(1) ? ' ' : sep.slice(1)}`;
     return doc.apply([{ offset: next.offset, end: next.offset, text }]);
   }
 

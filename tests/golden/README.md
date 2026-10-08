@@ -60,6 +60,11 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
    are plain data.
 5. **New containers.** A new object or array value in a multi-line container is written like
    `JSON.stringify(value, null, unit)`, indented from its member's line (R1).
+6. **`move` to `""`** replaces the whole document with the moved value (RFC 6902 §4.4: remove at
+   `from`, then `add` at the root), so every comment outside the root value's span stays.
+7. **Carried comments on a shared line.** When `move` puts a member on a line with other members,
+   its same-line comments follow its comma as block comments (`//` becomes `/* … */`, R12), with
+   one space before the next member even after a bare `,`: `[3, /* three */ 1,2]`.
 
 The corpus avoids details R1–R10 do not fix: a block comment before a member on its own line
 (UNK-021), a new container value inside a single-line container,
