@@ -1,1 +1,1 @@
-{tags: [/* first */ 'b', 'c']}
+{tags: ['b' /* first */, 'c']}
