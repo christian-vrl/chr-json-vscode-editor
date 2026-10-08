@@ -1,58 +1,14 @@
-// Comment-keeping repair (002 T11 spike, UNK-018): mask comments, repair, re-anchor.
+// Engine D (diff) for comment-keeping repair (002 T11 spike, UNK-018): mask, repair, re-anchor.
 //
-// 1. Mask: find every comment with a scanner that knows the string forms jsonrepair accepts
-//    ("…", '…', “…”, ‘…’, and a string left open at the end of its line) and overwrite it with
-//    spaces, keeping line breaks, so the masked text has the same length and line structure.
+// 1. Mask: find every comment (scan.ts) and overwrite it with spaces, keeping line breaks, so the
+//    masked text has the same length and line structure.
 // 2. Repair: run jsonrepair on the masked text. jsonrepair copies whitespace through, so each
 //    comment's run of spaces normally survives in its output.
 // 3. Re-anchor: align masked text and repaired text with a character diff (Myers). A comment whose
 //    placeholder survived intact is written back over it; otherwise it is inserted at the mapped
 //    position of its start.
 import { jsonrepair } from 'jsonrepair';
-
-export interface Comment {
-  start: number;
-  end: number;
-  text: string;
-}
-
-const DOUBLE_QUOTES = new Set(['"', '“', '”']);
-const SINGLE_QUOTES = new Set(["'", '‘', '’']);
-
-/** Every `//` and `/* *\/` comment outside strings, in order. */
-export function scanComments(text: string): Comment[] {
-  const comments: Comment[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const ch = text[i]!;
-    const closers = DOUBLE_QUOTES.has(ch) ? DOUBLE_QUOTES : SINGLE_QUOTES.has(ch) ? SINGLE_QUOTES : null;
-    if (closers) {
-      // A string ends at a closing quote of the same kind, or (left open) at the end of the line.
-      i++;
-      while (i < text.length && !closers.has(text[i]!) && text[i] !== '\n' && text[i] !== '\r') {
-        i += text[i] === '\\' ? 2 : 1;
-      }
-      if (i < text.length && closers.has(text[i]!)) i++;
-      continue;
-    }
-    if (ch === '/' && text[i + 1] === '/') {
-      let end = i + 2;
-      while (end < text.length && text[end] !== '\n' && text[end] !== '\r') end++;
-      comments.push({ start: i, end, text: text.slice(i, end) });
-      i = end;
-      continue;
-    }
-    if (ch === '/' && text[i + 1] === '*') {
-      const close = text.indexOf('*/', i + 2);
-      const end = close < 0 ? text.length : close + 2;
-      comments.push({ start: i, end, text: text.slice(i, end) });
-      i = end;
-      continue;
-    }
-    i++;
-  }
-  return comments;
-}
+import { scanComments, type Comment } from './scan.ts';
 
 /** Replaces each comment with spaces, keeping line breaks, so offsets and lines are unchanged. */
 export function mask(text: string, comments: Comment[]): string {
@@ -153,11 +109,36 @@ export function repairKeepingComments(text: string): RepairResult {
     edits.push({ at, removeLength: 0, insert: c.text + (needsBreak ? '\n' : ' ') });
     inserted++;
   }
-  // Apply from the end so earlier offsets stay valid; equal offsets keep comment order.
-  let out = repaired;
-  for (let e = edits.length - 1; e >= 0; e--) {
-    const { at, removeLength, insert } = edits[e]!;
-    out = out.slice(0, at) + insert + out.slice(at + removeLength);
+  // Truncated input: jsonrepair appends the missing closing brackets right after the last value,
+  // ahead of the whitespace that holds any comments at the end of the file, which would move those
+  // comments outside the root. Brackets jsonrepair added there go after those comments instead.
+  let closers = '';
+  const lastSignificant = masked.trimEnd().length;
+  const tail = comments.filter((c) => c.start >= lastSignificant);
+  if (tail.length) {
+    const matched = new Uint8Array(repaired.length);
+    for (const j of map) if (j >= 0) matched[j] = 1;
+    const tailStart = map[tail[0]!.start]!;
+    for (let k = (tailStart >= 0 ? tailStart : repaired.length) - 1; k >= 0; k--) {
+      const ch = repaired[k]!;
+      if (/\s/.test(ch)) continue;
+      if (matched[k] || (ch !== ']' && ch !== '}')) break;
+      closers = ch + closers;
+      edits.push({ at: k, removeLength: 1, insert: '' });
+    }
   }
+  // Build the output in one pass; the sort is stable, so comments that share an offset keep their
+  // order.
+  edits.sort((x, y) => x.at - y.at);
+  const parts: string[] = [];
+  let at = 0;
+  for (const e of edits) {
+    parts.push(repaired.slice(at, e.at), e.insert);
+    at = e.at + e.removeLength;
+  }
+  parts.push(repaired.slice(at));
+  let out = parts.join('');
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  if (closers) out = out.trimEnd() + eol + closers + out.slice(out.trimEnd().length);
   return { text: out, inserted };
 }

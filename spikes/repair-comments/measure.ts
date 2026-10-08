@@ -1,6 +1,12 @@
 // Measurement helpers shared by run.ts and fuzz.ts. They find comments and anchors with
 // jsonc-parser, independently of the engine's own scanner.
-import { createScanner, getNodePath, SyntaxKind, type Node } from 'jsonc-parser';
+import { createScanner, getNodePath, type Node } from 'jsonc-parser';
+
+// jsonc-parser's `SyntaxKind` is an ambient const enum, which `isolatedModules` cannot read
+// (node_modules/jsonc-parser/lib/esm/main.d.ts, as in packages/core/src/formats/tokens.ts).
+const LINE_COMMENT = 12;
+const BLOCK_COMMENT = 13;
+const EOF = 17;
 
 export interface Anchor {
   container: string | null;
@@ -23,8 +29,8 @@ export const lineOf = (text: string, offset: number): number => {
 export function outputComments(text: string): { start: number; end: number; text: string }[] {
   const scanner = createScanner(text, false);
   const found: { start: number; end: number; text: string }[] = [];
-  for (let kind = scanner.scan(); kind !== SyntaxKind.EOF; kind = scanner.scan()) {
-    if (kind === SyntaxKind.LineCommentTrivia || kind === SyntaxKind.BlockCommentTrivia) {
+  for (let kind: number = scanner.scan(); kind !== EOF; kind = scanner.scan()) {
+    if (kind === LINE_COMMENT || kind === BLOCK_COMMENT) {
       const start = scanner.getTokenOffset();
       const end = start + scanner.getTokenLength();
       found.push({ start, end, text: text.slice(start, end) });
@@ -64,7 +70,9 @@ export function anchorOf(text: string, root: Node, start: number, end: number): 
     anchor.trailing = false;
   } else {
     const prev = members[before - 1];
-    anchor.trailing = prev ? lineOf(text, prev.offset + prev.length) === lineOf(text, start) : false;
+    anchor.trailing = prev
+      ? lineOf(text, prev.offset + prev.length) === lineOf(text, start)
+      : false;
   }
   return anchor;
 }

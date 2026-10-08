@@ -4,16 +4,20 @@
 // from the fixture classes. The expected anchors are measured on the valid document before it is
 // broken, so nothing here is written by hand or fitted to the engine. A case passes under the same
 // conditions as a fixture (reading B): parses, data equals plain jsonrepair's, every comment's
-// text in order and at its anchor. Writes fuzz.md.
+// text in order and at its anchor. Writes fuzz-<seed>-x<breakages>.md.
 import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { getNodeValue, parseTree, type Node, type ParseError } from 'jsonc-parser';
 import { jsonrepair } from 'jsonrepair';
-import { repairKeepingComments } from './engine.ts';
+import { ENGINES } from './engines.ts';
 import { anchorOf, outputComments, sameAnchor } from './measure.ts';
 
-const SEED = 20261008;
+// `node fuzz.ts [seed] [breakages per case] [engine D|T]`. Seed 20261008 was used while developing the engine;
+// REPORT.md also quotes a seed that was not run before the engine was final.
+const SEED = Number(process.argv[2] ?? 20261008);
+const BREAKS = Number(process.argv[3] ?? 1);
+const ENGINE = process.argv[4] ?? 'T';
 const CASES = 5000;
 
 // mulberry32
@@ -87,7 +91,8 @@ function memberEnds(text: string): number[] {
   const ends: number[] = [];
   const walk = (n: Node) => {
     const kids = n.children ?? [];
-    if (n.type === 'object' || n.type === 'array') kids.slice(0, -1).forEach((k) => ends.push(k.offset + k.length));
+    if (n.type === 'object' || n.type === 'array')
+      kids.slice(0, -1).forEach((k) => ends.push(k.offset + k.length));
     kids.forEach(walk);
   };
   walk(root);
@@ -114,7 +119,10 @@ const BREAKAGES: Record<string, Breakage> = {
   },
   truncated: (_g, t) => t.replace(/[\s\]}]+$/, ''),
   'unquoted key': (g, t) => {
-    const keys = nodesOf(t, (n) => n.type === 'string' && n.parent?.type === 'property' && n.parent.children?.[0] === n);
+    const keys = nodesOf(
+      t,
+      (n) => n.type === 'string' && n.parent?.type === 'property' && n.parent.children?.[0] === n,
+    );
     if (!keys.length) return null;
     const k = pick(g, keys);
     return splice(t, k.offset, k.length, String(k.value));
@@ -124,6 +132,18 @@ const BREAKAGES: Record<string, Breakage> = {
     if (!strs.length) return null;
     const s = pick(g, strs);
     return splice(t, s.offset, s.length, `'${String(s.value)}'`);
+  },
+  'unquoted string': (g, t) => {
+    const strs = nodesOf(
+      t,
+      (n) =>
+        n.type === 'string' &&
+        /^[A-Za-z][\w ./:-]*$/.test(String(n.value)) &&
+        !(n.parent?.type === 'property' && n.parent.children?.[0] === n),
+    );
+    if (!strs.length) return null;
+    const s = pick(g, strs);
+    return splice(t, s.offset, s.length, String(s.value));
   },
   'python constant': (g, t) => {
     const lits = nodesOf(t, (n) => n.type === 'boolean' || n.type === 'null');
@@ -138,8 +158,21 @@ const BREAKAGES: Record<string, Breakage> = {
     return splice(t, last.offset + last.length, 0, ', ...');
   },
   'markdown fence': (_g, t) => '```json\n' + t + '\n```\n',
-  jsonp: (_g, t) => 'callback(' + t + ');\n',
+  jsonp: (_g, t) => 'callback(' + t + '\n);\n',
 };
+
+// Tree-based breakages need a valid parse, so they go first; the wrappers and truncation go last.
+const ORDER = [
+  'missing comma',
+  'unquoted key',
+  'unquoted string',
+  'single quotes',
+  'python constant',
+  'ellipsis',
+  'truncated',
+  'markdown fence',
+  'jsonp',
+];
 
 interface Tally {
   cases: number;
@@ -149,17 +182,33 @@ interface Tally {
 
 function main() {
   const g: Gen = { r: prng(SEED), n: 0 };
-  const tallies = new Map<string, Tally>(Object.keys(BREAKAGES).map((k) => [k, { cases: 0, passed: 0, examples: [] }]));
+  const tallies = new Map<string, Tally>(
+    BREAKS === 1
+      ? Object.keys(BREAKAGES).map((k) => [k, { cases: 0, passed: 0, examples: [] }])
+      : [],
+  );
   let generated = 0;
   while ([...tallies.values()].reduce((n, t) => n + t.cases, 0) < CASES) {
     g.n = 0;
     const valid = container(g, 1, '', g.r() < 0.25);
     generated++;
     const validRoot = parseTree(valid)!;
-    const want = outputComments(valid).map((c) => ({ text: c.text, anchor: anchorOf(valid, validRoot, c.start, c.end) }));
+    const want = outputComments(valid).map((c) => ({
+      text: c.text,
+      anchor: anchorOf(valid, validRoot, c.start, c.end),
+    }));
     if (!want.length) continue;
-    const name = pick(g, Object.keys(BREAKAGES));
-    const broken = BREAKAGES[name]!(g, valid);
+    // With several breakages, later ones are applied to the already broken text only when they
+    // still find their target in a valid parse, so they run first on the valid text.
+    // Distinct breakages: the same one twice can add members (a second `...`), which would move
+    // the anchors measured on the valid document.
+    const names = [...Object.keys(BREAKAGES)].sort(() => g.r() - 0.5).slice(0, BREAKS);
+    const name = [...names].sort().join(' + ');
+    if (!tallies.has(name)) tallies.set(name, { cases: 0, passed: 0, examples: [] });
+    let broken: string | null = valid;
+    for (const n of [...names].sort((x, y) => ORDER.indexOf(x) - ORDER.indexOf(y))) {
+      broken = broken === null ? null : BREAKAGES[n]!(g, broken);
+    }
     if (broken === null || broken === valid) continue;
     let baseline: unknown;
     try {
@@ -171,18 +220,28 @@ function main() {
     tally.cases++;
     let why = '';
     try {
-      const out = repairKeepingComments(broken).text;
+      const out = ENGINES[ENGINE]!.repair(broken).text;
       const errors: ParseError[] = [];
       const root = parseTree(out, errors, { disallowComments: false, allowTrailingComma: false });
       const found = outputComments(out);
       if (errors.length || !root) why = 'does not parse';
-      else if (!isDeepStrictEqual(JSON.parse(JSON.stringify(getNodeValue(root))), baseline)) why = 'data differs';
-      else if (!isDeepStrictEqual(found.map((c) => c.text), want.map((w) => w.text))) why = 'comment texts differ';
+      else if (!isDeepStrictEqual(JSON.parse(JSON.stringify(getNodeValue(root))), baseline))
+        why = 'data differs';
+      else if (
+        !isDeepStrictEqual(
+          found.map((c) => c.text),
+          want.map((w) => w.text),
+        )
+      )
+        why = 'comment texts differ';
       else {
-        const bad = want.findIndex((w, i) => !sameAnchor(anchorOf(out, root, found[i]!.start, found[i]!.end), w.anchor));
+        const bad = want.findIndex(
+          (w, i) => !sameAnchor(anchorOf(out, root, found[i]!.start, found[i]!.end), w.anchor),
+        );
         if (bad >= 0) why = `anchor of ${want[bad]!.text}`;
       }
-      if (why && tally.examples.length < 3) tally.examples.push(`${why}\n\nInput:\n\n${broken}\n\nOutput:\n\n${out}`);
+      if (why && tally.examples.length < 3)
+        tally.examples.push(`${why}\n\nInput:\n\n${broken}\n\nOutput:\n\n${out}`);
     } catch (e) {
       why = `engine threw: ${(e as Error).message}`;
       if (tally.examples.length < 3) tally.examples.push(`${why}\n\nInput:\n\n${broken}`);
@@ -196,19 +255,27 @@ function main() {
   const md = [
     '# 002 T11 generated cases (generated by `fuzz.ts`; do not edit)',
     '',
-    `Seed ${SEED}, ${total} cases from ${generated} generated documents (skipped: no comment, breakage not applicable, or plain jsonrepair throws). Node ${process.version}.`,
+    `Engine ${ENGINES[ENGINE]!.name}. Seed ${SEED}, ${BREAKS} breakage(s) per case, ${total} cases from ${generated} generated documents (skipped: no comment, breakage not applicable, or plain jsonrepair throws). Node ${process.version}.`,
     '',
     `**Passed (reading B): ${passed} of ${total} (${((100 * passed) / total).toFixed(1)}%).**`,
     '',
     '| Breakage | Cases | Passed | % |',
     '|---|---|---|---|',
-    ...rows.map(([k, t]) => `| ${k} | ${t.cases} | ${t.passed} | ${t.cases ? ((100 * t.passed) / t.cases).toFixed(1) : '-'} |`),
+    ...rows.map(
+      ([k, t]) =>
+        `| ${k} | ${t.cases} | ${t.passed} | ${t.cases ? ((100 * t.passed) / t.cases).toFixed(1) : '-'} |`,
+    ),
     '',
     '## Failure examples (up to 3 per breakage)',
     '',
-    ...rows.flatMap(([k, t]) => t.examples.map((e, i) => `### ${k} ${i + 1}\n\n\`\`\`\n${e}\n\`\`\`\n`)),
+    ...rows.flatMap(([k, t]) =>
+      t.examples.map((e, i) => `### ${k} ${i + 1}\n\n\`\`\`\n${e}\n\`\`\`\n`),
+    ),
   ];
-  fs.writeFileSync(path.join(import.meta.dirname, 'fuzz.md'), md.join('\n'));
+  fs.writeFileSync(
+    path.join(import.meta.dirname, `fuzz-${ENGINE}-${SEED}-x${BREAKS}.md`),
+    md.join('\n'),
+  );
   console.log(`generated: passed ${passed}/${total}`);
 }
 
