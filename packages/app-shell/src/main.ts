@@ -1,5 +1,6 @@
 // Standalone page entry for the Vite build (003 T2), served to `pnpm test:web`: the editor UI over
 // a DevHostAdapter holding a sample document. `?mode=text|table` picks the starting mode.
+import './page.css';
 import { mountApp } from './app.js';
 import { DevHostAdapter } from './dev-host-adapter.js';
 import { MODES, type Mode } from './protocol.js';

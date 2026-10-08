@@ -212,14 +212,60 @@ exports.run = async function run() {
     const snapshot = () => hooks.webviews().find((w) => w.uri === uri.toString());
     await waitFor(`the sample.${format} webview`, () => snapshot() !== undefined);
     nonces.add(assertCriterion6(snapshot()));
-    // The script ran: the nonce, localResourceRoots and asWebviewUri line up.
+    // The script ran and sent `ready`: the nonce, localResourceRoots and asWebviewUri line up.
     await waitFor(`the sample.${format} webview script to run`, () => snapshot().scriptLoaded);
     console.log(`sample.${format}: CSP meets criterion 6 and the nonce script ran`);
   }
   assert.equal(nonces.size, FORMATS.length, 'each webview must get its own nonce');
 
+  // 003 T5 (UNK-029): the webview renders app-shell's editor under that CSP. Read from the rendered
+  // page, not the HTML string: the library's stylesheet applies (it sets `.jse-main` to a
+  // min-height of 150px), each mode renders, and no CSP violation happened, CodeMirror's runtime
+  // <style> in text mode included.
+  for (const format of FORMATS) {
+    const uri = fixture(format).toString();
+    await vscode.commands.executeCommand('vscode.openWith', fixture(format), VIEW_TYPE);
+    await expectOnly(fixture(format), 'custom', isCustom);
+    let probe;
+    const rendered = async (mode) => {
+      const deadline = Date.now() + 10000;
+      for (;;) {
+        probe = await hooks.probe(uri);
+        if (probe.mode === mode) return probe;
+        if (Date.now() > deadline) throw new Error(`sample.${format}: ${mode} mode not rendered`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    };
+    for (const mode of ['tree', 'text', 'table', 'tree']) {
+      if (mode !== 'tree' || probe) assert.equal(hooks.setMode(uri, mode), true);
+      await rendered(mode);
+      assert.equal(probe.toolbarMode, { tree: 'Tree', text: 'Text', table: 'Table' }[mode]);
+      assert.equal(probe.mainMinHeight, '150px', `sample.${format} ${mode}: library CSS`);
+      assert.deepEqual(probe.violations, [], `sample.${format} ${mode}: CSP violations`);
+      // VS Code adds its own `_defaultStyles` element to every webview; any other needs the nonce.
+      for (const style of probe.styleElements.filter((s) => s.id !== '_defaultStyles')) {
+        assert.equal(
+          style.nonce,
+          true,
+          `sample.${format} ${mode}: <style id="${style.id}"> without the nonce`,
+        );
+      }
+      if (mode === 'text') {
+        assert.ok(
+          probe.styleElements.some((s) => s.id !== '_defaultStyles'),
+          `sample.${format} text: no CodeMirror <style>`,
+        );
+      }
+      // Table mode shows arrays only; sample.json's root is an object.
+      if (format === 'json' && mode !== 'table') {
+        assert.match(probe.shownText, /CHR JSON Editor/, `sample.json ${mode}: document shown`);
+      }
+    }
+    console.log(`sample.${format}: the editor renders tree, text and table with no CSP violation`);
+  }
+
   // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
-  // keyed by docVersion. The placeholder webview decodes each message with app-shell's protocol
+  // keyed by docVersion. The webview's test hook decodes each message with app-shell's protocol
   // decoder and reports what it got; the CSP checked above has no unsafe-eval.
   await closeAll();
   const personUri = vscode.Uri.file(path.join(VALIDATION, 'person.jsonc'));

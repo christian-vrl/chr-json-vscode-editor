@@ -6,8 +6,9 @@
 /** Bump on any change a receiver built against the previous version could not decode.
  *  2: adds the host → UI `validation` message (004 T2).
  *  3: `validation` carries the schema's `dialect` (004 T4).
- *  4: adds the draft-04 and draft-06 dialects (004 T4, UNK-031). */
-export const PROTOCOL_VERSION = 4;
+ *  4: adds the draft-04 and draft-06 dialects (004 T4, UNK-031).
+ *  5: adds the UI → host `ready` message (003 T5). */
+export const PROTOCOL_VERSION = 5;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -47,6 +48,15 @@ interface Envelope<T extends string> {
   docVersion: number;
 }
 
+/**
+ * The UI is listening and asks for the document (003 T5). A webview's script starts after the host
+ * set its HTML, so a message the host posted before then would be lost; the host sends `init` (and
+ * any state the UI needs again, such as the latest `validation`) only in answer to `ready`. The UI
+ * has no document yet, so `docVersion` is 0. A reloaded webview sends it again.
+ */
+export interface ReadyMessage extends Envelope<'ready'> {
+  docVersion: 0;
+}
 /** First message for a document: its text, detected format, starting mode and settings. */
 export interface InitMessage extends Envelope<'init'> {
   text: string;
@@ -115,7 +125,7 @@ export type ToWebviewMessage =
   | SetFormatMessage
   | ErrorMessage
   | ValidationMessage;
-export type ToHostMessage = EditMessage | ErrorMessage;
+export type ToHostMessage = ReadyMessage | EditMessage | ErrorMessage;
 export type ProtocolMessage = ToWebviewMessage | ToHostMessage;
 
 export type DecodeResult<M> = { ok: true; message: M } | { ok: false; error: string };
@@ -158,6 +168,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
 };
 
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
+  ready: { docVersion: zero },
   edit: { change: documentChange },
   error: { code: str, message: str },
 };
@@ -197,6 +208,11 @@ function record(v: unknown, name: string): Record<string, unknown> {
     throw new Invalid(`${name} must be an object`);
   }
   return v as Record<string, unknown>;
+}
+
+function zero(v: unknown, name: string): 0 {
+  if (v !== 0) throw new Invalid(`${name} must be 0`);
+  return v;
 }
 
 function str(v: unknown, name: string): string {

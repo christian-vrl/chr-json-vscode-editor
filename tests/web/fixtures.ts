@@ -6,15 +6,37 @@
 // net::ERR_BLOCKED_BY_CLIENT (so a route that let requests through cannot pass), and fails the test
 // if anything was blocked at all. A test that makes foreign requests on purpose, to prove they are
 // blocked, opts out of that last rule with `test.use({ expectBlockedRequests: true })`.
+//
+// 003 T5 (UNK-029, and 003 T9's contrast re-proved there): every page is served under the VS Code
+// webview's CSP (webviewHtml.ts, spec 003 criterion 6) with the local origin standing in for
+// `webview.cspSource`, its own scripts and stylesheets tagged with the nonce as renderWebviewHtml
+// does. Any CSP violation fails the test. Such a CSP also refuses `fetch` to other origins before
+// the request exists, so the tests that prove the offline block itself turn it off with
+// `test.use({ webviewCsp: false })`.
 import { test as base, expect } from '@playwright/test';
+import { contentSecurityPolicy } from '../../packages/vscode-extension/src/webviewHtml';
+
+/** Fixed, since the pages are local test builds; base64 like createNonce's. */
+const NONCE = 'dGVzdC13ZWItbm9uY2UtMDE=';
+
+declare global {
+  interface Window {
+    chrCspViolation?: (violation: string) => void;
+  }
+}
 
 /** Chromium's error for a request the client aborted; `.Inspector` when DevTools interception did it. */
 export const BLOCKED_BY_CLIENT = /^net::ERR_BLOCKED_BY_CLIENT(\.Inspector)?$/;
 
-export const test = base.extend<{ blockedRequests: string[]; expectBlockedRequests: boolean }>({
+export const test = base.extend<{
+  blockedRequests: string[];
+  expectBlockedRequests: boolean;
+  webviewCsp: boolean;
+}>({
   expectBlockedRequests: [false, { option: true }],
+  webviewCsp: [true, { option: true }],
   blockedRequests: [
-    async ({ context, baseURL, expectBlockedRequests }, use) => {
+    async ({ context, baseURL, expectBlockedRequests, webviewCsp }, use) => {
       if (!baseURL) throw new Error('test:web: baseURL must be set in playwright.config.mts');
       const origin = new URL(baseURL).origin;
       const blocked: string[] = [];
@@ -23,9 +45,34 @@ export const test = base.extend<{ blockedRequests: string[]; expectBlockedReques
       context.on('requestfailed', (request) => {
         failures.set(request.url(), request.failure()?.errorText ?? '');
       });
+      const violations: string[] = [];
+      if (webviewCsp) {
+        await context.exposeBinding('chrCspViolation', (_source, violation: string) => {
+          violations.push(violation);
+        });
+        await context.addInitScript(() => {
+          document.addEventListener('securitypolicyviolation', (e) => {
+            void window.chrCspViolation?.(
+              `${e.effectiveDirective} ${e.blockedURI} at ${e.sourceFile}:${e.lineNumber}`,
+            );
+          });
+        });
+      }
       await context.route('**/*', async (route) => {
         const url = route.request().url();
-        if (new URL(url).origin === origin) return route.continue();
+        if (new URL(url).origin === origin) {
+          if (!webviewCsp || route.request().resourceType() !== 'document') return route.continue();
+          const response = await route.fetch();
+          const html = (await response.text()).replace(/<(script|link) /g, `<$1 nonce="${NONCE}" `);
+          return route.fulfill({
+            response,
+            body: html,
+            headers: {
+              ...response.headers(),
+              'content-security-policy': contentSecurityPolicy(origin, NONCE),
+            },
+          });
+        }
         blocked.push(url);
         blockedHttp.push(url);
         return route.abort('blockedbyclient');
@@ -36,6 +83,7 @@ export const test = base.extend<{ blockedRequests: string[]; expectBlockedReques
         return ws.close();
       });
       await use(blocked);
+      expect(violations, 'test:web: the page broke the webview CSP').toEqual([]);
 
       for (const url of blockedHttp) {
         await expect

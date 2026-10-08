@@ -6,6 +6,10 @@
 // stands in for `webview.cspSource`. Run from the repo root with Chromium available to
 // Playwright (PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, as for test:web):
 //   node packages/app-shell/spikes/webview-csp.mjs
+//
+// At 003 T2 it found 109 blocked inline styles and `.jse-main` unstyled (UNK-029). Since 003 T5's
+// vite-plugin-library-css.mts it reports no violation and `min-height: 150px`; tests/web now runs
+// every page under this CSP, and the e2e suite checks the same inside VS Code.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
@@ -36,7 +40,9 @@ try {
   await page.addInitScript(() => {
     globalThis.violations = [];
     globalThis.document.addEventListener('securitypolicyviolation', (e) =>
-      globalThis.violations.push(`${e.effectiveDirective} ${e.blockedURI}`),
+      globalThis.violations.push(
+        `${e.effectiveDirective} ${e.blockedURI} at ${e.sourceFile}:${e.lineNumber}`,
+      ),
     );
   });
   const errors = [];

@@ -3,8 +3,9 @@
 A free, fully offline JSON, JSONC and JSON5 editor for VS Code, inspired by
 [jsoneditoronline.org](https://jsoneditoronline.org) (not affiliated).
 
-Work in progress: "Open in CHR JSON Editor" opens `.json`, `.jsonc` and `.json5` files in a
-placeholder view, and "Reopen as Text" switches back. The tree, text and table views come next.
+Work in progress: "Open in CHR JSON Editor" shows `.json`, `.jsonc` and `.json5` files in tree, text
+and table views, and "Reopen as Text" switches back. The views follow changes made elsewhere, but
+editing in them is not wired to the file yet; use "Reopen as Text" to edit.
 
 The status bar shows the format the file was detected as (JSON, JSONC or JSON5). Click it, or run
 "Change Format", to parse the file as another format; this never changes the file.

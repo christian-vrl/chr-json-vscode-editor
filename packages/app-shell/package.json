@@ -15,10 +15,16 @@
     "./protocol": {
       "types": "./dist/protocol.d.ts",
       "default": "./dist/protocol.js"
-    }
+    },
+    "./ui": {
+      "types": "./src/ui.d.ts",
+      "default": "./dist/lib/app.js"
+    },
+    "./ui.css": "./dist/lib/app.css",
+    "./page.css": "./src/page.css"
   },
   "scripts": {
-    "build": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p tsconfig.build.json && vite build"
+    "build": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p tsconfig.build.json && vite build && vite build -c vite.lib.config.mts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "7.3.1",

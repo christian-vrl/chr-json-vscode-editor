@@ -1,0 +1,15 @@
+// Type-checks the webview script (003 T5): it runs in the browser, so it gets the DOM library and
+// no Node types, unlike the extension host code (../../tsconfig.json, which leaves this folder out).
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "paths": {
+      "@chr-json-editor/app-shell/protocol": ["../../../app-shell/src/protocol.ts"],
+      "@chr-json-editor/app-shell/ui": ["../../../app-shell/src/ui.d.ts"]
+    }
+  },
+  "include": ["."]
+}
