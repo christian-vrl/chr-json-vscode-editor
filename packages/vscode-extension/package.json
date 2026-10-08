@@ -20,13 +20,67 @@
   "main": "./dist/extension.js",
   "activationEvents": [],
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "chrJsonEditor.editor",
+        "displayName": "CHR JSON Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          },
+          {
+            "filenamePattern": "*.jsonc"
+          },
+          {
+            "filenamePattern": "*.json5"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
     "commands": [
       {
-        "command": "chrJsonEditor.noop",
-        "title": "No-op (activation check)",
+        "command": "chrJsonEditor.openInEditor",
+        "title": "Open in CHR JSON Editor",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.reopenAsText",
+        "title": "Reopen as Text",
         "category": "CHR JSON Editor"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "chrJsonEditor.openInEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !activeCustomEditorId == chrJsonEditor.editor"
+        },
+        {
+          "command": "chrJsonEditor.reopenAsText",
+          "when": "activeCustomEditorId == chrJsonEditor.editor"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "chrJsonEditor.openInEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "chrJsonEditor.reopenAsText",
+          "when": "activeCustomEditorId == chrJsonEditor.editor",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "chrJsonEditor.openInEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder",
+          "group": "navigation@20"
+        }
+      ]
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && node esbuild.mjs",

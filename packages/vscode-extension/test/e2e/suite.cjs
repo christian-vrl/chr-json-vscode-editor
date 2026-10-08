@@ -29,7 +29,9 @@ function isText(tab) {
 }
 
 function describe(tab) {
-  return tab ? `${tab.input?.constructor?.name} ${tab.input?.viewType ?? ''}`.trim() : 'no tab';
+  if (!tab) return 'no tab';
+  if (isCustom(tab)) return `custom editor ${tab.input.viewType}`;
+  return isText(tab) ? 'text editor' : 'other editor';
 }
 
 // Editor switches settle asynchronously; poll the tab model instead of sleeping a fixed time.
@@ -121,6 +123,34 @@ exports.run = async function run() {
     await expectOnly(uri, 'text', isText);
     console.log(`sample.${format}: commands switch text <-> custom`);
   }
+
+  // A swap never closes a tab with unsaved edits: closing it would ask to save, and "Don't Save"
+  // (the answer VS Code gives in extension tests) reverts the shared document.
+  await closeAll();
+  const dirtyUri = fixture('jsonc');
+  const document = await vscode.workspace.openTextDocument(dirtyUri);
+  const original = document.getText();
+  const edited = `// unsaved\n${original}`;
+  await vscode.window.showTextDocument(document);
+  const edit = new vscode.WorkspaceEdit();
+  edit.insert(dirtyUri, new vscode.Position(0, 0), '// unsaved\n');
+  assert.equal(await vscode.workspace.applyEdit(edit), true);
+  await vscode.commands.executeCommand(OPEN_COMMAND);
+  await waitFor('the custom editor beside the unsaved text tab', () => {
+    const tabs = tabsFor(dirtyUri);
+    return tabs.length === 2 && tabs.some(isText) && isCustom(activeTab());
+  });
+  assert.equal(document.isDirty, true);
+  assert.equal(document.getText(), edited);
+  await vscode.commands.executeCommand(REOPEN_AS_TEXT_COMMAND);
+  await waitFor('the unsaved text tab to be active again', () => isText(activeTab()));
+  assert.equal(tabsFor(dirtyUri).length, 2);
+  assert.equal(document.isDirty, true);
+  assert.equal(document.getText(), edited);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the unsaved edit to revert', () => !document.isDirty);
+  assert.equal(document.getText(), original);
+  console.log('unsaved edits survive both commands');
 
   // Opening from the explorer with nothing open lands in the custom editor too.
   await closeAll();
