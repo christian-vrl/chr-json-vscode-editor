@@ -39,7 +39,8 @@ const JSONC = { disallowComments: false, allowTrailingComma: true, allowEmptyCon
 
 /**
  * Detects the format of a document per spec 002 R11: explicit `languageId` → VS Code JSONC file
- * names → extension → content (strict JSON → json, else JSONC → jsonc, else json5).
+ * names → extension → content (empty or whitespace only → json, else strict JSON → json, else
+ * JSONC → jsonc, else json5).
  * `path` may be a POSIX path, a Windows path or a URI; only its last segment is used.
  */
 export function detect(path: string, languageId?: string, text?: string): Detection {
@@ -54,6 +55,8 @@ export function detect(path: string, languageId?: string, text?: string): Detect
 
   if (text === undefined) return { format: 'json', source: 'default', diagnostics: [] };
   const body = stripBom(text);
+  // UNK-020: empty or whitespace-only text (RFC 8259 whitespace) is json, e.g. a new document.
+  if (/^[ \t\n\r]*$/.test(body)) return { format: 'json', source: 'content', diagnostics: [] };
   if (parseErrors(body, STRICT).length === 0)
     return { format: 'json', source: 'content', diagnostics: [] };
   if (parseErrors(body, JSONC).length === 0)
