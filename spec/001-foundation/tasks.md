@@ -10,7 +10,7 @@
 ## Phase B — Skeleton (risk-free / additive)
 - [x] **T2** pnpm workspace, `tsconfig.base.json` (strict), five packages per ADR-002 with `build`; root scripts for every standard script name (stubs that exit 0 where nothing exists yet). Extension `package.json`: `name`/`displayName`/`publisher` per UNK-002, `repository`, `license`, `engines.vscode: ^1.95.0` (provisional, UNK-016), `vsce package --no-dependencies`. — *gate: `pnpm install --frozen-lockfile && pnpm build` exit 0*
 - [x] **T3** ESLint (typescript-eslint) + Prettier. — *gate: `pnpm lint` exit 0*
-- [ ] **T4** Vitest for `test:unit`; `test:golden` with loader `tests/golden/load.ts` returning `{format, name, input, patch, expected, tags}` and one trivial case per format. — *gate: `pnpm test:unit && pnpm test:golden` green; loader test asserts ≥ 3 cases*
+- [x] **T4** Vitest for `test:unit`; `test:golden` with loader `tests/golden/load.ts` returning `{format, name, input, patch, expected, tags}` and one trivial case per format. — *gate: `pnpm test:unit && pnpm test:golden` green; loader test asserts ≥ 3 cases*
 - [ ] **T5** Extension host bundle (esbuild), `activate` registers a no-op command; `pnpm package`; `test:e2e` with `@vscode/test-electron` installs the `.vsix` and asserts activation (criterion 2). — *gate: `pnpm package && xvfb-run pnpm test:e2e` green*
 - [ ] **T6** `test:web`: Playwright serves `app-shell`'s Vite build from a local static server and aborts every request to any other origin. — *gate: `pnpm test:web` green on a sample page*
 

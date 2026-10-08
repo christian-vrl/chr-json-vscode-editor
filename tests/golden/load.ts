@@ -1,0 +1,91 @@
+// Golden-master loader (001 T4). Each case is a folder tests/golden/<format>/<name>/ holding
+// input.<ext>, patch.json (RFC 6902), expected.<ext> and case.json (coverage tags, spec 002
+// criterion 4). Inputs and expected outputs are read unchanged so tests can compare bytes (D3).
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+
+export const goldenFormats = ['json', 'jsonc', 'json5'] as const;
+export type GoldenFormat = (typeof goldenFormats)[number];
+
+export interface PatchOperation {
+  op: string;
+  path: string;
+  [key: string]: unknown;
+}
+
+export interface GoldenTags {
+  op: string;
+  [tag: string]: unknown;
+}
+
+export interface GoldenCase {
+  format: GoldenFormat;
+  name: string;
+  input: string;
+  patch: PatchOperation[];
+  expected: string;
+  tags: GoldenTags;
+}
+
+export const goldenRoot = import.meta.dirname;
+
+/** Loads every case under `root`, sorted by format then name. Throws on any malformed case. */
+export function loadGoldenCases(root: string = goldenRoot): GoldenCase[] {
+  return goldenFormats.flatMap((format) => {
+    const formatDir = path.join(root, format);
+    return readdirSync(formatDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+      .map((name) => loadCase(path.join(formatDir, name), format, name));
+  });
+}
+
+function loadCase(dir: string, format: GoldenFormat, name: string): GoldenCase {
+  const where = `golden case ${format}/${name}`;
+  const patch = readJson(dir, 'patch.json', where);
+  if (!Array.isArray(patch) || !patch.every(isPatchOperation)) {
+    throw new Error(`${where}: patch.json must be an array of {op, path} operations`);
+  }
+  const tags = readJson(dir, 'case.json', where);
+  if (!isTags(tags)) {
+    throw new Error(`${where}: case.json must be an object with a string "op" tag`);
+  }
+  return {
+    format,
+    name,
+    input: readText(dir, `input.${format}`, where),
+    patch,
+    expected: readText(dir, `expected.${format}`, where),
+    tags,
+  };
+}
+
+function readText(dir: string, file: string, where: string): string {
+  try {
+    return readFileSync(path.join(dir, file), 'utf8');
+  } catch (error) {
+    throw new Error(`${where}: cannot read ${file}`, { cause: error });
+  }
+}
+
+function readJson(dir: string, file: string, where: string): unknown {
+  const text = readText(dir, file, where);
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`${where}: ${file} is not valid JSON`, { cause: error });
+  }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPatchOperation(value: unknown): value is PatchOperation {
+  return isObject(value) && typeof value.op === 'string' && typeof value.path === 'string';
+}
+
+function isTags(value: unknown): value is GoldenTags {
+  return isObject(value) && typeof value.op === 'string';
+}

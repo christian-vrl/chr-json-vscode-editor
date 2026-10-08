@@ -11,8 +11,8 @@
     "build": "pnpm -r run build",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "test:unit": "node scripts/not-yet.mjs test:unit \"001 T4\"",
-    "test:golden": "node scripts/not-yet.mjs test:golden \"001 T4\"",
+    "test:unit": "vitest run --project unit",
+    "test:golden": "vitest run --project golden",
     "test:e2e": "node scripts/not-yet.mjs test:e2e \"001 T5\"",
     "test:web": "node scripts/not-yet.mjs test:web \"001 T6\"",
     "check:licenses": "node scripts/not-yet.mjs check:licenses \"001 T7\"",
@@ -22,11 +22,14 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.13.0",
     "prettier": "3.9.9",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.71.1"
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.3"
   }
 }
