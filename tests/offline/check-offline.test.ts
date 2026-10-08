@@ -69,6 +69,24 @@ describe('check:offline allowlist and walk', () => {
     expect(status).toBe(1);
   });
 
+  it('keeps a #fragment in an allowlist entry and still reads comments', () => {
+    const dir = file(
+      'dist/e.js',
+      '$id: "http://json-schema.org/draft-07/schema#"\nload("http://json-schema.org/draft-07/schema");\n',
+    );
+    file('allow.txt', '# ids\nhttp://json-schema.org/draft-07/schema#  # the draft-07 $id\n');
+    const { status, output } = run(
+      '--dist',
+      path.join(dir, 'dist'),
+      '--allowlist',
+      path.join(dir, 'allow.txt'),
+    );
+    // The fragment-less URL is a different entry, so it still fails.
+    expect(output).toMatch(/e\.js:2: http:\/\/json-schema\.org\/draft-07\/schema$/m);
+    expect(output).not.toMatch(/e\.js:1:/);
+    expect(status).toBe(1);
+  });
+
   it('does not treat an allowlisted URL as a prefix', () => {
     const dir = file('dist/d.js', 'fetch("https://json5.org/evil");\n');
     file('allow.txt', 'https://json5.org/\n');

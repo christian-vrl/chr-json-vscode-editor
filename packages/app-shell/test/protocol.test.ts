@@ -23,6 +23,30 @@ const toWebview: ToWebviewMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 2, mode: 'table' },
   { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'json5' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'stale', message: 'Edit on 2' },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'validation',
+    docVersion: 4,
+    result: {
+      kind: 'errors',
+      errors: [
+        { instancePath: '', keyword: 'required', message: "must have required property 'name'" },
+        { instancePath: '/age', keyword: 'type', message: 'must be integer' },
+      ],
+    },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'validation',
+    docVersion: 5,
+    result: { kind: 'errors', errors: [] },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'validation',
+    docVersion: 6,
+    result: { kind: 'skipped', reason: 'The document does not parse.' },
+  },
 ];
 
 const toHost: ToHostMessage[] = [
@@ -62,10 +86,10 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type in the task (init, update, edit, setMode, setFormat, error)', () => {
+  it('covers every message type (003 T1, plus validation from 004 T2)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
-      ['edit', 'error', 'init', 'setFormat', 'setMode', 'update'].sort(),
+      ['edit', 'error', 'init', 'setFormat', 'setMode', 'update', 'validation'].sort(),
     );
   });
 
@@ -91,6 +115,12 @@ describe('protocol round trip', () => {
 
 describe('protocol rejects malformed messages', () => {
   const update = { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 1, text: 'x' };
+  const validation = (result: unknown) => ({
+    protocol: PROTOCOL_VERSION,
+    type: 'validation',
+    docVersion: 1,
+    result,
+  });
   const edit = {
     protocol: PROTOCOL_VERSION,
     type: 'edit',
@@ -112,9 +142,37 @@ describe('protocol rejects malformed messages', () => {
     ['a string docVersion', { ...update, docVersion: '1' }],
     ['a non-string text', { ...update, text: 1 }],
     ['an extra property', { ...update, extra: true }],
-    ['an unknown mode', { protocol: 1, type: 'setMode', docVersion: 1, mode: 'graph' }],
-    ['an unknown format', { protocol: 1, type: 'setFormat', docVersion: 1, format: 'yaml' }],
-    ['an error without code', { protocol: 1, type: 'error', docVersion: 1, message: 'm' }],
+    [
+      'an unknown mode',
+      { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 1, mode: 'graph' },
+    ],
+    [
+      'an unknown format',
+      { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 1, format: 'yaml' },
+    ],
+    [
+      'an error without code',
+      { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 1, message: 'm' },
+    ],
+    ['protocol 1 (before validation existed)', { ...update, protocol: 1 }],
+    [
+      'a validation without result',
+      { protocol: PROTOCOL_VERSION, type: 'validation', docVersion: 1 },
+    ],
+    ['an unknown validation kind', validation({ kind: 'pending' })],
+    ['validation errors that are not an array', validation({ kind: 'errors', errors: {} })],
+    [
+      'a validation error whose path is not a JSON Pointer',
+      validation({
+        kind: 'errors',
+        errors: [{ instancePath: 'age', keyword: 'type', message: 'm' }],
+      }),
+    ],
+    [
+      'a validation error without keyword',
+      validation({ kind: 'errors', errors: [{ instancePath: '', message: 'm' }] }),
+    ],
+    ['a skipped validation without reason', validation({ kind: 'skipped' })],
     ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);

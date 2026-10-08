@@ -34,7 +34,9 @@ function readAllowlist(file) {
   return new Set(
     readFileSync(file, 'utf8')
       .split(/\r?\n/)
-      .map((line) => line.replace(/#.*/, '').trim())
+      // `#` starts a comment at the start of a line or after a space, so a URL may keep its
+      // fragment (a JSON Schema `$id` such as `http://json-schema.org/draft-07/schema#`, 004 T2).
+      .map((line) => line.replace(/(^|\s)#.*/, '').trim())
       .filter(Boolean),
   );
 }

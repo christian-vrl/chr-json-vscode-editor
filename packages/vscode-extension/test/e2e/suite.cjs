@@ -7,8 +7,11 @@ const EXTENSION_ID = 'christian-vrl.chr-json-editor';
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
 const REOPEN_AS_TEXT_COMMAND = 'chrJsonEditor.reopenAsText';
+const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
 const FIXTURES = path.resolve(__dirname, '../../../../tests/e2e/fixtures/open');
 const FORMATS = ['json', 'jsonc', 'json5'];
+const VALIDATION = path.resolve(__dirname, '../../../../tests/e2e/fixtures/validation');
+const LABELS = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
 
 function fixture(format) {
   return vscode.Uri.file(path.join(FIXTURES, `sample.${format}`));
@@ -214,6 +217,118 @@ exports.run = async function run() {
     console.log(`sample.${format}: CSP meets criterion 6 and the nonce script ran`);
   }
   assert.equal(nonces.size, FORMATS.length, 'each webview must get its own nonce');
+
+  // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
+  // keyed by docVersion. The placeholder webview decodes each message with app-shell's protocol
+  // decoder and reports what it got; the CSP checked above has no unsafe-eval.
+  await closeAll();
+  const personUri = vscode.Uri.file(path.join(VALIDATION, 'person.jsonc'));
+  const schema = JSON.parse(
+    require('node:fs').readFileSync(path.join(VALIDATION, 'person.schema.json'), 'utf8'),
+  );
+  const person = await vscode.workspace.openTextDocument(personUri);
+  await vscode.commands.executeCommand('vscode.openWith', personUri, VIEW_TYPE);
+  await expectOnly(personUri, 'custom', isCustom);
+  const personView = () => hooks.webviews().find((w) => w.uri === personUri.toString());
+  await waitFor('the person.jsonc webview script to run', () => personView()?.scriptLoaded);
+  assertCriterion6(personView());
+  assert.equal(hooks.setSchema(personUri.toString(), schema), true, 'no editor for person.jsonc');
+  const shown = () => personView().validationsShown;
+  await waitFor('validation errors in the webview', () => shown().length === 1);
+  const keys = (errors) => errors.map(({ instancePath, keyword }) => ({ instancePath, keyword }));
+  assert.equal(shown()[0].docVersion, person.version, 'validation must carry the document version');
+  assert.deepEqual(keys(shown()[0].errors), [
+    { instancePath: '/age', keyword: 'type' },
+    { instancePath: '/email', keyword: 'format' },
+    { instancePath: '/name', keyword: 'minLength' },
+  ]);
+  console.log(`person.jsonc v${person.version}: 3 schema errors reached the webview`);
+
+  // A fix to the document is validated again and the result names the new version.
+  const before = person.version;
+  const fix = new vscode.WorkspaceEdit();
+  fix.replace(
+    personUri,
+    new vscode.Range(person.positionAt(0), person.positionAt(person.getText().length)),
+    '{\n  "name": "Ada",\n  "age": 36\n}\n',
+  );
+  assert.equal(await vscode.workspace.applyEdit(fix), true);
+  assert.ok(person.version > before, 'the edit must bump the document version');
+  await waitFor('validation of the fixed document', () => shown().length === 2);
+  assert.equal(shown()[1].docVersion, person.version);
+  assert.deepEqual(shown()[1].errors, []);
+  console.log(`person.jsonc v${person.version}: valid after the fix`);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the fix to revert', () => !person.isDirty);
+
+  // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
+  // format re-parses in the host without changing the document's bytes. The webview's own re-parse
+  // arrives with 003 T5.
+  await closeAll();
+  assert.ok(hooks.formatBadge(), 'no format badge: core failed to load (see the exthost log)');
+  const tsconfig = vscode.Uri.file(path.resolve(FIXTURES, '../format/tsconfig.json'));
+  const badgeCases = [
+    ...FORMATS.map((format) => ({ uri: fixture(format), detected: format })),
+    // UNK-019 (names first): a VS Code JSONC file name is JSONC, not JSON.
+    { uri: tsconfig, detected: 'jsonc' },
+  ];
+  for (const { uri, detected } of badgeCases) {
+    const name = path.basename(uri.fsPath);
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const bytes = doc.getText();
+    const version = doc.version;
+    await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE);
+    await expectOnly(uri, 'custom', isCustom);
+    const badge = () => hooks.formatBadge();
+    await waitFor(`the ${name} badge`, () => badge().visible && badge().uri === uri.toString());
+    assert.equal(badge().command, SELECT_FORMAT_COMMAND, `${name}: badge command`);
+    assert.equal(badge().state.detected, detected, `${name}: detected format`);
+    assert.equal(badge().state.format, detected, `${name}: badge format`);
+    assert.equal(badge().text, LABELS[detected], `${name}: badge text`);
+    assert.equal(badge().state.outcome.errors, 0, `${name}: parse errors`);
+    for (const other of [...FORMATS.filter((f) => f !== detected), detected]) {
+      await vscode.commands.executeCommand(SELECT_FORMAT_COMMAND, other);
+      await waitFor(`${name} as ${other}`, () => badge().state.format === other);
+      assert.ok(badge().text.endsWith(LABELS[other]), `${name}: ${badge().text}`);
+      assert.equal(badge().state.detected, detected, `${name}: detection kept`);
+      // Comments and trailing commas are strict-JSON violations: warnings, never an edit.
+      if (other === 'json' && detected === 'jsonc') {
+        assert.equal(badge().text, '$(warning) JSON', `${name} as json`);
+        assert.ok(badge().state.outcome.warnings > 0, `${name} as json: warnings`);
+      }
+      assert.equal(doc.getText(), bytes, `${name} as ${other}: document text changed`);
+      assert.equal(doc.version, version, `${name} as ${other}: document was edited`);
+      assert.equal(doc.isDirty, false, `${name} as ${other}: document is dirty`);
+    }
+    console.log(`${name}: badge shows ${LABELS[detected]}; switching formats keeps the bytes`);
+  }
+
+  // The badge follows edits: a syntax error shows as an error, and undoing it clears it.
+  const jsonDoc = await vscode.workspace.openTextDocument(fixture('json'));
+  await vscode.commands.executeCommand('vscode.openWith', fixture('json'), VIEW_TYPE);
+  await waitFor(
+    'the sample.json badge',
+    () => hooks.formatBadge().uri === fixture('json').toString(),
+  );
+  const breakIt = new vscode.WorkspaceEdit();
+  breakIt.insert(fixture('json'), new vscode.Position(0, 1), '!');
+  assert.equal(await vscode.workspace.applyEdit(breakIt), true);
+  await waitFor('the error badge', () => hooks.formatBadge().text === '$(error) JSON');
+  const fixIt = new vscode.WorkspaceEdit();
+  fixIt.delete(fixture('json'), new vscode.Range(0, 1, 0, 2));
+  assert.equal(await vscode.workspace.applyEdit(fixIt), true);
+  await waitFor('the clean badge', () => hooks.formatBadge().text === 'JSON');
+
+  // Only a CHR JSON Editor tab shows the badge. Revert from the text editor drops the dirty state.
+  await vscode.window.showTextDocument(jsonDoc);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the edits to revert', () => !jsonDoc.isDirty);
+  await closeAll();
+  await vscode.window.showTextDocument(fixture('json'));
+  await expectOnly(fixture('json'), 'text', isText);
+  await waitFor('the badge to hide', () => !hooks.formatBadge().visible);
+  await closeAll();
+  console.log('the badge follows edits and hides outside the custom editor');
 
   // Priority "option": a plain open still uses the text editor.
   await closeAll();
