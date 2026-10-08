@@ -1,6 +1,6 @@
 // Format detection (spec 002 R11) with strict-JSON diagnostics (spec 002 §Scope: strict-JSON
 // violations in a `.json` document are warnings, not load failures).
-import { parse, printParseErrorCode, type ParseError } from 'jsonc-parser';
+import { createScanner, parse, printParseErrorCode, type ParseError } from 'jsonc-parser';
 
 export type Format = 'json' | 'jsonc' | 'json5';
 
@@ -67,17 +67,54 @@ export function detect(path: string, languageId?: string, text?: string): Detect
 
 /** Strict RFC 8259 violations in `text`, as warnings with offsets into `text`. */
 export function strictJsonDiagnostics(text: string): Diagnostic[] {
-  const shift = text.length - stripBom(text).length;
-  return parseErrors(stripBom(text), STRICT).map((e) => {
+  const body = stripBom(text);
+  const shift = text.length - body.length;
+  const commas = trailingCommas(body);
+  // jsonc-parser reports a trailing comma as PropertyNameExpected/ValueExpected at the closing
+  // bracket; those are replaced by one TrailingComma warning on the comma itself.
+  const closers = new Set(commas.map((c) => c.closer));
+  const diagnostics: Diagnostic[] = commas.map((c) => ({
+    severity: 'warning',
+    code: 'TrailingComma',
+    message: 'Trailing commas are not allowed in JSON.',
+    offset: c.comma + shift,
+    length: 1,
+  }));
+  for (const e of parseErrors(body, STRICT)) {
     const code = printParseErrorCode(e.error);
-    return {
+    if (closers.has(e.offset) && (code === 'PropertyNameExpected' || code === 'ValueExpected'))
+      continue;
+    diagnostics.push({
       severity: 'warning',
       code,
       message: messageFor(code),
       offset: e.offset + shift,
       length: e.length,
-    };
-  });
+    });
+  }
+  return diagnostics.sort((a, b) => a.offset - b.offset);
+}
+
+// Numeric values of jsonc-parser's `SyntaxKind` const enum (lib/umd/main.d.ts).
+const COMMA = 5;
+const CLOSE_BRACE = 2;
+const CLOSE_BRACKET = 4;
+const EOF = 17;
+const TRIVIA = new Set([12, 13, 14, 15]); // line comment, block comment, line break, whitespace
+
+/** Commas followed (after trivia and comments) by `}` or `]`, with the closer's offset. */
+function trailingCommas(text: string): { comma: number; closer: number }[] {
+  const scanner = createScanner(text, false);
+  const found: { comma: number; closer: number }[] = [];
+  let lastComma = -1;
+  for (let kind: number = scanner.scan(); kind !== EOF; kind = scanner.scan()) {
+    if (TRIVIA.has(kind)) continue;
+    if ((kind === CLOSE_BRACE || kind === CLOSE_BRACKET) && lastComma >= 0) {
+      found.push({ comma: lastComma, closer: scanner.getTokenOffset() });
+    }
+    lastComma = kind === COMMA ? scanner.getTokenOffset() : -1;
+  }
+  return found;
 }
 
 function withDiagnostics(
@@ -101,7 +138,7 @@ function baseName(path: string): string {
 
 // RFC 8259 §8.1: parsers MAY ignore a leading byte order mark.
 function stripBom(text: string): string {
-  return text.startsWith('﻿') ? text.slice(1) : text;
+  return text.startsWith('\uFEFF') ? text.slice(1) : text;
 }
 
 function parseErrors(text: string, options: typeof STRICT): ParseError[] {

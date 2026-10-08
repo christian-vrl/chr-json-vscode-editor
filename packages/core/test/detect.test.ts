@@ -1,6 +1,6 @@
 // Spec 002 criterion 5: detect(path, languageId?, text?) per R11, table-driven over every listed name.
 import { describe, expect, it } from 'vitest';
-import { detect, type Format } from '../src/detect.js';
+import { detect, type DetectionSource, type Format } from '../src/detect.js';
 
 type Row = [path: string, languageId: string | undefined, text: string | undefined, format: Format];
 
@@ -61,10 +61,18 @@ const byContent: Row[] = [
 ];
 
 describe('detect (spec 002 R11)', () => {
-  it.each([...byLanguageId, ...byExtension, ...byFileName, ...byContent])(
-    'detect(%j, %j, %j) is %s',
-    (path, languageId, text, format) => {
-      expect(detect(path, languageId, text).format).toBe(format);
+  const groups: [DetectionSource, Row[]][] = [
+    ['languageId', byLanguageId],
+    ['extension', byExtension],
+    ['fileName', byFileName],
+    ['content', byContent],
+  ];
+  it.each(groups.flatMap(([source, rows]) => rows.map((row) => [...row, source] as const)))(
+    'detect(%j, %j, %j) is %s via %s',
+    (path, languageId, text, format, source) => {
+      const result = detect(path, languageId, text);
+      expect(result.format).toBe(format);
+      expect(result.source).toBe(source);
     },
   );
 
@@ -78,7 +86,7 @@ describe('detect (spec 002 R11)', () => {
   });
 
   it('defaults to json when no step applies and there is no text', () => {
-    expect(detect('data.txt').format).toBe('json');
+    expect(detect('data.txt')).toEqual({ format: 'json', source: 'default', diagnostics: [] });
   });
 });
 
@@ -92,6 +100,26 @@ describe('strict-JSON diagnostics', () => {
     const comment = result.diagnostics.find((d) => d.code === 'InvalidCommentToken');
     expect(comment).toBeDefined();
     expect(text.slice(comment!.offset, comment!.offset + comment!.length)).toBe('// note');
+  });
+
+  it('reports each trailing comma once, on the comma', () => {
+    const text = '{"a": [1, 2 /* c */ ,\n], "b": 1 , }';
+    const diagnostics = detect('data.json', undefined, text).diagnostics;
+    const trailing = diagnostics.filter((d) => d.code === 'TrailingComma');
+    expect(trailing.map((d) => text[d.offset])).toEqual([',', ',']);
+    expect(trailing.map((d) => d.offset)).toEqual([
+      text.indexOf(' ,\n') + 1,
+      text.lastIndexOf(','),
+    ]);
+    expect(diagnostics.filter((d) => d.code !== 'TrailingComma').map((d) => d.code)).toEqual([
+      'InvalidCommentToken',
+    ]);
+    for (const d of trailing) expect(d.message).toBe('Trailing commas are not allowed in JSON.');
+  });
+
+  it('shifts offsets past a leading byte order mark', () => {
+    const [d] = detect('data.json', undefined, '\uFEFF[1,]').diagnostics;
+    expect(d).toMatchObject({ code: 'TrailingComma', offset: 3 });
   });
 
   it('reports nothing for valid JSON, for non-json formats, or without text', () => {
