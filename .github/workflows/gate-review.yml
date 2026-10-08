@@ -27,7 +27,6 @@ jobs:
           node-version: 22
           # No pnpm here, and the scripts need no install.
           package-manager-cache: false
-          package-manager-cache: false
       - run: node scripts/gate-review/check.mjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
