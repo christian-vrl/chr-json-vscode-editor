@@ -14,6 +14,9 @@ spikes/repair-comments/fixtures/
 # Written by the spike's run.ts; regenerated, never hand-edited.
 spikes/repair-comments/results.json
 
+# Vendored json5-tests conformance fixtures (002 T5), valid and invalid on purpose.
+packages/core/test/fixtures/json5-tests/
+
 # E2E fixtures are opened as-is, in each format's own syntax.
 tests/e2e/fixtures/
 

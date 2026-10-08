@@ -18,6 +18,9 @@ await build({
   // VS Code 1.95 (engines.vscode, UNK-016) ships Electron 32, which runs Node 20.
   target: 'node20',
   external: ['vscode'],
+  // jsonc-parser's UMD build (its `main`) loads its own files with a dynamic `require` that esbuild
+  // leaves unbundled, so the .vsix would miss them; its ESM build (`module`) bundles statically.
+  mainFields: ['module', 'main'],
   define: { __CHR_TEST_HOOKS__: JSON.stringify(testHooks) },
   sourcemap: true,
   // Folds `if (false)` away so the hook code is not in release builds; names and whitespace stay.

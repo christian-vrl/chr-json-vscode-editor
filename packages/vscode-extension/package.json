@@ -48,6 +48,11 @@
         "command": "chrJsonEditor.reopenAsText",
         "title": "Reopen as Text",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.selectFormat",
+        "title": "Change Format",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -58,6 +63,10 @@
         },
         {
           "command": "chrJsonEditor.reopenAsText",
+          "when": "activeCustomEditorId == chrJsonEditor.editor"
+        },
+        {
+          "command": "chrJsonEditor.selectFormat",
           "when": "activeCustomEditorId == chrJsonEditor.editor"
         }
       ],
