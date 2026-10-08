@@ -46,7 +46,9 @@ const sizes = vscode.sizes.map((v) => ({
   web: web.sizes.find((w) => w.mib === v.mib) ?? { render: [], edit: [] },
 }));
 
-const commit = process.env.GITHUB_SHA ?? 'local';
+// BENCH_COMMIT is the pull request's head (bench.yml); GITHUB_SHA on a pull_request run is GitHub's
+// merge ref, not a commit anyone pushed.
+const commit = process.env.BENCH_COMMIT || process.env.GITHUB_SHA || 'local';
 const runUrl = process.env.GITHUB_RUN_ID
   ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
   : undefined;
