@@ -1,0 +1,10 @@
+// Type-checks the TypeScript no package builds: tests, the golden loader and tool configs.
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022"],
+    "types": ["node"]
+  },
+  "include": ["*.mts", "tests/**/*.ts", "packages/*/test/**/*.ts"]
+}

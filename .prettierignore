@@ -1,7 +1,10 @@
 # Prettier reads .gitignore too; these are tracked files it must not touch.
 
-# Golden-master fixtures are compared byte for byte (constitution D3).
-tests/golden/
+# Golden-master fixtures are compared byte for byte (constitution D3). The loader and its test
+# beside them are ordinary code.
+tests/golden/json/
+tests/golden/jsonc/
+tests/golden/json5/
 
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/
