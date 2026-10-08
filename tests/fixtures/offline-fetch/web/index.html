@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- Expected-failure fixture (001 T8): a page that tries to reach the network. -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>offline-fetch fixture</title>
+  </head>
+  <body>
+    <script type="module">
+      fetch('https://example.com')
+        .catch(() => undefined)
+        .finally(() => (document.title = 'settled'));
+    </script>
+  </body>
+</html>

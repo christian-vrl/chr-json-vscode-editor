@@ -8,7 +8,11 @@ export default defineConfig({
       {
         test: {
           name: 'unit',
-          include: ['packages/*/test/**/*.test.ts', 'tests/licenses/**/*.test.ts'],
+          include: [
+            'packages/*/test/**/*.test.ts',
+            'tests/licenses/**/*.test.ts',
+            'tests/offline/**/*.test.ts',
+          ],
         },
       },
       { test: { name: 'golden', include: ['tests/golden/**/*.test.ts'] } },
