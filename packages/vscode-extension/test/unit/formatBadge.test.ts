@@ -24,11 +24,14 @@ describe('initialState', () => {
     });
   });
 
-  it('json5 has no parser until 002 T5', () => {
+  it('json5 parses with the JSON5 adapter (002 T5)', () => {
     const state = initialState(core, '/w/a.json5', 'plaintext', "{a: 'b'}");
-    expect(state).toMatchObject({ format: 'json5', source: 'extension' });
-    expect(state.outcome.kind).toBe('unsupported');
-    expect(badge(state).text).toBe('$(circle-slash) JSON5 (no parser yet)');
+    expect(state).toMatchObject({
+      format: 'json5',
+      source: 'extension',
+      outcome: { kind: 'parsed', errors: 0 },
+    });
+    expect(badge(state).text).toBe('JSON5');
   });
 });
 

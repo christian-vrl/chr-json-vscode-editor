@@ -15,20 +15,27 @@ declare const __CHR_TEST_HOOKS__: boolean;
 /** Returned from `activate` only in the e2e build (`extension.exports.testHooks`). */
 export interface TestHooks {
   webviews(): WebviewSnapshot[];
-  formatBadge(): FormatBadgeSnapshot;
+  formatBadge(): FormatBadgeSnapshot | undefined;
 }
 
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<{ testHooks: TestHooks } | undefined> {
-  const formatBadge = new FormatBadgeController(await loadFormatCore());
+  // The editor still opens if core fails to load; only the format badge is missing then.
+  let formatBadge: FormatBadgeController | undefined;
+  try {
+    formatBadge = new FormatBadgeController(await loadFormatCore());
+    context.subscriptions.push(formatBadge);
+  } catch (error) {
+    console.error('CHR JSON Editor: the format badge is off, core failed to load', error);
+  }
   const { provider, disposable } = JsonEditorProvider.register(context, formatBadge);
-  context.subscriptions.push(formatBadge, disposable, ...registerCommands());
+  context.subscriptions.push(disposable, ...registerCommands());
   if (__CHR_TEST_HOOKS__) {
     return {
       testHooks: {
         webviews: () => [...provider.snapshots.values()],
-        formatBadge: () => formatBadge.snapshot(),
+        formatBadge: () => formatBadge?.snapshot(),
       },
     };
   }

@@ -28,12 +28,12 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly formatBadge: FormatBadgeController,
+    private readonly formatBadge: FormatBadgeController | undefined,
   ) {}
 
   static register(
     context: vscode.ExtensionContext,
-    formatBadge: FormatBadgeController,
+    formatBadge: FormatBadgeController | undefined,
   ): {
     provider: JsonEditorProvider;
     disposable: vscode.Disposable;
@@ -59,7 +59,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       body: `<p>${escapeHtml(name)} is open in CHR JSON Editor. The tree, text and table views are
 not built yet; use "Reopen as Text" to edit it.</p>`,
     });
-    this.formatBadge.track(document, panel);
+    this.formatBadge?.track(document, panel);
 
     if (__CHR_TEST_HOOKS__) {
       const snapshot: WebviewSnapshot = {

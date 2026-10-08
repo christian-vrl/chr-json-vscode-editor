@@ -55,7 +55,7 @@ const SOURCE_LABELS: Readonly<Record<DetectionSource, string>> = {
   default: 'the default',
 };
 
-/** Parses `text` as `format`; never throws. JSON5 has no adapter until 002 T5 (ADR-009). */
+/** Parses `text` as `format`; never throws. A format whose `getAdapter` throws is `unsupported`. */
 export function reparse(core: FormatCore, text: string, format: Format): ParseOutcome {
   let adapter: FormatAdapter;
   try {

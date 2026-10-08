@@ -221,6 +221,7 @@ exports.run = async function run() {
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.
   await closeAll();
+  assert.ok(hooks.formatBadge(), 'no format badge: core failed to load (see the exthost log)');
   const tsconfig = vscode.Uri.file(path.resolve(FIXTURES, '../format/tsconfig.json'));
   const badgeCases = [
     ...FORMATS.map((format) => ({ uri: fixture(format), detected: format })),
@@ -239,18 +240,12 @@ exports.run = async function run() {
     assert.equal(badge().command, SELECT_FORMAT_COMMAND, `${name}: badge command`);
     assert.equal(badge().state.detected, detected, `${name}: detected format`);
     assert.equal(badge().state.format, detected, `${name}: badge format`);
-    if (detected === 'json5') {
-      assert.equal(badge().text, '$(circle-slash) JSON5 (no parser yet)', `${name}: badge text`);
-    } else {
-      assert.equal(badge().text, LABELS[detected], `${name}: badge text`);
-    }
+    assert.equal(badge().text, LABELS[detected], `${name}: badge text`);
+    assert.equal(badge().state.outcome.errors, 0, `${name}: parse errors`);
     for (const other of [...FORMATS.filter((f) => f !== detected), detected]) {
       await vscode.commands.executeCommand(SELECT_FORMAT_COMMAND, other);
       await waitFor(`${name} as ${other}`, () => badge().state.format === other);
-      assert.ok(
-        badge().text.endsWith(LABELS[other]) || other === 'json5',
-        `${name}: ${badge().text}`,
-      );
+      assert.ok(badge().text.endsWith(LABELS[other]), `${name}: ${badge().text}`);
       assert.equal(badge().state.detected, detected, `${name}: detection kept`);
       // Comments and trailing commas are strict-JSON violations: warnings, never an edit.
       if (other === 'json' && detected === 'jsonc') {
