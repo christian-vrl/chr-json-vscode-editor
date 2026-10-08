@@ -12,7 +12,7 @@
 - [x] **T3** ESLint (typescript-eslint) + Prettier. — *gate: `pnpm lint` exit 0*
 - [x] **T4** Vitest for `test:unit`; `test:golden` with loader `tests/golden/load.ts` returning `{format, name, input, patch, expected, tags}` and one trivial case per format. — *gate: `pnpm test:unit && pnpm test:golden` green; loader test asserts ≥ 3 cases*
 - [x] **T5** Extension host bundle (esbuild), `activate` registers a no-op command; `pnpm package`; `test:e2e` with `@vscode/test-electron` installs the `.vsix` and asserts activation (criterion 2). — *gate: `pnpm package && xvfb-run pnpm test:e2e` green*
-- [ ] **T6** `test:web`: Playwright serves `app-shell`'s Vite build from a local static server and aborts every request to any other origin. — *gate: `pnpm test:web` green on a sample page*
+- [x] **T6** `test:web`: Playwright serves `app-shell`'s Vite build from a local static server and aborts every request to any other origin. — *gate: `pnpm test:web` green on a sample page*
 
 ## Phase C — Guards (risk-free / additive)
 - [ ] **T7** `check:licenses` per `AGENTS.md` rule 4 (SPDX AND/OR evaluation) over production deps of shipped packages; generates `THIRD_PARTY_LICENSES.md` into the `.vsix`. Fixture `tests/fixtures/bad-license` (`GPL-3.0`). — *gate: passes on repo, fails on fixture, Font Awesome passes (criterion 3)*
