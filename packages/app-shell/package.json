@@ -18,9 +18,16 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && vite build"
+    "build": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings && tsc -p tsconfig.build.json && vite build"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "svelte-check": "4.7.6",
     "vite": "8.3.4"
+  },
+  "dependencies": {
+    "immutable-json-patch": "6.0.3",
+    "svelte": "5.57.2",
+    "vanilla-jsoneditor": "3.13.0"
   }
 }

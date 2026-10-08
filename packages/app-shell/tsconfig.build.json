@@ -1,0 +1,8 @@
+// Emits dist/index.js and its .d.ts: the protocol, the HostAdapter types and DevHostAdapter. The
+// Svelte UI (app.ts, App.svelte, main.ts) is bundled by Vite instead, so it is not listed here.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": false },
+  "include": [],
+  "files": ["src/index.ts"]
+}

@@ -5,7 +5,7 @@
 
 ## Phase A — Shell (risk-free / additive)
 - [x] **T1** `HostAdapter` interface and versioned message protocol (`init`, `update`, `edit`, `setMode`, `setFormat`, `error`), each carrying `docVersion`. — needs: 001 T4 — *gate: `pnpm test:unit` protocol round-trip tests green*
-- [ ] **T2** `app-shell` mounting `vanilla-jsoneditor` (UNK-010), mode switch, toolbar, `DevHostAdapter` for the standalone page. — needs: 001 T6 — *gate: `pnpm test:web` loads the page with other origins blocked and switches tree/text/table*
+- [x] **T2** `app-shell` mounting `vanilla-jsoneditor` (UNK-010), mode switch, toolbar, `DevHostAdapter` for the standalone page. — needs: 001 T6 — *gate: `pnpm test:web` loads the page with other origins blocked and switches tree/text/table*
 
 ## Phase B — Provider (risk-free / additive)
 - [x] **T3** `CustomTextEditorProvider` for `*.json`, `*.jsonc`, `*.json5` with `priority` per UNK-004; commands "Open in CHR JSON Editor" and "Reopen as Text". — needs: 001 T5 — *gate: e2e opens one fixture per format in the custom editor*
