@@ -5,6 +5,7 @@
 // folder (or the workspace file's folder); folder-level entries apply only inside their folder.
 // `json5.schemas` is the "Better JSON5" extension's setting, same shape, scope `resource`
 // (BlueGlassBlock/better-json5 package.json @ 47e3158, line 66).
+// This package is CommonJS and core is ESM: a type-only import of ESM from CJS needs `resolution-mode`.
 import type { SchemaSettingsScope } from '@chr-json-editor/core' with {
   'resolution-mode': 'import',
 };
