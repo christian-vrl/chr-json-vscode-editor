@@ -63,9 +63,105 @@ async function expectOnly(uri, kind, check) {
   });
 }
 
+// Criterion 6 (003 T4): parse the CSP <meta> out of the webview HTML the provider set.
+function unescapeHtml(text) {
+  return text.replace(
+    /&(amp|lt|gt|quot|#39);/g,
+    (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e],
+  );
+}
+
+function parseCsp(html) {
+  const metas = [
+    ...html.matchAll(/<meta\s+http-equiv="Content-Security-Policy"\s+content="([^"]*)">/gi),
+  ];
+  assert.equal(metas.length, 1, 'expected exactly one CSP <meta>');
+  const head = html.slice(0, html.search(/<\/head>/i));
+  assert.ok(head.includes(metas[0][0]), 'the CSP <meta> must be in <head>');
+  assert.ok(
+    head.indexOf(metas[0][0]) <
+      Math.min(
+        ...['<script', '<link', '<style'].map((t) => {
+          const i = html.indexOf(t);
+          return i === -1 ? Infinity : i;
+        }),
+      ),
+    'the CSP <meta> must come before any script or stylesheet',
+  );
+  const directives = new Map();
+  for (const part of unescapeHtml(metas[0][1]).split(';')) {
+    const [name, ...sources] = part.trim().split(/\s+/);
+    if (!name) continue;
+    assert.ok(!directives.has(name.toLowerCase()), `duplicate CSP directive ${name}`);
+    directives.set(name.toLowerCase(), sources);
+  }
+  return { policy: unescapeHtml(metas[0][1]), directives };
+}
+
+const NONCE_SOURCE = /^'nonce-([A-Za-z0-9+/]+={0,2})'$/;
+
+function assertCriterion6(snapshot) {
+  const { policy, directives } = parseCsp(snapshot.html);
+  const name = path.basename(vscode.Uri.parse(snapshot.uri).fsPath);
+  assert.deepEqual(directives.get('default-src'), ["'none'"], `${name}: default-src`);
+
+  const scriptSrc = directives.get('script-src') ?? [];
+  assert.equal(scriptSrc.length, 1, `${name}: script-src must be a nonce only, got ${scriptSrc}`);
+  const match = NONCE_SOURCE.exec(scriptSrc[0]);
+  assert.ok(match, `${name}: script-src must be a nonce only, got ${scriptSrc}`);
+  const nonce = match[1];
+  assert.ok(Buffer.from(nonce, 'base64').length >= 16, `${name}: nonce shorter than 128 bits`);
+
+  // webview.cspSource can be several sources (VS Code 1.141: `'self' https://*.vscode-cdn.net`,
+  // the origin it serves localResourceRoots from inside the webview, not the network).
+  const webviewSources = snapshot.cspSource.split(/\s+/).filter(Boolean);
+  const allowed = [...webviewSources, `'nonce-${nonce}'`];
+  const styleSrc = directives.get('style-src') ?? [];
+  assert.deepEqual(
+    [...styleSrc].sort(),
+    [...allowed].sort(),
+    `${name}: style-src must be the webview source and the nonce`,
+  );
+  assert.deepEqual(directives.get('connect-src'), ["'none'"], `${name}: connect-src`);
+  assert.ok(!/unsafe-eval/i.test(policy), `${name}: CSP allows unsafe-eval`);
+  assert.ok(!/unsafe-inline|unsafe-hashes/i.test(policy), `${name}: CSP allows inline code`);
+  // Any other fetch directive may only name the webview source or the nonce, so nothing loads
+  // from the network (offline invariant, AGENTS.md rule 3).
+  for (const [directive, sources] of directives) {
+    if (!directive.endsWith('-src')) continue;
+    for (const source of sources) {
+      assert.ok(
+        source === "'none'" || allowed.includes(source),
+        `${name}: ${directive} allows ${source}`,
+      );
+    }
+  }
+
+  // Every script is external and carries the nonce; no inline script or style element.
+  const scripts = [...snapshot.html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
+  assert.ok(scripts.length > 0, `${name}: no script`);
+  for (const [, attributes, content] of scripts) {
+    assert.ok(attributes.includes(` nonce="${nonce}"`), `${name}: script without the nonce`);
+    assert.equal(content.trim(), '', `${name}: inline script`);
+  }
+  assert.ok(!/<style\b/i.test(snapshot.html), `${name}: inline <style> element`);
+
+  // localResourceRoots: only the extension's dist folder.
+  const dist = vscode.Uri.joinPath(extensionUri(), 'dist').toString();
+  assert.equal(snapshot.enableScripts, true, `${name}: scripts disabled`);
+  assert.deepEqual(snapshot.localResourceRoots, [dist], `${name}: localResourceRoots`);
+  return nonce;
+}
+
+let installedExtension;
+function extensionUri() {
+  return installedExtension.extensionUri;
+}
+
 exports.run = async function run() {
   const extension = vscode.extensions.getExtension(EXTENSION_ID);
   assert.ok(extension, `${EXTENSION_ID} is not installed`);
+  installedExtension = extension;
 
   // Installed from the .vsix into the fresh profile, not loaded from the source tree.
   const extensionsDir = process.env.CHR_E2E_EXTENSIONS_DIR;
@@ -100,6 +196,24 @@ exports.run = async function run() {
     console.log(`sample.${format}: ${describe(activeTab())}`);
   }
   assert.equal(extension.isActive, true, `${EXTENSION_ID} did not activate`);
+
+  // Gate (003 T4): criterion 6 on the webview of each format, read through the test-only hook.
+  const hooks = extension.exports && extension.exports.testHooks;
+  assert.ok(hooks, 'the .vsix has no test hooks; package it with CHR_TEST_HOOKS=1 (see run.mjs)');
+  await closeAll();
+  const nonces = new Set();
+  for (const format of FORMATS) {
+    const uri = fixture(format);
+    await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE);
+    await expectOnly(uri, 'custom', isCustom);
+    const snapshot = () => hooks.webviews().find((w) => w.uri === uri.toString());
+    await waitFor(`the sample.${format} webview`, () => snapshot() !== undefined);
+    nonces.add(assertCriterion6(snapshot()));
+    // The script ran: the nonce, localResourceRoots and asWebviewUri line up.
+    await waitFor(`the sample.${format} webview script to run`, () => snapshot().scriptLoaded);
+    console.log(`sample.${format}: CSP meets criterion 6 and the nonce script ran`);
+  }
+  assert.equal(nonces.size, FORMATS.length, 'each webview must get its own nonce');
 
   // Priority "option": a plain open still uses the text editor.
   await closeAll();

@@ -9,7 +9,7 @@
 
 ## Phase B — Provider (risk-free / additive)
 - [x] **T3** `CustomTextEditorProvider` for `*.json`, `*.jsonc`, `*.json5` with `priority` per UNK-004; commands "Open in CHR JSON Editor" and "Reopen as Text". — needs: 001 T5 — *gate: e2e opens one fixture per format in the custom editor*
-- [ ] **T4** Webview HTML with nonce CSP (criterion 6) and `localResourceRoots` limited to the extension's `dist`. — *gate: e2e test parses the CSP and asserts criterion 6*
+- [x] **T4** Webview HTML with nonce CSP (criterion 6) and `localResourceRoots` limited to the extension's `dist`. — *gate: e2e test parses the CSP and asserts criterion 6*
 
 ## Phase C — Sync
 - [ ] **T5** Webview→document via `core.applyPatch` → `WorkspaceEdit`; document→webview with echo suppression; library `parser` prop backed by `core` (criterion 10). — needs: 002 T6 (json, jsonc cases); 002 T5 for json5 cases — *gate: criteria 1, 2, 10 green*
