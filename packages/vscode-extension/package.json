@@ -30,7 +30,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && node esbuild.mjs",
-    "package": "pnpm run build && node scripts/copy-license.mjs && vsce package --no-dependencies",
+    "package": "pnpm run build && node scripts/copy-license.mjs && node ../../scripts/check-licenses.mjs --package . --notice THIRD_PARTY_LICENSES.md && vsce package --no-dependencies",
     "test:e2e": "node test/e2e/run.mjs"
   },
   "devDependencies": {
