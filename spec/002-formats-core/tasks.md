@@ -13,7 +13,7 @@
 - [x] **T5** JSON5 adapter per ADR-009. — *gate: `pnpm test:golden -- --format json5 --op add,replace,remove` green*
 
 ## Phase C — Proof (risk-free / additive)
-- [ ] **T6** (Large) Patch layer `applyPatch(text, patch, format)` with `move`/`copy`/`test`, atomic per R9; fast-check suite per criterion 3. — *gate: `pnpm test:golden` all cases green and property suite 10 000 runs/format green*
+- [x] **T6** (Large) Patch layer `applyPatch(text, patch, format)` with `move`/`copy`/`test`, atomic per R9; fast-check suite per criterion 3. — *gate: `pnpm test:golden` all cases green and property suite 10 000 runs/format green*
 - [x] **T7** `stringify(data, format, style)`. `parallel` — *gate: criterion 6 property test green*
 - [ ] **T8** Benchmark per criterion 7. — *gate: `bench/RESULTS.md` committed*
 

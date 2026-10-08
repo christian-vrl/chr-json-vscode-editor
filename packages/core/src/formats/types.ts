@@ -1,7 +1,7 @@
 // FormatAdapter contract (002 T3, AGENTS.md §Glossary). One adapter per format turns text into data
 // and applies RFC 6902 operations as minimal text edits, so every byte outside the edited spans is
 // kept (spec 002 §Goal). Format detection is the separate `detect(path, languageId?, text?)` of 002
-// T2, since it picks the adapter; move/copy/test land with 002 T6.
+// T2, since it picks the adapter.
 
 export type Format = 'json' | 'jsonc' | 'json5';
 
@@ -41,7 +41,7 @@ export interface ParseResult {
   diagnostics: Diagnostic[];
 }
 
-/** RFC 6902 operations. 002 T3 applies `add`, `replace` and `remove`. */
+/** RFC 6902 operations (002 T3: `add`, `replace`, `remove`; 002 T6: `move`, `copy`, `test`). */
 export type PatchOperation =
   | { op: 'add'; path: string; value: unknown }
   | { op: 'replace'; path: string; value: unknown }

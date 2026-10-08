@@ -62,7 +62,9 @@ export function missingCells(
   const cells: Partial<Record<TagName, string>>[] = [];
 
   for (const op of gridOps) {
-    for (const location of tagValues.location) cells.push({ op, location });
+    // `document` (R15) is outside criterion 4's location grid.
+    for (const location of tagValues.location.filter((l) => l !== 'document'))
+      cells.push({ op, location });
   }
   if (commentFormats.includes(format)) {
     for (const op of gridOps) {

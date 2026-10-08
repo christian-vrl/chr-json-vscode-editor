@@ -241,9 +241,13 @@ describe('applyPatch', () => {
     expect(apply('{\\u0061: 1, b: 2}', { op: 'remove', path: '/a' })).toBe('{b: 2}');
   });
 
-  it('throws a PatchError on text that does not parse or is empty', () => {
+  it('throws a PatchError on text that does not parse', () => {
     expect(() => apply("{a: 'x", { op: 'add', path: '/b', value: 1 })).toThrow(PatchError);
-    expect(() => apply('', { op: 'add', path: '', value: 1 })).toThrow(PatchError);
+  });
+
+  it('writes the whole document into an empty text (R15, UNK-026)', () => {
+    expect(apply('', { op: 'add', path: '', value: 1 })).toBe('1\n');
+    expect(() => apply('', { op: 'add', path: '/a', value: 1 })).toThrow(PatchError);
   });
 
   it('throws a PatchError for a value JSON5 cannot hold', () => {

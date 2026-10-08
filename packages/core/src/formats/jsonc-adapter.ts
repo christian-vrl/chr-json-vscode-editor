@@ -1,5 +1,5 @@
 // JSON and JSONC adapter primitives on jsonc-parser (002 T3, plan 002 §Approach: JSON = JSONC with
-// strict diagnostics). `add`, `replace` and `remove` are computed by the shared edit layer
+// strict diagnostics). Patch operations are computed by the shared edit layer
 // (`edit.ts`) from `parseTree` offsets and the scanner's tokens rather than jsonc-parser's `modify`
 // (plan 002 risk R1).
 import { parseTree, printParseErrorCode, visit, type ParseError } from 'jsonc-parser';
@@ -13,7 +13,6 @@ import {
   type Format,
   type FormatAdapter,
   type ParseResult,
-  type PatchOperation,
 } from './types.js';
 
 const parseOptions = { allowTrailingComma: true, disallowComments: false };
@@ -124,26 +123,37 @@ const writer: Writer = {
   },
 };
 
-function edit(text: string, op: PatchOperation, format: Format): string {
+/** The text as a `Doc` to edit. A text with no value (empty, white space or comments only) opens
+ *  with no root (R15); one with a syntax error cannot be edited. */
+function open(text: string, format: Format): Doc {
   const errors: ParseError[] = [];
   const root = parseTree(text, errors, parseOptions);
+  const tokens = tokenize(text);
+  const style = detectStyle(text, format, tokens);
+  if (root === undefined && noValue(text)) return new Doc(text, undefined, tokens, style, writer);
   if (errors.length > 0 || root === undefined) {
     const first = errors[0];
     throw new PatchError(
       first
         ? `cannot edit a document that does not parse: ${printParseErrorCode(first.error)} at offset ${first.offset}`
-        : 'cannot edit an empty document',
+        : 'cannot edit a document that does not parse',
     );
   }
-  const tokens = tokenize(text);
-  return applyOperation(new Doc(text, root, tokens, detectStyle(text, format, tokens), writer), op);
+  return new Doc(text, root, tokens, style, writer);
+}
+
+/** Whether the text is only white space and complete comments: a value on a line after it parses. */
+function noValue(text: string): boolean {
+  const errors: ParseError[] = [];
+  return parseTree(`${text}\nnull`, errors, parseOptions)?.type === 'null' && errors.length === 0;
 }
 
 function makeAdapter(format: 'json' | 'jsonc'): FormatAdapter {
   return {
     format,
     parse: (text) => parse(text, format),
-    applyPatch: (text, patch) => patch.reduce((current, op) => edit(current, op, format), text),
+    applyPatch: (text, patch) =>
+      patch.reduce((current, op) => applyOperation(current, op, (t) => open(t, format)), text),
     stringify: (data, style) => stringify(data, format, style),
   };
 }

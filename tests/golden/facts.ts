@@ -41,6 +41,18 @@ function scan(text: string): Scan {
   return { code, comments, strings };
 }
 
+/** The data of a text, read by the json5 package; `undefined` for a text with no value: empty,
+ *  white space or comments only (R15). */
+export function parseData(text: string): unknown {
+  try {
+    return JSON5.parse(text);
+  } catch (error) {
+    // A text with no value is one after which a lone value parses.
+    if (JSON5.parse(`${text}\nnull`) === null) return undefined;
+    throw error;
+  }
+}
+
 function parsePointer(pointer: string): string[] {
   return pointer === ''
     ? []
@@ -65,6 +77,7 @@ function locationOf(data: unknown, patch: JSONPatchDocument, index: number): str
   // move = remove at `from`, then add at `path` (RFC 6902 §4.4).
   if (op.op === 'move') before = immutableJSONPatch(before, [{ op: 'remove', path: op.from }]);
   const tokens = parsePointer(op.path);
+  if (tokens.length === 0) return 'document';
   const last = tokens.at(-1);
   const parent = getIn(before, tokens.slice(0, -1));
   if (Array.isArray(parent)) {
@@ -96,7 +109,7 @@ export function tagMismatches(c: GoldenCase): string[] {
   if (index < 0) {
     errors.push(`op: patch has no "${opName}" operation`);
   } else {
-    const data: unknown = JSON5.parse(c.input);
+    const data = parseData(c.input);
     const location = locationOf(data, patch, index);
     if (location !== tags.location) errors.push(`location: path points at ${location}`);
   }
