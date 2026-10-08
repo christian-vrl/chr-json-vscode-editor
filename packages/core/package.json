@@ -1,0 +1,13 @@
+{
+  "name": "@chr-json-editor/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure TypeScript core (formats, diff, CSV, detection): no DOM, no Node APIs.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

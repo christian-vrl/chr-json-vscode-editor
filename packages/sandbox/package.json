@@ -1,0 +1,13 @@
+{
+  "name": "@chr-json-editor/sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Eval-allowed page for Ajv and JS/Lodash queries (placement decided by ADR-010).",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

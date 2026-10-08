@@ -1,0 +1,25 @@
+{
+  "name": "chr-json-editor",
+  "displayName": "CHR JSON Editor",
+  "description": "Free, fully offline JSON, JSONC and JSON5 editor with tree, text and table views.",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "christian-vrl",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christian-vrl/chr-json-vscode-editor.git",
+    "directory": "packages/vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": ["Other"],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "package": "vsce package --no-dependencies"
+  }
+}
