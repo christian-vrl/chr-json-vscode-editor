@@ -1,9 +1,13 @@
+// Type-checks all of app-shell's sources, .svelte components included (svelte-check reads this).
+// tsconfig.build.json emits the plain-TypeScript library entry.
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["svelte"]
   },
   "include": ["src"]
 }
