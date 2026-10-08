@@ -3,10 +3,22 @@
 // contributed custom editor and commands (spec 003 T3).
 import * as vscode from 'vscode';
 import { registerCommands } from './commands';
-import { JsonEditorProvider } from './editorProvider';
+import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
 
-export function activate(context: vscode.ExtensionContext): void {
-  context.subscriptions.push(JsonEditorProvider.register(), ...registerCommands());
+declare const __CHR_TEST_HOOKS__: boolean;
+
+/** Returned from `activate` only in the e2e build (`extension.exports.testHooks`). */
+export interface TestHooks {
+  webviews(): WebviewSnapshot[];
+}
+
+export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
+  const { provider, disposable } = JsonEditorProvider.register(context);
+  context.subscriptions.push(disposable, ...registerCommands());
+  if (__CHR_TEST_HOOKS__) {
+    return { testHooks: { webviews: () => [...provider.snapshots.values()] } };
+  }
+  return undefined;
 }
 
 export function deactivate(): void {}
