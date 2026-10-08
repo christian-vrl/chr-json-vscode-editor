@@ -1,0 +1,6 @@
+{
+  // A VS Code JSONC file name: detected as JSONC before the .json extension (UNK-019).
+  "compilerOptions": {
+    "strict": true,
+  },
+}
