@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+out/
+*.vsix
+*.zip
+*.tsbuildinfo
+
+# Test output
+coverage/
+.vscode-test/
+test-results/
+playwright-report/
+blob-report/
+
+# Local environment (never commit secrets, AGENTS.md rule 8)
+.env
+.env.*
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.log
