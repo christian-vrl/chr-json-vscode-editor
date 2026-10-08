@@ -5,7 +5,7 @@
 
 ## Phase A — Contract (risk-free / additive)
 - [x] **T1** (Large) Write the golden corpus covering every cell of criterion 4, hand-written `expected.*` bytes, `case.json` tags, plus the coverage test. Needs UNK-008 resolved for `remove`/`move` cases. — needs: 001 T4 — *gate: `pnpm test:golden -- --coverage-only` green (every cell covered); Reviewer PASS on R1–R10 per case*
-- [ ] **T2** `detect` per R11 with strict-JSON diagnostics. `parallel` — *gate: criterion 5 table test green*
+- [x] **T2** `detect` per R11 with strict-JSON diagnostics. `parallel` — *gate: criterion 5 table test green*
 
 ## Phase B — Adapters (risk-free / additive)
 - [x] **T3** `FormatAdapter` + `Style` detection + JSON/JSONC adapter primitives on `jsonc-parser`. — *gate: `pnpm test:golden -- --format json,jsonc --op add,replace,remove` green*
