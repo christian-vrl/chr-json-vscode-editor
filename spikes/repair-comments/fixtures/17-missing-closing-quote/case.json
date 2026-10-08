@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "string missing its closing quote",
+  "jsonrepairClass": "not a README item; jsonrepair repairs it (see results)",
+  "comments": [
+    {
+      "text": "// shown under the title",
+      "container": "",
+      "before": 1,
+      "trailing": false
+    },
+    {
+      "text": "/* optional */",
+      "container": "",
+      "before": 2,
+      "trailing": true
+    }
+  ]
+}

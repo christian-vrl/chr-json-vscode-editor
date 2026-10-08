@@ -1,0 +1,6 @@
+{
+  limits: {
+    max: /* none */ 100,
+    min: -Infinity,
+  },
+}

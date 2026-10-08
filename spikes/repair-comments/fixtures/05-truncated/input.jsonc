@@ -1,0 +1,6 @@
+{
+  // user settings
+  "editor": {
+    "tabSize": 2, // spaces
+    // wrap long lines
+    "wordWrap": "on"

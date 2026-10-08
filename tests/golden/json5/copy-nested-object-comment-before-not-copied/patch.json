@@ -1,0 +1,1 @@
+[{"op": "copy", "path": "/job/retries", "from": "/base/retries"}]

@@ -1,0 +1,10 @@
+{
+  base: {
+    // retry count
+    retries: 3,
+  },
+  job: {
+    n: 1,
+    retries: 3,
+  },
+}

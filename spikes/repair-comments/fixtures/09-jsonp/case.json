@@ -1,0 +1,17 @@
+{
+  "format": "jsonc",
+  "breakage": "JSONP wrapper",
+  "jsonrepairClass": "Strip JSONP notation like `callback({ ... })`",
+  "comments": [
+    {
+      "text": "// payload",
+      "container": null,
+      "outside": "before"
+    },
+    {
+      "text": "// end",
+      "container": null,
+      "outside": "after"
+    }
+  ]
+}

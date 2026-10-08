@@ -1,0 +1,136 @@
+# CI (001 T10, spec 001 criteria 1–3): runs every standard script (AGENTS.md §Canonical stack) and
+# the expected-failure fixtures (tests/fixtures/README.md), and uploads the release .vsix.
+# scripts/check-ci.mjs fails the run if a standard script is missing here, and names the scripts
+# that are still placeholders so their green steps are not read as coverage.
+# The gate-review check is a separate workflow (gate-review.yml, 001 T9).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: lint, unit, golden, build, licenses, offline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Standard scripts all run here (placeholders named)
+        run: node scripts/check-ci.mjs --placeholder check:readme
+      # Lint and the unit tests run before any build, so they can't depend on a built dist.
+      - run: pnpm lint
+      - run: pnpm test:unit
+      - run: pnpm test:golden
+      - run: pnpm build
+      - run: pnpm check:licenses
+      # Scans packages/*/dist, so it needs the build above (it exits 2 when nothing is built).
+      - run: pnpm check:offline
+      - name: pnpm check:readme (placeholder until spec 005, checks nothing)
+        run: pnpm check:readme
+
+  web:
+    name: test:web
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm exec playwright install --with-deps chromium
+      # Serves app-shell's build on the fixed port 4173 (playwright.config.mts).
+      - run: pnpm test:web
+
+  expected-failures:
+    name: expected-failure fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm exec playwright install --with-deps chromium
+      # Each guard must exit exactly 1 on its fixture: 0 means the guard let it through, and any
+      # other code (2 = bad arguments, a crash) means the guard never judged it.
+      - name: check:licenses fails on tests/fixtures/bad-license (GPL-3.0)
+        run: |
+          set +e
+          node scripts/check-licenses.mjs --package tests/fixtures/bad-license
+          status=$?
+          echo "exit $status (expected 1)"
+          test "$status" -eq 1
+      - name: check:licenses passes Font Awesome (CC-BY-4.0 AND MIT)
+        run: node scripts/check-licenses.mjs --package tests/fixtures/fontawesome
+      - name: check:offline fails on tests/fixtures/offline-fetch/web
+        run: |
+          set +e
+          node scripts/check-offline.mjs --dist tests/fixtures/offline-fetch/web
+          status=$?
+          echo "exit $status (expected 1)"
+          test "$status" -eq 1
+      - name: test:web fails on the fixture page calling fetch(https://example.com)
+        run: |
+          set +e
+          pnpm exec playwright test -c tests/fixtures/offline-fetch/playwright.config.mts
+          status=$?
+          echo "exit $status (expected 1)"
+          test "$status" -eq 1
+
+  e2e:
+    name: test:e2e (VS Code stable)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install xvfb
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+      # test/e2e/run.mjs downloads VS Code stable through @vscode/test-electron's default path
+      # (VSCODE_EXECUTABLE_PATH is not set here) into .vscode-test. The cache key is the current
+      # stable version, so each new release takes the download path once before it is cached.
+      - name: Resolve VS Code stable
+        id: vscode
+        run: |
+          version=$(curl -fsS --retry 3 https://update.code.visualstudio.com/api/releases/stable | jq -r '.[0]')
+          echo "VS Code stable: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: packages/vscode-extension/.vscode-test
+          key: vscode-${{ runner.os }}-${{ steps.vscode.outputs.version }}
+      # The e2e build: the suite reads webview state through test hooks that release builds
+      # compile out (esbuild.mjs). Only stable is tested, not the ^1.95.0 floor (UNK-016).
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      - run: xvfb-run -a pnpm test:e2e
+
+  package:
+    name: package (.vsix artifact)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The release build, without e2e test hooks.
+      - run: pnpm package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chr-json-editor-vsix
+          path: packages/vscode-extension/*.vsix
+          if-no-files-found: error

@@ -3,8 +3,9 @@
 **Result:** Option F, our own JSON5 parser, passes **20 of 20** cases; the best packages,
 `@humanwhocodes/momoa` and `jsonc-eslint-parser`, pass 19. Under UNK-012's evidence rule ("pick the
 option with the most of the 20 spike cases passing; ties go to fewer runtime deps; own parser if no
-package passes ≥ 18") the outcome depends on how the rule is read, so UNK-012 is **escalated to the
-owner** (see §Decision). ADR-009 is proposed as own parser pending that answer.
+package passes ≥ 18") the outcome depends on how the rule is read, so UNK-012 was escalated to the owner, who chose
+**own parser** (decision card cmsg_01Wz9SKzwQD2da69nuNGPcid6Awk4uSNL6CcSHp29aijbr, 2026-10-08).
+Recorded as ADR-009.
 
 ## Question and hypothesis
 
@@ -95,7 +96,8 @@ upstream does. Full table in [`conformance.md`](conformance.md).
 
 ## Decision under the evidence rule
 
-**Status: escalated to the owner.** The Reviewer's FAIL on PR #7 ruled that the rule's text supports
+**Status: decided by the owner: own parser** (decision card
+cmsg_01Wz9SKzwQD2da69nuNGPcid6Awk4uSNL6CcSHp29aijbr, 2026-10-08). The Reviewer's FAIL on PR #7 ruled that the rule's text supports
 both readings below, so the delegation rule does not cover the choice. The Reviewer also noted that
 if the own parser competes it wins by construction (written after the cases were known, and 0 deps
 takes every tie); the json5-tests run is the better evidence that it is not fitted to the cases.

@@ -2,6 +2,9 @@
 // fresh VS Code profile with --install-extension, then runs suite.cjs inside that VS Code to assert
 // the installed extension activates. Needs a display: run under `xvfb-run` on Linux.
 //
+// The .vsix must be the e2e build, `CHR_TEST_HOOKS=1 pnpm package` (esbuild.mjs): the suite reads
+// webview state through test hooks that release builds compile out (spec 003 §Acceptance criterion).
+//
 // VS Code is downloaded by @vscode/test-electron (dev-time only; nothing ships). Where its download
 // host is unreachable, set VSCODE_EXECUTABLE_PATH to an existing VS Code executable instead.
 import { spawnSync } from 'node:child_process';

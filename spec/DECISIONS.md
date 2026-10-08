@@ -4,7 +4,7 @@
 > (constitution §2 item 4). Record with ID, date, and the confirmation's origin.
 >
 > ADR-001…008 were proposed 2026-10-08 by the Architect thread "Plan extension architecture" and
-> confirmed by the owner the same day (message ID on each). ADR-009 is proposed, awaiting the owner (UNK-012 escalated); ADR-010 is reserved. Specs may cite a
+> confirmed by the owner the same day (message ID on each). ADR-009 was confirmed by the owner (UNK-012); ADR-010 is reserved. Specs may cite a
 > proposed ADR as design intent, but no gate that depends on it is crossed before it is confirmed.
 > New ADRs take the next free number on `main` (AGENTS rule 9). Delegated ADRs follow the rule in
 > `spec/UNKNOWNS.md`'s header.
@@ -59,8 +59,8 @@
 - **Evidence:** `governance/multi-llm-workflow.md` §Handoff protocol; owner message 2026-10-08 ("the more automonous the better").
 - **Consequences:** Most PRs merge without the owner; the owner's attention goes to gates and specs.
 
-### ADR-009 — JSON5 style-preserving edits on our own parser (proposed)
-- **Date:** 2026-10-08 · **Status:** proposed; UNK-012 escalated to the owner after the Reviewer's FAIL on PR #7 (two readings of the evidence rule). The alternative is momoa 3.3.13 (19/20). Edited to match the owner's answer before re-review.
+### ADR-009 — JSON5 style-preserving edits on our own parser
+- **Date:** 2026-10-08 · **Human confirmation:** owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcid6Awk4uSNL6CcSHp29aijbr, 2026-10-08 ("Own parser" over momoa 3.3.13, after UNK-012 was escalated: its evidence rule allowed two readings)
 - **Decision:** JSON5 edits run on our own recursive-descent JSON5 1.0.0 parser in `packages/core` (from `spikes/json5-cst/own-parser.ts`), which records UTF-16 offsets for every container, key and value; no JSON5 CST package is added. `json5` stays the reference for data and `stringify`.
 - **Evidence:** `spikes/json5-cst/REPORT.md` and `results.md`: own parser 20/20 spike cases; `@humanwhocodes/momoa` 3.3.13 and `jsonc-eslint-parser` 3.3.0 19/20; `@croct/json5-parser` 0.2.2 16/20 (13/20 with its own writer); `json5` 2.2.3 6/20; `jsonc-parser` 3.3.1 1/20. Supporting: `conformance.md`, own parser 112/112 on json5-tests @ ceb24d4.
 - **Consequences:** 002 T5 moves the parser into `core` with unit tests and json5-tests as a conformance fixture; no new runtime dependency or license entry. Reserved-word keys, `\u`-escaped keys, astral characters and U+2028 in strings are covered by our own tests rather than by an upstream package.

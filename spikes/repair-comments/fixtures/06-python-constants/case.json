@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "Python True/False/None",
+  "jsonrepairClass": "Replace Python constants `None`, `True`, and `False` with `null`, `true`, and `false`",
+  "comments": [
+    {
+      "text": "// feature flag",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "/* not set yet */",
+      "container": "",
+      "before": 2,
+      "trailing": false
+    }
+  ]
+}

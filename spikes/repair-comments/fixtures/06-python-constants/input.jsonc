@@ -1,0 +1,6 @@
+{
+  "enabled": True, // feature flag
+  "debug": False,
+  /* not set yet */
+  "level": None
+}

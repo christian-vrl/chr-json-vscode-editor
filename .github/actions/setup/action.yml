@@ -1,0 +1,14 @@
+# Shared setup for the CI jobs (001 T10): pnpm from package.json's packageManager, Node 22 LTS
+# (AGENTS.md §Canonical stack) with the pnpm store cached, and a frozen-lockfile install.
+name: setup
+description: Install pnpm, Node 22 and the workspace dependencies
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 22
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash

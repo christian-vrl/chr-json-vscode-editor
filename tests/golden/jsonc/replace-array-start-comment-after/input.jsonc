@@ -1,0 +1,6 @@
+{
+  "levels": [
+    "debug", // verbose
+    "info"
+  ]
+}
