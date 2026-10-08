@@ -45,8 +45,11 @@ await build({
   // Electron 32's Chromium 128.
   target: 'chrome128',
   define: { __CHR_TEST_HOOKS__: JSON.stringify(testHooks) },
-  // Folds the test hooks away in release builds, as for the extension host.
-  minifySyntax: true,
+  // Minified (003 T11 benchmark carry-forward): the bundle holds Svelte, vanilla-jsoneditor and
+  // CodeMirror, about 1.5 MB as written, and the webview loads all of it on every open. Also
+  // folds the test hooks away in release builds, as for the extension host. CHR_WEBVIEW_MINIFY=0
+  // builds it unminified (syntax folding only), so the benchmark can compare the two.
+  ...(process.env.CHR_WEBVIEW_MINIFY === '0' ? { minifySyntax: true } : { minify: true }),
   sourcemap: false,
   logLevel: 'info',
 });
