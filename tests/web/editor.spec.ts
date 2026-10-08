@@ -6,7 +6,7 @@
 /// <reference lib="dom" />
 import type { Page } from '@playwright/test';
 import type { DevHostAdapter } from '../../packages/app-shell/src/dev-host-adapter.js';
-import { expect, test } from './fixtures';
+import { BLOCKED_BY_CLIENT, expect, test } from './fixtures';
 
 // Set by the standalone page (packages/app-shell/src/main.ts); page.evaluate callbacks run there.
 declare global {
@@ -47,29 +47,32 @@ test('loads the editor with no request leaving the local origin', async ({
   expect(blockedRequests).toEqual([]);
 });
 
-test('the editor page cannot reach another origin: the fixture aborts it', async ({
-  page,
-  blockedRequests,
-}) => {
-  await page.goto('/');
-  await expect(page.locator(MODE_ROOT.tree)).toBeVisible();
-  const url = 'https://example.com/';
-  const failure = page.waitForEvent('requestfailed', (request) => request.url() === url);
-  // no-cors, so without the block this request would succeed wherever the network is reachable.
-  const outcome = await page.evaluate(async (target) => {
-    try {
-      await fetch(target, { mode: 'no-cors' });
-      return 'reached';
-    } catch {
-      return 'failed';
-    }
-  }, url);
-  expect(outcome).toBe('failed');
-  // Only the fixture's abort fails this way (Chromium appends `.Inspector` for DevTools blocks).
-  expect((await failure).failure()?.errorText).toMatch(
-    /^net::ERR_BLOCKED_BY_CLIENT(\.Inspector)?$/,
-  );
-  expect(blockedRequests).toEqual([url]);
+test.describe('the editor page asking for another origin', () => {
+  // This test makes a foreign request on purpose; any other test fails if it does (001 T8).
+  test.use({ expectBlockedRequests: true });
+
+  test('the editor page cannot reach another origin: the fixture aborts it', async ({
+    page,
+    blockedRequests,
+  }) => {
+    await page.goto('/');
+    await expect(page.locator(MODE_ROOT.tree)).toBeVisible();
+    const url = 'https://example.com/';
+    const failure = page.waitForEvent('requestfailed', (request) => request.url() === url);
+    // no-cors, so without the block this request would succeed wherever the network is reachable.
+    const outcome = await page.evaluate(async (target) => {
+      try {
+        await fetch(target, { mode: 'no-cors' });
+        return 'reached';
+      } catch {
+        return 'failed';
+      }
+    }, url);
+    expect(outcome).toBe('failed');
+    // Only the fixture's abort fails this way (Chromium appends `.Inspector` for DevTools blocks).
+    expect((await failure).failure()?.errorText).toMatch(BLOCKED_BY_CLIENT);
+    expect(blockedRequests).toEqual([url]);
+  });
 });
 
 test('the toolbar switches tree, text and table without changing the document', async ({
