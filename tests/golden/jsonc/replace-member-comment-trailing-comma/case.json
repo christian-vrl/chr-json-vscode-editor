@@ -1,1 +1,1 @@
-{ "op": "replace", "location": "root", "comments": "before", "trailingComma": "yes" }
+{"op": "replace", "location": "root", "comments": "before", "trailingComma": "yes", "quote": "double", "keyStyle": "quoted", "special": "none"}

@@ -1,0 +1,7 @@
+{
+  lines: [
+    'first', // head
+    'second \
+continued',
+  ],
+}

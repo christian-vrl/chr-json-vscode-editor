@@ -1,0 +1,6 @@
+{
+  "keep": 1,
+  // deprecated, remove soon
+  "legacy": true,
+  "other": 2
+}

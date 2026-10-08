@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** (Large) Write the golden corpus covering every cell of criterion 4, hand-written `expected.*` bytes, `case.json` tags, plus the coverage test. Needs UNK-008 resolved for `remove`/`move` cases. — needs: 001 T4 — *gate: `pnpm test:golden -- --coverage-only` green (every cell covered); Reviewer PASS on R1–R10 per case*
+- [x] **T1** (Large) Write the golden corpus covering every cell of criterion 4, hand-written `expected.*` bytes, `case.json` tags, plus the coverage test. Needs UNK-008 resolved for `remove`/`move` cases. — needs: 001 T4 — *gate: `pnpm test:golden -- --coverage-only` green (every cell covered); Reviewer PASS on R1–R10 per case*
 - [ ] **T2** `detect` per R11 with strict-JSON diagnostics. `parallel` — *gate: criterion 5 table test green*
 
 ## Phase B — Adapters (risk-free / additive)

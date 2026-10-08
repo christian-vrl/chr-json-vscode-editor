@@ -1,0 +1,7 @@
+/* config */
+{
+  "x": {
+    // the answer
+    "y": 42
+  }
+}

@@ -1,0 +1,8 @@
+{
+    "defaults": {
+        "retries": 3
+    },
+    "job": {
+        "name": "sync"
+    }
+}
