@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "string with an escaped line break (line continuation) before the edit"
+}

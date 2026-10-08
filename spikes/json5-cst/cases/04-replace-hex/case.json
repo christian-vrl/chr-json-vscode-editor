@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "hexadecimal numbers; replaced member written as JSON.stringify would (R8)"
+}

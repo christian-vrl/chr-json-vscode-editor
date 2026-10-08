@@ -1,0 +1,4 @@
+{
+  "op": "remove",
+  "feature": "comment markers inside a string; hex items in a single-line array"
+}

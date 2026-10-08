@@ -1,0 +1,6 @@
+{
+  null: 1,
+  $ref: 'x',
+  _private: true,
+  if: 3,
+}
