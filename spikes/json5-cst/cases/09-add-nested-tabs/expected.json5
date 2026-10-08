@@ -1,0 +1,7 @@
+{
+	server: {
+		host: 'a',
+		port: 1,
+		user: 'root',
+	},
+}

@@ -1,0 +1,4 @@
+{
+  "op": "remove",
+  "feature": "UNK-008: comment lines directly above and the same-line trailing comment go with the member"
+}

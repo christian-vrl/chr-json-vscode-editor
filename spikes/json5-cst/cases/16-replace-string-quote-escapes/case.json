@@ -1,0 +1,4 @@
+{
+  "op": "replace",
+  "feature": "escaped quote in a single-quoted string; new string uses the majority quote (R4)"
+}

@@ -1,0 +1,4 @@
+{
+  "op": "add",
+  "feature": "line comments; comma goes before the last member's trailing comment"
+}

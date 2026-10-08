@@ -1,0 +1,19 @@
+{
+  "name": "@chr-json-editor/spike-json5-cst",
+  "version": "0.0.0",
+  "private": true,
+  "description": "002 T4 spike for UNK-012: which JSON5 parser can back style-preserving edits. Not shipped.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "spike": "node --experimental-strip-types --disable-warning=ExperimentalWarning run.ts",
+    "conformance": "node --experimental-strip-types --disable-warning=ExperimentalWarning conformance.ts"
+  },
+  "devDependencies": {
+    "@croct/json5-parser": "0.2.2",
+    "@humanwhocodes/momoa": "3.3.13",
+    "json5": "2.2.3",
+    "jsonc-eslint-parser": "3.3.0",
+    "jsonc-parser": "3.3.1"
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "op": "remove",
+  "feature": "removing the last member of a container without a trailing comma drops the new last member's comma (R6); block comment above goes too"
+}
