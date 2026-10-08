@@ -1,4 +1,4 @@
-// VS Code half of the 003 T11 benchmark: installs the e2e .vsix (`CHR_TEST_HOOKS=1 pnpm package`)
+// 003 T11 benchmark in VS Code: installs the e2e .vsix (`CHR_TEST_HOOKS=1 pnpm package`)
 // into a fresh profile, the same way packages/vscode-extension/test/e2e/run.mjs does, and runs
 // suite.cjs on the files bench/generate.mjs wrote. Needs a display: run under `xvfb-run` on Linux.
 //
@@ -25,12 +25,16 @@ const [dataDir = 'bench/.data', out = 'bench/.results/vscode.json', ...sizeArgs]
 const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
 const files = sizes.map((mib) => ({ mib, path: path.resolve(dataDir, fileName(mib)) }));
 
+// CHR_BENCH_VSIX picks another build (bench.yml: the unminified webview.js); by default, the one
+// .vsix that `pnpm package` wrote.
 const vsixFiles = readdirSync(extensionDir).filter((f) => f.endsWith('.vsix'));
-if (vsixFiles.length !== 1) {
+if (!process.env.CHR_BENCH_VSIX && vsixFiles.length !== 1) {
   console.error(`bench: expected one .vsix in ${extensionDir}, found ${vsixFiles.length}`);
   process.exit(1);
 }
-const vsix = path.join(extensionDir, vsixFiles[0]);
+const vsix = process.env.CHR_BENCH_VSIX
+  ? path.resolve(process.env.CHR_BENCH_VSIX)
+  : path.join(extensionDir, vsixFiles[0]);
 
 const vscodeExecutablePath =
   process.env.VSCODE_EXECUTABLE_PATH ?? (await downloadAndUnzipVSCode('stable'));

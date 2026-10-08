@@ -15,6 +15,8 @@ export interface TestHooks {
   webviews(): WebviewSnapshot[];
   /** What the webview of `uri` renders (003 T5); see webview/testHooks.ts. */
   probe(uri: string): Promise<RenderedProbe>;
+  /** Resolves once the webview of `uri` renders `text`, whitespace collapsed (003 T11 benchmark). */
+  whenShown(uri: string, text: string): Promise<void>;
   /** Has the webview of `uri` send `patch` as a tree edit (criterion 1); false when none shows it. */
   patch(uri: string, patch: unknown): boolean;
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
@@ -41,6 +43,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         webviews: () => [...provider.snapshots.values()],
         probe: (uri) => provider.probe(uri),
         setMode: (uri, mode) => provider.setMode(uri, mode),
+        whenShown: (uri, text) => provider.whenShown(uri, text),
         patch: (uri, patch) => provider.patch(uri, patch),
         formatBadge: () => formatBadge.snapshot(),
         setSchema(uri, schema) {

@@ -1,21 +1,32 @@
-// Writes bench/vscode-open.md (003 T11, evidence for UNK-014) from the two result files. Every
-// number in the report comes from those files; the text around them says what each one covers.
+// Writes bench/vscode-open.md (003 T11, evidence for UNK-014) from the results bench/run.mjs left in
+// <resultsDir>: vscode.json and, when the unminified build was timed too, vscode-unminified.json and
+// webview.unminified.js. Every number in the report comes from those files; the text around them
+// says what each one covers.
 //
-//   node bench/report.mjs <vscode.json> <web.json> <out.md>
-import { readFileSync, writeFileSync } from 'node:fs';
+//   node bench/report.mjs <resultsDir> <out.md>
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const [vscodeFile, webFile, out] = process.argv.slice(2);
+const [resultsDir, out] = process.argv.slice(2);
 if (!out) {
-  console.error('usage: node bench/report.mjs <vscode.json> <web.json> <out.md>');
+  console.error('usage: node bench/report.mjs <resultsDir> <out.md>');
   process.exit(2);
 }
-const vscode = JSON.parse(readFileSync(vscodeFile, 'utf8'));
-const web = JSON.parse(readFileSync(webFile, 'utf8'));
+const here = path.dirname(fileURLToPath(import.meta.url));
+const read = (file) => JSON.parse(readFileSync(path.join(resultsDir, file), 'utf8'));
+const vscode = read('vscode.json');
+const unminified = existsSync(path.join(resultsDir, 'vscode-unminified.json'))
+  ? read('vscode-unminified.json')
+  : undefined;
 
 // UNK-014's evidence rule.
 const OPEN_LIMIT_MS = 3000;
 const EDIT_LIMIT_MS = 500;
+// The run before 003 T5 that found VS Code's 50 MB limit (previous bench/vscode-open.md).
+const LIMIT_RUN =
+  'https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37844893412';
 
 function median(values) {
   if (!values.length) return undefined;
@@ -24,30 +35,19 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-const ms = (value) => (value === undefined ? '—' : `${Math.round(value).toLocaleString('en-US')}`);
+const ms = (value) => (value === undefined ? '—' : Math.round(value).toLocaleString('en-US'));
+const kb = (bytes) => `${Math.round(bytes / 1024).toLocaleString('en-US')} KiB`;
+const ok = (runs) => runs.length > 0 && !runs.some((r) => r.error);
+const med = (runs, key) => (ok(runs) ? median(runs.map((r) => r[key])) : undefined);
 
-/** "median (run1, run2, run3)" in ms, or the error of the first failed run. */
-function cell(runs, pick = (r) => r.ms) {
-  const failed = runs.find((r) => r.error);
+/** "median (run1, run2, run3)" in ms, or a pointer to the recorded error. */
+function cell(runs, key) {
   if (!runs.length) return 'not run';
-  if (failed) return 'fails (see Errors below)';
-  const values = runs.map(pick);
+  if (!ok(runs)) return 'fails (see Errors below)';
+  const values = runs.map((r) => r[key]);
   return `**${ms(median(values))}** (${values.map(ms).join(', ')})`;
 }
 
-function okRuns(runs) {
-  return runs.length > 0 && !runs.some((r) => r.error);
-}
-
-const sizes = vscode.sizes.map((v) => ({
-  mib: v.mib,
-  bytes: v.bytes,
-  vscode: v,
-  web: web.sizes.find((w) => w.mib === v.mib) ?? { render: [], edit: [] },
-}));
-
-// BENCH_COMMIT is the pull request's head (bench.yml); GITHUB_SHA on a pull_request run is GitHub's
-// merge ref, not a commit anyone pushed.
 const commit = process.env.BENCH_COMMIT || process.env.GITHUB_SHA || 'local';
 const runUrl = process.env.GITHUB_RUN_ID
   ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
@@ -61,121 +61,108 @@ add(
   '# Large-file benchmark: open, first render, one edit (003 T11)',
   '',
   '> Evidence for UNK-014. Written by `bench/report.mjs` from one benchmark run; do not edit by hand.',
-  '> Re-run it after 003 T5 (see "What is measured"), and again whenever spec 008 needs new numbers.',
+  "> Measured end to end in the custom editor's webview (after 003 T5).",
   '',
   '## Run',
   '',
   `- Where: ${runUrl ? `GitHub Actions, [run ${process.env.GITHUB_RUN_ID}](${runUrl})` : 'local machine (not the CI runner)'}; commit \`${commit}\`.`,
   `- Machine: ${process.env.RUNNER_OS ?? os.type()} ${os.arch()} (\`${process.env.ImageOS ?? os.release()}\`), ${cpus.length} × ${cpus[0]?.model ?? 'unknown CPU'}, ${Math.round(os.totalmem() / 2 ** 30)} GiB RAM.`,
-  `- VS Code ${vscode.vscodeVersion} (stable at run time, \`--disable-gpu\`, under xvfb); Chromium ${web.chromium} (Playwright, headless).`,
-  `- ${vscode.runs} runs per size and measure; each cell is **median** (run 1, run 2, run 3), in milliseconds. The editor is closed between runs, so every run opens the file again in the same VS Code window.`,
+  `- VS Code ${vscode.vscodeVersion} (stable at run time, \`--disable-gpu\`, under xvfb), the e2e .vsix (release build plus test hooks).`,
+  `- ${vscode.runs} runs per size; each cell is **median** (run 1, run 2, run 3), in milliseconds on the extension host's clock. The editor is closed between runs, so every run opens the file again in the same VS Code window; the edit runs right after each open.`,
   "- Files: `node bench/generate.mjs`, one pretty-printed JSON array of 7-field records per size, exactly N × 2^20 bytes (MiB, the unit of VS Code's own file limits), ASCII only.",
+  `- 100 MiB is not measured: VS Code does not hand files above 50 MB to extensions ("Files above 50MB cannot be synchronized with extensions"), so the custom editor never opens it ([run 37844893412](${LIMIT_RUN})).`,
   '',
   '## Results',
   '',
-  '| Size | Open in custom editor (VS Code) | First render (Chromium) | Edit, UI part (Chromium) | Edit, host part (VS Code) |',
-  '|---|---|---|---|---|',
+  '| Size | Webview ready | First render | One edit | of which host | of which webview |',
+  '|---|---|---|---|---|---|',
 );
-for (const s of sizes) {
+for (const s of vscode.sizes) {
   add(
-    `| ${s.mib} MiB (${s.bytes.toLocaleString('en-US')} B) | ${cell(s.vscode.open)} | ${cell(s.web.render)} | ${cell(s.web.edit)} | ${cell(s.vscode.edit, (r) => r.totalMs)} |`,
+    `| ${s.mib} MiB (${s.bytes.toLocaleString('en-US')} B) | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'hostMs')} | ${cell(s.edit, 'viewMs')} |`,
   );
 }
 
 add(
-  '',
-  'Where the host part of the edit goes (medians, ms):',
-  '',
-  '| Size | `document.getText()` | `core` applyPatch | Find the changed span | `workspace.applyEdit` |',
-  '|---|---|---|---|---|',
-);
-for (const s of sizes) {
-  const runs = s.vscode.edit;
-  if (!okRuns(runs)) {
-    add(`| ${s.mib} MiB | — | — | — | — |`);
-    continue;
-  }
-  const m = (key) => ms(median(runs.map((r) => r[key])));
-  add(
-    `| ${s.mib} MiB | ${m('getTextMs')} | ${m('applyPatchMs')} | ${m('spanMs')} | ${m('applyEditMs')} |`,
-  );
-}
-
-add(
-  '',
-  'In Chromium the UI handed the patch to the host after (medians, ms): ' +
-    sizes
-      .filter((s) => okRuns(s.web.edit))
-      .map((s) => `${s.mib} MiB ${ms(median(s.web.edit.map((r) => r.toHostMs)))}`)
-      .join(', ') +
-    '; the UI cell above runs on to the first frame that shows the new value.',
   '',
   "## Against UNK-014's rule (open < 3 s, one edit < 500 ms)",
   '',
-  "Open here is VS Code's part only and the edit is UI part + host part, without the message between",
-  'them, so each number is a lower bound on what a user will see once 003 T5 joins them. A size that',
-  'fails here fails for good; a size that passes here can still fail after 003 T5.',
+  '"Open" is the first render: the time until the user sees the document in the tree.',
   '',
-  '| Size | Open | Edit (UI + host medians) | Verdict on these numbers |',
+  '| Size | First render | One edit | Verdict |',
   '|---|---|---|---|',
 );
 const passing = [];
-for (const s of sizes) {
-  const open = okRuns(s.vscode.open) ? median(s.vscode.open.map((r) => r.ms)) : undefined;
-  const edit =
-    okRuns(s.vscode.edit) && okRuns(s.web.edit)
-      ? median(s.vscode.edit.map((r) => r.totalMs)) + median(s.web.edit.map((r) => r.ms))
-      : undefined;
-  const openOk = open !== undefined && open < OPEN_LIMIT_MS;
+for (const s of vscode.sizes) {
+  const render = med(s.open, 'renderMs');
+  const edit = med(s.edit, 'ms');
+  const renderOk = render !== undefined && render < OPEN_LIMIT_MS;
   const editOk = edit !== undefined && edit < EDIT_LIMIT_MS;
-  if (openOk && editOk) passing.push(s.mib);
+  if (renderOk && editOk) passing.push(s.mib);
   const why = [
-    open === undefined ? 'cannot open' : openOk ? undefined : 'open too slow',
-    edit === undefined ? 'no edit possible' : editOk ? undefined : 'edit too slow',
+    render === undefined ? 'cannot open' : renderOk ? undefined : 'open too slow',
+    edit === undefined ? 'no edit measured' : editOk ? undefined : 'edit too slow',
   ].filter(Boolean);
   add(
-    `| ${s.mib} MiB | ${open === undefined ? 'fails' : ms(open)} | ${edit === undefined ? '—' : ms(edit)} | ${why.length ? `miss: ${why.join(', ')}` : 'pass so far'} |`,
+    `| ${s.mib} MiB | ${ms(render)} | ${ms(edit)} | ${why.length ? `miss: ${why.join(', ')}` : 'pass'} |`,
   );
 }
 add(
   '',
   passing.length
-    ? `Largest size that passes so far: **${Math.max(...passing)} MiB**. It is an upper bound for spec 008's threshold until the run after 003 T5.`
-    : 'No measured size passes, so spec 008 needs a threshold below the smallest size measured here.',
+    ? `Largest size that passes: **${Math.max(...passing)} MiB**.`
+    : `**No measured size passes**, not even ${Math.min(...vscode.sizes.map((s) => s.mib))} MiB.`,
 );
+
+if (unminified) {
+  const minifiedJs = path.join(here, '../packages/vscode-extension/dist/webview.js');
+  const unminifiedJs = path.join(resultsDir, 'webview.unminified.js');
+  const one = (results) => results.sizes.find((s) => s.mib === 1);
+  const rows = [
+    ['minified (shipped)', minifiedJs, one(vscode)],
+    ['unminified', unminifiedJs, one(unminified)],
+  ];
+  add(
+    '',
+    '## webview.js, minified and not (1 MiB)',
+    '',
+    '| Build | webview.js | Webview ready | First render |',
+    '|---|---|---|---|',
+    ...rows.map(
+      ([name, file, s]) =>
+        `| ${name} | ${existsSync(file) ? kb(statSync(file).size) : '—'} | ${s ? cell(s.open, 'readyMs') : 'not run'} | ${s ? cell(s.open, 'renderMs') : 'not run'} |`,
+    ),
+  );
+}
 
 add(
   '',
   '## What is measured',
   '',
-  "On the commit above, the custom editor's webview is still the 003 T4 placeholder: it never receives",
-  "the document (003 T5 wires that), and under its CSP the editor's styles are blocked (UNK-029). So",
-  'no single measure covers "open a file and see it in the editor" yet. Instead:',
+  '- **Webview ready:** from `vscode.openWith(uri, "chrJsonEditor.editor")` until the webview script',
+  '  sends `ready`. Covers VS Code reading the file, syncing it to the extension host, creating the',
+  '  webview and loading webview.js.',
+  '- **First render:** from the same start until the tree shows the root\'s "<n> items" tag. On top of',
+  "  ready: the host sends the text (`init`), the webview parses it with `core` (the library's",
+  '  `parser` prop, criterion 10) and the library renders the tree.',
+  "- **One edit:** a `replace` of the first record's `name`, sent down the webview's edit path (test",
+  '  hook `patch`: the same `edit` message a tree edit sends, without the click and typing). Timed until',
+  '  the tree shows the new value. **Host:** until the document changed: the message, `core`',
+  '  applyPatch (which parses the whole text) and the WorkspaceEdit. **Webview:** the rest: the',
+  '  `update` message with the full text, `core` parsing it again in the webview, and the render.',
   '',
-  '- **Open in custom editor:** `vscode.openWith(uri, "chrJsonEditor.editor")` until the webview\'s',
-  '  script has reported that it ran (e2e test hook). Covers VS Code reading the file, syncing it to the',
-  '  extension host and creating the webview. Not covered: sending the text to the webview.',
-  '- **First render:** the app-shell standalone page (`packages/app-shell`, the same vanilla-jsoneditor',
-  '  003 T5 mounts) in Chromium. Its DevHostAdapter hands the text to the UI as a host `update`, the',
-  "  path a webview takes when the host sends a document; timed until the tree shows the root's",
-  '  "<n> items" tag (so the whole text was parsed) and the next frame. Not the VS Code webview, and',
-  '  styles do apply on this page. The library parses with `JSON.parse` here; 003 T5 switches it to',
-  '  `core` (criterion 10), which may be slower.',
-  "- **Edit, UI part:** in that page, double-click the first record's `name`, type, press Enter; timed",
-  '  from the Enter keydown to the first frame that shows the new value.',
-  "- **Edit, host part:** what the extension host does with that patch in 003 T5's design: read the",
-  '  document text, `core` applyPatch (style-preserving `replace` of one string in the middle record),',
-  '  reduce the new text to the one changed span, and apply it with `workspace.applyEdit`.',
-  '',
-  'To reproduce: `CHR_TEST_HOOKS=1 pnpm package && pnpm build`, then `xvfb-run -a pnpm --filter',
+  'To reproduce: `pnpm build && CHR_TEST_HOOKS=1 pnpm package`, then `xvfb-run -a pnpm --filter',
   '@chr-json-editor/bench bench` (or the `bench` workflow, `.github/workflows/bench.yml`).',
 );
 
-const failures = sizes.flatMap((s) =>
-  [...s.vscode.open, ...s.vscode.edit, ...s.web.render, ...s.web.edit]
-    .filter((r) => r.error)
-    .map((r) => `- ${s.mib} MiB: ${r.error.replace(/\s+/g, ' ')}`),
-);
+const failures = [unminified, vscode]
+  .filter(Boolean)
+  .flatMap((results) => results.sizes)
+  .flatMap((s) =>
+    [...s.open, ...s.edit]
+      .filter((r) => r.error)
+      .map((r) => `- ${s.mib} MiB: ${r.error.replace(/\s+/g, ' ')}`),
+  );
 if (failures.length) add('', '## Errors, as recorded', '', ...failures);
 
 writeFileSync(out, lines.join('\n') + '\n');
