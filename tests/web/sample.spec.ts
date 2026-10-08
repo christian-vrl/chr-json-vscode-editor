@@ -7,7 +7,7 @@ test('serves the app-shell sample page with no request leaving the local origin'
   blockedRequests,
 }) => {
   await page.goto('/');
-  await expect(page.locator('#app')).toHaveText('@chr-json-editor/app-shell');
+  await expect(page.locator('#app .jse-main')).toBeVisible();
   expect(blockedRequests).toEqual([]);
 });
 
