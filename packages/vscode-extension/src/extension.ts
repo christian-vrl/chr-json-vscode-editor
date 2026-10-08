@@ -17,6 +17,9 @@ export interface TestHooks {
   probe(uri: string): Promise<RenderedProbe>;
   /** Has the webview of `uri` send `patch` as a tree edit (criterion 1); false when none shows it. */
   patch(uri: string, patch: unknown): boolean;
+  /** Types `text` at the end of the text mode of `uri`'s webview (criterion 9); resolves with the
+   *  webview's `Date.now()` after the last character. */
+  type(uri: string, text: string): Promise<number>;
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
   setMode(uri: string, mode: Mode): boolean;
   formatBadge(): FormatBadgeSnapshot;
@@ -42,6 +45,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         probe: (uri) => provider.probe(uri),
         setMode: (uri, mode) => provider.setMode(uri, mode),
         patch: (uri, patch) => provider.patch(uri, patch),
+        type: (uri, text) => provider.type(uri, text),
         formatBadge: () => formatBadge.snapshot(),
         setSchema(uri, schema) {
           let found = false;

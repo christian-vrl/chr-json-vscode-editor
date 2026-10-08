@@ -41,7 +41,8 @@
   // `docVersion` and the host answers every edit, in order, with an `update` (origin `edit`) or an
   // edit error. Only one edit is in flight, so each is made on the version the host holds; changes
   // made meanwhile wait in `queued`. The library never reports a programmatic `update` as a change,
-  // so text from the host is never echoed back.
+  // so text from the host is never echoed back. Typing the library has not reported yet is not in
+  // `editor.get()`, so a host answer arriving meanwhile leaves the newer keystrokes in place.
   /** The version and text of the document as the host last sent them. */
   let docVersion = 0;
   let docText = '';
@@ -101,7 +102,10 @@
     if (status.patchResult) {
       change = { kind: 'patch', patch: status.patchResult.redo as JsonPatchOperation[] };
     } else if ('text' in updated) {
-      // Text mode sends the whole text; 003 T6 debounces it. Only the newest text matters.
+      // Text mode (003 T6, criterion 9): the library reports typing once it pauses for
+      // TEXT_DEBOUNCE_MS (text-mode.ts), and the whole text goes to the host, which writes only the
+      // changed span. The text goes as typed, valid or not: an error marker shows a parse error,
+      // and the document never gets a repaired text in its place. Only the newest text matters.
       const last = queued.at(-1);
       if (last?.kind === 'text') queued.pop();
       change = { kind: 'text', text: updated.text };
@@ -404,6 +408,47 @@
   }
   .format {
     margin-left: auto;
+  }
+  /*
+    Text-mode error markers (003 T6, criterion 9). CodeMirror's lint theme draws the squiggle under
+    a parse error and the gutter marker as `data:` SVG images (@codemirror/lint 6.9.7, dist/index.js
+    `baseTheme`), which the webview CSP blocks (no img-src, criterion 6): the error would show no
+    marker. These rules draw both with CSS instead, in the theme's colours.
+  */
+  .shell :global(.cm-lintRange-error),
+  .shell :global(.cm-lintRange-warning),
+  .shell :global(.cm-lintRange-info),
+  .shell :global(.cm-lintRange-hint) {
+    background-image: none;
+    text-decoration: underline wavy var(--marker-color);
+    text-decoration-skip-ink: none;
+  }
+  .shell :global(.cm-lintRange-error),
+  .shell :global(.cm-lint-marker-error) {
+    --marker-color: var(--jse-error-color, #f43);
+  }
+  .shell :global(.cm-lintRange-warning),
+  .shell :global(.cm-lint-marker-warning) {
+    --marker-color: var(--jse-warning-color, #fd7);
+  }
+  .shell :global(.cm-lintRange-info),
+  .shell :global(.cm-lintRange-hint),
+  .shell :global(.cm-lint-marker-info) {
+    --marker-color: var(--jse-info-color, #77e);
+  }
+  .shell :global(.cm-lint-marker) {
+    content: normal;
+    box-sizing: border-box;
+    width: 0.8em;
+    height: 0.8em;
+    margin: 0.1em;
+    background: var(--marker-color);
+  }
+  .shell :global(.cm-lint-marker-error) {
+    border-radius: 50%;
+  }
+  .shell :global(.cm-lint-marker-warning) {
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
   }
   .notice:empty {
     display: none;

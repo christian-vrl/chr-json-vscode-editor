@@ -17,6 +17,11 @@ export interface RenderedProbe {
   format: string;
   /** The editor's notice line (edit errors, external changes over unsent edits). */
   notice: string;
+  /** Text mode's parse error message (the library's `.jse-message.jse-error`), or null (003 T6). */
+  errorMessage: string | null;
+  /** Text mode's error markers drawn in the gutter: CodeMirror's `.cm-lint-marker-error` elements
+   *  with a size and a colour, so a marker the CSP stopped from drawing does not count (003 T6). */
+  errorMarkers: number;
   /** `securitypolicyviolation` events: directive, blocked URI, source location. */
   violations: string[];
   /** `<style>` elements in the page: VS Code's own (`_defaultStyles`) and CodeMirror's, which
