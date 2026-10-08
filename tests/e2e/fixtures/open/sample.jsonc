@@ -1,0 +1,6 @@
+{
+  // JSONC: comments and a trailing comma
+  "name": "CHR JSON Editor",
+  "formats": ["json", "jsonc", "json5"], /* inline */
+  "offline": true,
+}
