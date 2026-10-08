@@ -1,0 +1,5 @@
+{
+  // colors
+  red: 0xFF0000 // pure red
+  green: 0x00FF00,
+}

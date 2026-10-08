@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "ellipsis in an array",
+  "jsonrepairClass": "Strip ellipsis in arrays and objects like `[1, 2, 3, ...]`",
+  "comments": [
+    {
+      "text": "// sample values",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// truncated in the log",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  verbose: True, // print more
+  // cache dir, unset
+  cache: None,
+}

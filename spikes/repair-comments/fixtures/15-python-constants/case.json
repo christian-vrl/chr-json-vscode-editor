@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "Python True/None",
+  "jsonrepairClass": "Replace Python constants `None`, `True`, and `False` with `null`, `true`, and `false`",
+  "comments": [
+    {
+      "text": "// print more",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "// cache dir, unset",
+      "container": "",
+      "before": 1,
+      "trailing": false
+    }
+  ]
+}

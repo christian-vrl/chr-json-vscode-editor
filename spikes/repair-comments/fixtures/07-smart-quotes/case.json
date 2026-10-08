@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "typographic quotes, one string holding \"//\"",
+  "jsonrepairClass": "Replace special quote characters like `“...”` with regular double quotes",
+  "comments": [
+    {
+      "text": "// pasted from a doc",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "/* two tags */",
+      "container": "",
+      "before": 2,
+      "trailing": true
+    }
+  ]
+}

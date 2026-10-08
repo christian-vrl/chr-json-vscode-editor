@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "JavaScript string concatenation",
+  "jsonrepairClass": "Concatenate strings like `\"long text\" + \"more text on next line\"`",
+  "comments": [
+    {
+      "text": "// long message split for readability",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// greeting",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  // sample values
+  values: [1, 2, 3, ...], // truncated in the log
+  total: 10,
+}

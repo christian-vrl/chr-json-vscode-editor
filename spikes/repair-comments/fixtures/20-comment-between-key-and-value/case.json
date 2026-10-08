@@ -1,0 +1,27 @@
+{
+  "format": "json5",
+  "breakage": "missing commas, block comments between key and value",
+  "jsonrepairClass": "Add missing commas",
+  "comments": [
+    {
+      "text": "/* px */",
+      "container": "",
+      "before": 0,
+      "trailing": false,
+      "inside": "/width"
+    },
+    {
+      "text": "/* px */",
+      "container": "",
+      "before": 1,
+      "trailing": false,
+      "inside": "/height"
+    },
+    {
+      "text": "// ratio 2:1",
+      "container": "",
+      "before": 2,
+      "trailing": true
+    }
+  ]
+}

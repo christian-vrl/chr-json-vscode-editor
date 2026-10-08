@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "single-quoted strings, one holding \"//\"",
+  "jsonrepairClass": "Replace single quotes with double quotes",
+  "comments": [
+    {
+      "text": "// homepage",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "// the API base",
+      "container": "",
+      "before": 1,
+      "trailing": false
+    }
+  ]
+}
