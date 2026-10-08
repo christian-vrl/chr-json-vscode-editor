@@ -1,7 +1,7 @@
 // FormatAdapter contract (002 T3, AGENTS.md §Glossary). One adapter per format turns text into data
 // and applies RFC 6902 operations as minimal text edits, so every byte outside the edited spans is
 // kept (spec 002 §Goal). Format detection is the separate `detect(path, languageId?, text?)` of 002
-// T2, since it picks the adapter; `stringify` lands with 002 T7 and move/copy/test with 002 T6.
+// T2, since it picks the adapter; move/copy/test land with 002 T6.
 
 export type Format = 'json' | 'jsonc' | 'json5';
 
@@ -56,6 +56,8 @@ export interface FormatAdapter {
   /** Applies the operations in order and returns the new text. Throws a `PatchError` (and the
    *  caller keeps its text) when an operation cannot apply. */
   applyPatch(text: string, patch: readonly PatchOperation[]): string;
+  /** Writes data as a new document in this format and style (002 T7, see `stringify.ts`). */
+  stringify(data: unknown, style: Style): string;
 }
 
 export class PatchError extends Error {

@@ -2,9 +2,10 @@
 // strict diagnostics). `add`, `replace` and `remove` are computed from `parseTree` offsets and the
 // scanner's tokens rather than jsonc-parser's `modify` (plan 002 risk R1), following rules R1–R6,
 // R8 and R10 of spec 002 and the readings in tests/golden/README.md.
-import { parse as parseJsonc, parseTree, printParseErrorCode, type ParseError } from 'jsonc-parser';
+import { parseTree, printParseErrorCode, visit, type ParseError } from 'jsonc-parser';
 import { parseIndex, parsePointer } from './pointer.js';
 import { detectStyle } from './style.js';
+import { stringify } from './stringify.js';
 import { isComment, Kind, tokenAt, tokenFrom, tokenize, type Token } from './tokens.js';
 import {
   PatchError,
@@ -32,11 +33,57 @@ function parse(text: string, format: Format): ParseResult {
   if (format === 'json') diagnostics.push(...strictJsonWarnings(tokens));
   diagnostics.sort((a, b) => a.offset - b.offset);
   return {
-    data: parseJsonc(text, [], parseOptions) as unknown,
+    data: parseData(text),
     tree,
     style: detectStyle(text, format, tokens),
     diagnostics,
   };
+}
+
+/**
+ * The document's data, built like jsonc-parser's `parse` (same visitor, same error tolerance) except
+ * that object members are defined as own properties. `parse` assigns them, so a `"__proto__"` key
+ * set the object's prototype instead of becoming a member and its data was lost.
+ */
+function parseData(text: string): unknown {
+  const root: unknown[] = [];
+  let parent: unknown[] | Record<string, unknown> = root;
+  let property: string | null = null;
+  const parents: (unknown[] | Record<string, unknown>)[] = [];
+  const onValue = (value: unknown): void => {
+    if (Array.isArray(parent)) parent.push(value);
+    else if (property !== null)
+      Object.defineProperty(parent, property, {
+        value,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+  };
+  const begin = (container: unknown[] | Record<string, unknown>): void => {
+    onValue(container);
+    parents.push(parent);
+    parent = container;
+    property = null;
+  };
+  const end = (): void => {
+    parent = parents.pop()!;
+  };
+  visit(
+    text,
+    {
+      onObjectBegin: () => begin({}),
+      onObjectProperty: (name) => {
+        property = name;
+      },
+      onObjectEnd: end,
+      onArrayBegin: () => begin([]),
+      onArrayEnd: end,
+      onLiteralValue: onValue,
+    },
+    parseOptions,
+  );
+  return root[0];
 }
 
 /** Comments and trailing commas are not RFC 8259; in a `.json` file they are warnings, not load
@@ -369,6 +416,7 @@ function makeAdapter(format: 'json' | 'jsonc'): FormatAdapter {
     parse: (text) => parse(text, format),
     applyPatch: (text, patch) =>
       patch.reduce((current, op) => applyOperation(current, op, format), text),
+    stringify: (data, style) => stringify(data, format, style),
   };
 }
 
