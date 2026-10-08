@@ -14,7 +14,7 @@
     "test:unit": "vitest run --project unit",
     "test:golden": "node scripts/test-golden.mjs",
     "test:e2e": "pnpm --filter chr-json-editor run test:e2e",
-    "test:web": "pnpm --filter @chr-json-editor/app-shell run build && playwright test",
+    "test:web": "pnpm --filter @chr-json-editor/app-shell... run build && playwright test",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:offline": "node scripts/check-offline.mjs",
     "check:readme": "node scripts/not-yet.mjs check:readme \"spec 005\"",

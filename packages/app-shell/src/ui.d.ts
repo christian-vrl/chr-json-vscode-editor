@@ -2,5 +2,7 @@
 // app.ts declares `mountApp` with the same `MountApp` type, so svelte-check keeps the two in step.
 import type { MountApp } from './mount.js';
 
+export type { AppHandle } from './mount.js';
+
 export declare const mountApp: MountApp;
 export type * from './host-adapter.js';

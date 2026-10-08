@@ -7,17 +7,20 @@
 //
 // The webview speaks app-shell's message protocol. It sends `ready` once its script listens; only
 // then does the host post `init`, the latest validation result, and an `update` for each later
-// change of the document, so nothing is posted into a page that cannot receive it yet.
+// change of the document, so nothing is posted into a page that cannot receive it yet. Edits from
+// the webview reach the document through DocumentSync (documentSync.ts, 003 T5).
 import * as vscode from 'vscode';
 import {
   decodeToHost,
   PROTOCOL_VERSION,
+  type Format,
   type Mode,
   type SchemaError,
   type ToHostMessage,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
 import { detect } from '@chr-json-editor/core';
+import { DocumentSync, minimalReplacement } from './documentSync';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import type { RenderedProbe } from './testProbe';
 import { DocumentValidation } from './validation';
@@ -39,6 +42,8 @@ export interface WebviewSnapshot {
   scriptLoaded: boolean;
   /** Every `validation` message the webview script decoded, as it reported it back (004 T2). */
   validationsShown: ShownValidation[];
+  /** How many `edit` messages the webview sent (criterion 2: none for an external change). */
+  editsReceived: number;
 }
 
 /** What the webview reports after decoding a `validation` message. */
@@ -53,6 +58,7 @@ interface Session {
   document: vscode.TextDocument;
   panel: vscode.WebviewPanel;
   validation: DocumentValidation;
+  sync: DocumentSync;
   /** Whether the webview sent `ready`; until then the host posts nothing. */
   ready: boolean;
 }
@@ -111,6 +117,22 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         format: detect(document.uri.path, document.languageId, document.getText()).format,
         post: (message) => this.post(session, message),
       }),
+      sync: new DocumentSync({
+        text: () => document.getText(),
+        version: () => document.version,
+        format: () => this.formatOf(document),
+        replace: (text) => {
+          const { start, end, text: replacement } = minimalReplacement(document.getText(), text);
+          const edit = new vscode.WorkspaceEdit();
+          edit.replace(
+            document.uri,
+            new vscode.Range(document.positionAt(start), document.positionAt(end)),
+            replacement,
+          );
+          return Promise.resolve(vscode.workspace.applyEdit(edit));
+        },
+        post: (message) => this.post(session, message),
+      }),
     };
     this.sessions.set(panel, session);
     this.validations.set(panel, session.validation);
@@ -125,6 +147,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         localResourceRoots: (webview.options.localResourceRoots ?? []).map((u) => u.toString()),
         scriptLoaded: false,
         validationsShown: [],
+        editsReceived: 0,
       };
       this.snapshots.set(panel, snapshot);
     }
@@ -143,12 +166,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
     const changes = vscode.workspace.onDidChangeTextDocument((event) => {
       if (event.document !== document || event.contentChanges.length === 0) return;
-      this.post(session, {
-        protocol: PROTOCOL_VERSION,
-        type: 'update',
-        docVersion: document.version,
-        text: document.getText(),
-      });
+      session.sync.changed();
       session.validation.schedule();
     });
     panel.onDidDispose(() => {
@@ -172,27 +190,40 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           type: 'init',
           docVersion: document.version,
           text: document.getText(),
-          format:
-            this.formatBadge.format(document) ??
-            detect(document.uri.path, document.languageId, document.getText()).format,
+          format: this.formatOf(document),
           mode: 'tree',
           settings: {},
         });
         session.validation.run();
         return;
       case 'edit':
-        // Applying the UI's changes to the document is the next part of 003 T5.
-        this.post(session, {
-          protocol: PROTOCOL_VERSION,
-          type: 'error',
-          docVersion: document.version,
-          code: 'edit-unsupported',
-          message: 'Editing in CHR JSON Editor is not available yet; use "Reopen as Text" to edit.',
-        });
+        if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.editsReceived++;
+        void session.sync.edit(message);
         return;
       case 'error':
         void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);
         return;
+    }
+  }
+
+  /** The format the badge holds for the document: detected, or chosen by the user. */
+  private formatOf(document: vscode.TextDocument): Format {
+    return (
+      this.formatBadge.format(document) ??
+      detect(document.uri.path, document.languageId, document.getText()).format
+    );
+  }
+
+  /** Called by the format badge when the user picks a format: the webviews parse again (criterion 8). */
+  formatChanged(document: vscode.TextDocument, format: Format): void {
+    for (const session of this.sessions.values()) {
+      if (session.document !== document) continue;
+      this.post(session, {
+        protocol: PROTOCOL_VERSION,
+        type: 'setFormat',
+        docVersion: document.version,
+        format,
+      });
     }
   }
 
@@ -233,6 +264,15 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.probes.set(id, resolve);
       void session.panel.webview.postMessage({ chrTest: 'probe', id });
     });
+  }
+
+  /** Test hook: has the webview of `uri` send `patch` as a tree edit would (criterion 1). */
+  patch(uri: string, patch: unknown): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'patch', patch });
+    return true;
   }
 
   /** Test hook: has the host switch the webview of `uri` to `mode` (the `setMode` message). */

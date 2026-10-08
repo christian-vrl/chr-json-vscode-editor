@@ -11,6 +11,12 @@ export interface RenderedProbe {
   mainMinHeight: string | null;
   /** The text the editor shows, from the mode's root element. */
   shownText: string;
+  /** What the editor library holds: `{ text }` or `{ json }` (criterion 2). */
+  content: { text: string } | { json: unknown } | null;
+  /** The format label the toolbar shows (JSON, JSONC, JSON5). */
+  format: string;
+  /** The editor's notice line (edit errors, external changes over unsent edits). */
+  notice: string;
   /** `securitypolicyviolation` events: directive, blocked URI, source location. */
   violations: string[];
   /** `<style>` elements in the page: VS Code's own (`_defaultStyles`) and CodeMirror's, which

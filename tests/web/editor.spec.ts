@@ -6,12 +6,14 @@
 /// <reference lib="dom" />
 import type { Page } from '@playwright/test';
 import type { DevHostAdapter } from '../../packages/app-shell/src/dev-host-adapter.js';
+import type { AppHandle } from '../../packages/app-shell/src/mount.js';
 import { BLOCKED_BY_CLIENT, expect, test } from './fixtures';
 
 // Set by the standalone page (packages/app-shell/src/main.ts); page.evaluate callbacks run there.
 declare global {
   interface Window {
     devHost?: DevHostAdapter;
+    devApp?: AppHandle;
   }
 }
 
@@ -134,4 +136,39 @@ test('a text-mode edit reaches the host and an external change reaches the edito
   await page.evaluate(() => window.devHost!.externalChange('{ "changed": "elsewhere" }'));
   await expect(editor).toContainText('"changed": "elsewhere"');
   expect(await hostEdits(page)).toBe(1);
+});
+
+test('edits made before the host answers are sent one at a time, each on the latest version', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.locator(MODE_ROOT.tree)).toContainText('COBOL');
+  await page.evaluate(() => {
+    window.devApp!.patch([{ op: 'add', path: '/-', value: 1 }]);
+    window.devApp!.patch([{ op: 'add', path: '/-', value: 2 }]);
+  });
+  await expect.poll(() => hostEdits(page)).toBe(2);
+  const edits = await page.evaluate(() => window.devHost!.edits.map((e) => e.docVersion));
+  expect(edits).toEqual([1, 2]);
+  expect(JSON.parse(await hostText(page))).toHaveLength(5);
+  // The editor shows the host's text: it followed both answers.
+  await expect(page.locator(MODE_ROOT.tree)).toContainText('5 items');
+  await expect(page.locator('.notice')).toHaveText('');
+});
+
+test('an edit made on a document that changed elsewhere is not applied, and the editor says so', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.locator(MODE_ROOT.tree)).toContainText('COBOL');
+  await page.evaluate(() => {
+    window.devApp!.patch([{ op: 'add', path: '/-', value: 1 }]);
+    window.devApp!.patch([{ op: 'add', path: '/-', value: 2 }]);
+    // Lands before the UI hears back about the first edit, so the second one, made on the
+    // document before this change, reaches the host on an old version.
+    window.devHost!.externalChange('[]');
+  });
+  await expect(page.locator('.notice')).not.toHaveText('');
+  expect(await hostText(page)).toBe('[]');
+  await expect(page.locator(MODE_ROOT.tree)).toContainText('0 items');
 });

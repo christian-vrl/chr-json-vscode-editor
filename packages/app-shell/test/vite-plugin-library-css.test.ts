@@ -5,7 +5,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { extractInjectedCss, styleModPageNonce } from '../vite-plugin-library-css.mts';
+import { extractInjectedCss, libraryCss, styleModPageNonce } from '../vite-plugin-library-css.mts';
 
 // pnpm links each package's dependencies next to it: CodeMirror's view beside the library, and
 // style-mod (CodeMirror's) beside the view.
@@ -61,5 +61,13 @@ describe('styleModPageNonce', () => {
 
   it('fails when style-mod no longer reads the nonce that way', () => {
     expect(() => styleModPageNonce('export class StyleModule {}')).toThrow(/style-mod/);
+  });
+});
+
+describe('libraryCss', () => {
+  it('refuses to load the extracted CSS before the library was transformed', () => {
+    const plugin = libraryCss() as unknown as { load(id: string): unknown };
+    expect(() => plugin.load('/@chr-library-css.css')).toThrow(/before the library's CSS/);
+    expect(plugin.load('/other.css')).toBeUndefined();
   });
 });

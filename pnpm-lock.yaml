@@ -74,6 +74,9 @@ importers:
 
   packages/app-shell:
     dependencies:
+      '@chr-json-editor/core':
+        specifier: workspace:*
+        version: link:../core
       immutable-json-patch:
         specifier: 6.0.3
         version: 6.0.3
