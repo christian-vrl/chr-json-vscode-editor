@@ -3,11 +3,13 @@
 //
 //   pnpm exec playwright test -c tests/fixtures/offline-fetch/playwright.config.mts
 import { defineConfig } from '@playwright/test';
-import base from '../../../playwright.config.mts';
+import base from '../../../playwright.config.mjs';
 
 const web = new URL('web', import.meta.url).pathname;
 
-export default defineConfig(base, {
+// Spread, not defineConfig(base, …): merging would run both web servers on the same port.
+export default defineConfig({
+  ...base,
   testDir: '.',
   testMatch: 'offline-fetch.spec.ts',
   webServer: {

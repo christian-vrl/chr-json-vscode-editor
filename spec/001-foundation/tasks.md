@@ -16,7 +16,7 @@
 
 ## Phase C — Guards (risk-free / additive)
 - [x] **T7** `check:licenses` per `AGENTS.md` rule 4 (SPDX AND/OR evaluation) over production deps of shipped packages; generates `THIRD_PARTY_LICENSES.md` into the `.vsix`. Fixture `tests/fixtures/bad-license` (`GPL-3.0`). — *gate: passes on repo, fails on fixture, Font Awesome passes (criterion 3)*
-- [ ] **T8** `check:offline`: (a) scan `dist/**` for `https?://` not in `offline-allowlist.txt`; (b) `test:web` fails on any request outside the local origin. Fixture page calling `fetch('https://example.com')`. — *gate: passes on repo, fails on fixture*
+- [x] **T8** `check:offline`: (a) scan `dist/**` for `https?://` not in `offline-allowlist.txt`; (b) `test:web` fails on any request outside the local origin. Fixture page calling `fetch('https://example.com')`. — *gate: passes on repo, fails on fixture*
 - [ ] **T9** `gate-review` workflow: on `pull_request` and `issue_comment`, pass only if a comment `Gate review <NNN>-<Tn>: PASS @ <head sha>` exists from a collaborator with write access for the current head SHA. — *gate: criterion 4 shown on two test PRs (one without, one with the comment)*
 
 ## Phase D — CI (requires approval for repo settings)
@@ -25,4 +25,5 @@
 
 ## Off the critical path
 - UNK-016 final minimum version (matrix run can follow v1).
+- `check:offline` (T8) scans build output for `http://` and `https://` only; `ws://`, `wss://` and protocol-relative `//host` URLs are caught at runtime by `test:web` (which blocks WebSockets too) but not by the scan.
 - `check:licenses` (T7) trusts each package's `dependencies`: a `devDependency` that shipped code imports would be bundled by esbuild without a license check. A later guard could compare the bundle's esbuild metafile inputs with the production graph.

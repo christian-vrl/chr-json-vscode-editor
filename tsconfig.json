@@ -9,6 +9,7 @@
   "include": [
     "*.mts",
     "tests/**/*.ts",
+    "tests/**/*.mts",
     "packages/*/test/**/*.ts",
     "packages/*/*.mts",
     "scripts/**/*.d.mts"
