@@ -14,7 +14,7 @@
     "test:unit": "vitest run --project unit",
     "test:golden": "vitest run --project golden",
     "test:e2e": "pnpm --filter chr-json-editor run test:e2e",
-    "test:web": "node scripts/not-yet.mjs test:web \"001 T6\"",
+    "test:web": "pnpm --filter @chr-json-editor/app-shell run build && playwright test",
     "check:licenses": "node scripts/not-yet.mjs check:licenses \"001 T7\"",
     "check:offline": "node scripts/not-yet.mjs check:offline \"001 T8\"",
     "check:readme": "node scripts/not-yet.mjs check:readme \"spec 005\"",
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.0",
     "@types/node": "22.20.5",
     "eslint": "10.12.0",
     "eslint-config-prettier": "10.1.8",
