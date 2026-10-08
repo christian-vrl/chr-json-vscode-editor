@@ -1,0 +1,18 @@
+{
+  "format": "jsonc",
+  "breakage": "wrapped in a Markdown code fence",
+  "jsonrepairClass": "Strip fenced code blocks like ```json and ```",
+  "comments": [
+    {
+      "text": "// copied from the chat",
+      "container": null,
+      "outside": "before"
+    },
+    {
+      "text": "// which one",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}

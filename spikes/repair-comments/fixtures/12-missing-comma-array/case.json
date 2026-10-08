@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "missing commas between array items, next to comments",
+  "jsonrepairClass": "Add missing commas",
+  "comments": [
+    {
+      "text": "/* first */",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "// third comes next",
+      "container": "",
+      "before": 2,
+      "trailing": false
+    }
+  ]
+}

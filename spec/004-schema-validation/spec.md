@@ -31,7 +31,7 @@ inline in tree, table and text modes, and with zero network access.
 
 ## Current evidence (D2 — path + lines / section)
 - ADR-005, ADR-006. `vanilla-jsoneditor@3.13.0` exports `createAjvValidator` and `createAjvValidatorAsync` (`index.d.ts`).
-- `json5.schemas` is the setting of the "Better JSON5" extension per `docs/research/feature-map.md` §Formats — HYPOTHESIS until T3 confirms it from that extension's `package.json`.
+- `json5.schemas` is the setting of the "Better JSON5" extension (`BlueGlassBlock.better-json5` 1.7.0): `contributes.configuration.properties["json5.schemas"]`, scope `resource`, items `{fileMatch, url, schema}` like `json.schemas` — confirmed by T3 from [`package.json` line 66 @ 47e3158](https://github.com/BlueGlassBlock/better-json5/blob/47e3158b3e8985098443c351894a0967cfb72a0c/package.json#L66).
 
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |

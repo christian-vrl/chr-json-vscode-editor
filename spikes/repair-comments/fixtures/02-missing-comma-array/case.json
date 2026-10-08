@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "missing comma between array items, next to a block comment",
+  "jsonrepairClass": "Add missing commas",
+  "comments": [
+    {
+      "text": "// one",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "/* two */",
+      "container": "",
+      "before": 2,
+      "trailing": true
+    }
+  ]
+}

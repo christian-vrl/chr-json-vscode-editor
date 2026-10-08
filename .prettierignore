@@ -6,6 +6,11 @@ tests/golden/json/
 tests/golden/jsonc/
 tests/golden/json5/
 
+# Spike fixtures are broken on purpose and read byte for byte.
+spikes/repair-comments/fixtures/
+# Written by the spike's run.ts; regenerated, never hand-edited.
+spikes/repair-comments/results.json
+
 # E2E fixtures are opened as-is, in each format's own syntax.
 tests/e2e/fixtures/
 
