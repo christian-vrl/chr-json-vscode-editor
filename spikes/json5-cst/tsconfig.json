@@ -1,0 +1,11 @@
+// Type-checks the spike. It runs with Node's type stripping, so imports name the .ts files.
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "types": ["node"]
+  },
+  "include": ["*.ts", "options/*.ts"]
+}

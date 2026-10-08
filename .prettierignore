@@ -6,6 +6,8 @@ tests/golden/json/
 tests/golden/jsonc/
 tests/golden/json5/
 spikes/json5-cst/cases/
+# Written by the spike's run.ts; regenerated, never hand-edited.
+spikes/json5-cst/results.json
 
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/
