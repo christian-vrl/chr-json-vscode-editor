@@ -16,7 +16,7 @@
     "test:e2e": "pnpm --filter chr-json-editor run test:e2e",
     "test:web": "pnpm --filter @chr-json-editor/app-shell run build && playwright test",
     "check:licenses": "node scripts/check-licenses.mjs",
-    "check:offline": "node scripts/not-yet.mjs check:offline \"001 T8\"",
+    "check:offline": "node scripts/check-offline.mjs",
     "check:readme": "node scripts/not-yet.mjs check:readme \"spec 005\"",
     "package": "pnpm --filter chr-json-editor run package"
   },
@@ -30,6 +30,7 @@
     "immutable-json-patch": "6.0.3",
     "json5": "2.2.3",
     "prettier": "3.9.9",
+    "prettier-plugin-svelte": "4.1.1",
     "typescript": "5.9.3",
     "typescript-eslint": "8.71.1",
     "vite": "8.3.4",

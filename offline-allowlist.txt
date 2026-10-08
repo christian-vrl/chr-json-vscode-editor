@@ -1,0 +1,31 @@
+# check:offline allowlist (001 T8, AGENTS.md rule 3). URLs that may appear in build output (dist/**)
+# because nothing fetches them at runtime, e.g. a link in a license header or a JSON Schema `$id`.
+# One URL per line, matched exactly (never as a prefix); `#` starts a comment. A Reviewer names each
+# new entry in the PR that adds it. Never widen this to make a real network call pass.
+
+# 003 T2: app-shell bundles vanilla-jsoneditor 3.13.0 and Svelte 5.
+# XML namespace names passed to document.createElementNS; identifiers, never fetched.
+http://www.w3.org/1998/Math/MathML
+http://www.w3.org/1999/xhtml
+http://www.w3.org/2000/svg
+# Svelte runtime error messages cite these docs pages in their text; nothing fetches them.
+https://svelte.dev/e/async_derived_orphan
+https://svelte.dev/e/derived_inert
+https://svelte.dev/e/each_key_duplicate
+https://svelte.dev/e/effect_in_teardown
+https://svelte.dev/e/effect_in_unowned_derived
+https://svelte.dev/e/effect_orphan
+https://svelte.dev/e/effect_update_depth_exceeded
+https://svelte.dev/e/hydration_mismatch
+https://svelte.dev/e/lifecycle_legacy_only
+https://svelte.dev/e/lifecycle_outside_component
+https://svelte.dev/e/props_invalid_value
+https://svelte.dev/e/select_multiple_invalid_value
+https://svelte.dev/e/state_descriptors_fixed
+https://svelte.dev/e/state_prototype_fixed
+https://svelte.dev/e/state_unsafe_mutation
+https://svelte.dev/e/svelte_boundary_reset_noop
+https://svelte.dev/e/svelte_boundary_reset_onerror
+# vanilla-jsoneditor's transform dialog shows this as a target=_blank link in the JSONQuery
+# help text: a page the user may open, not a request the editor makes. 003 T8 owns that dialog.
+https://jsonquerylang.org
