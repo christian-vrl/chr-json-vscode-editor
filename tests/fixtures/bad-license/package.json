@@ -1,0 +1,10 @@
+{
+  "name": "bad-license-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Expected-failure fixture for check:licenses (spec 001 criterion 3).",
+  "license": "MIT",
+  "dependencies": {
+    "gpl-fixture": "1.0.0"
+  }
+}

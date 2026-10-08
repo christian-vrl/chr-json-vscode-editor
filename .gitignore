@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# Fixtures carry package.json stubs in node_modules/ so checks run on them offline (001 T7).
+!tests/fixtures/*/node_modules/
 .pnpm-store/
 
 # Build output
