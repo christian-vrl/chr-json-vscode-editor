@@ -1,0 +1,32 @@
+# The gate-review check (001 T9, AGENTS.md rule 2, spec 001 criterion 4): passes only when a
+# collaborator with write access commented `Gate review <NNN>-<Tn>: PASS @ <head sha>` for this
+# PR's head commit. A new push starts a new run, so it needs a new PASS. Comments re-run this job
+# through gate-review-rerun.yml. Rules: scripts/gate-review/verdict.mjs.
+name: gate-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  gate-review:
+    name: gate-review
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          # No pnpm here, and the scripts need no install.
+          package-manager-cache: false
+      - run: node scripts/gate-review/check.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
