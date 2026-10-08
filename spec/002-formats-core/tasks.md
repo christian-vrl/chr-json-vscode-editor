@@ -10,7 +10,7 @@
 ## Phase B — Adapters (risk-free / additive)
 - [x] **T3** `FormatAdapter` + `Style` detection + JSON/JSONC adapter primitives on `jsonc-parser`. — *gate: `pnpm test:golden -- --format json,jsonc --op add,replace,remove` green*
 - [x] **T4** (Large) Spike per UNK-012's evidence rule; `spikes/json5-cst/REPORT.md` with pass counts per option; fill ADR-009. `parallel` with T3 — *gate: report committed; UNK-012 resolved per the delegation rule*
-- [ ] **T5** JSON5 adapter per ADR-009. — *gate: `pnpm test:golden -- --format json5 --op add,replace,remove` green*
+- [x] **T5** JSON5 adapter per ADR-009. — *gate: `pnpm test:golden -- --format json5 --op add,replace,remove` green*
 
 ## Phase C — Proof (risk-free / additive)
 - [ ] **T6** (Large) Patch layer `applyPatch(text, patch, format)` with `move`/`copy`/`test`, atomic per R9; fast-check suite per criterion 3. — *gate: `pnpm test:golden` all cases green and property suite 10 000 runs/format green*

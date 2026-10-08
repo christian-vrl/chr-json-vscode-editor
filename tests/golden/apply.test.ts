@@ -5,7 +5,7 @@
 //
 // A run without filters lists the format and op pairs no task has implemented yet as todo, so the
 // whole corpus stays runnable. A filtered run never skips: naming a pair runs every case of it.
-// 002 T5 (json5) and 002 T6 (move, copy, test) extend `implemented`, and remove it once it covers
+// 002 T6 (move, copy, test) extends `implemented`, and removes it once it covers
 // every pair.
 import { getAdapter, type PatchOperation } from '../../packages/core/src/index.js';
 import { describe, expect, it } from 'vitest';
@@ -15,6 +15,7 @@ import { loadGoldenCases, type GoldenCase } from './load.js';
 const implemented: Record<string, readonly string[]> = {
   json: ['add', 'replace', 'remove'],
   jsonc: ['add', 'replace', 'remove'],
+  json5: ['add', 'replace', 'remove'],
 };
 
 const filter = filterFromEnv();
