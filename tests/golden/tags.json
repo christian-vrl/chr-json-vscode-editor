@@ -13,7 +13,7 @@
       "sort",
       "data-diff"
     ],
-    "location": ["root", "nested-object", "array-start", "array-middle", "array-end"],
+    "location": ["root", "nested-object", "array-start", "array-middle", "array-end", "document"],
     "comments": ["none", "before", "after", "inline"],
     "trailingComma": ["yes", "no"],
     "quote": ["single", "double"],

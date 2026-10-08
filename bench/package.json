@@ -1,0 +1,16 @@
+{
+  "name": "@chr-json-editor/bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "003 T11 benchmark for UNK-014: open, first render and one edit at 1, 10, 50 and 100 MiB. Not shipped.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "bench": "node run.mjs"
+  },
+  "devDependencies": {
+    "@chr-json-editor/core": "workspace:*",
+    "@playwright/test": "1.64.0",
+    "@vscode/test-electron": "3.1.0"
+  }
+}

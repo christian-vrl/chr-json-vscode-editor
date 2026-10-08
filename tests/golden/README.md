@@ -2,7 +2,7 @@
 
 One folder per case: `<format>/<case>/` with `input.<ext>`, `patch.json` (RFC 6902),
 `expected.<ext>` and `case.json`. A case passes when `applyPatch(input, patch, format)` is byte-equal
-to `expected` (criterion 1). Every `expected.*` was written by hand from rules R1–R10 of
+to `expected` (criterion 1). Every `expected.*` was written by hand from rules R1–R10 and R15 of
 `spec/002-formats-core/spec.md`, never produced by the code under test, and changes only with a spec
 change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`, `.editorconfig`).
 
@@ -25,7 +25,7 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
 - `corpus.test.ts` — checks the hand-written bytes against references independent of our format
   code: `JSON5.parse(expected)` deep-equals `immutable-json-patch` applied to `JSON5.parse(input)`
   (criterion 2); a `test-fail` patch throws there and `expected` equals `input` (R9); `expected` keeps
-  the input's line endings and final newline (R10); `json` cases are strict JSON; each case's tags
+  the input's line endings and final newline (R10; R15 cases on a text with no line break get `\n` and a final newline); `json` cases are strict JSON; each case's tags
   match its input and patch (`facts.ts`: op present in the patch, location derived from the path,
   comments present, trailing comma, and for json5 majority quote, key style and literal kind).
 
@@ -36,7 +36,7 @@ Values come from `tags.json`, the single vocabulary for these tests and `scripts
 | Tag | Meaning |
 |---|---|
 | `op` | the patch's operation; `test-fail` is a patch whose `test` fails, so the result is an error and unchanged text (R9). A `test` case may follow its `test` with another op, and a `test-fail` case may put an op before the failing `test` to show atomicity. |
-| `location` | where the patch `path` points (for `move`/`copy`, the destination): `root` = a member of the root container; `nested-object` = a member of an object inside the root; `array-start` / `array-middle` / `array-end` = index 0 / an inner index / the last index (or `-` for `add`) of an array. |
+| `location` | where the patch `path` points (for `move`/`copy`, the destination): `root` = a member of the root container; `nested-object` = a member of an object inside the root; `array-start` / `array-middle` / `array-end` = index 0 / an inner index / the last index (or `-` for `add`) of an array. `document` = the pointer `""` on a text with no value (R15, UNK-026); it is outside criterion 4's grid, and its cases may have an empty input. |
 | `comments` | comments on the member the op is about (UNK-008): `before` = comment line(s) above it (they travel with it on `remove`/`move` only when directly above, with no blank line between; `remove-root-comment-before-blank-line-stays` shows the other side); `after` = a comment at the end of its line; `inline` = a block comment inside its line after the member starts: between key and value, or after the value and before its comma (`"a": /* c */ 1`, `0 /* c */,`). A block comment *before* the member on its line is not used yet (UNK-021); `none` = no comment next to it. For `add` that member is the neighbor: the previous last member when appending, the member now at that index when inserting. For `move`/`copy` it is the `from` member. |
 | `trailingComma` | whether the edited container has a trailing comma. Always `no` in `json`. |
 | `quote` | the file's majority string quote. Always `double` in `json` and `jsonc`. |
@@ -60,6 +60,11 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
    are plain data.
 5. **New containers.** A new object or array value in a multi-line container is written like
    `JSON.stringify(value, null, unit)`, indented from its member's line (R1).
+6. **`move` to `""`** replaces the whole document with the moved value (RFC 6902 §4.4: remove at
+   `from`, then `add` at the root), so every comment outside the root value's span stays.
+7. **Carried comments on a shared line.** When `move` puts a member on a line with other members,
+   its same-line comments follow its comma as block comments (`//` becomes `/* … */`, R12), with
+   one space before the next member even after a bare `,`: `[3, /* three */ 1,2]`.
 
 The corpus avoids details R1–R10 do not fix: a block comment before a member on its own line
 (UNK-021), a new container value inside a single-line container,
