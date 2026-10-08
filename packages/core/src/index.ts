@@ -1,2 +1,3 @@
-// Skeleton (001 T2). Formats, diff, CSV and detection land with spec 002.
+// Pure TypeScript core: no DOM, no Node APIs (AGENTS.md §Critical paths).
 export const packageName = '@chr-json-editor/core';
+export * from './formats/index.js';
