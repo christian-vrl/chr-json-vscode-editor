@@ -8,6 +8,9 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json && vite build"
+  },
+  "devDependencies": {
+    "vite": "8.3.4"
   }
 }

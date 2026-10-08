@@ -6,5 +6,5 @@
     "lib": ["ES2022"],
     "types": ["node"]
   },
-  "include": ["*.mts", "tests/**/*.ts", "packages/*/test/**/*.ts"]
+  "include": ["*.mts", "tests/**/*.ts", "packages/*/test/**/*.ts", "packages/*/*.mts"]
 }
