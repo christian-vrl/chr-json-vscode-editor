@@ -182,6 +182,11 @@ describe('spec 004 criterion 3: offline', () => {
 
   it('the traps do record a request (so zero means none was made)', () => {
     expect(() => (globalThis.fetch as (u: string) => unknown)('https://example.com/')).toThrow();
-    expect(requests.splice(0)).toEqual(['fetch(https://example.com/)']);
+    const https = require('https') as typeof import('node:https');
+    expect(() => https.request('https://example.com/')).toThrow();
+    expect(requests.splice(0)).toEqual([
+      'fetch(https://example.com/)',
+      'https.request(https://example.com/)',
+    ]);
   });
 });
