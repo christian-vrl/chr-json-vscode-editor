@@ -114,6 +114,36 @@ function containers(data: unknown, path = ''): string[] {
   ];
 }
 
+/** The value at a JSON Pointer, by own members only. */
+function getIn(data: unknown, pointer: string): unknown {
+  return pointer
+    .split('/')
+    .slice(1)
+    .map((t) => t.replace(/~1/g, '/').replace(/~0/g, '~'))
+    .reduce<unknown>(
+      (v, k) =>
+        v !== null && typeof v === 'object' && Object.prototype.hasOwnProperty.call(v, k)
+          ? (v as Record<string, unknown>)[k]
+          : undefined,
+      data,
+    );
+}
+
+/** For an array, pointers to the members of its items (`/key` of an object item, `/0` of an
+ *  array item) to sort by; none for an object. */
+function itemProperties(container: unknown): string[] {
+  if (!Array.isArray(container)) return [];
+  const keys = new Set<string>();
+  for (const item of container as unknown[]) {
+    if (Array.isArray(item)) {
+      if (item.length > 0) keys.add('/0');
+    } else if (item !== null && typeof item === 'object') {
+      for (const k of Object.keys(item)) keys.add(`/${k.replace(/~/g, '~0').replace(/\//g, '~1')}`);
+    }
+  }
+  return [...keys];
+}
+
 /** Data as text with its key order; equal numbers print the same (-0 as 0, NaN as null). */
 const ordered = (data: unknown) => JSON.stringify(data);
 
@@ -131,12 +161,14 @@ function check(format: Format, action: 'compact' | 'sort') {
       } else {
         const paths = containers(parsed.data);
         if (paths.length === 0) return;
-        const options: SortOptions = {
-          path: paths[g(fc.integer, { min: 0, max: paths.length - 1 })]!,
-          direction: g(fc.boolean) ? 'asc' : 'desc',
-        };
+        const path = paths[g(fc.integer, { min: 0, max: paths.length - 1 })]!;
+        const options: SortOptions = { path, direction: g(fc.boolean) ? 'asc' : 'desc' };
+        // An array is sorted by a member of its items half the time, when an item has one.
+        const properties = itemProperties(getIn(parsed.data, path));
+        if (properties.length > 0 && g(fc.boolean))
+          options.property = properties[g(fc.integer, { min: 0, max: properties.length - 1 })];
         output = adapter.sort(input, options);
-        expected = sortData(parsed.data, { path: options.path!, direction: options.direction });
+        expected = sortData(parsed.data, { path, ...options });
       }
       const result = adapter.parse(output);
       expect(result.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);

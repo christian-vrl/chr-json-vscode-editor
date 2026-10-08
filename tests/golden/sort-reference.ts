@@ -3,7 +3,7 @@
 // `caseInsensitiveNaturalCompare`, `sortObjectKeys`, `sortArray`, `createObjectComparator`), applied
 // to plain data. Spec 002 R13 sorts text the same way.
 import naturalCompare from 'natural-compare-lite';
-import { getIn, parsePath } from 'immutable-json-patch';
+import { parsePath } from 'immutable-json-patch';
 
 export interface SortAction {
   path: string;
@@ -26,12 +26,25 @@ function text(v: unknown): string {
   }
 }
 
+/** `getIn` of immutable-json-patch 6.0.3 (`lib/esm/immutabilityHelpers.js:67`) on own members
+ *  only, as spec 002 sorts: that `getIn` reads `item.constructor` from the prototype when an item
+ *  lacks it, and fails on an item whose own `constructor` member is not a function. */
+function getIn(value: unknown, path: readonly string[]): unknown {
+  for (const key of path) {
+    if (Array.isArray(value)) value = value[Number.parseInt(key, 10)];
+    else if (typeof value === 'object' && value !== null && Object.hasOwn(value, key))
+      value = (value as Record<string, unknown>)[key];
+    else value = undefined;
+  }
+  return value;
+}
+
 function createObjectComparator(propertyPath: string[], direction: 1 | -1) {
   const sortableTypes: Record<string, number> = { boolean: 0, number: 1, string: 2, undefined: 4 };
   const otherTypes = 3;
   return (a: unknown, b: unknown): number => {
-    const valueA = getIn<unknown>(a, propertyPath);
-    const valueB = getIn<unknown>(b, propertyPath);
+    const valueA = getIn(a, propertyPath);
+    const valueB = getIn(b, propertyPath);
     if (typeof valueA !== typeof valueB) {
       const aIndex = sortableTypes[typeof valueA] ?? otherTypes;
       const bIndex = sortableTypes[typeof valueB] ?? otherTypes;

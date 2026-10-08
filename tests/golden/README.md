@@ -86,7 +86,6 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
 7. **Carried comments on a shared line.** When `move` puts a member on a line with other members,
    its same-line comments follow its comma as block comments (`//` becomes `/* … */`, R12), with
    one space before the next member even after a bare `,`: `[3, /* three */ 1,2]`.
-
 8. **Compact ends.** White space before the first token goes; a final newline stays as detected
    (R10), so compact output is one line plus that newline. Line breaks inside strings (a JSON5 line
    continuation) and block comments are bytes of those tokens and stay. A `.json` file with
@@ -94,7 +93,9 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
 9. **Sort order** is the library's: object keys in case-insensitive natural order
    (`natural-compare-lite`, `item9` before `item10`); array items by the value at `property`,
    booleans before numbers before strings before other values before missing ones; stable, so equal
-   members keep their order in both directions. Only the named container is sorted.
+   members keep their order in both directions. Only the named container is sorted. `property` is
+   read from each item's own members, so an item lacking a key named like an `Object.prototype`
+   member (`constructor`) counts as lacking it, where the library would read the prototype's.
 10. **Sort slots.** When every member of the container sits on lines of its own, a member travels
     with the comment lines directly above it and its same-line comments (R5, UNK-008); otherwise
     it travels with its same-line comments only. The text between members (blank lines, comments
