@@ -7,7 +7,8 @@
 //
 //   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB)
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { getAdapter } from '@chr-json-editor/core';
@@ -184,6 +185,7 @@ if (process.argv[2] === '--child') {
     process.exit(2);
   }
   const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
+  mkdirSync(path.dirname(out), { recursive: true });
   const defaultHeapLimitBytes = Number(
     execFileSync(
       process.execPath,
