@@ -38,6 +38,10 @@ Understand pt-BR input; always respond in English.
 
 ## Sources of truth (read before asserting anything)
 
+This repository's `main` is the source of truth for `AGENTS.md`, `spec/` and `skills/`. Older
+mentions of the project's shared folder `sdd/` or `sdd-starter-kit.zip` (e.g. spec 001) are history;
+that folder is a frozen pre-repo copy.
+
 | File / resource | Content | When to read |
 |---|---|---|
 | `spec/INDEX.md` | All specs, dependencies, what can run in parallel, human gates | always, first |

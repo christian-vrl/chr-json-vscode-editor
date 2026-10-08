@@ -1,0 +1,13 @@
+{
+  "name": "@chr-json-editor/app-shell",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Host-agnostic UI around vanilla-jsoneditor; talks only to a HostAdapter.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}
