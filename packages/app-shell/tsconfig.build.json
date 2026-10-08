@@ -2,7 +2,7 @@
 // Svelte UI (app.ts, App.svelte, main.ts) is bundled by Vite instead, so it is not listed here.
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "noEmit": false },
+  "compilerOptions": { "noEmit": false, "rootDir": "src", "paths": {} },
   "include": [],
   "files": ["src/index.ts"]
 }
