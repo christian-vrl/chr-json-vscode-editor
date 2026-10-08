@@ -93,3 +93,7 @@ http://json-schema.org/draft-04/schema
 http://json-schema.org/draft-04/schema#
 http://json-schema.org/draft-06/schema
 http://json-schema.org/draft-06/schema#
+
+# 002 T10: the extension host bundles natural-compare-lite 1.4.1 through core's sort (R13).
+# Its license header names the author's repository; nothing fetches it.
+https://github.com/litejs/natural-compare-lite
