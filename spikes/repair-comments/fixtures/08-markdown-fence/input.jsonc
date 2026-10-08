@@ -1,0 +1,7 @@
+```json
+// copied from the chat
+{
+  "model": "x", // which one
+  "temperature": 0.2
+}
+```

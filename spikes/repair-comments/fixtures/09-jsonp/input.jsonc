@@ -1,0 +1,4 @@
+callback(
+  // payload
+  {"ok": true, "items": [1, 2]} // end
+);

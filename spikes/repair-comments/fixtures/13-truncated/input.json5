@@ -1,0 +1,5 @@
+{
+  servers: [
+    {host: 'a.example', port: 80}, // primary
+    // backup
+    {host: 'b.example', port: 81
