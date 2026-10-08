@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Spike (risk-free / additive)
-- [ ] **T1** (Large) Prototype options A and B inside the real webview from 003 T4; record for each: validates under the real CSP (yes/no), time to validate a 1 MB document against a 200-rule schema, reusable as an MV3 sandbox page (yes/no). Write `spikes/eval-location/REPORT.md`; fill ADR-010 per UNK-011's rule. — needs: 003 T4 — *gate: report committed with both options measured; UNK-011 resolved per the delegation rule*
+- [x] **T1** (Large) Prototype options A and B inside the real webview from 003 T4; record for each: validates under the real CSP (yes/no), time to validate a 1 MB document against a 200-rule schema, reusable as an MV3 sandbox page (yes/no). Write `spikes/eval-location/REPORT.md`; fill ADR-010 per UNK-011's rule. — needs: 003 T4 — *gate: report committed with both options measured; UNK-011 resolved per the delegation rule*
 
 ## Phase B — Build (risk-free / additive)
 - [ ] **T2** Implement the chosen eval location. — *gate: spec 003 criterion 6 still green; one sample schema validates in e2e*
