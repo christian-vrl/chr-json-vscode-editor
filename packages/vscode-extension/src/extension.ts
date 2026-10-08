@@ -16,6 +16,8 @@ declare const __CHR_TEST_HOOKS__: boolean;
 export interface TestHooks {
   webviews(): WebviewSnapshot[];
   formatBadge(): FormatBadgeSnapshot | undefined;
+  /** Validates the open editor of `uri` against `schema` (004 T2; 004 T5 adds association). */
+  setSchema(uri: string, schema: object | boolean | undefined): boolean;
 }
 
 export async function activate(
@@ -36,6 +38,16 @@ export async function activate(
       testHooks: {
         webviews: () => [...provider.snapshots.values()],
         formatBadge: () => formatBadge?.snapshot(),
+        setSchema(uri, schema) {
+          let found = false;
+          for (const [panel, validation] of provider.validations) {
+            const snapshot = provider.snapshots.get(panel);
+            if (snapshot?.uri !== uri) continue;
+            validation.setSchema(schema);
+            found = true;
+          }
+          return found;
+        },
       },
     };
   }
