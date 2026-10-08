@@ -1,6 +1,7 @@
 // Spec 002 criterion 5: detect(path, languageId?, text?) per R11, table-driven over every listed name.
 import { describe, expect, it } from 'vitest';
-import { detect, type DetectionSource, type Format } from '../src/detect.js';
+import { detect, type DetectionSource } from '../src/detect.js';
+import type { Format } from '../src/formats/types.js';
 
 type Row = [path: string, languageId: string | undefined, text: string | undefined, format: Format];
 
@@ -14,7 +15,7 @@ const byLanguageId: Row[] = [
   ['settings.json', 'json', '{}', 'json'],
 ];
 
-// R11 step 2: extension.
+// R11 step 3: extension.
 const byExtension: Row[] = [
   ['data.json', undefined, undefined, 'json'],
   ['data.jsonc', undefined, undefined, 'jsonc'],
@@ -26,7 +27,7 @@ const byExtension: Row[] = [
   ['data.jsonc', 'plaintext', undefined, 'jsonc'],
 ];
 
-// R11 step 3: VS Code JSONC file names (UNK-019: these win over the generic `.json` extension).
+// R11 step 2: VS Code JSONC file names win over the generic `.json` extension (UNK-019).
 const jsoncFileNames = [
   'settings.json',
   'tsconfig.json',

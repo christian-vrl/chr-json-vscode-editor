@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "unquoted keys (not allowed in JSONC)",
+  "jsonrepairClass": "Add missing quotes around keys",
+  "comments": [
+    {
+      "text": "/* the name */",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// semver",
+      "container": "",
+      "before": 2,
+      "trailing": true
+    }
+  ]
+}

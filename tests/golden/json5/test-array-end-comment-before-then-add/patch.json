@@ -1,0 +1,1 @@
+[{"op": "test", "path": "/xs/1", "value": "b"}, {"op": "add", "path": "/xs/-", "value": "c"}]

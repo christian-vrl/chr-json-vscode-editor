@@ -1,0 +1,4 @@
+# Copied from the repository root by scripts/copy-license.mjs during `pnpm package`.
+/LICENSE
+# Written by scripts/check-licenses.mjs --notice during `pnpm package` (001 T7).
+/THIRD_PARTY_LICENSES.md

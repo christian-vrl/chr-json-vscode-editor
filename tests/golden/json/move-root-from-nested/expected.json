@@ -1,0 +1,7 @@
+{
+  "nested": {
+    "keep": 2
+  },
+  "other": 1,
+  "flag": true
+}

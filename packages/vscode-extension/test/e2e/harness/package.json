@@ -1,0 +1,10 @@
+{
+  "name": "chr-json-editor-e2e-harness",
+  "description": "Empty development extension: VS Code runs --extensionTestsPath only beside an --extensionDevelopmentPath, and pointing that at the real extension would load it from source instead of from the installed .vsix.",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "chr-json-editor-tests",
+  "engines": {
+    "vscode": "^1.95.0"
+  }
+}

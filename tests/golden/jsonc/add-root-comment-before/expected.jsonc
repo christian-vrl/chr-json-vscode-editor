@@ -1,0 +1,6 @@
+// App settings
+{
+  // display name
+  "name": "app",
+  "debug": false
+}

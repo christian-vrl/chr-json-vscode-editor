@@ -1,0 +1,6 @@
+{
+  "db": {
+    "host": "h", // primary
+    "port": 5432
+  }
+}

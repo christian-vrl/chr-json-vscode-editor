@@ -4,7 +4,16 @@
   "compilerOptions": {
     "noEmit": true,
     "lib": ["ES2022"],
-    "types": ["node"]
+    "types": ["node"],
+    // Tests import workspace packages from source, so type-aware lint never depends on a build.
+    "paths": { "@chr-json-editor/core": ["./packages/core/src/index.ts"] }
   },
-  "include": ["*.mts", "tests/**/*.ts", "packages/*/test/**/*.ts"]
+  "include": [
+    "*.mts",
+    "tests/**/*.ts",
+    "tests/**/*.mts",
+    "packages/*/test/**/*.ts",
+    "packages/*/*.mts",
+    "scripts/**/*.d.mts"
+  ]
 }

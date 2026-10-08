@@ -1,26 +1,22 @@
 // Format detection (spec 002 R11) with strict-JSON diagnostics (spec 002 §Scope: strict-JSON
 // violations in a `.json` document are warnings, not load failures).
 import { createScanner, parse, printParseErrorCode, type ParseError } from 'jsonc-parser';
-
-export type Format = 'json' | 'jsonc' | 'json5';
+import type { Diagnostic, Format } from './formats/types.js';
 
 /** Which R11 step decided the format; `default` means no step applied and there was no text. */
 export type DetectionSource = 'languageId' | 'fileName' | 'extension' | 'content' | 'default';
 
-export interface Diagnostic {
+/** A strict-JSON violation; `code` is jsonc-parser's error name or `TrailingComma`. */
+export interface StrictJsonDiagnostic extends Diagnostic {
   severity: 'warning';
-  /** jsonc-parser's error name, e.g. `InvalidCommentToken`. */
   code: string;
-  message: string;
-  offset: number;
-  length: number;
 }
 
 export interface Detection {
   format: Format;
   source: DetectionSource;
   /** Strict-JSON violations; only filled when the format is `json` and text was given. */
-  diagnostics: Diagnostic[];
+  diagnostics: StrictJsonDiagnostic[];
 }
 
 const FORMATS: readonly string[] = ['json', 'jsonc', 'json5'];
@@ -66,14 +62,14 @@ export function detect(path: string, languageId?: string, text?: string): Detect
 }
 
 /** Strict RFC 8259 violations in `text`, as warnings with offsets into `text`. */
-export function strictJsonDiagnostics(text: string): Diagnostic[] {
+export function strictJsonDiagnostics(text: string): StrictJsonDiagnostic[] {
   const body = stripBom(text);
   const shift = text.length - body.length;
   const commas = trailingCommas(body);
   // jsonc-parser reports a trailing comma as PropertyNameExpected/ValueExpected at the closing
   // bracket; those are replaced by one TrailingComma warning on the comma itself.
   const closers = new Set(commas.map((c) => c.closer));
-  const diagnostics: Diagnostic[] = commas.map((c) => ({
+  const diagnostics: StrictJsonDiagnostic[] = commas.map((c) => ({
     severity: 'warning',
     code: 'TrailingComma',
     message: 'Trailing commas are not allowed in JSON.',

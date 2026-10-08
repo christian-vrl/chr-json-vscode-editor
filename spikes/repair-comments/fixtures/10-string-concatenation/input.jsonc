@@ -1,0 +1,6 @@
+{
+  // long message split for readability
+  "message": "Hello, " +
+    "world", // greeting
+  "count": 1
+}

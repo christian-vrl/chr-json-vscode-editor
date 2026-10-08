@@ -19,9 +19,81 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [],
-  "contributes": {},
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "chrJsonEditor.editor",
+        "displayName": "CHR JSON Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          },
+          {
+            "filenamePattern": "*.jsonc"
+          },
+          {
+            "filenamePattern": "*.json5"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "chrJsonEditor.openInEditor",
+        "title": "Open in CHR JSON Editor",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.reopenAsText",
+        "title": "Reopen as Text",
+        "category": "CHR JSON Editor"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "chrJsonEditor.openInEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && activeCustomEditorId != chrJsonEditor.editor"
+        },
+        {
+          "command": "chrJsonEditor.reopenAsText",
+          "when": "activeCustomEditorId == chrJsonEditor.editor"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "chrJsonEditor.openInEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "navigation"
+        },
+        {
+          "command": "chrJsonEditor.reopenAsText",
+          "when": "activeCustomEditorId == chrJsonEditor.editor",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "chrJsonEditor.openInEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder",
+          "group": "navigation@20"
+        }
+      ]
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "package": "vsce package --no-dependencies"
+    "build": "tsc -p tsconfig.json --noEmit && node esbuild.mjs",
+    "package": "pnpm --filter chr-json-editor... run build && node scripts/copy-license.mjs && node ../../scripts/check-licenses.mjs --package . --notice THIRD_PARTY_LICENSES.md && vsce package --no-dependencies",
+    "test:e2e": "node test/e2e/run.mjs"
+  },
+  "dependencies": {
+    "@chr-json-editor/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.95.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2"
   }
 }

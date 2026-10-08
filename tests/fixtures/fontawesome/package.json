@@ -1,0 +1,10 @@
+{
+  "name": "fontawesome-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "check:licenses must accept Font Awesome's (CC-BY-4.0 AND MIT) (spec 001 criterion 3).",
+  "license": "MIT",
+  "dependencies": {
+    "@fortawesome/free-solid-svg-icons": "7.3.1"
+  }
+}

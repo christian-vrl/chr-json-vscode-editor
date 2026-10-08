@@ -1,0 +1,9 @@
+# Only the bundles (extension host 001 T5, webview 003 T4), the manifest, README, LICENSE (001 T5)
+# and the third-party notice (001 T7) go into the .vsix.
+**
+!dist/extension.js
+!dist/webview.js
+!package.json
+!README.md
+!LICENSE
+!THIRD_PARTY_LICENSES.md

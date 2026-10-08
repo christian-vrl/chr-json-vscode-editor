@@ -1,0 +1,7 @@
+// JSON5: unquoted keys, single quotes, hex and a trailing comma
+{
+  name: 'CHR JSON Editor',
+  formats: ['json', 'jsonc', 'json5'],
+  answer: 0x2a,
+  offline: true,
+}

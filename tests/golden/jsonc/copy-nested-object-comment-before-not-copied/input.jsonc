@@ -1,0 +1,9 @@
+{
+  "base": {
+    // shared timeout
+    "timeout": 30
+  },
+  "job": {
+    "name": "n"
+  }
+}

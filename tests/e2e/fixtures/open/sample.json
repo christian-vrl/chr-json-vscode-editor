@@ -1,0 +1,5 @@
+{
+  "name": "CHR JSON Editor",
+  "formats": ["json", "jsonc", "json5"],
+  "offline": true
+}
