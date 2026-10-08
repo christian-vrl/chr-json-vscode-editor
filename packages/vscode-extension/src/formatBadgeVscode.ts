@@ -1,14 +1,15 @@
 // Binds the format badge (formatBadge.ts) to VS Code (spec 003 T10, criterion 8): one status-bar
 // item that shows the format of the active CHR JSON Editor tab, and the "Change Format" command
-// behind it. Choosing a format re-parses the document's text in the host and never edits it; the
-// webview re-parse (the library's `parser` prop, `setFormat` message) arrives with 003 T5.
+// behind it. Choosing a format re-parses the document's text in the host and never edits it.
 import * as vscode from 'vscode';
+import { detect, getAdapter } from '@chr-json-editor/core';
 import {
   badge,
   FORMAT_LABELS,
   FORMATS,
   initialState,
   withFormat,
+  type Format,
   type FormatCore,
   type FormatState,
 } from './formatBadge';
@@ -79,6 +80,11 @@ export class FormatBadgeController implements vscode.Disposable {
     this.refresh();
   }
 
+  /** The format the badge holds for `document`: the detected one, or the one the user chose. */
+  format(document: vscode.TextDocument): Format | undefined {
+    return this.states.get(document.uri.toString())?.format;
+  }
+
   /** The command: `format` comes from a keybinding's `args` or a test; otherwise a Quick Pick. */
   private async select(format: unknown): Promise<void> {
     const document = this.activeDocument();
@@ -145,8 +151,6 @@ export class FormatBadgeController implements vscode.Disposable {
   }
 }
 
-/** Core is ESM and this package is CommonJS, so it is loaded with `import()`; esbuild bundles it. */
-export async function loadFormatCore(): Promise<FormatCore> {
-  const { detect, getAdapter } = await import('@chr-json-editor/core');
-  return { detect, getAdapter };
-}
+/** The core functions the badge uses. Imported statically like everywhere else in the host (003
+ *  T5): esbuild bundles core, and the editor cannot work without it anyway. */
+export const formatCore: FormatCore = { detect, getAdapter };

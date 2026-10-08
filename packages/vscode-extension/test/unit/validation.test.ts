@@ -2,7 +2,7 @@
 // cannot be validated, and that every posted result names the document version it describes.
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ValidationMessage } from '@chr-json-editor/app-shell/protocol';
+import { PROTOCOL_VERSION, type ValidationMessage } from '@chr-json-editor/app-shell/protocol';
 import { DocumentValidation, compileSchema, validateText } from '../../src/validation';
 
 const fixtures = new URL('../../../../tests/e2e/fixtures/validation/', import.meta.url);
@@ -92,7 +92,12 @@ describe('DocumentValidation', () => {
     const { posted, validation } = setup('{"name": "Ada", "age": 36}');
     validation.setSchema(schema);
     expect(posted).toEqual([
-      { protocol: 2, type: 'validation', docVersion: 1, result: { kind: 'errors', errors: [] } },
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'validation',
+        docVersion: 1,
+        result: { kind: 'errors', errors: [] },
+      },
     ]);
   });
 

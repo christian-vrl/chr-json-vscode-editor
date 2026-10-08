@@ -50,6 +50,7 @@ const toWebview: ToWebviewMessage[] = [
 ];
 
 const toHost: ToHostMessage[] = [
+  { protocol: PROTOCOL_VERSION, type: 'ready', docVersion: 0 },
   {
     protocol: PROTOCOL_VERSION,
     type: 'edit',
@@ -86,10 +87,10 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1, plus validation from 004 T2)', () => {
+  it('covers every message type (003 T1, plus validation from 004 T2 and ready from 003 T5)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
-      ['edit', 'error', 'init', 'setFormat', 'setMode', 'update', 'validation'].sort(),
+      ['edit', 'error', 'init', 'ready', 'setFormat', 'setMode', 'update', 'validation'].sort(),
     );
   });
 
@@ -194,6 +195,11 @@ describe('protocol rejects malformed messages', () => {
     ['remove with a value', patchEdit([{ op: 'remove', path: '/a', value: 1 }])],
     ['a value that is not JSON', patchEdit([{ op: 'add', path: '/a', value: Infinity }])],
     ['a nested undefined', patchEdit([{ op: 'add', path: '/a', value: [undefined] }])],
+    [
+      'a ready with a document version',
+      { protocol: PROTOCOL_VERSION, type: 'ready', docVersion: 1 },
+    ],
+    ['a ready from protocol 2', { protocol: 2, type: 'ready', docVersion: 0 }],
   ])('webview → host: %s', (_why, data) => {
     const result = decodeToHost(data);
     expect(result.ok).toBe(false);

@@ -1,5 +1,5 @@
 // Bundles the extension host code (001 T5): one CommonJS file for VS Code's Node runtime, with
-// `vscode` left external because the editor provides it. Also bundles the webview script (003 T4).
+// `vscode` left external because the editor provides it. Also bundles the webview script (003 T5).
 //
 // CHR_TEST_HOOKS=1 builds the e2e variant (spec 003 §Acceptance criterion: the test-only hook is
 // compiled out of release builds): `__CHR_TEST_HOOKS__` becomes true and `activate` returns
@@ -32,15 +32,21 @@ await build({
   logLevel: 'info',
 });
 
+// The webview script (003 T5): app-shell's library build (dist/lib, Svelte and vanilla-jsoneditor
+// included) under a VscodeHostAdapter. One classic script, so the page loads it with the nonce like
+// any other; the CSS it imports (the editor's, with the library's moved out of JavaScript by
+// UNK-029's Vite plugin) goes to dist/webview.css, loaded from the webview source.
 await build({
-  entryPoints: ['src/webview/placeholder.ts'],
+  entryPoints: ['src/webview/main.ts'],
   outfile: 'dist/webview.js',
   bundle: true,
   format: 'iife',
   platform: 'browser',
   // Electron 32's Chromium 128.
   target: 'chrome128',
+  define: { __CHR_TEST_HOOKS__: JSON.stringify(testHooks) },
+  // Folds the test hooks away in release builds, as for the extension host.
+  minifySyntax: true,
   sourcemap: false,
-  minify: false,
   logLevel: 'info',
 });

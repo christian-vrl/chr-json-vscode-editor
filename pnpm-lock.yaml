@@ -106,6 +106,9 @@ importers:
 
   packages/vscode-extension:
     dependencies:
+      '@chr-json-editor/app-shell':
+        specifier: workspace:*
+        version: link:../app-shell
       '@chr-json-editor/core':
         specifier: workspace:*
         version: link:../core
@@ -116,9 +119,6 @@ importers:
         specifier: 3.0.1
         version: 3.0.1(ajv@8.20.0)
     devDependencies:
-      '@chr-json-editor/app-shell':
-        specifier: workspace:*
-        version: link:../app-shell
       '@types/vscode':
         specifier: 1.95.0
         version: 1.95.0

@@ -49,7 +49,8 @@ test('loads the editor with no request leaving the local origin', async ({
 
 test.describe('the editor page asking for another origin', () => {
   // This test makes a foreign request on purpose; any other test fails if it does (001 T8).
-  test.use({ expectBlockedRequests: true });
+  // The webview CSP would refuse the fetch before the fixture saw it, so it is off here.
+  test.use({ expectBlockedRequests: true, webviewCsp: false });
 
   test('the editor page cannot reach another origin: the fixture aborts it', async ({
     page,

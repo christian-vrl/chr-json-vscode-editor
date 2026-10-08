@@ -1,15 +1,27 @@
 // CustomTextEditorProvider for *.json, *.jsonc and *.json5 (spec 003 T3). The document stays a
-// normal VS Code TextDocument; the webview only shows it. The webview runs scripts only with a
-// per-render nonce and loads files only from the extension's dist folder (003 T4, criterion 6;
-// see webviewHtml.ts). Each tab reports to the status-bar format badge (003 T10). Document sync
-// (003 T5) builds on this. Schema validation runs here in the host and reaches the webview as
-// `validation` messages (004 T2, ADR-010; see validation.ts).
+// normal VS Code TextDocument; the webview shows it in app-shell's editor (003 T5, webview/main.ts).
+// The webview runs scripts only with a per-render nonce and loads files only from the extension's
+// dist folder (003 T4, criterion 6; see webviewHtml.ts). Each tab reports to the status-bar format
+// badge (003 T10). Schema validation runs here in the host and reaches the webview as `validation`
+// messages (004 T2, ADR-010; see validation.ts).
+//
+// The webview speaks app-shell's message protocol. It sends `ready` once its script listens; only
+// then does the host post `init`, the latest validation result, and an `update` for each later
+// change of the document, so nothing is posted into a page that cannot receive it yet.
 import * as vscode from 'vscode';
-import type { SchemaError } from '@chr-json-editor/app-shell/protocol';
+import {
+  decodeToHost,
+  PROTOCOL_VERSION,
+  type Mode,
+  type SchemaError,
+  type ToHostMessage,
+  type ToWebviewMessage,
+} from '@chr-json-editor/app-shell/protocol';
 import { detect } from '@chr-json-editor/core';
 import type { FormatBadgeController } from './formatBadgeVscode';
+import type { RenderedProbe } from './testProbe';
 import { DocumentValidation } from './validation';
-import { createNonce, escapeHtml, renderWebviewHtml } from './webviewHtml';
+import { createNonce, renderWebviewHtml } from './webviewHtml';
 
 export const VIEW_TYPE = 'chrJsonEditor.editor';
 
@@ -23,16 +35,26 @@ export interface WebviewSnapshot {
   cspSource: string;
   enableScripts: boolean;
   localResourceRoots: string[];
+  /** The webview script sent `ready`: the nonce, `localResourceRoots` and `asWebviewUri` line up. */
   scriptLoaded: boolean;
   /** Every `validation` message the webview script decoded, as it reported it back (004 T2). */
   validationsShown: ShownValidation[];
 }
 
-/** What the placeholder webview reports after decoding a `validation` message. */
+/** What the webview reports after decoding a `validation` message. */
 export interface ShownValidation {
   docVersion: number;
   errors: SchemaError[] | null;
   reason: string | null;
+}
+
+/** One open editor tab: its document, webview and validation. */
+interface Session {
+  document: vscode.TextDocument;
+  panel: vscode.WebviewPanel;
+  validation: DocumentValidation;
+  /** Whether the webview sent `ready`; until then the host posts nothing. */
+  ready: boolean;
 }
 
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
@@ -40,15 +62,19 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   readonly snapshots = new Map<vscode.WebviewPanel, WebviewSnapshot>();
   /** One per open panel. 004 T5 sets each one's schema from the association rules. */
   readonly validations = new Map<vscode.WebviewPanel, DocumentValidation>();
+  private readonly sessions = new Map<vscode.WebviewPanel, Session>();
+  /** Test hooks: probes waiting for the webview's answer, by id. */
+  private readonly probes = new Map<number, (result: RenderedProbe) => void>();
+  private nextProbe = 1;
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly formatBadge: FormatBadgeController | undefined,
+    private readonly formatBadge: FormatBadgeController,
   ) {}
 
   static register(
     context: vscode.ExtensionContext,
-    formatBadge: FormatBadgeController | undefined,
+    formatBadge: FormatBadgeController,
   ): {
     provider: JsonEditorProvider;
     disposable: vscode.Disposable;
@@ -70,14 +96,28 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       nonce: createNonce(),
       title: name,
       scripts: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js')).toString()],
-      stylesheets: [],
-      body: `<p>${escapeHtml(name)} is open in CHR JSON Editor. The tree, text and table views are
-not built yet; use "Reopen as Text" to edit it.</p>`,
+      stylesheets: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css')).toString()],
+      body: '<main id="app"></main>',
     });
-    this.formatBadge?.track(document, panel);
+    this.formatBadge.track(document, panel);
 
+    const session: Session = {
+      document,
+      panel,
+      ready: false,
+      validation: new DocumentValidation({
+        snapshot: () => ({ text: document.getText(), docVersion: document.version }),
+        // The format at open time; 004 T5 follows a switch made from the format badge (003 T10).
+        format: detect(document.uri.path, document.languageId, document.getText()).format,
+        post: (message) => this.post(session, message),
+      }),
+    };
+    this.sessions.set(panel, session);
+    this.validations.set(panel, session.validation);
+
+    let snapshot: WebviewSnapshot | undefined;
     if (__CHR_TEST_HOOKS__) {
-      const snapshot: WebviewSnapshot = {
+      snapshot = {
         uri: document.uri.toString(),
         html: webview.html,
         cspSource: webview.cspSource,
@@ -87,33 +127,125 @@ not built yet; use "Reopen as Text" to edit it.</p>`,
         validationsShown: [],
       };
       this.snapshots.set(panel, snapshot);
-      webview.onDidReceiveMessage((message: { type?: unknown } & Partial<ShownValidation>) => {
-        if (message.type === 'placeholderLoaded') snapshot.scriptLoaded = true;
-        if (message.type === 'validationShown') {
-          snapshot.validationsShown.push({
-            docVersion: message.docVersion ?? -1,
-            errors: message.errors ?? null,
-            reason: message.reason ?? null,
-          });
-        }
-      });
-      panel.onDidDispose(() => this.snapshots.delete(panel));
     }
 
-    const validation = new DocumentValidation({
-      snapshot: () => ({ text: document.getText(), docVersion: document.version }),
-      // The format at open time; 004 T5 follows a switch made from the format badge (003 T10).
-      format: detect(document.uri.path, document.languageId, document.getText()).format,
-      post: (message) => void webview.postMessage(message),
+    const received = webview.onDidReceiveMessage((data: unknown) => {
+      if (__CHR_TEST_HOOKS__ && snapshot && this.receiveTestMessage(snapshot, data)) return;
+      const decoded = decodeToHost(data);
+      if (!decoded.ok) {
+        console.error(`CHR JSON Editor: dropped a webview message: ${decoded.error}`);
+        return;
+      }
+      if (__CHR_TEST_HOOKS__ && snapshot && decoded.message.type === 'ready') {
+        snapshot.scriptLoaded = true;
+      }
+      this.receive(session, decoded.message);
     });
-    this.validations.set(panel, validation);
     const changes = vscode.workspace.onDidChangeTextDocument((event) => {
-      if (event.document === document && event.contentChanges.length > 0) validation.schedule();
+      if (event.document !== document || event.contentChanges.length === 0) return;
+      this.post(session, {
+        protocol: PROTOCOL_VERSION,
+        type: 'update',
+        docVersion: document.version,
+        text: document.getText(),
+      });
+      session.validation.schedule();
     });
     panel.onDidDispose(() => {
+      received.dispose();
       changes.dispose();
-      validation.dispose();
+      session.validation.dispose();
+      this.sessions.delete(panel);
       this.validations.delete(panel);
+      this.snapshots.delete(panel);
     });
+  }
+
+  private receive(session: Session, message: ToHostMessage): void {
+    const { document } = session;
+    switch (message.type) {
+      case 'ready':
+        // A reloaded webview sends `ready` again and gets the document afresh.
+        session.ready = true;
+        this.post(session, {
+          protocol: PROTOCOL_VERSION,
+          type: 'init',
+          docVersion: document.version,
+          text: document.getText(),
+          format:
+            this.formatBadge.format(document) ??
+            detect(document.uri.path, document.languageId, document.getText()).format,
+          mode: 'tree',
+          settings: {},
+        });
+        session.validation.run();
+        return;
+      case 'edit':
+        // Applying the UI's changes to the document is the next part of 003 T5.
+        this.post(session, {
+          protocol: PROTOCOL_VERSION,
+          type: 'error',
+          docVersion: document.version,
+          code: 'edit-unsupported',
+          message: 'Editing in CHR JSON Editor is not available yet; use "Reopen as Text" to edit.',
+        });
+        return;
+      case 'error':
+        void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);
+        return;
+    }
+  }
+
+  private post(session: Session, message: ToWebviewMessage): void {
+    if (session.ready) void session.panel.webview.postMessage(message);
+  }
+
+  /** Test hooks: handles the webview's answers to probes and its validation reports. */
+  private receiveTestMessage(snapshot: WebviewSnapshot, data: unknown): boolean {
+    const message = data as { chrTest?: unknown; id?: unknown; result?: unknown };
+    if (typeof message !== 'object' || message === null || !('chrTest' in message)) return false;
+    if (message.chrTest === 'probe' && typeof message.id === 'number') {
+      this.probes.get(message.id)?.(message.result as RenderedProbe);
+      this.probes.delete(message.id);
+    }
+    if (message.chrTest === 'validationShown') {
+      const shown = data as Partial<ShownValidation>;
+      snapshot.validationsShown.push({
+        docVersion: shown.docVersion ?? -1,
+        errors: shown.errors ?? null,
+        reason: shown.reason ?? null,
+      });
+    }
+    return true;
+  }
+
+  private sessionFor(uri: string): Session | undefined {
+    return [...this.sessions.values()].find((s) => s.document.uri.toString() === uri);
+  }
+
+  /** Test hook: asks the webview of `uri` what it renders. */
+  probe(uri: string): Promise<RenderedProbe> {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
+    const id = this.nextProbe++;
+    return new Promise((resolve) => {
+      this.probes.set(id, resolve);
+      void session.panel.webview.postMessage({ chrTest: 'probe', id });
+    });
+  }
+
+  /** Test hook: has the host switch the webview of `uri` to `mode` (the `setMode` message). */
+  setMode(uri: string, mode: Mode): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    this.post(session, {
+      protocol: PROTOCOL_VERSION,
+      type: 'setMode',
+      docVersion: session.document.version,
+      mode,
+    });
+    return true;
   }
 }
