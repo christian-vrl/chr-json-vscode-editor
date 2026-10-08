@@ -26,3 +26,7 @@ blob-report/
 .DS_Store
 Thumbs.db
 *.log
+
+# Benchmark inputs and raw results (003 T11); bench/vscode-open.md is the committed report.
+bench/.data/
+bench/.results/

@@ -1,0 +1,49 @@
+# Large-file benchmark (003 T11, evidence for UNK-014): open, first render and one edit at 1, 10,
+# 50 and 100 MiB on the GitHub Actions runner. Writes bench/vscode-open.md, shows it in the run
+# summary and uploads it with the raw results; the committed copy comes from such a run.
+# Not part of ci.yml: it takes minutes and measures, it does not gate. Runs on demand and on pull
+# requests that change the benchmark.
+name: bench
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'bench/**'
+      - '.github/workflows/bench.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bench-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vscode-open:
+    name: open, render, edit at 1/10/50/100 MiB
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install xvfb
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+      - run: pnpm exec playwright install --with-deps chromium
+      # app-shell's standalone page for the Chromium half; the e2e .vsix (test hooks) for VS Code.
+      - run: pnpm build
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      # VS Code stable is downloaded by @vscode/test-electron, as in ci.yml's e2e job.
+      - run: xvfb-run -a pnpm --filter @chr-json-editor/bench bench
+      - name: Report in the run summary
+        run: cat bench/vscode-open.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-vscode-open
+          path: |
+            bench/vscode-open.md
+            bench/.results/
+          include-hidden-files: true
+          if-no-files-found: error

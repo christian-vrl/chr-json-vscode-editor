@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - spikes/*
+  - bench
 
 # Install scripts we deliberately skip: esbuild finds its binary through its optional
 # platform package, and @vscode/vsce-sign is only used for signing, which `pnpm package` does not do.
