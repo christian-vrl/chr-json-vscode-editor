@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# Golden-master fixtures are compared byte for byte (constitution D3): no line-ending conversion.
+tests/golden/** -text
