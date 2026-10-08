@@ -64,6 +64,15 @@ describe('check-ci on a modified copy', () => {
     expect(status).toBe(1);
   });
 
+  it('does not count a script named only in a comment', () => {
+    edit('.github/workflows/ci.yml', (text) =>
+      text.replace(/- run: pnpm test:golden/g, '# - run: pnpm test:golden'),
+    );
+    const { status, output } = run('--root', root, '--placeholder', 'check:readme');
+    expect(output).toMatch(/ci\.yml does not run `pnpm test:golden`/);
+    expect(status).toBe(1);
+  });
+
   it('does not take `pnpm test:web-x` for `pnpm test:web`', () => {
     edit('.github/workflows/ci.yml', (text) => text.replace(/pnpm test:web/g, 'pnpm test:web-x'));
     const { status, output } = run('--root', root, '--placeholder', 'check:readme');

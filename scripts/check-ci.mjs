@@ -44,7 +44,8 @@ if (!section) {
 const standard = [...section[1].matchAll(/`pnpm ([\w:-]+)`/g)].map((m) => m[1]);
 
 const scripts = JSON.parse(read('package.json')).scripts ?? {};
-const workflow = read('.github/workflows/ci.yml');
+// Comments (YAML, and shell comments inside `run:` blocks) don't run anything, so they don't count.
+const workflow = read('.github/workflows/ci.yml').replace(/(^|\s)#.*$/gm, '$1');
 
 const problems = [];
 for (const name of standard) {
