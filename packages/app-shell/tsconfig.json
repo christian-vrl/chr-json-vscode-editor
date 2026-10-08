@@ -1,13 +1,14 @@
 // Type-checks all of app-shell's sources, .svelte components included (svelte-check reads this).
-// tsconfig.build.json emits the plain-TypeScript library entry.
+// tsconfig.build.json emits the plain-TypeScript library entry. `paths` points core at its source,
+// as the root tsconfig does, so type checks and type-aware lint never depend on core's build.
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
     "outDir": "dist",
     "noEmit": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["svelte"]
+    "types": ["svelte"],
+    "paths": { "@chr-json-editor/core": ["../core/src/index.ts"] }
   },
   "include": ["src"]
 }

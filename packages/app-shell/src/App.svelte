@@ -16,7 +16,9 @@
     type OnChangeStatus,
   } from 'vanilla-jsoneditor';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
+  import { parserFor } from './parser.js';
   import {
+    isEditError,
     MODES,
     type DocumentChange,
     type Format,
@@ -34,10 +36,17 @@
   let notice = $state<string | undefined>();
   let target: HTMLDivElement;
   let editor: JsonEditor | undefined;
-  /** The version of the last document text the host sent; edits are made against it. */
+
+  // Sync (003 T5). The host owns the document: the UI sends each change as an `edit` made on
+  // `docVersion` and the host answers every edit, in order, with an `update` (origin `edit`) or an
+  // edit error. Only one edit is in flight, so each is made on the version the host holds; changes
+  // made meanwhile wait in `queued`. The library never reports a programmatic `update` as a change,
+  // so text from the host is never echoed back.
+  /** The version and text of the document as the host last sent them. */
   let docVersion = 0;
-  /** What the editor shows, kept so a host echo of the UI's own edit is not pushed back in. */
-  let content: Content = { text: '' };
+  let docText = '';
+  let inFlight = false;
+  const queued: DocumentChange[] = [];
 
   onMount(() => {
     let disposed = false;
@@ -45,14 +54,15 @@
     void host.open().then((doc) => {
       if (disposed) return;
       docVersion = doc.docVersion;
+      docText = doc.text;
       format = doc.format;
       mode = doc.mode;
-      content = { text: doc.text };
       editor = createJSONEditor({
         target,
         props: {
-          content,
+          content: { text: doc.text },
           mode: doc.mode as LibraryMode,
+          parser: parserFor(doc.format),
           onChange,
           onChangeMode: (next: LibraryMode) => (mode = next as Mode),
         },
@@ -65,20 +75,38 @@
     };
   });
 
+  /**
+   * Test hook (spec 003 criterion 1): sends operations down the same path as a tree or table edit,
+   * as if the library had reported them. The library's own `patch()` neither reports a change nor
+   * applies to a document with no value, so it is not used; the view follows the host's answer.
+   */
+  export function patch(operations: JsonPatchOperation[]): void {
+    if (!editor) throw new Error('The editor is not mounted yet');
+    queued.push({ kind: 'patch', patch: operations });
+    sendNext();
+  }
+
+  /** What the editor holds now, for tests. */
+  export function content(): Content | undefined {
+    return editor?.get();
+  }
+
   function selectMode(next: Mode): void {
     mode = next;
     editor?.updateProps({ mode: next as LibraryMode });
   }
 
   function onChange(updated: Content, _previous: Content, status: OnChangeStatus): void {
-    content = updated;
     let change: DocumentChange;
     if (status.patchResult) {
       change = { kind: 'patch', patch: status.patchResult.redo as JsonPatchOperation[] };
     } else if ('text' in updated) {
+      // Text mode sends the whole text; 003 T6 debounces it. Only the newest text matters.
+      const last = queued.at(-1);
+      if (last?.kind === 'text') queued.pop();
       change = { kind: 'text', text: updated.text };
     } else {
-      // Not produced by any edit the library makes today; 003 T5/T6 own the sync rules.
+      // Not produced by any edit the library makes today.
       host.showMessage({
         docVersion,
         code: 'unsupported-change',
@@ -86,43 +114,72 @@
       });
       return;
     }
+    queued.push(change);
+    sendNext();
+  }
+
+  function sendNext(): void {
+    if (inFlight) return;
+    const change = queued.shift();
+    if (!change) return;
+    inFlight = true;
     host.save(docVersion, change);
+  }
+
+  /** Shows the host's text, unless the editor already shows it or has unsent changes on top. */
+  function showDocument(): void {
+    if (!editor || inFlight || queued.length > 0) return;
+    const shown = editor.get();
+    if ('text' in shown && shown.text === docText) return;
+    // Text content, even in tree and table mode: the library parses it with the core parser, and
+    // text mode then shows the document's own bytes, comments included (criterion 10).
+    editor.update({ text: docText });
   }
 
   function onHostEvent(event: HostEvent): void {
     switch (event.type) {
       case 'update':
+        if (event.origin === 'edit') {
+          // The answer to the edit in flight: the text it produced.
+          inFlight = false;
+          docVersion = event.docVersion;
+          docText = event.text;
+          notice = undefined;
+          sendNext();
+          showDocument();
+          return;
+        }
         if (event.docVersion <= docVersion) return;
         docVersion = event.docVersion;
+        docText = event.text;
         notice = undefined;
-        if (!showsText(content, event.text)) {
-          content = { text: event.text };
-          editor?.set(content);
+        if (queued.length > 0) {
+          // Made on a document that has changed since; dropped, like the edit in flight will be.
+          queued.length = 0;
+          notice = 'The document changed outside the editor; your latest change was not applied.';
         }
+        if (!inFlight) editor?.update({ text: docText });
         return;
       case 'setMode':
         selectMode(event.mode);
         return;
       case 'setFormat':
         format = event.format;
+        editor?.updateProps({ parser: parserFor(event.format) });
+        // Parse the document's text again with the new format (criterion 8); bytes are unchanged.
+        if (!inFlight && queued.length === 0) editor?.update({ text: docText });
         return;
       case 'error':
         notice = event.message;
+        if (isEditError(event)) {
+          // The edit in flight was not applied: drop what was made on top of it and show the
+          // document as the host has it.
+          inFlight = false;
+          queued.length = 0;
+          if (event.docVersion > docVersion) docVersion = event.docVersion;
+          editor?.update({ text: docText });
+        }
         return;
-    }
-  }
-
-  /**
-   * Whether the editor already shows `text`, so the host's answer to the UI's own edit is dropped.
-   * Tree and table edits hold data, not text, so data is compared. 003 T5 replaces this with
-   * `core` parsing and the document-version rule.
-   */
-  function showsText(shown: Content, text: string): boolean {
-    if ('text' in shown) return shown.text === text;
-    try {
-      return JSON.stringify(JSON.parse(text)) === JSON.stringify(shown.json);
-    } catch {
-      return false;
     }
   }
 </script>

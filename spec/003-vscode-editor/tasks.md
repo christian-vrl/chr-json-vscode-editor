@@ -12,7 +12,7 @@
 - [x] **T4** Webview HTML with nonce CSP (criterion 6) and `localResourceRoots` limited to the extension's `dist`. — *gate: e2e test parses the CSP and asserts criterion 6*
 
 ## Phase C — Sync
-- [ ] **T5** Webview→document via `core.applyPatch` → `WorkspaceEdit`; document→webview with echo suppression; library `parser` prop backed by `core` (criterion 10). — needs: 002 T6 (json, jsonc cases); 002 T5 for json5 cases — *gate: criteria 1, 2, 10 green*
+- [x] **T5** Webview→document via `core.applyPatch` → `WorkspaceEdit`; document→webview with echo suppression; library `parser` prop backed by `core` (criterion 10). — needs: 002 T6 (json, jsonc cases); 002 T5 for json5 cases — *gate: criteria 1, 2, 10 green*
 - [ ] **T6** Text mode: debounced text diff becomes a `WorkspaceEdit`; invalid text shows the error state. — *gate: criterion 9 green*
 - [ ] **T7** Undo/redo/save routed to VS Code. — *gate: criterion 3 green*
 

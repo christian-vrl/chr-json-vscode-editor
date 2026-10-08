@@ -15,6 +15,8 @@ export interface TestHooks {
   webviews(): WebviewSnapshot[];
   /** What the webview of `uri` renders (003 T5); see webview/testHooks.ts. */
   probe(uri: string): Promise<RenderedProbe>;
+  /** Has the webview of `uri` send `patch` as a tree edit (criterion 1); false when none shows it. */
+  patch(uri: string, patch: unknown): boolean;
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
   setMode(uri: string, mode: Mode): boolean;
   formatBadge(): FormatBadgeSnapshot;
@@ -25,13 +27,21 @@ export interface TestHooks {
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
   const formatBadge = new FormatBadgeController(formatCore);
   const { provider, disposable } = JsonEditorProvider.register(context, formatBadge);
-  context.subscriptions.push(formatBadge, disposable, ...registerCommands());
+  context.subscriptions.push(
+    formatBadge,
+    disposable,
+    formatBadge.onDidChangeFormat(({ document, format }) =>
+      provider.formatChanged(document, format),
+    ),
+    ...registerCommands(),
+  );
   if (__CHR_TEST_HOOKS__) {
     return {
       testHooks: {
         webviews: () => [...provider.snapshots.values()],
         probe: (uri) => provider.probe(uri),
         setMode: (uri, mode) => provider.setMode(uri, mode),
+        patch: (uri, patch) => provider.patch(uri, patch),
         formatBadge: () => formatBadge.snapshot(),
         setSchema(uri, schema) {
           let found = false;

@@ -52,7 +52,13 @@ describe('VscodeHostAdapter', () => {
     const subscription = adapter.onExternalChange((e) => events.push(e));
     void adapter.open();
     deliver(init);
-    const update = { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 5, text: '[]' };
+    const update = {
+      protocol: PROTOCOL_VERSION,
+      type: 'update',
+      docVersion: 5,
+      text: '[]',
+      origin: 'external',
+    };
     deliver(update);
     deliver({
       protocol: PROTOCOL_VERSION,

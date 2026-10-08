@@ -264,6 +264,10 @@ exports.run = async function run() {
     console.log(`sample.${format}: the editor renders tree, text and table with no CSP violation`);
   }
 
+  // Gate (003 T5): document sync, criteria 1, 2 and 10 (sync.cjs).
+  await closeAll();
+  await require('./sync.cjs').runSync({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
   // keyed by docVersion. The webview's test hook decodes each message with app-shell's protocol
   // decoder and reports what it got; the CSP checked above has no unsafe-eval.

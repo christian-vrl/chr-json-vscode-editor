@@ -32,7 +32,7 @@ describe('DevHostAdapter', () => {
       kind: 'patch',
       patch: [{ op: 'test', path: '/missing', value: 1 }],
     });
-    await expect.poll(() => events).toMatchObject([{ type: 'error', code: 'edit-failed' }]);
+    await expect.poll(() => events).toMatchObject([{ type: 'error', code: 'patch-failed' }]);
     expect(host.text).toBe('{}');
   });
 
