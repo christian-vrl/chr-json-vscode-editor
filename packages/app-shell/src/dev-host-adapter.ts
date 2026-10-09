@@ -1,8 +1,9 @@
 // HostAdapter for the standalone page (003 T2): keeps the document in memory, so app-shell runs in
 // a plain browser tab with no host behind it (`pnpm test:web`, local development). It speaks the
 // same contract as VscodeHostAdapter (test/host-adapter-contract.ts) and adds a few methods that
-// play the host's part: an external change, a mode or format switch, a validation result. It runs
-// no validator itself (ADR-010: validation belongs to the host).
+// play the host's part: an external change, a mode or format switch, a validation result, a save's
+// `flush`. It runs no validator itself (ADR-010: validation belongs to the host). Its undo history
+// holds every text change, the UI's and external ones, like VS Code's history of a document.
 //
 // Dev-only limitation: a patch is applied to `JSON.parse(text)` and the result re-serialised with
 // two-space indentation, so comments and style are not kept. Style-preserving edits are
@@ -57,6 +58,14 @@ export class DevHostAdapter implements HostAdapter {
   readonly notices: HostNotice[] = [];
   /** Every dialect `setSchemaDialect` received, oldest first. */
   readonly dialects: SchemaDialect[] = [];
+  /** Every `undo` and `redo` received, oldest first. */
+  readonly history: ('undo' | 'redo')[] = [];
+  /** Texts to go back to (`undo`) and forward to (`redo`), newest last. */
+  readonly #undoStack: string[] = [];
+  readonly #redoStack: string[] = [];
+  /** `flush` requests sent and waiting for `flushed`, by request number. */
+  readonly #flushing = new Map<number, () => void>();
+  #nextFlush = 1;
 
   constructor(document: DevDocument) {
     this.#text = document.text;
@@ -142,6 +151,45 @@ export class DevHostAdapter implements HostAdapter {
     this.dialects.push(dialect);
   }
 
+  undo(): void {
+    this.history.push('undo');
+    this.#step(this.#undoStack, this.#redoStack);
+  }
+
+  redo(): void {
+    this.history.push('redo');
+    this.#step(this.#redoStack, this.#undoStack);
+  }
+
+  /** Moves to the newest text of `from`, keeping the current one on `to`; none left does nothing. */
+  #step(from: string[], to: string[]): void {
+    const text = from.pop();
+    if (text === undefined) return;
+    to.push(this.#text);
+    this.#text = text;
+    this.#docVersion += 1;
+    this.#emitUpdate('external');
+  }
+
+  flushed(_docVersion: number, request: number): void {
+    this.#flushing.get(request)?.();
+    this.#flushing.delete(request);
+  }
+
+  /** Plays the host before a save: sends `flush` and resolves once the UI answers `flushed`. */
+  flush(): Promise<void> {
+    const request = this.#nextFlush++;
+    return new Promise((resolve) => {
+      this.#flushing.set(request, resolve);
+      this.#emit({
+        protocol: PROTOCOL_VERSION,
+        type: 'flush',
+        docVersion: this.#docVersion,
+        request,
+      });
+    });
+  }
+
   /** Plays the host's validator: sends `validation` for the current version. */
   validation(dialect: ValidationMessage['dialect'], result: ValidationMessage['result']): void {
     this.#emit({
@@ -175,8 +223,15 @@ export class DevHostAdapter implements HostAdapter {
   }
 
   #setText(text: string, origin: UpdateOrigin): void {
+    this.#undoStack.push(this.#text);
+    this.#redoStack.length = 0;
     this.#text = text;
     this.#docVersion += 1;
+    this.#emitUpdate(origin);
+  }
+
+  #emitUpdate(origin: UpdateOrigin): void {
+    const text = this.#text;
     this.#emit({
       protocol: PROTOCOL_VERSION,
       type: 'update',

@@ -68,10 +68,12 @@ describe('VscodeHostAdapter', () => {
       result: { kind: 'errors', errors: [] },
     };
     deliver(validation);
+    const flush = { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 5, request: 2 };
+    deliver(flush);
     subscription.dispose();
     deliver({ ...update, docVersion: 6 });
     await Promise.resolve();
-    expect(events).toEqual([update, validation]);
+    expect(events).toEqual([update, validation, flush]);
   });
 
   it('posts edits and notices as protocol messages', () => {
@@ -79,6 +81,9 @@ describe('VscodeHostAdapter', () => {
     adapter.save(3, { kind: 'patch', patch: [{ op: 'remove', path: '/a' }] });
     adapter.showMessage({ docVersion: 3, code: 'x', message: 'shown' });
     adapter.setSchemaDialect(3, 'draft-04');
+    adapter.undo(3);
+    adapter.redo(4);
+    adapter.flushed(5, 7);
     expect(posted).toEqual([
       {
         protocol: PROTOCOL_VERSION,
@@ -88,6 +93,9 @@ describe('VscodeHostAdapter', () => {
       },
       { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'x', message: 'shown' },
       { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 3, dialect: 'draft-04' },
+      { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 3 },
+      { protocol: PROTOCOL_VERSION, type: 'redo', docVersion: 4 },
+      { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 7 },
     ]);
   });
 

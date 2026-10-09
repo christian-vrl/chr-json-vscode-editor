@@ -6,6 +6,7 @@ import type {
   DocumentChange,
   EditorSettings,
   ErrorMessage,
+  FlushMessage,
   InitMessage,
   SchemaDialect,
   SetFormatMessage,
@@ -19,7 +20,12 @@ export type OpenedDocument = Omit<InitMessage, 'protocol' | 'type'>;
 
 /** Something the host tells the UI after `open`: the host → UI messages other than `init`. */
 export type HostEvent =
-  UpdateMessage | SetModeMessage | SetFormatMessage | ErrorMessage | ValidationMessage;
+  | UpdateMessage
+  | SetModeMessage
+  | SetFormatMessage
+  | ErrorMessage
+  | ValidationMessage
+  | FlushMessage;
 
 /** A failure the UI asks the host to show (the UI → host `error` message without its envelope). */
 export type HostNotice = Omit<ErrorMessage, 'protocol' | 'type'>;
@@ -37,7 +43,8 @@ export interface HostAdapter {
    * UI last received; the host answers a stale change with an `error` event. Maps to `edit`.
    */
   save(docVersion: number, change: DocumentChange): void;
-  /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation` messages. */
+  /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation`, `flush`
+   *  messages. */
   onExternalChange(listener: (event: HostEvent) => void): Disposable;
   /** The settings from `init`. Only valid after `open` has resolved. */
   getSettings(): EditorSettings;
@@ -48,4 +55,12 @@ export interface HostAdapter {
    * the host validates again and answers with a `validation` event. Maps to `setDialect`.
    */
   setSchemaDialect(docVersion: number, dialect: SchemaDialect): void;
+  /**
+   * Undoes or redoes the document's last change in the host's own history (003 T7); a change comes
+   * back as an `update` event with origin `external`. Maps to `undo` and `redo`.
+   */
+  undo(docVersion: number): void;
+  redo(docVersion: number): void;
+  /** Answers the host's `flush` event once every change the UI made is answered. Maps to `flushed`. */
+  flushed(docVersion: number, request: number): void;
 }
