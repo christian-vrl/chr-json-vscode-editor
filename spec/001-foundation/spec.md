@@ -41,7 +41,7 @@ disallowed license, or lacks a Reviewer PASS for its head commit.
 | UNK-001 | Remote and visibility | T0 | see ledger |
 | UNK-002 | Name / publisher ID | T2 | see ledger |
 | UNK-003 | License | T1 | see ledger |
-| UNK-016 | Minimum VS Code version | final value of T2 `engines.vscode` | delegated |
+| UNK-016 | Minimum VS Code version | final value of T2 `engines.vscode` | delegated; resolved: `^1.136.2` (PR #52) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable

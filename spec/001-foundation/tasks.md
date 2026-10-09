@@ -8,7 +8,7 @@
 - [x] **T1** Run `bootstrap.sh --dry-run .` then `bootstrap.sh . "<name>"` from `sdd-starter-kit.zip`; commit. Copy `AGENTS.md`, `spec/`, `skills/` from the shared folder `sdd/`; add `LICENSE` (UNK-003), `.editorconfig`, `.gitattributes`, `.gitignore`; keep only the `CLAUDE.md` and `.github/copilot-instructions.md` adapters; export the architecture and feature-map Claude Docs to `docs/research/architecture.md` and `docs/research/feature-map.md`. Commit. — *gate: `test "$(cat governance/VERSION)" = 1.2.0 && ! grep -q '<fill in' AGENTS.md && test -s docs/research/feature-map.md`*
 
 ## Phase B — Skeleton (risk-free / additive)
-- [x] **T2** pnpm workspace, `tsconfig.base.json` (strict), five packages per ADR-002 with `build`; root scripts for every standard script name (stubs that exit 0 where nothing exists yet). Extension `package.json`: `name`/`displayName`/`publisher` per UNK-002, `repository`, `license`, `engines.vscode: ^1.95.0` (provisional, UNK-016), `vsce package --no-dependencies`. — *gate: `pnpm install --frozen-lockfile && pnpm build` exit 0*
+- [x] **T2** pnpm workspace, `tsconfig.base.json` (strict), five packages per ADR-002 with `build`; root scripts for every standard script name (stubs that exit 0 where nothing exists yet). Extension `package.json`: `name`/`displayName`/`publisher` per UNK-002, `repository`, `license`, `engines.vscode: ^1.95.0` (provisional, UNK-016; resolved to `^1.136.2` by PR #52), `vsce package --no-dependencies`. — *gate: `pnpm install --frozen-lockfile && pnpm build` exit 0*
 - [x] **T3** ESLint (typescript-eslint) + Prettier. — *gate: `pnpm lint` exit 0*
 - [x] **T4** Vitest for `test:unit`; `test:golden` with loader `tests/golden/load.ts` returning `{format, name, input, patch, expected, tags}` and one trivial case per format. — *gate: `pnpm test:unit && pnpm test:golden` green; loader test asserts ≥ 3 cases*
 - [x] **T5** Extension host bundle (esbuild), `activate` registers a no-op command; `pnpm package`; `test:e2e` with `@vscode/test-electron` installs the `.vsix` and asserts activation (criterion 2). — *gate: `pnpm package && xvfb-run pnpm test:e2e` green*
@@ -24,7 +24,7 @@
 - [~] **T11** When the repo turns public after the beta (UNK-001), the owner (or an agent with the owner's go-ahead) protects `main`: required checks = CI jobs + `gate-review`; allow auto-merge (UNK-006). Until then agents merge only when CI is green and `gate-review` passes. — *gate: `gh api repos/christian-vrl/chr-json-vscode-editor/branches/main/protection` lists the required checks*
 
 ## Off the critical path
-- UNK-016 final minimum version (matrix run can follow v1).
+- UNK-016 final minimum version: resolved to `^1.136.2` (PR #52, `vscode-matrix` workflow).
 - `check:offline` (T8) scans build output for `http://` and `https://` only; `ws://`, `wss://` and protocol-relative `//host` URLs are caught at runtime by `test:web` (which blocks WebSockets too) but not by the scan.
 - `check:licenses` (T7) trusts each package's `dependencies`: a `devDependency` that shipped code imports would be bundled by esbuild without a license check. A later guard could compare the bundle's esbuild metafile inputs with the production graph.
 - `gate-review` (T9) runs on `pull_request`, so a PR can edit its own check (`.github/workflows/gate-review.yml`, `scripts/gate-review/`); the Reviewer's scope check (rubric 2) is the guard until then. Moving the check to `pull_request_target`, which runs `main`'s copy, is a hardening step to weigh with T11.

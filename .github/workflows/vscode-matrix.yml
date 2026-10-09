@@ -1,0 +1,80 @@
+# pnpm test:e2e on older VS Code releases: the evidence for engines.vscode (UNK-016). The matrix is
+# the newest patch of each of the last 6 minor releases, read from VS Code's release list when the
+# run starts, plus the floor engines.vscode declares now (so a later run shows it still passes) and
+# any versions given in the `extra` input. ci.yml's e2e job keeps testing stable.
+# Not part of ci.yml: it downloads one VS Code per entry. Run on demand and on pull requests that
+# change this workflow or the e2e runner.
+name: vscode-matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      extra:
+        description: Extra VS Code versions to test, space-separated (e.g. 1.95.0)
+        required: false
+        default: ''
+  pull_request:
+    paths:
+      - '.github/workflows/vscode-matrix.yml'
+      - 'packages/vscode-extension/test/e2e/run.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  versions:
+    name: resolve the last 6 minor releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      versions: ${{ steps.list.outputs.versions }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: packages/vscode-extension/package.json
+          sparse-checkout-cone-mode: false
+      - id: list
+        env:
+          EXTRA: ${{ inputs.extra }}
+        # The API lists stable versions newest first; the first one seen per minor is its newest patch.
+        run: |
+          floor=$(jq -r '.engines.vscode | ltrimstr("^")' packages/vscode-extension/package.json)
+          versions=$(curl -fsS --retry 3 https://update.code.visualstudio.com/api/releases/stable |
+            jq -c --arg extra "$floor ${EXTRA:-}" '
+              [ .[] | select(test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) ]
+              | reduce .[] as $v ([]; if any(.[]; split(".")[0:2] == ($v | split(".")[0:2])) then . else . + [$v] end)
+              | .[0:6] + ($extra | split(" ") | map(select(length > 0)))
+              | unique')
+          echo "VS Code versions: $versions"
+          echo "versions=$versions" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: test:e2e on VS Code ${{ matrix.version }}
+    needs: versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ${{ fromJSON(needs.versions.outputs.versions) }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install xvfb
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+      - uses: actions/cache@v4
+        with:
+          path: packages/vscode-extension/.vscode-test
+          key: vscode-${{ runner.os }}-${{ matrix.version }}
+      # The e2e build, as in ci.yml: the suite reads webview state through test hooks.
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      - run: xvfb-run -a pnpm test:e2e
+        env:
+          CHR_E2E_VSCODE_VERSION: ${{ matrix.version }}
