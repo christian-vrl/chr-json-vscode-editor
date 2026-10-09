@@ -156,6 +156,27 @@ test('edits made before the host answers are sent one at a time, each on the lat
   await expect(page.locator('.notice')).toHaveText('');
 });
 
+// 003 T11 (UNK-014): a tree edit is in the library's data when it goes to the host, and the host's
+// answer leaves that data in place instead of handing the library the new text to parse again.
+// The benchmark edits through the test hook `patch()`; this edit goes through the library's own
+// onChange, as a person's does. Had the editor taken the host's text, it would hold `{ text }`.
+test("a tree edit keeps the library's own data when the host answers it", async ({ page }) => {
+  await page.goto('/');
+  const tree = page.locator(MODE_ROOT.tree);
+  await expect(tree).toContainText('COBOL');
+  await tree.getByText('COBOL', { exact: true }).dblclick();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type('Fortran');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => hostEdits(page)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.devApp!.settled())).toBe(true);
+  const change = await page.evaluate(() => window.devHost!.edits[0]!.change);
+  expect(change).toMatchObject({ kind: 'patch', patch: [{ op: 'replace', value: 'Fortran' }] });
+  const content = await page.evaluate(() => window.devApp!.content());
+  expect(content).toEqual({ json: JSON.parse(await hostText(page)) as unknown });
+  await expect(tree).toContainText('Fortran');
+});
+
 test('an edit made on a document that changed elsewhere is not applied, and the editor says so', async ({
   page,
 }) => {
