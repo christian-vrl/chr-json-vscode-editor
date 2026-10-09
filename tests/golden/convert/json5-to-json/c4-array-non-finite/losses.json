@@ -1,0 +1,5 @@
+[
+  {"kind":"value","offset":4,"length":3,"path":"/1"},
+  {"kind":"value","offset":10,"length":8,"path":"/2/0"},
+  {"kind":"value","offset":20,"length":9,"path":"/2/1"}
+]

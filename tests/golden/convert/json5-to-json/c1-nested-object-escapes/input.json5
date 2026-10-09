@@ -1,0 +1,9 @@
+{
+  "outer": {
+    "v": "a\vb",
+    "nul": "\0",
+    "quote": 'say "hi"',
+    "cont": "line \
+  two"
+  }
+}

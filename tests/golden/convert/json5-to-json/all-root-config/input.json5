@@ -1,0 +1,8 @@
+// app config
+{
+  name: 'demo',
+  port: 0x1F90, // 8080
+  ratio: .75,
+  limit: Infinity,
+  tags: ['a', 'b',],
+}

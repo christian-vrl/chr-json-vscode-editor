@@ -1,0 +1,4 @@
+{
+  "a": NaN, // not a number
+  "b": +Infinity,
+}

@@ -1,0 +1,6 @@
+{
+  "single": 'it\'s',
+  "dq": "say \'hi\'",
+  "kept": "tab\tand \u0041 and \/",
+  "hex": "\x41"
+}

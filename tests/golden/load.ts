@@ -29,6 +29,10 @@ export interface GoldenCase {
 
 export const goldenRoot = import.meta.dirname;
 
+/** Folders under the golden root that hold another corpus, with its own loader: `convert/` is the
+ *  conversion corpus of spec 006 (`convert.ts`). */
+export const otherCorpora: readonly string[] = ['convert'];
+
 /** `op` tags of whole-document actions (spec 002 R12–R14, criterion 8). Their patch.json holds one
  *  action, not an RFC 6902 patch: `{"op": "compact", "path": ""}`, `{"op": "sort", "path",
  *  "property"?, "direction"?, "order"?}` (`SortOptions`), `{"op": "format", "path": ""}` (003 T8).
@@ -38,12 +42,15 @@ export const wholeDocumentOps: readonly string[] = ['compact', 'sort', 'data-dif
 
 /**
  * Loads every case under `root`, sorted by format then name. Throws on any malformed case, on a
- * directory under `root` that is not a format (a misspelled format folder would otherwise be
- * skipped), and on a file directly inside a format folder (cases are folders).
+ * directory under `root` that is not a format or another corpus (a misspelled format folder would
+ * otherwise be skipped), and on a file directly inside a format folder (cases are folders).
  */
 export function loadGoldenCases(root: string = goldenRoot): GoldenCase[] {
   const unknown = readdirSync(root, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && !isGoldenFormat(entry.name))
+    .filter(
+      (entry) =>
+        entry.isDirectory() && !isGoldenFormat(entry.name) && !otherCorpora.includes(entry.name),
+    )
     .map((entry) => entry.name)
     .sort();
   if (unknown.length > 0) {

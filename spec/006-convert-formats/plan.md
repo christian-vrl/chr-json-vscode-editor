@@ -16,15 +16,14 @@ The VS Code side is one command per target format, registered in the extension h
 document text, calls `convert`, shows the loss modal when `losses` is not empty, then writes the
 result per UNK-035. The webview and its message protocol do not change.
 
-This approach assumes UNK-033 resolves to ★ (keep layout and comments). If the owner picks
-re-stringifying, `convert` becomes `stringify(parse(text, from).data, to, style)` with C4's losses
-and the spec's C rules are rewritten before T1.
+This approach follows UNK-033 (owner: ★, keep layout and comments), so `convert` does not use
+002 T7's `stringify`.
 
 ## Constraints / invariants
 - `core` stays pure TypeScript with no DOM and no Node APIs; `convert` is exported from `@chr-json-editor/core`.
 - No `expected.*` file changes without a spec change (AGENTS rule 5); the new corpus folder
   `tests/golden/convert/` is added to `.prettierignore` like the other golden folders.
-- The source document is never modified when the user cancels, and never modified at all unless UNK-035 picks in-place.
+- The source document is never modified: UNK-035 (owner: ★) writes a new file beside it.
 - No network, no new runtime dependency (hex to decimal uses `BigInt`).
 - No overwrite without snapshot/backup (D4): all work in branches.
 
@@ -44,4 +43,4 @@ and the spec's C rules are rewritten before T1.
 | R4 Large documents | one linear pass with no re-parse per token; measured on the 002 bench documents in T2 and recorded in the PR |
 
 ## Definition of Done
-1. Criteria 1–8 pass in CI. 2. UNK-033, UNK-034 and UNK-035 resolved before T1 starts.
+1. Criteria 1–8 pass in CI. 2. UNK-033, UNK-034 and UNK-035 resolved before T1 starts (all three resolved by the owner, 2026-10-09).
