@@ -53,6 +53,11 @@
         "command": "chrJsonEditor.selectFormat",
         "title": "Change Format",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.repairJson",
+        "title": "Repair JSON",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -68,6 +73,10 @@
         {
           "command": "chrJsonEditor.selectFormat",
           "when": "activeCustomEditorId == chrJsonEditor.editor"
+        },
+        {
+          "command": "chrJsonEditor.repairJson",
+          "when": "editorLangId =~ /^(json|jsonc|json5)$/ && activeEditor == workbench.editors.files.textFileEditor"
         }
       ],
       "editor/title": [

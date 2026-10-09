@@ -34,3 +34,20 @@ export interface RenderedProbe {
    *  must carry the nonce (UNK-029). */
   styleElements: { id: string; nonce: boolean }[];
 }
+
+/**
+ * One step of the `dom` test hook (003 T8), run in the webview in order. Each step waits up to five
+ * seconds for an element that matches `selector` and, when `text` is given, whose trimmed text
+ * content is `text`.
+ * - `click`: clicks it.
+ * - `fill`: sets an input's or textarea's value and fires `input`, as typing would.
+ * - `key`: fires `keydown` for `key` on it, with Ctrl or Shift held when asked.
+ * - `waitFor`: only waits; with `gone`, until no element matches.
+ * - `read`: reads its text content, or the attribute `attr`, into the hook's answer.
+ */
+export type DomStep =
+  | { click: string; text?: string }
+  | { fill: string; value: string }
+  | { key: string; on: string; ctrl?: boolean; shift?: boolean }
+  | { waitFor: string; text?: string; gone?: boolean }
+  | { read: string; text?: string; attr?: string };

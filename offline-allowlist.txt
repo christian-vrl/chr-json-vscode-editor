@@ -30,6 +30,10 @@ https://svelte.dev/e/svelte_boundary_reset_onerror
 # vanilla-jsoneditor's transform dialog shows this as a target=_blank link in the JSONQuery
 # help text: a page the user may open, not a request the editor makes. 003 T8 owns that dialog.
 https://jsonquerylang.org
+# 003 T8 registers JMESPath and JSONPath too; their help text in the same dialog links here.
+https://jmespath.org
+https://jmespath.org/tutorial.html
+https://github.com/JSONPath-Plus/JSONPath
 
 # 004 T2: the extension host bundles Ajv 8.20.0 and ajv-formats 3.0.1 (ADR-010).
 # JSON Schema `$id`s of the meta-schemas Ajv adds itself; Ajv has no `loadSchema`, nothing fetches them.

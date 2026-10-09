@@ -1,0 +1,12 @@
+// Editor settings
+{
+  /* the window */
+  "zoom": 1, // default zoom
+  "theme": "dark",
+  // files to hide
+  "exclude": [
+    "dist", // build output
+    "node_modules"
+  ],
+  "age": 40 /* kept */
+}

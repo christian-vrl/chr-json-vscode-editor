@@ -32,6 +32,9 @@ function memoryDocument(initial: string, format: Format = 'json') {
   const doc = {
     posted,
     refuse: false,
+    /** The answer to a repair that removes comments, and the comments each question named. */
+    confirm: (() => Promise.resolve(true)) as (lostComments: readonly string[]) => Promise<boolean>,
+    asked: [] as (readonly string[])[],
     get text() {
       return text;
     },
@@ -69,6 +72,10 @@ function memoryDocument(initial: string, format: Format = 'json') {
     post: (message) => {
       posted.push(message);
       doc.onPost(message);
+    },
+    confirmRepair: (lostComments) => {
+      doc.asked.push(lostComments);
+      return doc.confirm(lostComments);
     },
   });
   return doc;
@@ -175,6 +182,60 @@ describe('DocumentSync', () => {
     );
     expect(doc.posted).toMatchObject([{ type: 'update', origin: 'edit' }]);
     expect(doc.text).toContain('// empty');
+  });
+});
+
+describe('DocumentSync actions (003 T8)', () => {
+  const LOSSY = '{\n  "a": "x" + // between\n    "y",\n  "b": 1 // kept\n}\n';
+
+  it('runs core on the text and writes the result as one change', async () => {
+    const doc = memoryDocument('// c\n{\n  "b": 1, // x\n  "a": 2\n}\n', 'jsonc');
+    await doc.sync.edit(
+      edit(1, { kind: 'action', action: { name: 'sort', path: '', order: [1, 0] } }),
+    );
+    expect(doc.text).toBe('// c\n{\n  "a": 2,\n  "b": 1 // x\n}\n');
+    expect(doc.version).toBe(2);
+    await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'compact' } }));
+    expect(doc.text).toBe('/* c */{"a":2,"b":1/* x */}\n');
+    expect(doc.posted.map((m) => m.type)).toEqual(['update', 'update']);
+  });
+
+  it('repairs without asking when every comment is kept', async () => {
+    const doc = memoryDocument('{"a": 1 // one\n "b": 2}', 'jsonc');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
+    expect(doc.text).toBe('{"a": 1, // one\n "b": 2}');
+    expect(doc.asked).toEqual([]);
+  });
+
+  it('asks before a repair that removes a comment, and leaves the text when declined', async () => {
+    const doc = memoryDocument(LOSSY, 'jsonc');
+    doc.confirm = () => Promise.resolve(false);
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
+    expect(doc.asked).toEqual([['// between']]);
+    expect(doc.text).toBe(LOSSY);
+    expect(doc.posted).toEqual([
+      { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 1, text: LOSSY, origin: 'edit' },
+    ]);
+    doc.confirm = () => Promise.resolve(true);
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
+    expect(doc.text).toBe('{\n  "a": "xy",\n  "b": 1 // kept\n}\n');
+  });
+
+  it('drops a repair when the document changed while the user was asked', async () => {
+    const doc = memoryDocument(LOSSY, 'jsonc');
+    doc.confirm = () => {
+      doc.externalChange('{}');
+      return Promise.resolve(true);
+    };
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
+    expect(doc.text).toBe('{}');
+    expect(doc.posted.at(-1)).toMatchObject({ type: 'error', code: 'stale-edit' });
+  });
+
+  it('answers an action core refuses with patch-failed', async () => {
+    const doc = memoryDocument('{"a": +Infinity}', 'jsonc');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
+    expect(doc.posted).toEqual([expect.objectContaining({ type: 'error', code: 'patch-failed' })]);
   });
 });
 
