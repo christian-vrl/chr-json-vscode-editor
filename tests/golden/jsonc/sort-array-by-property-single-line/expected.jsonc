@@ -1,0 +1,3 @@
+{
+  "people": [{"name": "al", "age": 41}, {"name": "Bob", "age": 25}, {"name": "eve", "age": 30} /* admin */]
+}

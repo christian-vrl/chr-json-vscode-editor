@@ -10,6 +10,8 @@ const VIEW_TYPE = 'chrJsonEditor.editor';
 const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
 const REPO = path.resolve(__dirname, '../../../..');
 const GOLDEN = path.join(REPO, 'tests/golden');
+// The `op` tags of whole-document golden cases (tests/golden/load.ts `wholeDocumentOps`).
+const WHOLE_DOCUMENT_OPS = ['compact', 'sort', 'data-diff'];
 const OPEN = path.join(REPO, 'tests/e2e/fixtures/open');
 const FORMATS = ['json', 'jsonc', 'json5'];
 const CASES_PER_FORMAT = 10;
@@ -64,11 +66,21 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
   const snapshot = (uri) => hooks.webviews().find((w) => w.uri === uri.toString());
 
   try {
-    // Criterion 1: the first 10 golden cases per format, in sorted path order. The patch goes
+    // Criterion 1: the first 10 golden patch cases per format, in sorted path order (whole-document
+    // actions, tests/golden/load.ts `wholeDocumentOps`, hold no RFC 6902 patch). The patch goes
     // through the webview (the test hook hands it to the editor UI as a tree edit), the host applies
     // it with core, and the document's text must equal expected.* byte for byte.
     for (const format of FORMATS) {
-      const names = fs.readdirSync(path.join(GOLDEN, format)).sort().slice(0, CASES_PER_FORMAT);
+      const names = fs
+        .readdirSync(path.join(GOLDEN, format))
+        .sort()
+        .filter((name) => {
+          const tags = JSON.parse(
+            fs.readFileSync(path.join(GOLDEN, format, name, 'case.json'), 'utf8'),
+          );
+          return !WHOLE_DOCUMENT_OPS.includes(tags.op);
+        })
+        .slice(0, CASES_PER_FORMAT);
       assert.equal(names.length, CASES_PER_FORMAT, `${format}: not enough golden cases`);
       for (const name of names) {
         const dir = path.join(GOLDEN, format, name);

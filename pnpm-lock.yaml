@@ -17,6 +17,9 @@ importers:
       '@playwright/test':
         specifier: 1.64.0
         version: 1.64.0
+      '@types/natural-compare-lite':
+        specifier: 1.4.2
+        version: 1.4.2
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
@@ -41,6 +44,9 @@ importers:
       json5:
         specifier: 2.2.3
         version: 2.2.3
+      natural-compare-lite:
+        specifier: 1.4.1
+        version: 1.4.1
       prettier:
         specifier: 3.9.9
         version: 3.9.9
@@ -101,6 +107,13 @@ importers:
       jsonc-parser:
         specifier: 3.3.1
         version: 3.3.1
+      natural-compare-lite:
+        specifier: 1.4.1
+        version: 1.4.1
+    devDependencies:
+      '@types/natural-compare-lite':
+        specifier: 1.4.2
+        version: 1.4.2
 
   packages/sandbox: {}
 
@@ -814,6 +827,9 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/natural-compare-lite@1.4.2':
+    resolution: {integrity: sha512-kk1ie31cI6AUm17qOi72lEOBfpRhcknJPsJQoKBulaZC9y00MHUWqxGTk/luWEnenLB+lHoNThrKAKdYVydlew==}
 
   '@types/node@22.20.5':
     resolution: {integrity: sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==}
@@ -2613,6 +2629,8 @@ snapshots:
   '@types/estree@1.0.9': {}
 
   '@types/json-schema@7.0.15': {}
+
+  '@types/natural-compare-lite@1.4.2': {}
 
   '@types/node@22.20.5':
     dependencies:

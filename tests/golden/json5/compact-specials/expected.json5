@@ -1,0 +1,2 @@
+{/* build */name:'demo',mask:0xFF,/* hex */ratio:Infinity,text:'line one \
+line two',"quoted":NaN,list:[1,+2,.5,],}

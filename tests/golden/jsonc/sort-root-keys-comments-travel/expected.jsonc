@@ -1,0 +1,13 @@
+// header: stays first
+{
+  "alpha": 2, // first after sort
+  /* beta's note */
+  "Beta": 3,
+
+  // section: misc
+
+  "gamma": [3, 1],
+  // zeta comes last
+  "zeta": 1
+  // closing note
+}

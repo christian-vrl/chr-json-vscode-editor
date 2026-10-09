@@ -205,7 +205,7 @@ function dataPiece(doc: Doc, value: unknown): Piece {
 
 /** A comment that can share its line with code: a line comment becomes a block comment, with a `*\/`
  *  in its text escaped as R12 does. */
-function blockComment(comment: string): string {
+export function blockComment(comment: string): string {
   return comment.startsWith('//') ? `/*${comment.slice(2).replace(/\*\//g, '*\\/')} */` : comment;
 }
 
@@ -408,7 +408,7 @@ function remove(doc: Doc, target: Target): string {
 }
 
 /** The data a node holds. */
-function dataOf(node: FormatNode): unknown {
+export function dataOf(node: FormatNode): unknown {
   if (node.type === 'array') return children(node).map(dataOf);
   if (node.type === 'object') {
     const object: Record<string, unknown> = {};
