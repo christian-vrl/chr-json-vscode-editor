@@ -5,3 +5,4 @@ export const packageName = '@chr-json-editor/app-shell';
 export type * from './host-adapter.js';
 export * from './protocol.js';
 export { DevHostAdapter, type DevDocument, type DevEdit } from './dev-host-adapter.js';
+export { TEXT_DEBOUNCE_MS } from './text-mode.js';

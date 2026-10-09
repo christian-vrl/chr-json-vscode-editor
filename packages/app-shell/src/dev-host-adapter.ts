@@ -48,6 +48,8 @@ export class DevHostAdapter implements HostAdapter {
   readonly #settings: EditorSettings;
   #docVersion = 1;
   #opened = false;
+  /** Answers held back by `hold()`, sent by `release()`. */
+  #held: (() => void)[] | undefined;
   readonly #listeners = new Set<(event: HostEvent) => void>();
   /** Every change `save` received, accepted or not, oldest first. */
   readonly edits: DevEdit[] = [];
@@ -85,6 +87,26 @@ export class DevHostAdapter implements HostAdapter {
 
   save(docVersion: number, change: DocumentChange): void {
     this.edits.push({ docVersion, change: structuredClone(change) });
+    if (this.#held) {
+      this.#held.push(() => this.#answer(docVersion, change));
+      return;
+    }
+    this.#answer(docVersion, change);
+  }
+
+  /** Plays a slow host: changes `save` receives from now on are answered only on `release()`. */
+  hold(): void {
+    this.#held ??= [];
+  }
+
+  /** Answers the held changes, in order, and answers at once again from now on. */
+  release(): void {
+    const held = this.#held ?? [];
+    this.#held = undefined;
+    for (const answer of held) answer();
+  }
+
+  #answer(docVersion: number, change: DocumentChange): void {
     if (docVersion !== this.#docVersion) {
       this.#emitError(
         'stale-edit',

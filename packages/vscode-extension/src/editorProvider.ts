@@ -76,8 +76,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** One per open panel; its schema comes from the association rules (`Session.schema`). */
   readonly validations = new Map<vscode.WebviewPanel, DocumentValidation>();
   private readonly sessions = new Map<vscode.WebviewPanel, Session>();
-  /** Test hooks: probes waiting for the webview's answer, by id. */
-  private readonly probes = new Map<number, (result: RenderedProbe) => void>();
+  /** Test hooks: probes and typing waiting for the webview's answer, by id. */
+  private readonly probes = new Map<number, (result: unknown) => void>();
   private nextProbe = 1;
   /** Test hooks: `whenShown` calls waiting for the webview to render their text, by id. */
   private readonly shownWaiters = new Map<number, () => void>();
@@ -286,7 +286,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const message = data as { chrTest?: unknown; id?: unknown; result?: unknown };
     if (typeof message !== 'object' || message === null || !('chrTest' in message)) return false;
     if (message.chrTest === 'probe' && typeof message.id === 'number') {
-      this.probes.get(message.id)?.(message.result as RenderedProbe);
+      this.probes.get(message.id)?.(message.result);
       this.probes.delete(message.id);
     }
     if (message.chrTest === 'shown' && typeof message.id === 'number') {
@@ -311,13 +311,28 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** Test hook: asks the webview of `uri` what it renders. */
   probe(uri: string): Promise<RenderedProbe> {
+    return this.ask<RenderedProbe>(uri, { chrTest: 'probe' });
+  }
+
+  /** Test hook: types `text` at the end of the webview's text mode (criterion 9); resolves with
+   *  the webview's `Date.now()` after the last character. */
+  async type(uri: string, text: string): Promise<number> {
+    const result = await this.ask<{ typedAt?: number; error?: string }>(uri, {
+      chrTest: 'type',
+      text,
+    });
+    if (result.typedAt === undefined) throw new Error(`typing failed: ${result.error}`);
+    return result.typedAt;
+  }
+
+  private ask<T>(uri: string, message: { chrTest: string; [key: string]: unknown }): Promise<T> {
     if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
     const session = this.sessionFor(uri);
     if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
     const id = this.nextProbe++;
     return new Promise((resolve) => {
-      this.probes.set(id, resolve);
-      void session.panel.webview.postMessage({ chrTest: 'probe', id });
+      this.probes.set(id, (result) => resolve(result as T));
+      void session.panel.webview.postMessage({ ...message, id });
     });
   }
 
