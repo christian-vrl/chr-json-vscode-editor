@@ -1,6 +1,6 @@
 # SPEC 009 — CSV import and export
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidFB6RA9PDp29NS9cLgGmgCF, 2026-10-09)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -184,4 +184,4 @@ a message and, for import, a 1-based line number. Options and defaults are in §
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
 - [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Human approval recorded
