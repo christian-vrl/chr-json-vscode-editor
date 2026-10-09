@@ -20,5 +20,17 @@
     "quote": ["single", "double"],
     "keyStyle": ["quoted", "unquoted"],
     "special": ["none", "hex", "infinity-nan", "multiline-string"]
+  },
+  "convert": {
+    "pairs": [
+      "json-to-jsonc",
+      "json-to-json5",
+      "jsonc-to-json",
+      "jsonc-to-json5",
+      "json5-to-json",
+      "json5-to-jsonc"
+    ],
+    "rules": ["C1", "C2", "C3", "C4", "C5", "C6", "C7"],
+    "location": ["root", "nested-object", "array"]
   }
 }

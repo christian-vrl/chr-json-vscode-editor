@@ -11,8 +11,8 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 | Command | Runs |
 |---|---|
 | `pnpm test:golden` | every test in this folder |
-| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4) |
-| `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case |
+| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4) and `convert-coverage.test.ts` (spec 006 criterion 2) |
+| `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case ; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
 
@@ -116,3 +116,56 @@ The corpus avoids details R1–R10 do not fix: a new container value inside a si
 removing the only member of a container, a new key that is not identifier-safe in JSON5, a string
 containing the file's quote character, and a `test` on an object whose keys are in a different
 order (the reference `immutable-json-patch` 6.0.3 compares key order; RFC 6902 §4.6 does not).
+
+## Conversion corpus (spec 006)
+
+`convert/<from>-to-<to>/<case>/` holds `input.<from>`, `expected.<to>`, `losses.json` and
+`case.json`, for the six pairs of spec 006. A case passes when `convert(input, from, to)` returns
+`expected` byte for byte and `losses` equal to `losses.json` (criterion 1, 006 T2). Every
+`expected.*` and `losses.json` was written by hand from rules C1–C7 of
+`spec/006-convert-formats/spec.md` and changes only with a spec change (`AGENTS.md` rule 5).
+
+- `losses.json`: `[{"kind": "comment" | "value", "offset", "length", "path"?}]` in input order;
+  `path` (a JSON Pointer) on value losses only. A value loss is written as `null` (C4, UNK-034).
+- `case.json`: `{"rules": [...], "location": ...}` (criterion 2). `rules` lists the C rules that
+  rewrite bytes in the case; a superset pair's cases, which rewrite nothing, carry `["C7"]`.
+  `location` is where those bytes are: `root` (in the root object, or outside any container),
+  `nested-object` (in an object inside the root) or `array` (in an array, the root array
+  included). Each case keeps the bytes it rewrites in one location. The values are `convert` in
+  `tags.json`: criterion 2 names `array` as one location, so 002's `array-start/middle/end` are
+  not reused.
+
+Tests: `convert.ts` loads the cases and lists the criterion 2 cells no case covers
+(`convert-coverage.test.ts`); `convert-load.test.ts` tests the loader; `convert-corpus.test.ts`
+checks the hand-written bytes against readings that do not use our format code
+(`convert-reference.ts`, `JSON.parse`, the json5 package): input and expected are valid in their
+formats (strict JSON for `json`; JSONC read as JSON once comments and trailing commas are gone);
+expected has the input's data with `null` at each value loss, keys in the same order; to `json`
+every comment is a comment loss, to `jsonc` and `json5` every comment is kept as written; to `json`
+and `jsonc` every `NaN` and `Infinity` token is a value loss; every string, key and number token is
+C1's, C2's or C3's rewrite of the input's (hexadecimal by `BigInt`) or kept byte for byte; `C1`–`C5`
+are tagged exactly when the case uses them; each loss is in the case's `location`; superset pairs
+return the input unchanged. C5's and C6's white space is checked by the Reviewer against the
+readings below.
+
+Readings the conversion corpus takes where C1–C7 leave a detail open:
+
+1. **Offsets** count UTF-16 code units of the input, as JavaScript strings do. A `//` comment's
+   length stops before its line ending.
+2. **White space before a comment** (C5) is the run of white space right before it on its line,
+   back to the previous token or the start of the line. A comment that starts a line after its
+   indentation takes the indentation and leaves the space after it:
+   `  /* old */ "a": 0,` becomes ` "a": 0,` (`json5-to-json/c5-root-block-comment-at-line-start`).
+3. **A line left blank** (C5) is a line that held more than white space and holds only white space
+   once its comments, and the white space before them, are gone. It is removed with its line
+   ending; a multi-line block comment's line runs from the line it starts on to the line it ends
+   on. A last line with no line ending loses its content only: the line break before it is a token
+   C5 does not name, so it stays (criterion 5), and `{"a": 1}\n// end` becomes `{"a": 1}\n`. Lines
+   that were already blank stay.
+4. **JSON5-only white space** (C6) becomes one space per character, a byte order mark at the start
+   of the text included. The cases with U+2028 or U+2029 outside a string use one line ending
+   throughout, so "the document's line ending" has one reading.
+5. **Strings** (C1): a string token that is valid JSON keeps its escapes and any literal U+2028
+   (RFC 8259 allows it). One that is not is rewritten whole, so its valid escapes go too:
+   `"\x41\u0042"` becomes `"AB"`.
+6. **Hexadecimal zero with a sign** (C3) keeps the sign: `-0x0` becomes `-0`.

@@ -1,0 +1,6 @@
+{
+  "nan": NaN,
+  "inf": Infinity,
+  "neg": -Infinity,
+  "pos": +Infinity
+}

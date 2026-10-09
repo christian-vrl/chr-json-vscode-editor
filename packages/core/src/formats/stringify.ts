@@ -1,6 +1,7 @@
 // `stringify(data, format, style)` (002 T7): writes plain data as a new document in a format and
 // style, so `parse(stringify(x, format, style)).data` deep-equals `x` (spec 002 criterion 6). It
-// writes no comments (data has none). Spec 006 (conversion) reuses it.
+// writes no comments (data has none). Spec 006 (conversion) does not use it: it keeps the file's
+// layout (UNK-033) and rewrites tokens instead.
 //
 // Layout: like `JSON.stringify(data, null, indent)` with the style's line ending, and a final line
 // ending when `finalNewline`. `indent: 0` writes everything on one line with no spaces. Empty

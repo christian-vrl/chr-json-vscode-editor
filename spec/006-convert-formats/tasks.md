@@ -4,15 +4,16 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** Write the conversion corpus in `tests/golden/convert/<from>-to-<to>/` for all six pairs:
+- [x] **T1** Write the conversion corpus in `tests/golden/convert/<from>-to-<to>/` for all six pairs:
   hand-written `expected.*` bytes, `losses.json`, `case.json` tags, plus the coverage test; add the
   folder to `.prettierignore` and to `pnpm test:golden`. Needs UNK-033 and UNK-034 resolved. — needs:
-  002 T7 — *gate: `pnpm test:golden -- --coverage-only` green (criterion 2); Reviewer PASS on C1–C7 per case*
+  002 T1 (golden corpus and `pnpm test:golden`) — *gate: `pnpm test:golden -- --coverage-only` green (criterion 2); Reviewer PASS on C1–C7 per case*
 
 ## Phase B — Core (risk-free / additive)
 - [ ] **T2** `convert(text, from, to) → { text, losses }` in `packages/core/src/formats/convert.ts`,
-  exported from `@chr-json-editor/core`; fast-check suite for criteria 3–5 (seed committed, 10 000
-  runs per pair); time on the 002 bench documents (1, 10, 50 MB) recorded in the PR body. — *gate:
+  exported from `@chr-json-editor/core`, on the token streams of 002 T3 (`tokenize`) and 002 T5
+  (`parseJson5`); fast-check suite for criteria 3–5 (seed committed, 10 000
+  runs per pair); time on the 002 bench documents (1, 10, 50 MB) recorded in the PR body. — needs: 002 T3, 002 T5 — *gate:
   criterion 1 all cases green; criteria 3–5 property suite green*
 
 ## Phase C — VS Code (risk-free / additive)

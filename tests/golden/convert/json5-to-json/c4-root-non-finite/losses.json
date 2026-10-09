@@ -1,0 +1,6 @@
+[
+  {"kind":"value","offset":11,"length":3,"path":"/nan"},
+  {"kind":"value","offset":25,"length":8,"path":"/inf"},
+  {"kind":"value","offset":44,"length":9,"path":"/neg"},
+  {"kind":"value","offset":64,"length":9,"path":"/pos"}
+]
