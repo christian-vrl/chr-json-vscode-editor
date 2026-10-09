@@ -1,0 +1,5 @@
+{
+  "url": "http://example.com/a//b",
+  "glob": "src/**/*.ts",
+  "note": "/* not */ // a comment"
+}
