@@ -198,7 +198,23 @@ exports.runInline = async function runInline({ hooks, waitFor, closeAll, expectO
   assert.equal(limits.last().dialect?.name, 'draft-04');
   await rendered(limits.key, 'tree', 'limits.jsonc valid', (p) => !p.validationMarks.length);
   // Beside, so limits.jsonc's webview stays visible (a hidden webview drops its messages).
-  await vscode.window.showTextDocument(schemaDoc, vscode.ViewColumn.Beside);
+  const beside = await vscode.window.showTextDocument(schemaDoc, vscode.ViewColumn.Beside);
+  // Revert acts on the active editor, and the split can leave limits.jsonc's active instead: adding
+  // the group focuses limits.jsonc's webview first, and VS Code's webview reports that focus up to
+  // one 250 ms poll later (`trackFocus` in its webview/browser/pre/index.html), after the schema's
+  // editor took focus, which activates limits.jsonc's group again. Let that report land, then
+  // bring the schema's editor back; showing it in its own group adds no group, so nothing refocuses
+  // the webview.
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  await vscode.window.showTextDocument(schemaDoc, beside.viewColumn);
+  const schemaActive = () => {
+    const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+    return (
+      tab?.input instanceof vscode.TabInputText &&
+      tab.input.uri.toString() === schemaDoc.uri.toString()
+    );
+  };
+  await waitFor('the schema editor to be active', schemaActive);
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor('the schema edit to revert', () => !schemaDoc.isDirty);
   await waitFor('limits.jsonc invalid again', () => limits.last().errors?.length === 1);
