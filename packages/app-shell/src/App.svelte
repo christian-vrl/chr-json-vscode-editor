@@ -379,13 +379,15 @@
 
   /**
    * Whether `target` is a field the user types a value into (a key or value edited inline in tree
-   * or table mode, the search box, a modal's inputs), whose own typing the browser undoes (003 T7
-   * F1). Not tree and table mode's hidden input, which only catches keys for the whole view, and
-   * not CodeMirror, whose editor in text mode is the document itself (UNK-032: one in a modal).
+   * or table mode, the search boxes of every mode, a modal's inputs), whose own typing the browser
+   * undoes (003 T7 F1). Not tree and table mode's hidden input, which only catches keys for the
+   * whole view, and not CodeMirror's text (`.cm-content`), which in text mode is the document
+   * itself (UNK-032: one in a modal).
    */
   function isField(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false;
-    if (target.classList.contains('jse-hidden-input') || target.closest('.cm-editor')) return false;
+    if (target.classList.contains('jse-hidden-input') || target.closest('.cm-content'))
+      return false;
     return (
       target instanceof HTMLInputElement ||
       target instanceof HTMLTextAreaElement ||

@@ -89,7 +89,7 @@ test('undo and redo in a table cell being edited act on its typing', async ({ pa
   await undoRedoTyping(page, field, 'COBOL', 'Fortran');
 });
 
-test('undo in the search box acts on its typing', async ({ page }) => {
+test("undo in tree mode's search box acts on its typing", async ({ page }) => {
   await open(page, '/');
   const tree = page.locator('.jse-tree-mode');
   await tree.getByText('COBOL', { exact: true }).click();
@@ -99,6 +99,25 @@ test('undo in the search box acts on its typing', async ({ page }) => {
   await page.keyboard.type('Grace');
   await page.keyboard.press('ControlOrMeta+z');
   await expect(search).toHaveValue('');
+  expect(await historyOf(page)).toEqual([]);
+  expect(await leakedKeys(page)).toEqual([]);
+});
+
+test("undo in text mode's search box acts on its typing, not the document", async ({ page }) => {
+  await open(page, '/?mode=text');
+  const editor = page.locator('.jse-text-mode .cm-content');
+  await editor.click();
+  const before = await hostText(page);
+  await page.keyboard.press('ControlOrMeta+f');
+  const search = page.locator('.jse-text-mode .cm-search input[name="search"]');
+  await expect(search).toBeFocused();
+  await page.keyboard.type('Grace');
+  await page.keyboard.press('ControlOrMeta+z');
+  // CodeMirror's panel handles each input event, so the browser's undo takes back the typing in
+  // smaller steps than in a plain input: some of it, from the end.
+  await expect.poll(() => search.inputValue()).not.toBe('Grace');
+  expect('Grace'.startsWith(await search.inputValue())).toBe(true);
+  expect(await hostText(page)).toBe(before);
   expect(await historyOf(page)).toEqual([]);
   expect(await leakedKeys(page)).toEqual([]);
 });
