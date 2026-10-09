@@ -68,7 +68,9 @@ export function missingCells(
   }
   if (commentFormats.includes(format)) {
     for (const op of gridOps) {
-      for (const comments of tagValues.comments) cells.push({ op, comments });
+      // `leading` (UNK-021) is outside criterion 4's comments grid.
+      for (const comments of tagValues.comments.filter((c) => c !== 'leading'))
+        cells.push({ op, comments });
     }
     for (const trailingComma of tagValues.trailingComma) cells.push({ trailingComma });
   }
