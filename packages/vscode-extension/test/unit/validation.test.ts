@@ -63,7 +63,7 @@ describe('compileSchema', () => {
   it('never loads a remote $ref: it reports the offline message instead (no loadSchema)', () => {
     expect(compileSchema({ $ref: 'https://example.com/schema.json' })).toEqual({
       ok: false,
-      dialect: { name: 'draft-07', assumed: true },
+      dialect: { name: 'draft-07', assumed: true, switchable: true },
       reason: 'Remote schema references are not loaded (offline): https://example.com/schema.json',
     });
   });
@@ -78,12 +78,17 @@ describe('compileSchema', () => {
 describe('DocumentValidation', () => {
   afterEach(() => vi.useRealTimers());
 
+  let format: 'json' | 'jsonc' | 'json5' = 'json';
+  afterEach(() => {
+    format = 'json';
+  });
+
   function setup(initial: string) {
     const doc = { text: initial, docVersion: 1 };
     const posted: ValidationMessage[] = [];
     const validation = new DocumentValidation({
       snapshot: () => ({ ...doc }),
-      format: 'json',
+      format: () => format,
       post: (m) => posted.push(m),
     });
     return { doc, posted, validation };
@@ -106,7 +111,7 @@ describe('DocumentValidation', () => {
         protocol: PROTOCOL_VERSION,
         type: 'validation',
         docVersion: 1,
-        dialect: { name: 'draft-07', assumed: true },
+        dialect: { name: 'draft-07', assumed: true, switchable: true },
         result: { kind: 'errors', errors: [] },
       },
     ]);
@@ -151,11 +156,11 @@ describe('DocumentValidation', () => {
     const noSchema = { dependentRequired: { a: ['b'] } };
     validation.setSchema(noSchema);
     expect(posted[0]).toMatchObject({
-      dialect: { name: 'draft-07', assumed: true },
+      dialect: { name: 'draft-07', assumed: true, switchable: true },
       result: { kind: 'errors', errors: [] },
     });
     validation.setSchema(noSchema, '2019-09');
-    expect(posted[1]?.dialect).toEqual({ name: '2019-09', assumed: false });
+    expect(posted[1]?.dialect).toEqual({ name: '2019-09', assumed: false, switchable: true });
     expect(keys(posted[1]!.result)).toEqual([{ instancePath: '', keyword: 'dependentRequired' }]);
   });
 
@@ -169,6 +174,46 @@ describe('DocumentValidation', () => {
         reason: expect.stringMatching(/^Schema draft not supported/) as unknown,
       },
     });
+  });
+
+  it('parses with the format the document has now (a format badge switch, 004 T5)', () => {
+    const { posted, validation } = setup("{name: 'Ada', age: 36}");
+    validation.setSchema(schema);
+    expect(posted[0]?.result).toMatchObject({ kind: 'skipped' });
+    format = 'json5';
+    validation.run();
+    expect(posted[1]?.result).toEqual({ kind: 'errors', errors: [] });
+  });
+
+  it('tells the webview once when the schema goes away, and nothing when there was none', () => {
+    const { posted, validation } = setup('{}');
+    validation.setSchema(undefined);
+    expect(posted).toEqual([]);
+    validation.setSchema(schema);
+    validation.setSchema(undefined);
+    validation.setSchema(undefined);
+    expect(posted.slice(1)).toEqual([
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'validation',
+        docVersion: 1,
+        dialect: null,
+        result: { kind: 'none' },
+      },
+    ]);
+    validation.run();
+    expect(posted).toHaveLength(2);
+  });
+
+  it('reports a schema that cannot be used on every run', () => {
+    const { doc, posted, validation } = setup('{}');
+    validation.setUnavailable('The schema file was not found');
+    doc.docVersion = 2;
+    validation.run();
+    expect(posted.map((m) => [m.docVersion, m.dialect, m.result])).toEqual([
+      [1, null, { kind: 'skipped', reason: 'The schema file was not found' }],
+      [2, null, { kind: 'skipped', reason: 'The schema file was not found' }],
+    ]);
   });
 
   it('stops after dispose', () => {

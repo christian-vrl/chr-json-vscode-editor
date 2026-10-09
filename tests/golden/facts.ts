@@ -3,29 +3,31 @@
 // code apart; it is not a parser for any format.
 import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
 import JSON5 from 'json5';
-import type { GoldenCase } from './load.js';
+import { wholeDocumentOps, type GoldenCase } from './load.js';
 
 interface Scan {
   /** The text with comments removed and every string replaced by `""`. */
   code: string;
-  comments: number;
+  comments: string[];
   strings: { quote: string; body: string; isKey: boolean }[];
 }
 
 function scan(text: string): Scan {
   let code = '';
-  let comments = 0;
+  const comments: string[] = [];
   const strings: Scan['strings'] = [];
   let i = 0;
   while (i < text.length) {
     const ch = text[i]!;
     if (text.startsWith('//', i)) {
-      comments++;
+      const start = i;
       while (i < text.length && text[i] !== '\n') i++;
+      comments.push(text.slice(start, i).replace(/\r$/, ''));
     } else if (text.startsWith('/*', i)) {
-      comments++;
       const end = text.indexOf('*/', i + 2);
+      const start = i;
       i = end < 0 ? text.length : end + 2;
+      comments.push(text.slice(start, i));
     } else if (ch === '"' || ch === "'") {
       let j = i + 1;
       while (j < text.length && text[j] !== ch) j += text[j] === '\\' ? 2 : 1;
@@ -40,6 +42,9 @@ function scan(text: string): Scan {
   }
   return { code, comments, strings };
 }
+
+/** The comments of a text, as written. */
+export const commentsOf = (text: string): string[] => scan(text).comments;
 
 /** The data of a text, read by the json5 package; `undefined` for a text with no value: empty,
  *  white space or comments only (R15). */
@@ -77,7 +82,8 @@ function locationOf(data: unknown, patch: JSONPatchDocument, index: number): str
   // move = remove at `from`, then add at `path` (RFC 6902 §4.4).
   if (op.op === 'move') before = immutableJSONPatch(before, [{ op: 'remove', path: op.from }]);
   const tokens = parsePointer(op.path);
-  if (tokens.length === 0) return 'document';
+  // A whole-document action's path names the container it works on: `""` is the root container.
+  if (tokens.length === 0) return wholeDocumentOps.includes(op.op) ? 'root' : 'document';
   const last = tokens.at(-1);
   const parent = getIn(before, tokens.slice(0, -1));
   if (Array.isArray(parent)) {
@@ -114,8 +120,8 @@ export function tagMismatches(c: GoldenCase): string[] {
     if (location !== tags.location) errors.push(`location: path points at ${location}`);
   }
 
-  if ((tags.comments !== 'none') !== comments > 0) {
-    errors.push(`comments: input has ${comments} comment(s)`);
+  if ((tags.comments !== 'none') !== comments.length > 0) {
+    errors.push(`comments: input has ${comments.length} comment(s)`);
   }
   const trailingComma = /,\s*[\]}]/.test(code) ? 'yes' : 'no';
   if (trailingComma !== tags.trailingComma)

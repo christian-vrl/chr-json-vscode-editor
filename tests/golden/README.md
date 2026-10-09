@@ -20,6 +20,11 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
 
 - `load.test.ts` — the loader. It rejects folders under `tests/golden/` that are not a format and
   files directly inside a format folder.
+- `actions.test.ts` — criterion 8 (002 T10): cases tagged `compact` or `sort` run through the
+  format adapter's `compact` / `sort`, are byte-equal to `expected`, and keep every input comment
+  not listed in `removedComments`.
+  `data-diff` cases (R14) apply `diff(parse(input).data, value)` with `applyPatch`. `apply.test.ts`
+  skips these cases.
 - `coverage.test.ts` — criterion 4: every case carries all seven tags with known values, and every
   grid cell has a case per format.
 - `corpus.test.ts` — checks the hand-written bytes against references independent of our format
@@ -27,7 +32,23 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
   (criterion 2); a `test-fail` patch throws there and `expected` equals `input` (R9); `expected` keeps
   the input's line endings and final newline (R10; R15 cases on a text with no line break get `\n` and a final newline); `json` cases are strict JSON; each case's tags
   match its input and patch (`facts.ts`: op present in the patch, location derived from the path,
-  comments present, trailing comma, and for json5 majority quote, key style and literal kind).
+  comments present, trailing comma, and for json5 majority quote, key style and literal kind). For
+  `compact` the data and its key order are unchanged and every comment is there, with `//` comments
+  written as block comments; for `sort` the data equals the sort `vanilla-jsoneditor` 3.13.0 does
+  (`sort-reference.ts`), with every comment kept; `compact` leaves no line break outside a string
+  or block comment and keeps the final newline.
+
+## Whole-document actions (R12–R14, criterion 8)
+
+A case tagged `compact`, `sort` or `data-diff` holds one action in `patch.json` instead of an
+RFC 6902 patch: `[{"op": "compact", "path": ""}]`, or `[{"op": "sort", "path": "<container>",
+"property": "<pointer inside each item>", "direction": "asc" | "desc"}]` (`property` and
+`direction` optional, as in `SortOptions`), or `[{"op": "data-diff", "path": "", "value": <new
+data>, "removedComments": [...]}]`: the data a data-level action (transform, repair, compare,
+CSV merge) produced, and the input comments attached to members it removes (R5, UNK-015), as
+written; `corpus.test.ts` checks that expected parses to `value` and keeps every other comment.
+`value` holds no `-0`, which R8 writes as `0`. Its `location` tag names where the action's container
+is: `root` for the root container (`path` `""`) or a member of it, `nested-object` deeper.
 
 ## Tags (`case.json`)
 
@@ -65,6 +86,23 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
 7. **Carried comments on a shared line.** When `move` puts a member on a line with other members,
    its same-line comments follow its comma as block comments (`//` becomes `/* … */`, R12), with
    one space before the next member even after a bare `,`: `[3, /* three */ 1,2]`.
+8. **Compact ends.** White space before the first token goes; a final newline stays as detected
+   (R10), so compact output is one line plus that newline. Line breaks inside strings (a JSON5 line
+   continuation) and block comments are bytes of those tokens and stay. A `.json` file with
+   comments (a warning, not an error) keeps them as JSONC does.
+9. **Sort order** is the library's: object keys in case-insensitive natural order
+   (`natural-compare-lite`, `item9` before `item10`); array items by the value at `property`,
+   booleans before numbers before strings before other values before missing ones; stable, so equal
+   members keep their order in both directions. Only the named container is sorted. `property` is
+   read from each item's own members, so an item lacking a key named like an `Object.prototype`
+   member (`constructor`) counts as lacking it, where the library would read the prototype's.
+10. **Sort slots.** When every member of the container sits on lines of its own, a member travels
+    with the comment lines directly above it and its same-line comments (R5, UNK-008); otherwise
+    it travels with its same-line comments only. The text between members (blank lines, comments
+    attached to none) stays in place, between the same member positions. The member placed last
+    loses or gains a comma so the container keeps or lacks its trailing comma (R6); a gained comma
+    goes right after the value (reading 1). A `//` comment that no longer ends its line becomes a
+    block comment (reading 7).
 
 The corpus avoids details R1–R10 do not fix: a block comment before a member on its own line
 (UNK-021), a new container value inside a single-line container,

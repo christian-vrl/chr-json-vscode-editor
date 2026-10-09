@@ -1,0 +1,12 @@
+{
+  // service name
+  "name": "api",
+  "port": 8080, // default port
+  /* legacy flag, to be dropped */
+  "legacy": true,
+  "tags": [
+    "a", // first
+    "b",
+    "c"
+  ]
+}

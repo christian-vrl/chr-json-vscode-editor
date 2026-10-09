@@ -46,7 +46,7 @@ describe('VscodeHostAdapter', () => {
     expect(() => fakeWebview().adapter.getSettings()).toThrow(/before open/);
   });
 
-  it('passes host events to listeners and keeps validation for the library', async () => {
+  it('passes host events to listeners, validation included (004 T5)', async () => {
     const { adapter, deliver } = fakeWebview();
     const events: unknown[] = [];
     const subscription = adapter.onExternalChange((e) => events.push(e));
@@ -60,22 +60,25 @@ describe('VscodeHostAdapter', () => {
       origin: 'external',
     };
     deliver(update);
-    deliver({
+    const validation = {
       protocol: PROTOCOL_VERSION,
       type: 'validation',
       docVersion: 5,
+      dialect: { name: 'draft-07', assumed: true, switchable: true },
       result: { kind: 'errors', errors: [] },
-    });
+    };
+    deliver(validation);
     subscription.dispose();
     deliver({ ...update, docVersion: 6 });
     await Promise.resolve();
-    expect(events).toEqual([update]);
+    expect(events).toEqual([update, validation]);
   });
 
   it('posts edits and notices as protocol messages', () => {
     const { adapter, posted } = fakeWebview();
     adapter.save(3, { kind: 'patch', patch: [{ op: 'remove', path: '/a' }] });
     adapter.showMessage({ docVersion: 3, code: 'x', message: 'shown' });
+    adapter.setSchemaDialect(3, 'draft-04');
     expect(posted).toEqual([
       {
         protocol: PROTOCOL_VERSION,
@@ -84,6 +87,7 @@ describe('VscodeHostAdapter', () => {
         change: { kind: 'patch', patch: [{ op: 'remove', path: '/a' }] },
       },
       { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'x', message: 'shown' },
+      { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 3, dialect: 'draft-04' },
     ]);
   });
 

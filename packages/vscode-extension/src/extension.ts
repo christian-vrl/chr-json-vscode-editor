@@ -15,6 +15,8 @@ export interface TestHooks {
   webviews(): WebviewSnapshot[];
   /** What the webview of `uri` renders (003 T5); see webview/testHooks.ts. */
   probe(uri: string): Promise<RenderedProbe>;
+  /** Resolves once the webview of `uri` renders `text`, whitespace collapsed (003 T11 benchmark). */
+  whenShown(uri: string, text: string): Promise<void>;
   /** Has the webview of `uri` send `patch` as a tree edit (criterion 1); false when none shows it. */
   patch(uri: string, patch: unknown): boolean;
   /** Types `text` at the end of the text mode of `uri`'s webview (criterion 9); resolves with the
@@ -23,8 +25,10 @@ export interface TestHooks {
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
   setMode(uri: string, mode: Mode): boolean;
   formatBadge(): FormatBadgeSnapshot;
-  /** Validates the open editor of `uri` against `schema` (004 T2; 004 T5 adds association). */
+  /** Validates the open editor of `uri` against `schema`, over the association (004 T2). */
   setSchema(uri: string, schema: object | boolean | undefined): boolean;
+  /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
+  selectDialect(uri: string, dialect: string): boolean;
 }
 
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
@@ -44,9 +48,11 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         webviews: () => [...provider.snapshots.values()],
         probe: (uri) => provider.probe(uri),
         setMode: (uri, mode) => provider.setMode(uri, mode),
+        whenShown: (uri, text) => provider.whenShown(uri, text),
         patch: (uri, patch) => provider.patch(uri, patch),
         type: (uri, text) => provider.type(uri, text),
         formatBadge: () => formatBadge.snapshot(),
+        selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
         setSchema(uri, schema) {
           let found = false;
           for (const [panel, validation] of provider.validations) {

@@ -34,7 +34,7 @@ const toWebview: ToWebviewMessage[] = [
     protocol: PROTOCOL_VERSION,
     type: 'validation',
     docVersion: 4,
-    dialect: { name: '2020-12', assumed: false },
+    dialect: { name: '2020-12', assumed: false, switchable: false },
     result: {
       kind: 'errors',
       errors: [
@@ -47,8 +47,22 @@ const toWebview: ToWebviewMessage[] = [
     protocol: PROTOCOL_VERSION,
     type: 'validation',
     docVersion: 5,
-    dialect: { name: 'draft-07', assumed: true },
+    dialect: { name: 'draft-07', assumed: true, switchable: true },
     result: { kind: 'errors', errors: [] },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'validation',
+    docVersion: 5,
+    dialect: { name: 'draft-04', assumed: false, switchable: true },
+    result: { kind: 'errors', errors: [] },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'validation',
+    docVersion: 7,
+    dialect: null,
+    result: { kind: 'none' },
   },
   {
     protocol: PROTOCOL_VERSION,
@@ -83,6 +97,7 @@ const toHost: ToHostMessage[] = [
     docVersion: 0,
     change: { kind: 'text', text: '' },
   },
+  { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 3, dialect: 'draft-04' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 5, code: 'parse', message: 'Bad' },
 ];
 
@@ -97,10 +112,20 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1, plus validation from 004 T2 and ready from 003 T5)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
-      ['edit', 'error', 'init', 'ready', 'setFormat', 'setMode', 'update', 'validation'].sort(),
+      [
+        'edit',
+        'error',
+        'init',
+        'ready',
+        'setDialect',
+        'setFormat',
+        'setMode',
+        'update',
+        'validation',
+      ].sort(),
     );
   });
 
@@ -182,6 +207,7 @@ describe('protocol rejects malformed messages', () => {
     ['protocol 2 (before validation carried its dialect)', { ...update, protocol: 2 }],
     ['protocol 3 (before draft-04 and draft-06)', { ...update, protocol: 3 }],
     ['protocol 4 (before ready)', { ...update, protocol: 4 }],
+    ['protocol 6 (before switchable dialects)', { ...update, protocol: 6 }],
     [
       'a validation without result',
       { protocol: PROTOCOL_VERSION, type: 'validation', docVersion: 1 },
@@ -211,12 +237,23 @@ describe('protocol rejects malformed messages', () => {
     ],
     [
       'an unknown schema dialect',
-      validation({ kind: 'errors', errors: [] }, { name: 'draft-03', assumed: false }),
+      validation(
+        { kind: 'errors', errors: [] },
+        { name: 'draft-03', assumed: false, switchable: false },
+      ),
     ],
     [
       'a dialect whose assumed flag is not a boolean',
-      validation({ kind: 'errors', errors: [] }, { name: 'draft-07', assumed: 'yes' }),
+      validation(
+        { kind: 'errors', errors: [] },
+        { name: 'draft-07', assumed: 'yes', switchable: true },
+      ),
     ],
+    [
+      'a dialect without its switchable flag (protocol 6)',
+      validation({ kind: 'errors', errors: [] }, { name: 'draft-07', assumed: true }),
+    ],
+    ['a none result with a reason', validation({ kind: 'none', reason: 'r' })],
     ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);
@@ -243,6 +280,14 @@ describe('protocol rejects malformed messages', () => {
       { protocol: PROTOCOL_VERSION, type: 'ready', docVersion: 1 },
     ],
     ['a ready from protocol 4', { protocol: 4, type: 'ready', docVersion: 0 }],
+    [
+      'an unknown dialect to switch to',
+      { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 1, dialect: 'draft-03' },
+    ],
+    [
+      'a setDialect without dialect',
+      { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 1 },
+    ],
   ])('webview → host: %s', (_why, data) => {
     const result = decodeToHost(data);
     expect(result.ok).toBe(false);

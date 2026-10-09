@@ -1,0 +1,7 @@
+{
+  "outer": {
+    "c": "x",
+    "b": true, // bee
+    "a": null,
+  },
+}

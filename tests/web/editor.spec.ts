@@ -172,3 +172,44 @@ test('an edit made on a document that changed elsewhere is not applied, and the 
   expect(await hostText(page)).toBe('[]');
   await expect(page.locator(MODE_ROOT.tree)).toContainText('0 items');
 });
+
+// 004 T5: the host's validation result shows inline in every mode, the toolbar offers UNK-017's
+// dialect switch for a schema that names no dialect, and a pick reaches the host.
+test('schema errors from the host show inline, and the dialect switch reaches the host', async ({
+  page,
+}) => {
+  await page.goto('/?mode=table');
+  await expect(page.locator(MODE_ROOT.table)).toBeVisible();
+  await page.evaluate(() =>
+    window.devHost!.validation(
+      { name: 'draft-07', assumed: true, switchable: true },
+      {
+        kind: 'errors',
+        errors: [{ instancePath: '/1/year', keyword: 'type', message: 'must be string' }],
+      },
+    ),
+  );
+  const icons = (mode: keyof typeof MODE_ROOT) =>
+    page.locator(`${MODE_ROOT[mode]} button.jse-validation-warning`);
+  await expect(icons('table')).toHaveCount(1);
+  await expect(
+    page.locator(`${MODE_ROOT.table} td[data-path="${encodeURIComponent('/1/year')}"]`),
+  ).toContainText('1959');
+  await expect(
+    page.locator(`${MODE_ROOT.table} td[data-path] button.jse-validation-warning`),
+  ).toHaveCount(1);
+  await page.evaluate(() => window.devHost!.setMode('tree'));
+  await expect(icons('tree').first()).toBeVisible();
+  await page.evaluate(() => window.devHost!.setMode('text'));
+  await expect(page.locator(`${MODE_ROOT.text} .cm-lintRange-warning`)).toHaveText('"year"');
+
+  const select = page.getByRole('combobox', { name: 'Schema dialect' });
+  await expect(select.locator('option:checked')).toHaveText('assumed draft-07');
+  await select.selectOption('draft-04');
+  expect(await page.evaluate(() => window.devHost!.dialects)).toEqual(['draft-04']);
+
+  // `none` (no schema applies any more) clears the marks and the switch.
+  await page.evaluate(() => window.devHost!.validation(null, { kind: 'none' }));
+  await expect(page.locator(`${MODE_ROOT.text} .cm-lintRange`)).toHaveCount(0);
+  await expect(select).toHaveCount(0);
+});
