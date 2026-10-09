@@ -134,3 +134,26 @@ jobs:
           name: chr-json-editor-vsix
           path: packages/vscode-extension/*.vsix
           if-no-files-found: error
+
+  release-dry-run:
+    name: release dry run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # release.yml (005 T2) publishes on v* tags only; this job runs its steps on every PR with
+      # no secrets and no network publishing: the same build, the file list the .vsix ships, the
+      # workflow's trigger/environment/secret rules (spec 005 criterion 3), and each publish
+      # command line checked against the pinned vsce and ovsx.
+      - run: pnpm package
+      - name: Files in the .vsix (vsce ls)
+        working-directory: packages/vscode-extension
+        run: pnpm exec vsce ls --no-dependencies
+      - run: node scripts/check-release-workflow.mjs
+      - name: Publish steps, dry run
+        run: |
+          version=$(node -p "require('./packages/vscode-extension/package.json').version")
+          node scripts/release.mjs --tag "v$version" --dry-run

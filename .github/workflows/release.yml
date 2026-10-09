@@ -1,0 +1,64 @@
+# Release (005 T2, spec 005 criterion 3): publishes the extension to the VS Code Marketplace and
+# Open VSX when a `v*` tag is pushed, and at no other time.
+#
+# - `package` builds the .vsix with no secrets in reach and checks the tag names its version.
+# - `publish` runs in the GitHub Environment `release` (owner = required reviewer, set up in 005 T4),
+#   so it waits for the owner's approval and only then can read VSCE_PAT and OVSX_PAT.
+# Publishing can't be undone (plan 005, D4): a stray tag push stops at the approval and publishes
+# nothing unless the owner approves it. scripts/check-release-workflow.mjs holds this file to the
+# above, and ci.yml's release dry run runs it and scripts/release.mjs --dry-run on every PR.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The release build, without e2e test hooks (as ci.yml's package job).
+      - run: pnpm package
+      # Fails before anyone is asked to approve when the tag doesn't match package.json's version.
+      - name: Check the tag against the built .vsix (dry run)
+        run: node scripts/release.mjs --tag "$GITHUB_REF_NAME" --dry-run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-vsix
+          path: packages/vscode-extension/*.vsix
+          if-no-files-found: error
+
+  publish:
+    name: publish (Marketplace, Open VSX)
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: release
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      # Installs the pinned vsce and ovsx the publish step runs.
+      - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-vsix
+          path: packages/vscode-extension
+      - name: Publish
+        run: node scripts/release.mjs --tag "$GITHUB_REF_NAME"
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}

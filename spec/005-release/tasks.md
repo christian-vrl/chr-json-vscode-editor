@@ -5,7 +5,7 @@
 
 ## Phase A — Content (risk-free / additive)
 - [ ] **T1** README (features, offline promise, ADR-007 credit, sponsor link), CHANGELOG, icon, marketplace fields; `pnpm check:readme`. — needs: 003 T12 — *gate: criteria 1, 2 green*
-- [ ] **T2** `release.yml` per criterion 3 plus a PR dry-run job. `parallel` — *gate: dry run green; Reviewer confirms criterion 3 from the workflow file*
+- [x] **T2** `release.yml` per criterion 3 plus a PR dry-run job. `parallel` — *gate: dry run green; Reviewer confirms criterion 3 from the workflow file*
 - [ ] **T6** Remove `"private": true` from `packages/vscode-extension/package.json` (set in 001 T2; `vsce publish` refuses private extensions, PR #2 review finding 1); must land before T5. `parallel` — *gate: `node -e "process.exit(require('./packages/vscode-extension/package.json').private === undefined ? 0 : 1)"` exit 0*
 
 ## Phase B — Publish (requires approval)
