@@ -18,6 +18,17 @@ function memoryDocument(initial: string, format: Format = 'json') {
   let text = initial;
   let version = 1;
   const posted: ToWebviewMessage[] = [];
+  // The document's history, like VS Code's: every change can be undone, an undo can be redone.
+  const undoStack: string[] = [];
+  const redoStack: string[] = [];
+  const step = (from: string[], to: string[]) => {
+    const previous = from.pop();
+    if (previous === undefined) return;
+    to.push(text);
+    text = previous;
+    version++;
+    doc.sync.changed();
+  };
   const doc = {
     posted,
     refuse: false,
@@ -28,9 +39,13 @@ function memoryDocument(initial: string, format: Format = 'json') {
       return version;
     },
     sync: undefined as unknown as DocumentSync,
+    /** Every undo and redo the sync ran, oldest first. */
+    historyRun: [] as ('undo' | 'redo')[],
     onPost: (() => {}) as (message: ToWebviewMessage) => void,
     /** Another editor's change. */
     externalChange(next: string) {
+      undoStack.push(text);
+      redoStack.length = 0;
       text = next;
       version++;
       doc.sync.changed();
@@ -44,6 +59,12 @@ function memoryDocument(initial: string, format: Format = 'json') {
       if (doc.refuse) return Promise.resolve(false);
       doc.externalChange(next);
       return Promise.resolve(true);
+    },
+    history: (action) => {
+      doc.historyRun.push(action);
+      if (action === 'undo') step(undoStack, redoStack);
+      else step(redoStack, undoStack);
+      return Promise.resolve();
     },
     post: (message) => {
       posted.push(message);
@@ -81,6 +102,8 @@ describeHostAdapterContract('VscodeHostAdapter over DocumentSync', (text) => {
           });
         } else if (message.type === 'edit') {
           void doc.sync.edit(message);
+        } else if (message.type === 'undo' || message.type === 'redo') {
+          void doc.sync.history(message.type);
         }
       },
     },
@@ -152,6 +175,33 @@ describe('DocumentSync', () => {
     );
     expect(doc.posted).toMatchObject([{ type: 'update', origin: 'edit' }]);
     expect(doc.text).toContain('// empty');
+  });
+});
+
+describe('DocumentSync history (003 T7)', () => {
+  it('runs undo after the edits received before it, and reports it as external', async () => {
+    const doc = memoryDocument('[]');
+    const first = doc.sync.edit(edit(1, { kind: 'text', text: '[1]' }));
+    const undo = doc.sync.history('undo');
+    expect(doc.historyRun).toEqual([]);
+    await first;
+    await undo;
+    expect(doc.historyRun).toEqual(['undo']);
+    expect(doc.text).toBe('[]');
+    expect(doc.posted.map((m) => m.type === 'update' && [m.origin, m.text])).toEqual([
+      ['edit', '[1]'],
+      ['external', '[]'],
+    ]);
+  });
+
+  it('runs redo in order with edits after it', async () => {
+    const doc = memoryDocument('[]');
+    await doc.sync.edit(edit(1, { kind: 'text', text: '[1]' }));
+    await doc.sync.history('undo');
+    await doc.sync.history('redo');
+    await doc.sync.edit(edit(4, { kind: 'text', text: '[1, 2]' }));
+    expect(doc.historyRun).toEqual(['undo', 'redo']);
+    expect(doc.text).toBe('[1, 2]');
   });
 });
 

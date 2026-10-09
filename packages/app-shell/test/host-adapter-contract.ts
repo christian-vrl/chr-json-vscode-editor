@@ -167,6 +167,50 @@ export function describeHostAdapterContract(
       ).not.toThrow();
     });
 
+    it('undo brings back the text before a change and redo the change, as external updates (003 T7)', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.save(doc.docVersion, { kind: 'text', text: '[1]' });
+      const [edited] = await rec.next();
+      expect(edited).toMatchObject({ type: 'update', origin: 'edit', text: '[1]' });
+      adapter.undo(edited!.docVersion);
+      const [undone] = await rec.next();
+      expect(undone).toMatchObject({ type: 'update', origin: 'external', text: TEXT });
+      expect(undone!.docVersion).toBeGreaterThan(edited!.docVersion);
+      adapter.redo(undone!.docVersion);
+      const [redone] = await rec.next();
+      expect(redone).toMatchObject({ type: 'update', origin: 'external', text: '[1]' });
+      expect(redone!.docVersion).toBeGreaterThan(undone!.docVersion);
+    });
+
+    it('undo after an edit sent just before it undoes that edit (003 T7)', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.save(doc.docVersion, { kind: 'text', text: '[1]' });
+      adapter.undo(doc.docVersion);
+      const [edited, undone] = await rec.next(2);
+      expect(edited).toMatchObject({ type: 'update', origin: 'edit', text: '[1]' });
+      expect(undone).toMatchObject({ type: 'update', origin: 'external', text: TEXT });
+    });
+
+    it('undo with nothing to undo changes nothing and sends nothing (003 T7)', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.undo(doc.docVersion);
+      adapter.redo(doc.docVersion);
+      await settle();
+      expect(rec.events).toEqual([]);
+    });
+
+    it('flushed accepts an answer without throwing (003 T7)', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      expect(() => adapter.flushed(doc.docVersion, 1)).not.toThrow();
+    });
+
     it('setSchemaDialect accepts a dialect without throwing (004 T5)', async () => {
       const { adapter } = await create(TEXT);
       const doc = await adapter.open();

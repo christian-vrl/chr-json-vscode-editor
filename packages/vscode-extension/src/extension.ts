@@ -22,6 +22,10 @@ export interface TestHooks {
   /** Types `text` at the end of the text mode of `uri`'s webview (criterion 9); resolves with the
    *  webview's `Date.now()` after the last character. */
   type(uri: string, text: string): Promise<number>;
+  /** Presses Ctrl+`key` (Shift too when `shift`) where the webview of `uri` has focus (003 T7). */
+  press(uri: string, key: string, shift?: boolean): boolean;
+  /** Clicks the button titled `title` in the webview of `uri` (003 T7). */
+  click(uri: string, title: string): boolean;
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
   setMode(uri: string, mode: Mode): boolean;
   formatBadge(): FormatBadgeSnapshot;
@@ -51,6 +55,8 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         whenShown: (uri, text) => provider.whenShown(uri, text),
         patch: (uri, patch) => provider.patch(uri, patch),
         type: (uri, text) => provider.type(uri, text),
+        press: (uri, key, shift) => provider.press(uri, key, shift),
+        click: (uri, title) => provider.click(uri, title),
         formatBadge: () => formatBadge.snapshot(),
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
         setSchema(uri, schema) {
