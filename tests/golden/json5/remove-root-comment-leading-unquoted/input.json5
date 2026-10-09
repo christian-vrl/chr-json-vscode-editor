@@ -1,0 +1,5 @@
+{
+  name: 'app',
+  /* old */ legacy: true,
+  version: 2,
+}

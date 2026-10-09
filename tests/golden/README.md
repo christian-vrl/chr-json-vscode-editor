@@ -61,7 +61,7 @@ Values come from `tags.json`, the single vocabulary for these tests and `scripts
 |---|---|
 | `op` | the patch's operation; `test-fail` is a patch whose `test` fails, so the result is an error and unchanged text (R9). A `test` case may follow its `test` with another op, and a `test-fail` case may put an op before the failing `test` to show atomicity. |
 | `location` | where the patch `path` points (for `move`/`copy`, the destination): `root` = a member of the root container; `nested-object` = a member of an object inside the root; `array-start` / `array-middle` / `array-end` = index 0 / an inner index / the last index (or `-` for `add`) of an array. `document` = the pointer `""` on a text with no value (R15, UNK-026); it is outside criterion 4's grid, and its cases may have an empty input. |
-| `comments` | comments on the member the op is about (UNK-008): `before` = comment line(s) above it (they travel with it on `remove`/`move` only when directly above, with no blank line between; `remove-root-comment-before-blank-line-stays` shows the other side); `after` = a comment at the end of its line; `inline` = a block comment inside its line after the member starts: between key and value, or after the value and before its comma (`"a": /* c */ 1`, `0 /* c */,`). A block comment *before* the member on its line is not used yet (UNK-021); `none` = no comment next to it. For `add` that member is the neighbor: the previous last member when appending, the member now at that index when inserting. For `move`/`copy` it is the `from` member. |
+| `comments` | comments on the member the op is about (UNK-008): `before` = comment line(s) above it (they travel with it on `remove`/`move` only when directly above, with no blank line between; `remove-root-comment-before-blank-line-stays` shows the other side); `after` = a comment at the end of its line; `inline` = a block comment inside its line after the member starts: between key and value, or after the value and before its comma (`"a": /* c */ 1`, `0 /* c */,`). `leading` = a block comment before the member on its line (`[80, /* tls */ 443]`, `/* old */ 0,`; reading 11); it is outside criterion 4's comments grid; `none` = no comment next to it. For `add` that member is the neighbor: the previous last member when appending, the member now at that index when inserting. For `move`/`copy` it is the `from` member. |
 | `trailingComma` | whether the edited container has a trailing comma. Always `no` in `json`. |
 | `quote` | the file's majority string quote. Always `double` in `json` and `jsonc`. |
 | `keyStyle` | whether the file's keys are quoted or unquoted. Always `quoted` in `json` and `jsonc`. |
@@ -75,12 +75,12 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
    being last, or a member is appended after it), the comma goes right after its value, before the
    comment: `"b": 2 // two` becomes `"b": 2, // two`. Removing the last member removes the comma
    before the previous member's comment the same way.
-2. **Inserting before a commented member** (UNK-022, open; the corpus follows its ★ option). A comment directly above a member belongs to it
+2. **Inserting before a commented member** (UNK-022, owner: ★). A comment directly above a member belongs to it
    (UNK-008), so `add` at that member's index inserts above the comment.
 3. **`move` moves text.** The moved member's value bytes are kept as written (R8: existing literals are
    never rewritten unless replaced), so `0x0A` stays `0x0A`. Carried comment lines take the new
    member's indentation (R1).
-4. **`copy` does not copy comments** (UNK-023, open; the corpus follows its ★ option). Plan 002 defines `copy` as `add` of the value, and patch values
+4. **`copy` does not copy comments** (UNK-023, owner: ★). Plan 002 defines `copy` as `add` of the value, and patch values
    are plain data.
 5. **New containers.** A new object or array value in a multi-line container is written like
    `JSON.stringify(value, null, unit)`, indented from its member's line (R1).
@@ -106,9 +106,13 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
     loses or gains a comma so the container keeps or lacks its trailing comma (R6); a gained comma
     goes right after the value (reading 1). A `//` comment that no longer ends its line becomes a
     block comment (reading 7).
+11. **Leading comments** (UNK-021, owner: ★). Block comments before a
+    member on its line, with only white space between, belong to that member: `remove` and `move`
+    take them with it (`move` keeps them before it, as written), `add` at its index inserts before
+    them, and `sort` moves them with it. A block comment after a member's comma with a member after
+    it on the line is the next member's, not part of the first one's same-line tail.
 
-The corpus avoids details R1–R10 do not fix: a block comment before a member on its own line
-(UNK-021), a new container value inside a single-line container,
+The corpus avoids details R1–R10 do not fix: a new container value inside a single-line container,
 removing the only member of a container, a new key that is not identifier-safe in JSON5, a string
 containing the file's quote character, and a `test` on an object whose keys are in a different
 order (the reference `immutable-json-patch` 6.0.3 compares key order; RFC 6902 §4.6 does not).

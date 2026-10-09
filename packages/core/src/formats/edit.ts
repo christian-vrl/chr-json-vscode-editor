@@ -159,7 +159,8 @@ export class Doc {
   }
 
   /** Where the member's same-line tail ends: its comma (if any) and the comments after the value
-   *  on its line. `lineBreak` is the token ending that line, when nothing else follows on it. */
+   *  on its line, except block comments after the comma that lead the next member on that line
+   *  (`leadStart`). `lineBreak` is the token ending that line, when nothing else follows on it. */
   tail(member: FormatNode): { comma?: Token; end: number; lineBreak?: Token } {
     let i = tokenFrom(this.tokens, member.offset + member.length);
     let comma: Token | undefined;
@@ -168,8 +169,10 @@ export class Doc {
       const t = this.tokens[i]!;
       if (t.kind === Kind.Whitespace) continue;
       if (t.kind === Kind.LineBreak) return { comma, end, lineBreak: t };
-      if (isComment(t) && !this.text.slice(t.offset, t.end).includes('\n')) end = t.end;
-      else if (t.kind === Kind.Comma && !comma) {
+      if (isComment(t) && !this.text.slice(t.offset, t.end).includes('\n')) {
+        if (comma && this.leads(i)) break;
+        end = t.end;
+      } else if (t.kind === Kind.Comma && !comma) {
         comma = t;
         end = t.end;
       } else break;
@@ -177,9 +180,46 @@ export class Doc {
     return { comma, end };
   }
 
-  /** Whether only whitespace precedes the member on its line. */
+  /** Whether the block comment at token `i` comes before a member on its line: white space and
+   *  block comments only between them. */
+  private leads(i: number): boolean {
+    for (let j = i + 1; j < this.tokens.length; j++) {
+      const t = this.tokens[j]!;
+      if (
+        t.kind === Kind.Whitespace ||
+        (isComment(t) && !this.text.slice(t.offset, t.end).includes('\n'))
+      )
+        continue;
+      return ![
+        Kind.LineBreak,
+        Kind.LineComment,
+        Kind.BlockComment,
+        Kind.Comma,
+        Kind.CloseBrace,
+        Kind.CloseBracket,
+      ].includes(t.kind as never);
+    }
+    return false;
+  }
+
+  /** Where the member starts with the block comments before it on its line, with only white space
+   *  between them and it (`[80, /* tls *\/ 443]`): they belong to it, so they are removed, moved
+   *  and sorted with it, and an insert at its index goes before them (UNK-021 ★). The member's own
+   *  offset when there are none. */
+  leadStart(member: FormatNode): number {
+    let start = member.offset;
+    for (let i = tokenAt(this.tokens, member.offset) - 1; i >= 0; i--) {
+      const t = this.tokens[i]!;
+      if (t.kind === Kind.Whitespace) continue;
+      if (t.kind !== Kind.BlockComment || this.text.slice(t.offset, t.end).includes('\n')) break;
+      start = t.offset;
+    }
+    return start;
+  }
+
+  /** Whether only whitespace, and the member's leading comments, precede it on its line. */
   startsLine(member: FormatNode): boolean {
-    let i = tokenAt(this.tokens, member.offset) - 1;
+    let i = tokenAt(this.tokens, this.leadStart(member)) - 1;
     while (i >= 0 && this.tokens[i]!.kind === Kind.Whitespace) i--;
     return i < 0 || this.tokens[i]!.kind === Kind.LineBreak;
   }
@@ -193,7 +233,7 @@ export class Doc {
    *  it, with no blank line between (UNK-008). The member's own line start when there are none. */
   blockStart(member: FormatNode): number {
     let start = this.lineStart(member.offset);
-    let i = tokenAt(this.tokens, member.offset) - 1;
+    let i = tokenAt(this.tokens, this.leadStart(member)) - 1;
     while (i >= 0 && this.tokens[i]!.kind === Kind.Whitespace) i--;
     // i is the line break ending the line above.
     for (;;) {
@@ -279,6 +319,8 @@ interface Piece {
   /** The same comments for a member that shares its line with others: block comments, each
    *  followed by a space. */
   aboveInline: string;
+  /** Block comments before the member on its line, as written up to it (UNK-021 ★). */
+  lead: string;
   /** Comments after the value on its line, each preceded by white space. `inline` converts line
    *  comments to block comments, for a member that has more text after it on its line. */
   after(inline: boolean): string;
@@ -289,6 +331,7 @@ function dataPiece(doc: Doc, value: unknown): Piece {
     value: (indent, multiLine) => doc.serialize(value, indent, multiLine),
     above: () => '',
     aboveInline: '',
+    lead: '',
     after: () => '',
   };
 }
@@ -346,6 +389,7 @@ function movedPiece(doc: Doc, target: Target & { value: FormatNode }): Piece {
   }
   const end = member.offset + member.length;
   const ownLines = target.container !== undefined && doc.ownLines(member);
+  const lead = target.container ? doc.text.slice(doc.leadStart(member), member.offset) : '';
   const aboveStart = ownLines ? doc.blockStart(member) : doc.lineStart(member.offset);
   const aboveEnd = doc.lineStart(member.offset);
   const above = commentsIn(doc, aboveStart, aboveEnd);
@@ -359,6 +403,7 @@ function movedPiece(doc: Doc, target: Target & { value: FormatNode }): Piece {
     above: (indent) =>
       above.length === 0 ? '' : relocate(doc, aboveStart, aboveEnd, from, indent),
     aboveInline: above.map((c) => `${blockComment(c)} `).join(''),
+    lead,
     after: (inline) =>
       after.length === 0
         ? ''
@@ -388,7 +433,7 @@ function separator(doc: Doc, items: readonly FormatNode[]): string {
   const second = items[1];
   if (!first || !second) return ', ';
   const comma = doc.tail(first).comma;
-  return comma ? doc.text.slice(comma.offset, second.offset) : ', ';
+  return comma ? doc.text.slice(comma.offset, doc.leadStart(second)) : ', ';
 }
 
 function add(doc: Doc, target: Target, piece: Piece): string {
@@ -406,14 +451,16 @@ function add(doc: Doc, target: Target, piece: Piece): string {
     if (doc.ownLines(next)) {
       const indent = doc.indentAt(next.offset);
       const at = doc.blockStart(next);
-      const text = `${piece.above(indent)}${indent}${name}${piece.value(indent, true)},${piece.after(false)}${eol}`;
+      const text = `${piece.above(indent)}${indent}${piece.lead}${name}${piece.value(indent, true)},${piece.after(false)}${eol}`;
       return doc.apply([{ offset: at, end: at, text }]);
     }
     const sep = separator(doc, items);
     // A carried comment keeps a space before the next member, also after a bare `,` (R3).
     const after = piece.after(true);
-    const text = `${piece.aboveInline}${name}${piece.value(doc.indentAt(next.offset), false)}${sep.slice(0, 1)}${after}${after && !sep.slice(1) ? ' ' : sep.slice(1)}`;
-    return doc.apply([{ offset: next.offset, end: next.offset, text }]);
+    const text = `${piece.aboveInline}${piece.lead}${name}${piece.value(doc.indentAt(next.offset), false)}${sep.slice(0, 1)}${after}${after && !sep.slice(1) ? ' ' : sep.slice(1)}`;
+    // Before the next member's leading comments, which stay with it (UNK-021 ★).
+    const at = doc.leadStart(next);
+    return doc.apply([{ offset: at, end: at, text }]);
   }
 
   const last = items[items.length - 1];
@@ -426,7 +473,7 @@ function add(doc: Doc, target: Target, piece: Piece): string {
     // right after its value, before a same-line comment (README reading 1); a trailing comma stays
     // trailing (R6).
     const indent = doc.indentAt(last.offset);
-    const text = `${eol}${piece.above(indent)}${indent}${name}${piece.value(indent, true)}${trailing ? ',' : ''}${piece.after(false)}`;
+    const text = `${eol}${piece.above(indent)}${indent}${piece.lead}${name}${piece.value(indent, true)}${trailing ? ',' : ''}${piece.after(false)}`;
     const edits: Edit[] = [{ offset: tail.end, end: tail.end, text }];
     if (!trailing) edits.push({ offset: lastEnd, end: lastEnd, text: ',' });
     return doc.apply(edits);
@@ -434,7 +481,7 @@ function add(doc: Doc, target: Target, piece: Piece): string {
   // Single-line container: join with the separator already used (R3).
   const sep = separator(doc, items);
   const indent = doc.indentAt(last.offset);
-  const member_ = `${piece.aboveInline}${name}${piece.value(indent, false)}`;
+  const member_ = `${piece.aboveInline}${piece.lead}${name}${piece.value(indent, false)}`;
   if (trailing)
     return doc.apply([
       {
@@ -456,14 +503,14 @@ function addToEmpty(doc: Doc, container: FormatNode, name: string, piece: Piece)
   const close = container.offset + container.length - 1;
   const inner = doc.text.slice(open, close);
   if (!inner.includes('\n')) {
-    const text = `${piece.aboveInline}${name}${piece.value(doc.indentAt(container.offset), false)}${piece.after(true)}`;
+    const text = `${piece.aboveInline}${piece.lead}${name}${piece.value(doc.indentAt(container.offset), false)}${piece.after(true)}`;
     // Comments already inside the container stay; the member goes after them.
     if (inner.trim() !== '') return doc.apply([{ offset: close, end: close, text }]);
     return doc.apply([{ offset: open, end: close, text }]);
   }
   const indent = doc.indentAt(container.offset) + doc.unit;
   const at = doc.text.lastIndexOf('\n', close) + 1;
-  const text = `${piece.above(indent)}${indent}${name}${piece.value(indent, true)}${piece.after(false)}${doc.style.eol}`;
+  const text = `${piece.above(indent)}${indent}${piece.lead}${name}${piece.value(indent, true)}${piece.after(false)}${doc.style.eol}`;
   return doc.apply([{ offset: at, end: at, text }]);
 }
 
@@ -477,7 +524,7 @@ export function removalAt(doc: Doc, path: string): { edits: Edit[]; member: Form
   return { edits: removal(doc, target), member: target.member! };
 }
 
-/** The edits that remove the member at `target`: only deletions (R5, R6, UNK-008). */
+/** The edits that remove the member at `target`: only deletions (R5, R6, UNK-008, UNK-021 ★). */
 function removal(doc: Doc, target: Target): Edit[] {
   const { container, member, index } = target;
   if (!container) throw new PatchError('cannot remove the root');
@@ -497,8 +544,10 @@ function removal(doc: Doc, target: Target): Edit[] {
     }
     return edits;
   }
-  if (!isLast) return [{ offset: member.offset, end: items[index + 1]!.offset, text: '' }];
-  if (!previous) return [{ offset: member.offset, end: tail.end, text: '' }];
+  // The member's leading comments go with it; the next member's stay (UNK-021 ★).
+  const start = doc.leadStart(member);
+  if (!isLast) return [{ offset: start, end: doc.leadStart(items[index + 1]!), text: '' }];
+  if (!previous) return [{ offset: start, end: tail.end, text: '' }];
   const prevComma = doc.tail(previous).comma!;
   // `[1, 2,]` → `[1,]`: the trailing comma stays (R6); `[1, 2]` → `[1]`.
   return tail.comma
