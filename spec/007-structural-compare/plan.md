@@ -11,7 +11,9 @@ it touches, which left index each right index came from; that index map gives `l
 operation. `copyDifference(source, target, d)` builds the smallest patch that makes the target match
 the source at `d`'s location; for an item that exists only on the source side, it inserts after the
 target item aligned with the source's previous item (from the same index map), so later items keep
-their alignment.
+their alignment. Because data alone does not say which side of `compare(left, right)` the source
+is, `copyDifference` takes an optional 4th argument `from: 'left' | 'right'` (default `'right'`,
+the spec's 3-argument form); the panel passes it for left-to-right copies (007 T1).
 
 The compare page is a second entry in `app-shell` (`Compare.svelte`) with two read-only
 `vanilla-jsoneditor` instances in tree mode, `onClassName` driven by the differences, and a toolbar
@@ -48,6 +50,7 @@ working file's detected format.
 | R1 Index mapping from `diff`'s sequential paths to left paths is wrong for mixed inserts and removes | criterion 1's "every path resolves" plus a check that the value at `leftPath` is the one `diff` removed or replaced |
 | R2 Copying one item shifts the alignment of later items, so the count drops by more or less than one | criterion 2 is a property test; a counterexample becomes an UNKNOWN on the copy rule, not a weaker test |
 | R3 Large disjoint arrays are slow (002 T9 review: 20k items ≈ 6 s before `LCS_BUDGET`) | measure in E; the size limit and the text-diff fallback bound it |
+| R6 `copyDifference` re-runs `diff` on each array it walks through to find the alignment (007 T1 review), so one copy in a large document repeats array diffs | include a copy in E's benchmark |
 | R4 `onClassName` runs for every rendered node | look-up by a `Set` of path keys built once per `compare` result |
 | R5 A copy into a file that is not open leaves an unsaved document nobody sees | open it in a background tab (criterion 6) so VS Code's own dirty marker and save apply |
 

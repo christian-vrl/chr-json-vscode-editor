@@ -72,7 +72,7 @@ export function compare(left: unknown, right: unknown): Difference[] {
       } else {
         leftPath += `/${token}`;
         rightPath += `/${token}`;
-        value = (value as Record<string, unknown>)[unescape(token)];
+        value = (value as Record<string, unknown>)[unescapeToken(token)];
       }
       patched += `/${token}`;
     }
@@ -168,7 +168,7 @@ export function copyDifference(
     } else {
       if (last) return [{ op: 'add', path: `${path}/${token}`, value }];
       path += `/${token}`;
-      const key = unescape(token);
+      const key = unescapeToken(token);
       s = (s as Record<string, unknown>)[key];
       t = (t as Record<string, unknown>)[key];
     }
@@ -217,15 +217,15 @@ function resolve(data: unknown, path: string): unknown {
   for (const token of path.slice(1).split('/'))
     value = Array.isArray(value)
       ? value[Number(token)]
-      : (value as Record<string, unknown>)[unescape(token)];
+      : (value as Record<string, unknown>)[unescapeToken(token)];
   return value;
 }
 
 function lastToken(path: string): string {
-  return unescape(path.slice(path.lastIndexOf('/') + 1));
+  return unescapeToken(path.slice(path.lastIndexOf('/') + 1));
 }
 
 /** An RFC 6901 reference token's text: `~1` → `/`, `~0` → `~`. */
-function unescape(token: string): string {
+function unescapeToken(token: string): string {
   return token.replace(/~1/g, '/').replace(/~0/g, '~');
 }
