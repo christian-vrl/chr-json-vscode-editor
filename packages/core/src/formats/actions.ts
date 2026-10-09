@@ -36,6 +36,9 @@ export function compact(text: string, open: Open): string {
  * An empty container (no members, no comments) is written `{}` or `[]`.
  */
 export function prettyPrint(text: string, open: Open): string {
+  // A byte order mark stays where it is. JSON5 reads it as white space and JSONC as an error;
+  // either way it is not part of the layout.
+  if (text.startsWith('\uFEFF')) return '\uFEFF' + prettyPrint(text.slice(1), open);
   const doc = open(text);
   const { tokens, style } = doc;
   const unit = doc.unit;

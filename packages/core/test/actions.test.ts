@@ -122,6 +122,12 @@ describe('format (003 T8, prettyPrint)', () => {
     );
   });
 
+  it('keeps a byte order mark and does not read it as indentation (003 T8 review F2)', () => {
+    for (const format of ['jsonc', 'json5'] as const) {
+      expect(getAdapter(format).prettyPrint('\uFEFF{"a":1}')).toBe('\uFEFF{\n  "a": 1\n}');
+    }
+  });
+
   it('keeps the line ending and the final newline', () => {
     expect(jsonc.prettyPrint('{"a":\r\n1}\r\n')).toBe('{\r\n  "a": 1\r\n}\r\n');
     expect(jsonc.prettyPrint('[1]')).toBe('[\n  1\n]');

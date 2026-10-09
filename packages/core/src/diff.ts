@@ -32,7 +32,12 @@ export function diff(a: unknown, b: unknown): PatchOperation[] {
   const stack: Step[] = [{ a, b, path: '' }];
   for (let step = stack.pop(); step; step = stack.pop()) {
     if ('op' in step) ops.push(step);
-    else stack.push(...diffValue(step.a, step.b, step.path, keyOf).reverse());
+    else {
+      // A loop, not `push(...steps)`: spreading a container's 100k+ steps as arguments would
+      // overflow the call stack.
+      const steps = diffValue(step.a, step.b, step.path, keyOf);
+      for (let i = steps.length - 1; i >= 0; i--) stack.push(steps[i]!);
+    }
   }
   return ops;
 }

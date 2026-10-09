@@ -90,6 +90,22 @@ describe('diff', () => {
     expect(applyInPlace(structuredClone(a), patch)).toEqual(b);
   });
 
+  it('handles one container with more steps than a call can take as arguments (review F1)', () => {
+    const n = 200_000;
+    const a = Array.from({ length: n }, (_, i) => i);
+    const b = Array.from({ length: n }, (_, i) => -1 - i);
+    const arrayOps = diff(a, b);
+    expect(arrayOps).toHaveLength(n);
+    expect(arrayOps[0]).toEqual({ op: 'replace', path: '/0', value: -1 });
+    expect(arrayOps.at(-1)).toEqual({ op: 'replace', path: `/${n - 1}`, value: -n });
+
+    const before = Object.fromEntries(a.map((i) => [`k${i}`, i]));
+    const after = Object.fromEntries(a.map((i) => [`k${i}`, i + 1]));
+    const objectOps = diff(before, after);
+    expect(objectOps).toHaveLength(n);
+    expect(objectOps[0]).toEqual({ op: 'replace', path: '/k0', value: 1 });
+  });
+
   it('still finds only inserts or only removes past the search budget (criterion 9)', () => {
     const a = Array.from({ length: 20_000 }, (_, i) => i);
     const b = a.flatMap((x) => (x % 2 === 0 ? [x, -x - 1] : [x]));
