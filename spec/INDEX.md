@@ -33,7 +33,7 @@ tasks run in order unless marked `parallel`.
 |---|---|---|
 | 006-convert-formats | Convert between JSON, JSONC, JSON5 with lossy-step warnings | 002 token streams; keeps layout and comments (UNK-033) |
 | 007-structural-compare | Structural compare (two files or vs Git HEAD, ignoring key order) | reuses 002 T9 `diff`; 006 and 007 can run in parallel |
-| 008 | Large-file mode | above 5 MiB (UNK-014) |
+| 008-large-file-mode | Large-file mode: read-only tree and table above 5 MiB, lighter parse, 50 MB ceiling message | threshold 5 MiB (UNK-014); behavior per UNK-040; can run in parallel with 006 and 007 |
 | 009 | CSV import/export | merges via 002 R14 |
 | 010 | Smart format | FracturedJson library (MIT), as the site uses |
 | 011 | JavaScript and Lodash queries | uses ADR-010's eval location |
