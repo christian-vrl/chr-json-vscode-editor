@@ -12,7 +12,7 @@
   *gate: e2e reads HEAD text byte-equal to the committed bytes; UNK-038 resolved per the delegation rule*
 
 ## Phase B — UI (risk-free / additive)
-- [ ] **T3** Compare page in `app-shell` (`Compare.svelte`, `CompareHostAdapter`, dev host),
+- [x] **T3** Compare page in `app-shell` (`Compare.svelte`, `CompareHostAdapter`, dev host),
   read-only tree panels per UNK-036, class marking, counter, Next/Previous, copy buttons; fixtures in
   `tests/compare/`. Needs UNK-036 resolved. — needs: 007 T1 — *gate: criterion 3 and the theme part of
   criterion 9 green in `pnpm test:web`*

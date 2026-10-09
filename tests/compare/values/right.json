@@ -1,0 +1,7 @@
+{
+  "name": "Ada Lovelace",
+  "born": 1815,
+  "active": false,
+  "address": { "city": "London", "country": "UK" },
+  "children": 3
+}
