@@ -1,6 +1,6 @@
 # SPEC 008 — Large-file mode
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidVvbZY2s6tJFXBpsm5byWKw, 2026-10-09)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -113,10 +113,10 @@ exact value).
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
 | UNK-014 | Large-file threshold | criterion 1 | resolved (owner): 5 MiB |
-| UNK-040 | What large-file mode does: read-only with "Edit anyway", read-only only, or editable with a warning | criteria 2–4; T2, T3 | see ledger |
+| UNK-040 | What large-file mode does | criteria 2–4; T2, T3 | resolved (owner): read-only with "Edit anyway" |
 | UNK-041 | Largest large-file size at which schema validation still runs on open and change | criterion 10; T5 | delegated (T5 evidence) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
 - [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Human approval recorded
