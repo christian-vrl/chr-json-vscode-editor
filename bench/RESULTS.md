@@ -5,8 +5,8 @@
 
 ## Run
 
-- Where: GitHub Actions, [run 37854765987](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37854765987); commit `04dc5b73b20d78b9923c218b7838b6a6a603f7ba`.
-- Machine: Linux x64 (`ubuntu24`), 2 × AMD EPYC 7763 64-Core Processor, 8 GiB RAM.
+- Where: GitHub Actions, [run 37867109909](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37867109909); commit `e8040abc6745c57db8446c7ee354778d012ecbf6`.
+- Machine: Linux x64 (`ubuntu24`), 2 × AMD EPYC 9V45 96-Core Processor, 8 GiB RAM.
 - Node v22.23.3, `@chr-json-editor/core` built from that commit, called directly (no editor, no webview, no message passing). Each format and size runs in its own process (`--expose-gc`, heap collected before every timed call; `--max-old-space-size=6144`, Node's default heap limit on this machine: 2.0 GiB, see Memory).
 - 3 runs per cell after a warm-up on a 256 KiB document; each cell is **median** (run 1, run 2, run 3), in milliseconds.
 
@@ -32,37 +32,64 @@ Records per file:
 ## Results
 
 `parse` is `getAdapter(format).parse(text)` (data, tree, style, diagnostics). Each edit is one
-`applyPatch(text, [op])` on the middle record `m`, returning the whole new text:
+`applyPatch(text, [op])` on the middle record `m`, returning the whole new text, on a text core
+has not parsed yet (core keeps the parse of the last text per format, so this is the first edit
+of a text nothing else parsed). The second table is the extension host's usual case: the text
+was parsed already (format badge, schema validation, the previous edit).
 
 - **replace:** `{ op: "replace", path: "/m/name", value: "edited" }`, one string.
 - **add:** `{ op: "add", path: "/m/extra", value: { added: true } }`, a new key.
 - **remove:** `{ op: "remove", path: "/m" }`, a whole record with its comments.
-- **move:** `{ op: "move", from: "/m", path: "/-" }`, the record to the end; `move` re-parses
-  between its remove and its add (002 T6).
+- **move:** `{ op: "move", from: "/m", path: "/-" }`, the record to the end; between its remove
+  and its add, `move` shifts the tree and tokens it has rather than parsing again (UNK-014).
 
 ### json
 
 | Size | parse | replace | add | remove | move |
 |---|---|---|---|---|---|
-| 1 MiB | **220** (210, 220, 248) | **129** (145, 129, 117) | **146** (146, 127, 155) | **138** (138, 143, 117) | **270** (279, 259, 270) |
-| 10 MiB | **2,108** (2,608, 2,108, 1,703) | **1,245** (1,246, 1,245, 1,202) | **884** (1,240, 884, 869) | **1,210** (947, 1,210, 1,258) | **2,084** (2,230, 1,977, 2,084) |
-| 50 MiB | **7,427** (7,863, 7,427, 7,122) | **5,238** (5,238, 5,242, 5,225) | **5,608** (5,211, 5,920, 5,608) | **5,242** (5,988, 5,242, 5,206) | **12,971** (15,710, 12,628, 12,971) |
+| 1 MiB | **113** (114, 100, 113) | **88** (88, 72, 93) | **91** (92, 78, 91) | **72** (82, 72, 67) | **116** (119, 116, 109) |
+| 10 MiB | **1,110** (1,292, 1,110, 972) | **491** (575, 491, 466) | **527** (498, 527, 530) | **521** (482, 530, 521) | **817** (817, 933, 815) |
+| 50 MiB | **6,394** (6,693, 6,073, 6,394) | **4,903** (4,872, 5,439, 4,903) | **4,804** (4,828, 4,804, 4,642) | **4,785** (4,900, 4,785, 4,676) | **8,387** (8,387, 8,420, 8,192) |
+
+After the text was parsed (json):
+
+| Size | replace | add | remove | move |
+|---|---|---|---|---|
+| 1 MiB | **0** (3, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **34** (34, 39, 34) |
+| 10 MiB | **0** (0, 0, 0) | **2** (2, 2, 1) | **0** (0, 0, 0) | **337** (344, 337, 325) |
+| 50 MiB | **0** (0, 0, 0) | **6** (6, 6, 5) | **0** (0, 0, 0) | **1,908** (2,125, 1,881, 1,908) |
 
 ### jsonc
 
 | Size | parse | replace | add | remove | move |
 |---|---|---|---|---|---|
-| 1 MiB | **251** (251, 254, 250) | **140** (157, 136, 140) | **145** (135, 145, 151) | **145** (140, 150, 145) | **292** (295, 292, 278) |
-| 10 MiB | **1,664** (1,534, 1,664, 1,665) | **1,174** (1,174, 1,162, 1,180) | **810** (1,170, 806, 810) | **1,121** (785, 1,173, 1,121) | **1,938** (1,938, 1,968, 1,804) |
-| 50 MiB | **6,947** (6,947, 7,038, 6,650) | **4,843** (4,843, 4,536, 4,897) | **5,543** (4,956, 5,543, 5,617) | **4,817** (5,718, 4,457, 4,817) | **12,694** (12,820, 12,694, 12,113) |
+| 1 MiB | **125** (125, 152, 101) | **78** (83, 78, 77) | **84** (90, 84, 73) | **72** (72, 72, 73) | **106** (105, 106, 111) |
+| 10 MiB | **719** (812, 717, 719) | **443** (467, 432, 443) | **455** (458, 455, 437) | **431** (431, 431, 478) | **631** (631, 620, 632) |
+| 50 MiB | **6,194** (6,299, 6,194, 5,650) | **4,850** (4,850, 4,367, 4,984) | **4,350** (4,410, 4,350, 4,140) | **4,786** (4,829, 4,786, 4,732) | **6,988** (6,988, 7,076, 6,804) |
+
+After the text was parsed (jsonc):
+
+| Size | replace | add | remove | move |
+|---|---|---|---|---|
+| 1 MiB | **0** (0, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **32** (35, 32, 30) |
+| 10 MiB | **0** (0, 5, 0) | **1** (1, 4, 1) | **0** (0, 0, 0) | **233** (233, 235, 215) |
+| 50 MiB | **0** (0, 0, 0) | **12** (12, 6, 12) | **0** (0, 0, 0) | **812** (795, 812, 820) |
 
 ### json5
 
 | Size | parse | replace | add | remove | move |
 |---|---|---|---|---|---|
-| 1 MiB | **150** (150, 135, 152) | **144** (144, 133, 150) | **140** (149, 140, 139) | **150** (153, 150, 142) | **325** (294, 325, 328) |
-| 10 MiB | **1,515** (1,519, 1,515, 1,468) | **1,410** (1,407, 1,439, 1,410) | **1,458** (1,478, 1,458, 1,433) | **1,448** (1,461, 1,433, 1,448) | **2,695** (2,635, 2,695, 2,725) |
-| 50 MiB | **6,270** (6,270, 6,070, 6,432) | **6,247** (6,247, 6,075, 6,435) | **6,228** (6,201, 6,228, 6,536) | **6,293** (6,190, 6,298, 6,293) | **15,645** (14,816, 16,061, 15,645) |
+| 1 MiB | **94** (107, 88, 94) | **87** (87, 85, 90) | **98** (100, 98, 98) | **92** (97, 91, 92) | **127** (127, 131, 127) |
+| 10 MiB | **704** (825, 704, 696) | **669** (666, 683, 669) | **710** (712, 688, 710) | **713** (713, 736, 677) | **906** (851, 946, 906) |
+| 50 MiB | **6,225** (6,960, 6,149, 6,225) | **6,470** (6,924, 6,209, 6,470) | **7,013** (6,286, 7,084, 7,013) | **6,898** (7,133, 6,898, 6,367) | **9,593** (9,075, 9,593, 9,629) |
+
+After the text was parsed (json5):
+
+| Size | replace | add | remove | move |
+|---|---|---|---|---|
+| 1 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **38** (38, 36, 39) |
+| 10 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **168** (167, 168, 175) |
+| 50 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **864** (883, 862, 864) |
 
 ## Memory
 
@@ -75,26 +102,28 @@ the first run of this benchmark ran out of heap in the json 50 MiB cell
 
 | Size | json retained heap | json max RSS | jsonc retained heap | jsonc max RSS | json5 retained heap | json5 max RSS |
 |---|---|---|---|---|---|---|
-| 1 MiB | 22 | 190 | 22 | 182 | 15 | 180 |
-| 10 MiB | 222 | 1,136 | 218 | 1,029 | 152 | 1,059 |
-| 50 MiB | 1,102 | 5,054 | 1,082 | 4,698 | 750 | 4,683 |
+| 1 MiB | 31 | 248 | 30 | 236 | 26 | 227 |
+| 10 MiB | 406 | 1,796 | 396 | 1,681 | 347 | 1,685 |
+| 50 MiB | 2,061 | 5,893 | 2,007 | 5,889 | 1,760 | 5,471 |
 
 ## Against UNK-014's edit budget (< 500 ms)
 
 applyPatch is only the host part of an edit: the UI, the message and `workspace.applyEdit` come on
 top (`bench/vscode-open.md`). So a cell over 500 ms here misses the budget whatever else happens;
-one under it is necessary, not sufficient.
+one under it is necessary, not sufficient. The cells use the host's case, a text already parsed.
 
 | Size | json | jsonc | json5 |
 |---|---|---|---|
-| 1 MiB | within, slowest op 270 | within, slowest op 292 | within, slowest op 325 |
-| 10 MiB | over, slowest op 2,084 | over, slowest op 1,938 | over, slowest op 2,695 |
-| 50 MiB | over, slowest op 12,971 | over, slowest op 12,694 | over, slowest op 15,645 |
+| 1 MiB | within, slowest op 34 | within, slowest op 32 | within, slowest op 38 |
+| 10 MiB | within, slowest op 337 | within, slowest op 233 | within, slowest op 168 |
+| 50 MiB | over, slowest op 1,908 | over, slowest op 812 | over, slowest op 864 |
 
-Medians relative to parse, over all sizes and formats (edit ÷ parse): replace 0.6–1.0×, add 0.4–1.0×, remove 0.6–1.0×, move 1.0–2.5×.
+Medians relative to parse, over all sizes and formats (edit ÷ parse): replace 0.4–1.0×, add 0.5–1.1×, remove 0.5–1.1×, move 0.7–1.5×.
 
-Every `applyPatch` call parses the whole text again (tree and tokens) before it edits, and `move`
-parses twice, so edit time grows with file size like parse time does.
+An edit on a text core has not parsed parses it once (tree and tokens) before it edits, so its
+time grows with file size like parse time does. On a parsed text, replace, add and remove only
+compute the change and write the new text; move also shifts the tree and tokens after the
+removed record.
 
 To reproduce: `pnpm --filter @chr-json-editor/core build`, then
 `pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`).
