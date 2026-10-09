@@ -44,6 +44,9 @@ export class FormatBadgeController implements vscode.Disposable {
   }>();
   /** Fires when the user picks a format for a document. */
   readonly onDidChangeFormat = this.formatChanges.event;
+  private readonly refreshes = new vscode.EventEmitter<void>();
+  /** Fires after the badge followed the active tab or a format change (006 T3's menus). */
+  readonly onDidRefresh = this.refreshes.event;
   private readonly disposables: vscode.Disposable[] = [];
   private visible = false;
 
@@ -62,6 +65,7 @@ export class FormatBadgeController implements vscode.Disposable {
     this.disposables.push(
       this.item,
       this.formatChanges,
+      this.refreshes,
       vscode.commands.registerCommand(SELECT_FORMAT_COMMAND, (format?: unknown) =>
         this.select(format),
       ),
@@ -142,8 +146,14 @@ export class FormatBadgeController implements vscode.Disposable {
     if (chosen !== state.format) this.formatChanges.fire({ document, format: chosen });
   }
 
+  /** The format of the active CHR JSON Editor tab's document, if one is active. */
+  activeFormat(): Format | undefined {
+    const document = this.activeDocument();
+    return document && this.format(document);
+  }
+
   /** The document of the active CHR JSON Editor tab, if one is active. */
-  private activeDocument(): vscode.TextDocument | undefined {
+  activeDocument(): vscode.TextDocument | undefined {
     for (const [panel, document] of this.panels) {
       if (panel.active) return document;
     }
@@ -156,13 +166,14 @@ export class FormatBadgeController implements vscode.Disposable {
     if (!state) {
       this.item.hide();
       this.visible = false;
-      return;
+    } else {
+      const { text, tooltip } = badge(state);
+      this.item.text = text;
+      this.item.tooltip = tooltip;
+      this.item.show();
+      this.visible = true;
     }
-    const { text, tooltip } = badge(state);
-    this.item.text = text;
-    this.item.tooltip = tooltip;
-    this.item.show();
-    this.visible = true;
+    this.refreshes.fire();
   }
 
   snapshot(): FormatBadgeSnapshot {

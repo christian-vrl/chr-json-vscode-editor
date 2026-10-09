@@ -3,6 +3,7 @@
 // contributed custom editor and commands (spec 003 T3).
 import * as vscode from 'vscode';
 import { registerCommands } from './commands';
+import { registerConvertCommands, testConvert } from './convertCommand';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
 import type { DomStep, RenderedProbe } from './testProbe';
@@ -48,7 +49,18 @@ export interface TestHooks {
   selectDialect(uri: string, dialect: string): boolean;
   /** Reads `uri`'s committed bytes from Git HEAD (007 T2, UNK-038). */
   readHead(uri: string): Promise<HeadResult>;
+  /** 006 T3: answers every later save dialog of the convert commands with `answer`'s result for
+   *  the prefilled URI (undefined: show the dialog). Returns the prefilled URIs, the messages
+   *  shown and the menus' context keys since the previous call. */
+  convert(answer: ((defaultUri: string) => string | undefined) | undefined): {
+    saveAs: string[];
+    messages: string[];
+    context: Record<string, string | undefined>;
+  };
 }
+
+/** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
+const convertSaveAs: string[] = [];
 
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
   const formatBadge = new FormatBadgeController(formatCore);
@@ -60,6 +72,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
       provider.formatChanged(document, format),
     ),
     ...registerCommands(),
+    ...registerConvertCommands(formatBadge),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -79,6 +92,21 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
         dom: (uri, steps) => provider.dom(uri, steps),
         readHead: (uri) => readHeadOf(vscode.Uri.parse(uri)),
+        convert(answer) {
+          const saveAs = convertSaveAs.splice(0);
+          testConvert.saveAs = answer
+            ? (defaultUri) => {
+                convertSaveAs.push(defaultUri.toString());
+                const picked = answer(defaultUri.toString());
+                return picked === undefined ? undefined : vscode.Uri.parse(picked);
+              }
+            : undefined;
+          return {
+            saveAs,
+            messages: testConvert.messages.splice(0),
+            context: { ...testConvert.context },
+          };
+        },
         confirm(answer) {
           testConfirm.answer = answer;
           return testConfirm.asked.splice(0);

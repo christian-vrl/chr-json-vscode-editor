@@ -58,6 +58,21 @@
         "command": "chrJsonEditor.repairJson",
         "title": "Repair JSON",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.convertToJson",
+        "title": "Convert to JSON",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.convertToJsonc",
+        "title": "Convert to JSONC",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.convertToJson5",
+        "title": "Convert to JSON5",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -77,6 +92,18 @@
         {
           "command": "chrJsonEditor.repairJson",
           "when": "editorLangId =~ /^(json|jsonc|json5)$/ && activeEditor == workbench.editors.files.textFileEditor"
+        },
+        {
+          "command": "chrJsonEditor.convertToJson",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(jsonc|json5)$/)"
+        },
+        {
+          "command": "chrJsonEditor.convertToJsonc",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonc) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|json5)$/)"
+        },
+        {
+          "command": "chrJsonEditor.convertToJson5",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)"
         }
       ],
       "editor/title": [
@@ -89,6 +116,21 @@
           "command": "chrJsonEditor.reopenAsText",
           "when": "activeCustomEditorId == chrJsonEditor.editor",
           "group": "navigation"
+        },
+        {
+          "command": "chrJsonEditor.convertToJson",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(jsonc|json5)$/)",
+          "group": "1_convert@1"
+        },
+        {
+          "command": "chrJsonEditor.convertToJsonc",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonc) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|json5)$/)",
+          "group": "1_convert@2"
+        },
+        {
+          "command": "chrJsonEditor.convertToJson5",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)",
+          "group": "1_convert@3"
         }
       ],
       "explorer/context": [
