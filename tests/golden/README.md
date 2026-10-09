@@ -75,12 +75,12 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
    being last, or a member is appended after it), the comma goes right after its value, before the
    comment: `"b": 2 // two` becomes `"b": 2, // two`. Removing the last member removes the comma
    before the previous member's comment the same way.
-2. **Inserting before a commented member** (UNK-022, open; the corpus follows its ★ option). A comment directly above a member belongs to it
+2. **Inserting before a commented member** (UNK-022, owner: ★). A comment directly above a member belongs to it
    (UNK-008), so `add` at that member's index inserts above the comment.
 3. **`move` moves text.** The moved member's value bytes are kept as written (R8: existing literals are
    never rewritten unless replaced), so `0x0A` stays `0x0A`. Carried comment lines take the new
    member's indentation (R1).
-4. **`copy` does not copy comments** (UNK-023, open; the corpus follows its ★ option). Plan 002 defines `copy` as `add` of the value, and patch values
+4. **`copy` does not copy comments** (UNK-023, owner: ★). Plan 002 defines `copy` as `add` of the value, and patch values
    are plain data.
 5. **New containers.** A new object or array value in a multi-line container is written like
    `JSON.stringify(value, null, unit)`, indented from its member's line (R1).

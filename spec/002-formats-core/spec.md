@@ -1,9 +1,8 @@
 # SPEC 002 — Format core: JSON, JSONC, JSON5 with style-preserving edits
 
-> **Status:** `approved (owner: Chris, thread message cmsg_01Wz9SKzwQD2da69nuNGPcidEGps3h6QkUAkZLe48ZhPH2, 2026-10-08)`
-> **Progress:** every task (T1–T11) is merged on `main`. Not `done` yet: owner UNKNOWNS UNK-021,
-> UNK-022 and UNK-023 are open, and golden cases for UNK-021 are added once it is answered. Spec 005
-> criterion 5 needs this spec `done`.
+> **Status:** `done` (approved by owner: Chris, thread message cmsg_01Wz9SKzwQD2da69nuNGPcidEGps3h6QkUAkZLe48ZhPH2, 2026-10-08)
+> **Progress:** every task (T1–T11) is merged and every result-affecting UNKNOWN is resolved
+> (UNK-021, UNK-022 and UNK-023 by the owner on 2026-10-09, with UNK-021's golden cases).
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -72,6 +71,6 @@ as minimal text edits that leave every byte outside the edited spans unchanged.
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved — UNK-008, UNK-012, UNK-018 resolved; UNK-021, UNK-022, UNK-023 open (owner)
+- [x] Result-affecting UNKNOWNS resolved — UNK-008, UNK-012, UNK-018, UNK-021, UNK-022, UNK-023 resolved
 - [x] Human approval recorded (G0)
 - [x] All tasks merged (T1–T11)
