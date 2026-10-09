@@ -1,6 +1,6 @@
 # SPEC 006 — Convert between JSON, JSONC and JSON5
 
-> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidVT5gy47SrYHitggeYZ7YQa, 2026-10-09)`
+> **Status:** `done` (approved by owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidVT5gy47SrYHitggeYZ7YQa, 2026-10-09)
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -103,5 +103,5 @@ trailing commas (ADR-005: "the file's existing style kept on write").
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
+- [x] Result-affecting UNKNOWNS resolved
 - [x] Human approval recorded

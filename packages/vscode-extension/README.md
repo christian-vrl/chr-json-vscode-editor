@@ -16,6 +16,11 @@ keeps comments and JSON5 values, and asks first when it cannot keep a comment.
 The status bar shows the format the file was detected as (JSON, JSONC or JSON5). Click it, or run
 "Change Format", to parse the file as another format; this never changes the file.
 
+"Convert to JSON", "Convert to JSONC" and "Convert to JSON5" write the file in another format as a
+new file beside it (`data.json5` becomes `data.json`), keeping its layout and every comment the
+target can hold. Going to JSON removes comments, and `NaN` and `Infinity` become `null` in JSON and
+JSONC; the command asks first when that happens. The original file is never changed.
+
 Files open in the text editor by default. To open a file type in CHR JSON Editor every time, use
 "Reopen Editor With..." > "Configure default editor", or set VS Code's `workbench.editorAssociations`
 setting, for example `{ "*.json5": "chrJsonEditor.editor" }`.

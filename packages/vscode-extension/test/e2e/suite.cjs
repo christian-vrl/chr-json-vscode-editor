@@ -332,6 +332,10 @@ exports.run = async function run() {
   await closeAll();
   await require('./gitHead.cjs').runGitHead({ hooks, waitFor, closeAll });
 
+  // Gate (006 T3, criteria 6 and 7): the convert commands in both editors (convert.cjs).
+  await closeAll();
+  await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.

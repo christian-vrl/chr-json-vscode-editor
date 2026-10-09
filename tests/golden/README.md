@@ -12,7 +12,7 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 |---|---|
 | `pnpm test:golden` | every test in this folder |
 | `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4) and `convert-coverage.test.ts` (spec 006 criterion 2) |
-| `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case ; the conversion corpus tests still run |
+| `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
 
@@ -135,7 +135,8 @@ order (the reference `immutable-json-patch` 6.0.3 compares key order; RFC 6902 Â
   `tags.json`: criterion 2 names `array` as one location, so 002's `array-start/middle/end` are
   not reused.
 
-Tests: `convert.ts` loads the cases and lists the criterion 2 cells no case covers
+Tests: `convert-apply.test.ts` runs criterion 1 on every case against core's `convert` (006 T2).
+`convert.ts` loads the cases and lists the criterion 2 cells no case covers
 (`convert-coverage.test.ts`); `convert-load.test.ts` tests the loader; `convert-corpus.test.ts`
 checks the hand-written bytes against readings that do not use our format code
 (`convert-reference.ts`, `JSON.parse`, the json5 package): input and expected are valid in their
