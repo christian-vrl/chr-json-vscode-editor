@@ -33,7 +33,8 @@ if (vsixFiles.length !== 1) {
 const vsix = path.join(packageDir, vsixFiles[0]);
 
 const vscodeExecutablePath =
-  process.env.VSCODE_EXECUTABLE_PATH ?? (await downloadAndUnzipVSCode(process.env.CHR_E2E_VSCODE_VERSION || 'stable'));
+  process.env.VSCODE_EXECUTABLE_PATH ??
+  (await downloadAndUnzipVSCode(process.env.CHR_E2E_VSCODE_VERSION || 'stable'));
 
 const profile = mkdtempSync(path.join(tmpdir(), 'chr-json-editor-e2e-'));
 const extensionsDir = path.join(profile, 'extensions');
