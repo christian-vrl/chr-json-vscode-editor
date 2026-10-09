@@ -328,6 +328,10 @@ exports.run = async function run() {
   await closeAll();
   await require('./inline.cjs').runInline({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (007 T2, criterion 5, UNK-038): HEAD bytes through VS Code's Git extension (gitHead.cjs).
+  await closeAll();
+  await require('./gitHead.cjs').runGitHead({ hooks, waitFor, closeAll });
+
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.
