@@ -31,8 +31,8 @@ tasks run in order unless marked `parallel`.
 
 | Spec | Title | Notes |
 |---|---|---|
-| 006 | Convert between JSON, JSONC, JSON5 with lossy-step warnings | reuses 002 T7 |
-| 007 | Structural compare (two files or vs Git HEAD, ignoring key order) | reuses 002 T9 `diff` |
+| 006-convert-formats | Convert between JSON, JSONC, JSON5 with lossy-step warnings | 002 token streams; `stringify` (002 T7) only if UNK-033 picks re-stringifying |
+| 007-structural-compare | Structural compare (two files or vs Git HEAD, ignoring key order) | reuses 002 T9 `diff`; 006 and 007 can run in parallel |
 | 008 | Large-file mode | UNK-014 |
 | 009 | CSV import/export | merges via 002 R14 |
 | 010 | Smart format | FracturedJson library (MIT), as the site uses |
