@@ -25,7 +25,7 @@ import {
   type ToWebviewMessage,
   type ValidationMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { detect } from '@chr-json-editor/core';
+import { detect, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import type { FormatBadgeController } from './formatBadgeVscode';
@@ -97,8 +97,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Test hooks: probes and typing waiting for the webview's answer, by id. */
   private readonly probes = new Map<number, (result: unknown) => void>();
   private nextProbe = 1;
-  /** Test hooks: `whenShown` calls waiting for the webview to render their text, by id. */
-  private readonly shownWaiters = new Map<number, () => void>();
+  /** Test hooks: `whenShown` and `whenSettled` calls waiting for the webview's answer, by id. */
+  private readonly shownWaiters = new Map<number, (ms: number | undefined) => void>();
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
@@ -261,6 +261,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.sessions.delete(panel);
       this.validations.delete(panel);
       this.snapshots.delete(panel);
+      // The host's cached parse of this text (core, UNK-014) can hold gigabytes for a big file.
+      releaseParse(document.getText());
     });
   }
 
@@ -362,8 +364,12 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.probes.get(message.id)?.(message.result);
       this.probes.delete(message.id);
     }
-    if (message.chrTest === 'shown' && typeof message.id === 'number') {
-      this.shownWaiters.get(message.id)?.();
+    if (
+      (message.chrTest === 'shown' || message.chrTest === 'settled') &&
+      typeof message.id === 'number'
+    ) {
+      const { ms } = data as { ms?: unknown };
+      this.shownWaiters.get(message.id)?.(typeof ms === 'number' ? ms : undefined);
       this.shownWaiters.delete(message.id);
     }
     if (message.chrTest === 'validationShown') {
@@ -420,8 +426,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
   }
 
-  /** Test hook: resolves once the webview of `uri` renders `text` (003 T11 benchmark). */
-  whenShown(uri: string, text: string): Promise<void> {
+  /** Test hook: resolves once the webview of `uri` renders `text` (003 T11 benchmark), with the
+   *  time since the last `patch` on the webview's clock. */
+  whenShown(uri: string, text: string): Promise<number | undefined> {
     if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
     const session = this.sessionFor(uri);
     if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
@@ -429,6 +436,19 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     return new Promise((resolve) => {
       this.shownWaiters.set(id, resolve);
       void session.panel.webview.postMessage({ chrTest: 'whenShown', id, text });
+    });
+  }
+
+  /** Test hook: resolves once the webview of `uri` has every edit answered and shown (003 T11),
+   *  with the time since the last `patch` on the webview's clock. */
+  whenSettled(uri: string): Promise<number | undefined> {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
+    const id = this.nextProbe++;
+    return new Promise((resolve) => {
+      this.shownWaiters.set(id, resolve);
+      void session.panel.webview.postMessage({ chrTest: 'whenSettled', id });
     });
   }
 

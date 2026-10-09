@@ -2,12 +2,12 @@
 // per size, exactly <size> MiB (2^20 bytes, the unit VS Code's own file-size limits use), ASCII
 // only so bytes equal UTF-16 code units. Deterministic, so every run measures the same bytes.
 //
-//   node bench/generate.mjs [outDir] [sizes...]   default: bench/.data 1 10 50
+//   node bench/generate.mjs [outDir] [sizes...]   default: bench/.data 1 5 10 50
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 // 100 MiB is left out: VS Code does not hand files above 50 MB to extensions (bench/vscode-open.md).
-export const SIZES_MIB = [1, 10, 50];
+export const SIZES_MIB = [1, 5, 10, 50];
 export const MIB = 1024 * 1024;
 /** A string that only the last record holds, so a test can tell the whole document was read. */
 export const LAST_MARKER = 'chr-bench-last-record';

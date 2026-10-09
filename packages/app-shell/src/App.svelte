@@ -87,12 +87,26 @@
   // made meanwhile wait in `queued`. The library never reports a programmatic `update` as a change,
   // so text from the host is never echoed back. Typing the library has not reported yet is not in
   // `editor.get()`, so a host answer arriving meanwhile leaves the newer keystrokes in place.
+  //
+  // A tree or table edit is already in the library's data when it is sent. When the host answers
+  // it, the editor keeps that data instead of parsing the whole new text again (UNK-014): the host
+  // applied the same operations, so the text holds the same data. Text mode still shows the
+  // document's own bytes (criterion 10), so it gets the text when it is shown.
   /** The version and text of the document as the host last sent them. */
   let docVersion = 0;
   let docText = '';
   let inFlight = false;
+  /** Every change sent since the library last got the host's text was already in its data, so
+   *  once all are answered its data is the document's. */
+  let ownChanges = true;
+
+  /** A change waiting to be sent; `shown` when the library already holds it. */
+  interface Pending {
+    change: DocumentChange;
+    shown: boolean;
+  }
   /** Changes and undo/redo steps waiting to go to the host, oldest first. */
-  const queued: (DocumentChange | { kind: 'undo' } | { kind: 'redo' })[] = [];
+  const queued: (Pending | { kind: 'undo' } | { kind: 'redo' })[] = [];
   /** `flush` requests to answer once nothing the UI made is waiting for the host (003 T7). */
   const flushes: number[] = [];
   /** The text-mode sort dialog was opened from the menu: text written while it is open is the
@@ -126,10 +140,7 @@
           queryLanguageId: QUERY_LANGUAGES[0]!.id,
           onRenderMenu: renderMenu,
           onChange,
-          onChangeMode: (next: LibraryMode) => {
-            mode = next as Mode;
-            textSortPending = false;
-          },
+          onChangeMode,
         },
       });
     });
@@ -223,8 +234,9 @@
     runAction('repair');
   }
 
-  function queue(change: DocumentChange): void {
-    queued.push(change);
+  /** Queues `change` for the host; `shown` when the library already shows its result. */
+  function queue(change: DocumentChange, shown = false): void {
+    queued.push({ change, shown });
     sendNext();
   }
 
@@ -297,7 +309,19 @@
    */
   export function patch(operations: JsonPatchOperation[]): void {
     if (!editor) throw new Error('The editor is not mounted yet');
-    queued.push({ kind: 'patch', patch: operations });
+    // A tree edit is in the library's data before it is sent; `patch()` puts it there the same way.
+    // Where it cannot (text mode, a document with no value, a path that does not exist), the
+    // editor shows the host's answer instead.
+    let shown = false;
+    if (mode !== 'text') {
+      try {
+        editor.patch(operations);
+        shown = true;
+      } catch {
+        // The host reports the operations' error, if they have one.
+      }
+    }
+    queued.push({ change: { kind: 'patch', patch: operations }, shown });
     sendNext();
   }
 
@@ -306,15 +330,32 @@
     return editor?.get();
   }
 
+  /** Whether every change was answered and the editor shows the document, for tests. */
+  export function settled(): boolean {
+    return editor !== undefined && !inFlight && queued.length === 0;
+  }
+
   function selectMode(next: Mode): void {
     mode = next;
     editor?.updateProps({ mode: next as LibraryMode });
+    showDocument();
+  }
+
+  function onChangeMode(next: LibraryMode): void {
+    mode = next as Mode;
+    textSortPending = false;
+    showDocument();
   }
 
   function onChange(updated: Content, previous: Content, status: OnChangeStatus): void {
     if (status.patchResult) {
       const { redo, previousJson } = status.patchResult;
-      for (const c of routePatch(redo as JsonPatchOperation[], previousJson)) queue(c);
+      const changes = routePatch(redo as JsonPatchOperation[], previousJson);
+      // Only a patch sent as the library applied it is already in what the library shows; the host
+      // answers a repair, a sort or a diff with text the library has not seen.
+      const asApplied =
+        changes.length === 1 && changes[0]!.kind === 'patch' && changes[0]!.patch === redo;
+      for (const c of changes) queue(c, asApplied);
       // Nothing to send (a sort that kept the order): show the host's text again.
       showDocument();
       return;
@@ -344,19 +385,24 @@
     // changed span. The text goes as typed, valid or not: an error marker shows a parse error,
     // and the document never gets a repaired text in its place. Only the newest text matters.
     const last = queued.at(-1);
-    if (last?.kind === 'text') queued.pop();
-    queue({ kind: 'text', text });
+    if (last && 'change' in last && last.change.kind === 'text') queued.pop();
+    // Typed text is already in what the library shows.
+    queue({ kind: 'text', text }, true);
   }
 
   function sendNext(): void {
     while (!inFlight) {
-      const change = queued.shift();
-      if (!change) break;
-      if (change.kind === 'undo') host.undo(docVersion);
-      else if (change.kind === 'redo') host.redo(docVersion);
-      else {
+      const next = queued.shift();
+      if (!next) break;
+      if ('change' in next) {
         inFlight = true;
-        host.save(docVersion, change);
+        if (!next.shown) ownChanges = false;
+        host.save(docVersion, next.change);
+      } else {
+        // The step changes the document to something the library does not hold.
+        ownChanges = false;
+        if (next.kind === 'undo') host.undo(docVersion);
+        else host.redo(docVersion);
       }
     }
     answerFlushes();
@@ -474,14 +520,24 @@
     host.setSchemaDialect(docVersion, dialect);
   }
 
-  /** Shows the host's text, unless the editor already shows it or has unsent changes on top. */
+  /**
+   * Shows the host's text, unless the editor already shows it or has unsent changes on top. In tree
+   * and table mode, data the library made itself and the host answered counts as shown.
+   */
   function showDocument(): void {
     if (!editor || inFlight || queued.length > 0) return;
     const shown = editor.get();
     if ('text' in shown && shown.text === docText) return;
+    if ('json' in shown && ownChanges && mode !== 'text') return;
+    showText();
+  }
+
+  /** Gives the library the host's text. */
+  function showText(): void {
     // Text content, even in tree and table mode: the library parses it with the core parser, and
     // text mode then shows the document's own bytes, comments included (criterion 10).
-    editor.update({ text: docText });
+    ownChanges = true;
+    editor?.update({ text: docText });
   }
 
   function onHostEvent(event: HostEvent): void {
@@ -507,7 +563,7 @@
           queued.length = 0;
           notice = 'The document changed outside the editor; your latest change was not applied.';
         }
-        if (!inFlight) editor?.update({ text: docText });
+        if (!inFlight) showText();
         showValidation();
         answerFlushes();
         return;
@@ -525,7 +581,7 @@
           validationParser: parserFor(event.format),
         });
         // Parse the document's text again with the new format (criterion 8); bytes are unchanged.
-        if (!inFlight && queued.length === 0) editor?.update({ text: docText });
+        if (!inFlight && queued.length === 0) showText();
         return;
       case 'error':
         notice = event.message;
@@ -535,7 +591,7 @@
           inFlight = false;
           queued.length = 0;
           if (event.docVersion > docVersion) docVersion = event.docVersion;
-          editor?.update({ text: docText });
+          showText();
           showValidation();
           answerFlushes();
         }

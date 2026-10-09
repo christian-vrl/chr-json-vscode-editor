@@ -25,16 +25,12 @@ const [dataDir = 'bench/.data', out = 'bench/.results/vscode.json', ...sizeArgs]
 const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
 const files = sizes.map((mib) => ({ mib, path: path.resolve(dataDir, fileName(mib)) }));
 
-// CHR_BENCH_VSIX picks another build (bench.yml: the unminified webview.js); by default, the one
-// .vsix that `pnpm package` wrote.
 const vsixFiles = readdirSync(extensionDir).filter((f) => f.endsWith('.vsix'));
-if (!process.env.CHR_BENCH_VSIX && vsixFiles.length !== 1) {
+if (vsixFiles.length !== 1) {
   console.error(`bench: expected one .vsix in ${extensionDir}, found ${vsixFiles.length}`);
   process.exit(1);
 }
-const vsix = process.env.CHR_BENCH_VSIX
-  ? path.resolve(process.env.CHR_BENCH_VSIX)
-  : path.join(extensionDir, vsixFiles[0]);
+const vsix = path.join(extensionDir, vsixFiles[0]);
 
 const vscodeExecutablePath =
   process.env.VSCODE_EXECUTABLE_PATH ?? (await downloadAndUnzipVSCode('stable'));

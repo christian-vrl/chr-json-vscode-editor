@@ -136,7 +136,9 @@ export class SchemaBinding {
   }
 }
 
-/** The value of the document's top-level `$schema` member, if the text parses to an object. */
+/** The value of the document's top-level `$schema` member, if the text parses to an object. Core
+ *  keeps the parse of the last text, so this shares the parse that the format badge and
+ *  validation make of the same text (UNK-014, 004 T5 review F3). */
 export function topLevelSchema(text: string, format: Format): unknown {
   let data: unknown;
   try {

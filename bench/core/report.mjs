@@ -79,13 +79,16 @@ add(
   '## Results',
   '',
   '`parse` is `getAdapter(format).parse(text)` (data, tree, style, diagnostics). Each edit is one',
-  '`applyPatch(text, [op])` on the middle record `m`, returning the whole new text:',
+  '`applyPatch(text, [op])` on the middle record `m`, returning the whole new text, on a text core',
+  'has not parsed yet (core keeps the parse of the last text per format, so this is the first edit',
+  "of a text nothing else parsed). The second table is the extension host's usual case: the text",
+  'was parsed already (format badge, schema validation, the previous edit).',
   '',
   '- **replace:** `{ op: "replace", path: "/m/name", value: "edited" }`, one string.',
   '- **add:** `{ op: "add", path: "/m/extra", value: { added: true } }`, a new key.',
   '- **remove:** `{ op: "remove", path: "/m" }`, a whole record with its comments.',
-  '- **move:** `{ op: "move", from: "/m", path: "/-" }`, the record to the end; `move` re-parses',
-  '  between its remove and its add (002 T6).',
+  '- **move:** `{ op: "move", from: "/m", path: "/-" }`, the record to the end; between its remove',
+  '  and its add, `move` shifts the tree and tokens it has rather than parsing again (UNK-014).',
 );
 for (const f of results.formats) {
   add(
@@ -97,6 +100,16 @@ for (const f of results.formats) {
   );
   for (const s of f.sizes) {
     add(`| ${s.mib} MiB | ${cell(s.parse)} | ${OPS.map((op) => cell(s[op])).join(' | ')} |`);
+  }
+  add(
+    '',
+    `After the text was parsed (${f.format}):`,
+    '',
+    `| Size | ${OPS.join(' | ')} |`,
+    `|---|${OPS.map(() => '---|').join('')}`,
+  );
+  for (const s of f.sizes) {
+    add(`| ${s.mib} MiB | ${OPS.map((op) => cell(s[`${op}Parsed`])).join(' | ')} |`);
   }
 }
 
@@ -126,14 +139,14 @@ add(
   '',
   'applyPatch is only the host part of an edit: the UI, the message and `workspace.applyEdit` come on',
   'top (`bench/vscode-open.md`). So a cell over 500 ms here misses the budget whatever else happens;',
-  'one under it is necessary, not sufficient.',
+  "one under it is necessary, not sufficient. The cells use the host's case, a text already parsed.",
   '',
   `| Size | ${results.formats.map((f) => f.format).join(' | ')} |`,
   `|---|${results.formats.map(() => '---|').join('')}`,
 );
 for (const [i, s] of results.formats[0].sizes.entries()) {
   const row = results.formats.map((f) => {
-    const slowest = Math.max(...OPS.map((op) => median(f.sizes[i][op])));
+    const slowest = Math.max(...OPS.map((op) => median(f.sizes[i][`${op}Parsed`])));
     return `${slowest < EDIT_LIMIT_MS ? 'within' : 'over'}, slowest op ${ms(slowest)}`;
   });
   add(`| ${s.mib} MiB | ${row.join(' | ')} |`);
@@ -150,8 +163,10 @@ add(
     }).join(', ') +
     '.',
   '',
-  'Every `applyPatch` call parses the whole text again (tree and tokens) before it edits, and `move`',
-  'parses twice, so edit time grows with file size like parse time does.',
+  'An edit on a text core has not parsed parses it once (tree and tokens) before it edits, so its',
+  'time grows with file size like parse time does. On a parsed text, replace, add and remove only',
+  'compute the change and write the new text; move also shifts the tree and tokens after the',
+  'removed record.',
   '',
   'To reproduce: `pnpm --filter @chr-json-editor/core build`, then',
   '`pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`).',

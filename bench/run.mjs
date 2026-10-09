@@ -2,10 +2,10 @@
 // custom editor and writes bench/vscode-open.md. Needs `pnpm build`, the e2e .vsix
 // (`CHR_TEST_HOOKS=1 pnpm package`) and a display (`xvfb-run -a` on Linux). Run from any directory.
 //
-// With CHR_BENCH_UNMINIFIED_VSIX set to an e2e .vsix built with CHR_WEBVIEW_MINIFY=0, it also times
-// open at 1 MiB with that build, to compare the minified and unminified webview.js (bench.yml).
+// 1 MiB is timed again in a second VS Code launch, since the first launch's numbers at the
+// smallest size move with how warm the machine is (003 T11 review of PR #37).
 //
-//   node bench/run.mjs [sizes...]   default: 1 10 50 (MiB)
+//   node bench/run.mjs [sizes...]   default: 1 5 10 50 (MiB)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -17,18 +17,10 @@ const results = path.join(here, '.results');
 const sizes = process.argv.slice(2);
 mkdirSync(results, { recursive: true });
 
-const node = (script, args, env = {}) =>
-  execFileSync(process.execPath, [path.join(here, script), ...args], {
-    stdio: 'inherit',
-    env: { ...process.env, ...env },
-  });
+const node = (script, args) =>
+  execFileSync(process.execPath, [path.join(here, script), ...args], { stdio: 'inherit' });
 
 node('generate.mjs', [data, ...sizes]);
 node('vscode/run.mjs', [data, path.join(results, 'vscode.json'), ...sizes]);
-const unminified = process.env.CHR_BENCH_UNMINIFIED_VSIX;
-if (unminified) {
-  node('vscode/run.mjs', [data, path.join(results, 'vscode-unminified.json'), '1'], {
-    CHR_BENCH_VSIX: unminified,
-  });
-}
+node('vscode/run.mjs', [data, path.join(results, 'vscode-second.json'), '1']);
 node('report.mjs', [results, path.join(here, 'vscode-open.md')]);

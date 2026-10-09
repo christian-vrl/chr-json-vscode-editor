@@ -2,6 +2,7 @@
 // external because VS Code supplies it at runtime. VS Code activates the extension from the
 // contributed custom editor and commands (spec 003 T3).
 import * as vscode from 'vscode';
+import { releaseParse } from '@chr-json-editor/core';
 import { registerCommands } from './commands';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
@@ -16,8 +17,12 @@ export interface TestHooks {
   webviews(): WebviewSnapshot[];
   /** What the webview of `uri` renders (003 T5); see webview/testHooks.ts. */
   probe(uri: string): Promise<RenderedProbe>;
-  /** Resolves once the webview of `uri` renders `text`, whitespace collapsed (003 T11 benchmark). */
-  whenShown(uri: string, text: string): Promise<void>;
+  /** Resolves once the webview of `uri` renders `text`, whitespace collapsed (003 T11 benchmark),
+   *  with the milliseconds since the last `patch` on the webview's clock. */
+  whenShown(uri: string, text: string): Promise<number | undefined>;
+  /** Resolves once the webview of `uri` has every edit answered and shown (003 T11 benchmark),
+   *  with the milliseconds since the last `patch` on the webview's clock. */
+  whenSettled(uri: string): Promise<number | undefined>;
   /** Has the webview of `uri` send `patch` as a tree edit (criterion 1); false when none shows it. */
   patch(uri: string, patch: unknown): boolean;
   /** Types `text` at the end of the text mode of `uri`'s webview (criterion 9); resolves with the
@@ -52,6 +57,8 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
       provider.formatChanged(document, format),
     ),
     ...registerCommands(),
+    // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
+    vscode.workspace.onDidCloseTextDocument((document) => releaseParse(document.getText())),
   );
   if (__CHR_TEST_HOOKS__) {
     return {
@@ -60,6 +67,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         probe: (uri) => provider.probe(uri),
         setMode: (uri, mode) => provider.setMode(uri, mode),
         whenShown: (uri, text) => provider.whenShown(uri, text),
+        whenSettled: (uri) => provider.whenSettled(uri),
         patch: (uri, patch) => provider.patch(uri, patch),
         type: (uri, text) => provider.type(uri, text),
         press: (uri, key, shift) => provider.press(uri, key, shift),

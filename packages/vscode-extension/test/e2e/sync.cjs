@@ -96,11 +96,14 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
         await waitFor(`${format}/${name} to be edited`, () => document.version > before);
         assert.equal(document.getText(), expected, `${format}/${name}: document text`);
         assert.equal(document.isDirty, true, `${format}/${name}: not dirty`);
-        // The webview follows the host's answer: it shows the new text, not an echo of its own.
+        // The tree keeps the data it made, which the host's text holds too (UNK-014); text mode
+        // shows the host's new text, comments included, not an echo of its own (criterion 10).
+        await hooks.whenSettled(uri.toString());
+        assert.equal(hooks.setMode(uri.toString(), 'text'), true);
         await probeUntil(
           uri,
           `${format}/${name} in the webview`,
-          (p) => p.content?.text === expected,
+          (p) => p.mode === 'text' && p.content?.text === expected,
         );
         assert.equal(snapshot(uri).editsReceived, 1, `${format}/${name}: edits sent`);
         await document.save();

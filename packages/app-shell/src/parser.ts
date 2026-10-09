@@ -35,6 +35,11 @@ function createParser(format: Format): TextParser {
   const adapter = getAdapter(format);
   return {
     parse(text) {
+      // Valid JSON is valid JSONC and JSON5 with the same data, and `JSON.parse` reads it many
+      // times faster than core (UNK-014; it also defines a `__proto__` key as a member, as core
+      // does). Anything else, comments and JSON5 syntax included, goes to core.
+      const data = parseStrictJson(text);
+      if (data !== NOT_JSON) return data;
       const result = adapter.parse(text);
       // A text with an error diagnostic does not parse, whatever `data` holds (002 T5 F1: JSON5
       // returns `data` undefined with one error); warnings (JSON's strict-mode notes) do not count.
@@ -47,4 +52,15 @@ function createParser(format: Format): TextParser {
       return JSON.stringify(value, replacer as Parameters<typeof JSON.stringify>[1], space);
     },
   };
+}
+
+const NOT_JSON = Symbol('not JSON');
+
+/** The text's data when it is strict JSON (RFC 8259), else `NOT_JSON`. */
+function parseStrictJson(text: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return NOT_JSON;
+  }
 }

@@ -18,6 +18,16 @@ const shownText = (page: Page) =>
     const content = window.devApp!.content();
     return content && 'text' in content ? content.text : JSON.stringify(content);
   });
+/** The data the editor shows. After an edit of its own, tree mode keeps its data rather than the
+ *  host's text (003 T11), so tree-mode checks compare data, not text. */
+const shownData = (page: Page) =>
+  page.evaluate((): unknown => {
+    const content = window.devApp!.content();
+    if (!content) return undefined;
+    return 'json' in content && content.json !== undefined
+      ? content.json
+      : JSON.parse((content as { text: string }).text);
+  });
 
 /**
  * Opens the page in tree mode and edits a value there, as a user does, so the edit is in the
@@ -36,7 +46,7 @@ async function openEdited(page: Page) {
   await expect.poll(() => hostText(page)).toContain('Fortran');
   await expect.poll(() => editsOf(page)).toHaveLength(1);
   const edited = await hostText(page);
-  await expect.poll(() => shownText(page)).toBe(edited);
+  await expect.poll(() => shownData(page)).toEqual(JSON.parse(edited));
   return { original, edited };
 }
 
@@ -47,14 +57,14 @@ test('Ctrl+Z and Ctrl+Y in tree mode undo and redo in the host, and the library 
   const edits = (await editsOf(page)).length;
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => hostText(page)).toBe(original);
-  await expect.poll(() => shownText(page)).toBe(original);
+  await expect.poll(() => shownData(page)).toEqual(JSON.parse(original));
   await page.keyboard.press('ControlOrMeta+y');
   await expect.poll(() => hostText(page)).toBe(edited);
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => hostText(page)).toBe(original);
   await page.keyboard.press('ControlOrMeta+Shift+z');
   await expect.poll(() => hostText(page)).toBe(edited);
-  await expect.poll(() => shownText(page)).toBe(edited);
+  await expect.poll(() => shownData(page)).toEqual(JSON.parse(edited));
   expect(await historyOf(page)).toEqual(['undo', 'redo', 'undo', 'redo']);
   // The library's own undo would show up as an edit of its own: none came.
   expect(await editsOf(page)).toHaveLength(edits);
