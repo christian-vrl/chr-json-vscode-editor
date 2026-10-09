@@ -114,7 +114,7 @@ jobs:
           path: packages/vscode-extension/.vscode-test
           key: vscode-${{ runner.os }}-${{ steps.vscode.outputs.version }}
       # The e2e build: the suite reads webview state through test hooks that release builds
-      # compile out (esbuild.mjs). Only stable is tested, not the ^1.95.0 floor (UNK-016).
+      # compile out (esbuild.mjs). Only stable is tested here; the vscode-matrix workflow tests the engines.vscode floor (UNK-016).
       - run: CHR_TEST_HOOKS=1 pnpm package
       - run: xvfb-run -a pnpm test:e2e
 

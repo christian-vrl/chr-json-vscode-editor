@@ -28,9 +28,9 @@ v1 must reach users through the VS Code Marketplace and Open VSX with correct li
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
 | UNK-002 | Name, publisher ID, namespace | T1, T3 | see ledger |
-| UNK-016 | Minimum VS Code version (`engines.vscode`, provisional `^1.95.0`) | final value shipped in v1 | delegated |
+| UNK-016 | Minimum VS Code version (`engines.vscode`) | final value shipped in v1 | delegated; resolved: `^1.136.2` (PR #52) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved — UNK-002 resolved; UNK-016 (delegated) open, its row lists spec 005 (001 tasks say its matrix run can follow v1)
+- [x] Result-affecting UNKNOWNS resolved — UNK-002 resolved; UNK-016 resolved (delegated, PR #52)
 - [x] Human approval recorded (G0); owner approves the release run (G2)

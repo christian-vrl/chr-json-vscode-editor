@@ -15,7 +15,8 @@ await build({
   bundle: true,
   format: 'cjs',
   platform: 'node',
-  // VS Code 1.95 (engines.vscode, UNK-016) ships Electron 32, which runs Node 20.
+  // Node 20 is the floor UNK-016 started from (VS Code 1.95, Electron 32); the resolved floor 1.136
+  // runs a newer Node, so this target is conservative, not required.
   target: 'node20',
   external: ['vscode'],
   // jsonc-parser's UMD build (its `main`) loads its own files with a dynamic `require` that esbuild
