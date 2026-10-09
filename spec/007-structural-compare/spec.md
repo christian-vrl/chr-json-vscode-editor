@@ -28,8 +28,10 @@ as JSON Pointers: `added` exists only on the right, `removed` only on the left, 
 2. **Copy (core, same suite):** `copyDifference(source, target, d)` returns a JSON Patch for the
    target. Applied to the target, it leaves the target deep-equal to before except at `d`'s location,
    which now holds the source's value there (or no member, for a difference that is absent on the
-   source side), and `compare` then reports exactly one difference fewer. Copying every difference of
-   `compare(a, b)` from `b` into `a`, one at a time in list order, leaves `a` deep-equal to `b`.
+   source side). Copying differences one at a time, from either side, re-running `compare` after
+   each copy and taking any difference of the new result, makes both sides deep-equal within `2n`
+   copies, `n` being the number of differences at the start (UNK-039: a copy can realign array
+   items, so one copy may remove more or fewer than one difference).
 3. **Panel (web, `pnpm test:web`, other origins blocked):** for each fixture `tests/compare/<case>/`
    (`left.*`, `right.*`, `expected.json` = the `Difference[]`), the compare page renders both sides in
    tree mode, read-only (per UNK-036), marks each difference's path with class `chr-diff-added`,
@@ -95,6 +97,7 @@ as JSON Pointers: `added` exists only on the right, `removed` only on the left, 
 | UNK-036 | Compare panels read-only with copy buttons, or editable like the site | criteria 3, 6; T3, T4 | see ledger |
 | UNK-037 | Largest documents compare handles before falling back to text diff | criterion 10; T5 | delegated (T5 evidence) |
 | UNK-038 | How HEAD content is read | criterion 5; T2 | delegated (T2 evidence) |
+| UNK-039 | "Exactly one difference fewer" after a copy cannot always hold (a copy can realign array items) | criterion 2; T1 | resolved (owner): restated, see ledger |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable

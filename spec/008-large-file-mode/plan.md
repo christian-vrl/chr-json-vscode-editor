@@ -8,7 +8,9 @@ Core first. `parseData(format, text)` reads only the data: no tree, tokens, styl
 nothing cached. For `json` and for any text that is strict JSON it uses `JSON.parse`, as
 `app-shell/src/parser.ts` already does; for `jsonc` and `json5` it walks the text once, building
 values directly. It must agree with `getAdapter(format).parse(text)` on data and on whether there is an
-error, which the property suite checks against the full parse on the golden corpus and generated texts.
+error: when the fast path fails, it calls core's `parse` once for the first error's message and
+offset (criterion 6), so only invalid text pays for a full parse. The property suite checks this
+against the full parse on the golden corpus and generated texts.
 The core bench gets a `parseData` column next to `parse`.
 
 The webview gets a large-file state from the host in `init` (`largeFile: { bytes, unlocked }`, a

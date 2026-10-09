@@ -5,9 +5,9 @@
 > Change the spec first, not the code.
 
 ## Problem / motivation
-Above 5 MiB the full editor is slow: on the CI runner one edit takes 515–588 ms at 5–10 MiB and
-3.7–4.4 s at 50 MiB, and a cold first edit at 5 MiB misses 500 ms every time (`bench/vscode-open.md`,
-UNK-014). Memory grows faster than the file: one core parse of a 50 MiB file keeps about 2 GB of heap
+Above 5 MiB the full editor is slow: on the CI runner the first-edit median is 515–588 ms at
+5–10 MiB, the first and second edits take 3.7–4.4 s at 50 MiB, and a cold first edit at 5 MiB misses
+500 ms every time (`bench/vscode-open.md`, UNK-014). Memory grows faster than the file: one core parse of a 50 MiB file keeps about 2 GB of heap
 alive (`bench/RESULTS.md` §Memory), and the extension host keeps that parse for the badge,
 validation and the next edit. The owner set the limit of the full editor at 5 MiB (UNK-014). Users
 still need to open, read and search files above it, up to VS Code's own 50 MB limit for extensions
@@ -23,7 +23,9 @@ extensions get a clear message instead of a failed open.
 "Size" is the UTF-8 byte length of the document's text when the tab opens. "Threshold" is
 5 MiB = 5,242,880 bytes (UNK-014). "Ceiling" is VS Code's sync limit for extensions (HYPOTHESIS:
 50 × 2^20 = 52,428,800 bytes is the largest size that opens, per run 37874204494; T4 confirms the
-exact value).
+exact value). Criterion 9 uses the file's size on disk
+(a UTF-8 BOM included), because the command runs before VS Code loads the document; every other
+criterion uses the text size.
 
 1. **Threshold (e2e):** a document of exactly 5,242,880 bytes opens in the normal editor (spec 003);
    one of 5,242,881 bytes opens in large-file mode. The mode is chosen when the tab opens and kept
