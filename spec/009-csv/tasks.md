@@ -30,8 +30,16 @@
   — needs: 009 T3, 003 T3 — *gate: criteria 4, 5, 7, 8 green in `pnpm test:e2e`; `pnpm check:offline`
   green (criterion 9)*
 
+## Phase D — Large files (risk-free / additive)
+- [ ] **T5** Spec 008 integration: "Import CSV…" and "Replace Document Data" hidden in a locked tab
+  and back after "Edit anyway"; export from a large-file-mode tab through `parseData`; e2e on a
+  6 MiB fixture. — needs: 009 T4, 008 T3 — *gate: criterion 10 green in `pnpm test:e2e`*
+
 ## Off the critical path
 - Spec 008 decides how a created JSON file above the threshold opens; criterion 8 only checks that
-  it opens that way, so T4 uses whatever 008 has merged by then (normal editor before 008 T3).
+  it opens that way, so T4 uses whatever 008 has merged by then (normal editor before 008 T3) and T5
+  re-checks it.
+- Naming: the spec PR (#62) was reviewed as "009-T1"; the corpus task's PR is the first real 009 T1,
+  and its verdict is read on its own head SHA.
 - Opening `.csv` files directly in table mode, other encodings and column choice could be a later
   spec; spec 012 (NDJSON in table mode) is the nearest neighbor.

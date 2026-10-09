@@ -22,8 +22,12 @@ live preview, entirely offline, and an exported document imports back to the sam
 - **Field name:** the CSV header text that names where a cell's value sits in a row object. A member
   of a nested object appends `.` and its key (`address.city`); an array item appends `[<index>]`
   (`tags[0]`). A key that is empty or contains `.`, `[`, `]` or `"` is written `["<key>"]` with the
-  key as a JSON string (`["a.b"]`). This is the notation of csv42, the site's own CSV library.
+  key as a JSON string, appended with no `.` before it (`["a.b"]` at the top level, `address["a.b"]`
+  and `address[""]` when nested). This is the notation of csv42, the site's own CSV library
+  (csv42 5.0.3 writes `a["x.y"]` and `a.b["c["]`).
 - **Threshold** and **ceiling:** spec 008's 5 MiB threshold (UNK-014) and its 50 MiB ceiling.
+- **Locked:** a CHR JSON editor tab in spec 008's read-only large-file mode that has not been
+  unlocked with "Edit anyway" (UNK-040).
 
 ## Acceptance criterion (falsifiable)
 `jsonToCsv(data, options)` in `packages/core` returns `{ text }` or `{ error }`, and
@@ -37,7 +41,7 @@ a message and, for import, a 1-based line number. Options and defaults are in §
    `expected.json` (`isDeepStrictEqual`, key order checked too) and `warnings` equals `warnings.json`,
    or the error equals `error.json`.
 2. **Coverage:** each case's `case.json` lists the rules it exercises; a coverage test asserts at
-   least one case per rule X1–X7 and I1–I7, one per value type of I7 (number, `true`, `false`,
+   least one case per rule X1–X7 and I1–I7, a one-column table with a `null` row in each direction, one per value type of I7 (number, `true`, `false`,
    `null`, empty, JSON object or array, text), one per delimiter, and one with the header off for
    each direction.
 3. **Round trip (fast-check, seed committed, 10 000 runs):** for `data` an array of objects that all
@@ -71,11 +75,17 @@ a message and, for import, a 1-based line number. Options and defaults are in §
    an `error` diagnostic is not exported; the message says to fix it or run "Repair JSON" first, as
    006 criterion 7 does.
 8. **Size (e2e):** a CSV file above the threshold imports in full; the preview still shows only the
-   first 100 rows, and a created JSON file above the threshold opens as spec 008 says. A CSV file
-   above the ceiling is not read: the message says the file is too large for CSV import.
+   first 100 rows, and a created JSON file above the threshold opens as spec 008 says (large-file
+   mode); one above the ceiling is still written, and opening it shows 008 criterion 9's message. A CSV
+   file above the ceiling is not read: the message says the file is too large for CSV import.
 9. **CSP, offline, theme:** the panel's webview CSP meets spec 003 criterion 6; `pnpm check:offline`
    passes with no new URL; no new runtime dependency; the panel passes axe-core's `color-contrast`
    rule with `tests/themes/{light,dark,hc}.json`.
+10. **Large-file mode (e2e):** in a locked tab, "Import CSV…" is not offered (editor title and
+    palette) and the panel offers no "Replace Document Data"; both come back after "Edit anyway".
+    "Export to CSV…" and "Convert CSV to JSON" stay available. Export from a large-file-mode tab reads
+    the data with 008's `parseData`, so core's parse cache holds no parse of the document afterwards
+    (008 criterion 8's test hook).
 
 ## Options
 | Option | Applies to | Values | Default |
@@ -103,26 +113,33 @@ a message and, for import, a 1-based line number. Options and defaults are in §
   cell.
 - **X6 Quoting (RFC 4180):** a cell is quoted, with each `"` doubled, when it contains the delimiter,
   `"`, CR or LF, starts or ends with white space, is an empty string, or is a string that I7 would
-  read as another type (`"7"`, `"true"`, `"null"`), so it imports back as text. Nothing else is quoted.
+  read as a number, `true`, `false` or `null` (`"7"`, `"true"`, `"null"`), so it imports back as text.
+  Nothing else is quoted. A string whose text is a JSON object or array cannot be told apart from a
+  nested value on import (I7), so it comes back as that value; export does not warn about it.
 - **X7 Layout:** the header row (when on) holds the field names, quoted by X6; every row ends with
   CR LF, the last included; a BOM is written first only when that option is on.
 
 ## Import rules (golden cases encode these)
 - **I1 Text:** UTF-8; a leading BOM is removed.
 - **I2 Records (RFC 4180, lenient):** fields split on the delimiter; a quoted field may hold the
-  delimiter, line breaks and `""` for `"`; records end at CR LF, LF or CR; a final line ending and
-  trailing empty lines are ignored; an empty line inside the data is skipped. A `"` inside an unquoted
-  field is kept as text. A quote left open at the end of the text is an error naming the line where it
-  opened. A text with no records is an error ("The CSV file is empty").
+  delimiter, line breaks and `""` for `"`; records end at CR LF, LF or CR; one final line ending ends
+  the text, and each line before it is a record. An empty line is a record of one empty field: with
+  exactly one field name it is a row (so a one-column `null` row written by X5 survives), with more
+  than one it is skipped, which also drops trailing empty lines. A `"` inside an unquoted field is
+  kept as text. Text after a closing quote, up to the next delimiter or line end, is appended to the
+  field's value as written, with a warning naming the line. A quote left open at the end of the text
+  is an error naming the line where it opened. A text with no records is an error ("The CSV file is empty").
 - **I3 Detect delimiter:** the first of `,` `;` tab `|` that splits each of the first 10 records
   (outside quotes) into the same number of fields, at least 2; else `,`.
 - **I4 Field names:** with the header on, the first record gives the field names; an empty name
-  becomes `Field <n>` (n = 0-based column); a repeated name gets `_1`, `_2`, … and a warning. With the
-  header off, every column is named `Field <n>` and the first record is data.
+  becomes `Field <n>` (n = 0-based column); then a repeated name, including a `Field <n>` that equals
+  another column's name, gets `_1`, `_2`, … and a warning. With the header off, every column is
+  named `Field <n>` and the first record is data.
 - **I5 Nesting:** with "Nested objects from field names" on, a field name in §Terms notation builds
   nested objects and arrays (`address.city`, `tags[0]`, `["a.b"]`); a name that is not valid notation,
   or that conflicts with an earlier one (`a` then `a.b`), stays a flat key, with a warning for each
-  conflict. Off, every field name is a flat key.
+  conflict. Array indices missing below the highest one given (`tags[2]` without `tags[0]`) become
+  `null`, as csv42 does. Off, every field name is a flat key.
 - **I6 Rows:** each record becomes one object with its members in column order. A record with fewer
   fields than there are names leaves the missing members out; a record with more fields keeps the
   extra ones as `Field <n>` and gets a warning naming its line. The result is an array, empty when the
@@ -137,7 +154,8 @@ a message and, for import, a 1-based line number. Options and defaults are in §
 ## Scope
 - **In:** `jsonToCsv` and `csvToJson` in `core` (our own code, csv42's notation), the golden
   corpus and property suite, the CSV panel page in `app-shell` with a dev host, the VS Code panel and
-  its commands, save, copy, create file and replace document data, delimiter detection, the size limits.
+  its commands, save, copy, create file and replace document data, delimiter detection, the size
+  limits, behavior in spec 008's large-file mode.
 - **Out:** encodings other than UTF-8; other delimiters or quote characters; type inference beyond
   I7 (dates, locale decimals such as `1,5`); choosing, reordering or renaming columns; streaming
   parse; editing CSV files in place in the CHR JSON editor (a `.csv` file is never opened as a
@@ -171,7 +189,8 @@ a message and, for import, a 1-based line number. Options and defaults are in §
 - Host-agnostic UI: ADR-002; the single-document `HostAdapter` (`packages/app-shell/src/host-adapter.ts`)
   is not shaped for a panel without a document, so the CSV page gets its own interface (as 007 T3's
   compare page does).
-- Threshold and ceiling: UNK-014 (5 MiB); spec 008 (draft, PR #59) criteria 1 and 9.
+- Threshold and ceiling: UNK-014 (5 MiB); spec 008 (PR #59) criteria 1 and 9. Locked tabs and
+  `parseData`: 008 criteria 2, 4, 6 and 8; UNK-040 (owner, "Read-only, unlockable").
 - CSP and offline: ADR-006, spec 003 criterion 6; theme capture: spec 003 criterion 7.
 
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
