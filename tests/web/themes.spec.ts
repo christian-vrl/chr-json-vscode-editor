@@ -3,6 +3,7 @@
 // the app-shell passes axe-core's color-contrast rule in every mode, and its colours come from
 // those variables rather than from the library's built-in light theme.
 /// <reference lib="dom" />
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from './fixtures';
 import { applyTheme, computedColor, expectContrast, loadTheme, THEMES } from './theme-helpers';
 
