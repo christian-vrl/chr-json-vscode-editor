@@ -14,8 +14,9 @@
   Undo and redo (003 T7, plan 003 risk R1) belong to the host's history of the document, never the
   library's: the undo and redo keys and the library's menu buttons send `undo` and `redo` to the
   host, which undoes there (in VS Code, the document's own undo stack), and the result comes back
-  as an external `update`. Before the host saves, it asks for a `flush`, so the saved file has the
-  typing text mode has not reported yet.
+  as an external `update`. While a key or value is being typed inline, the keys undo that typing
+  in the field instead, as the browser does it. Before the host saves, it asks for a `flush`, so
+  the saved file has the typing text mode has not reported yet.
 
   Whole-document actions (003 T8) never let the library rewrite the text, which would drop comments
   (its text mode writes `JSON.stringify` of the data). Format, compact and repair go to the host as
@@ -414,15 +415,38 @@
     sendNext();
   }
 
-  /** The undo and redo keys VS Code binds: Ctrl+Z; Ctrl+Y and Ctrl+Shift+Z (Cmd on macOS). */
+  /**
+   * The undo and redo keys VS Code binds: Ctrl+Z; Ctrl+Y and Ctrl+Shift+Z (Cmd on macOS). They never
+   * reach the library or the page around it. In a field being typed in, they undo that field's
+   * typing, as the browser does it; anywhere else they go to the host's history.
+   */
   function onKeydown(event: KeyboardEvent): void {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const z = isKey(event, 'z', 'KeyZ');
     const y = isKey(event, 'y', 'KeyY');
     if (!z && !y) return;
-    event.preventDefault();
     event.stopPropagation();
+    if (isField(event.target)) return;
+    event.preventDefault();
     void history(z && !event.shiftKey ? 'undo' : 'redo');
+  }
+
+  /**
+   * Whether `target` is a field the user types a value into (a key or value edited inline in tree
+   * or table mode, the search boxes of every mode, a modal's inputs), whose own typing the browser
+   * undoes (003 T7 F1). Not tree and table mode's hidden input, which only catches keys for the
+   * whole view, and not CodeMirror's text (`.cm-content`), which in text mode is the document
+   * itself (UNK-032: one in a modal).
+   */
+  function isField(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement)) return false;
+    if (target.classList.contains('jse-hidden-input') || target.closest('.cm-content'))
+      return false;
+    return (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target.isContentEditable
+    );
   }
 
   /** `letter` as the layout types it, or its physical key where the layout types no Latin letter. */
