@@ -42,15 +42,24 @@ function cell(from, to, mib) {
 }
 
 const here = fileURLToPath(import.meta.url);
-if (process.argv[2] === '--child') {
+if (process.argv[2] === '--convert-child') {
   const [from, to, mib] = process.argv.slice(3);
   cell(from, to, Number(mib));
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const sizes = process.argv.length > 2 ? process.argv.slice(2).map(Number) : SIZES_MIB;
   for (const [from, to] of PAIRS) {
     for (const mib of sizes) {
-      // One Node process per cell, as run.mjs does, so cells do not share a heap.
-      const args = ['--expose-gc', '--max-old-space-size=8192', here, '--child', from, to, mib];
+      // One Node process per cell, as run.mjs does, so cells do not share a heap. The flag differs
+      // from run.mjs's `--child`, which run.mjs reads on import.
+      const args = [
+        '--expose-gc',
+        '--max-old-space-size=8192',
+        here,
+        '--convert-child',
+        from,
+        to,
+        mib,
+      ];
       execFileSync(process.execPath, args.map(String), { stdio: 'inherit' });
     }
   }

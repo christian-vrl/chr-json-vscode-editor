@@ -41,7 +41,7 @@ const SUPERSETS: Record<Format, readonly Format[]> = {
 };
 
 /** An RFC 8259 string literal (C1's test), matched in place at a token's offset. */
-const JSON_STRING = /"(?:[^"\\\u0000-\u001F]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/y; // eslint-disable-line no-control-regex
+const JSON_STRING = /"(?:[^"\\\u0000-\u001F]+|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/y; // eslint-disable-line no-control-regex
 /** An RFC 8259 number, matched in place. */
 const JSON_NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 
