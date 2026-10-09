@@ -1,6 +1,9 @@
 # SPEC 002 — Format core: JSON, JSONC, JSON5 with style-preserving edits
 
 > **Status:** `approved (owner: Chris, thread message cmsg_01Wz9SKzwQD2da69nuNGPcidEGps3h6QkUAkZLe48ZhPH2, 2026-10-08)`
+> **Progress:** every task (T1–T11) is merged on `main`. Not `done` yet: owner UNKNOWNS UNK-021,
+> UNK-022 and UNK-023 are open, and golden cases for UNK-021 are added once it is answered. Spec 005
+> criterion 5 needs this spec `done`.
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -63,8 +66,12 @@ as minimal text edits that leave every byte outside the edited spans unchanged.
 | UNK-008 | Comments that travel on remove/move | R5, R7 cases | see ledger |
 | UNK-012 | JSON5 CST: package vs own | T5 | delegated |
 | UNK-018 | Comment-keeping repair of broken JSONC/JSON5 | T11 | delegated |
+| UNK-021 | Same-line comment before a member on `remove`/`move`/`add` | R5, R7; T3, T5, T6 cases | see ledger (owner) |
+| UNK-022 | `add` at an index whose member has comment lines above it | R2; T3, T5, T6 cases | see ledger (owner) |
+| UNK-023 | Does `copy` duplicate the `from` member's comments | R7, R8; T6 cases | see ledger (owner) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
+- [ ] Result-affecting UNKNOWNS resolved — UNK-008, UNK-012, UNK-018 resolved; UNK-021, UNK-022, UNK-023 open (owner)
 - [x] Human approval recorded (G0)
+- [x] All tasks merged (T1–T11)
