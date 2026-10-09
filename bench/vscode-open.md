@@ -5,8 +5,8 @@
 
 ## Run
 
-- Where: GitHub Actions, [run 37867109909](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37867109909); commit `e8040abc6745c57db8446c7ee354778d012ecbf6`.
-- Machine: Linux x64 (`ubuntu24`), 2 × AMD EPYC 7763 64-Core Processor, 8 GiB RAM.
+- Where: GitHub Actions, [run 37872733611](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37872733611); commit `da7d83f39acddedab90687c051ab19a093f71b25`.
+- Machine: Linux x64 (`ubuntu24`), 2 × AMD EPYC 9V45 96-Core Processor, 8 GiB RAM.
 - VS Code 1.141.0 (stable at run time, `--disable-gpu`, under xvfb), the e2e .vsix (release build plus test hooks).
 - 3 runs per size; each cell is **median** (run 1, run 2, run 3), in milliseconds (the edit on the webview's clock, the rest on the extension host's). The editor is closed between runs, so every run opens the file again in the same VS Code window; the edit runs right after each open.
 - Files: `node bench/generate.mjs`, one pretty-printed JSON array of 7-field records per size, exactly N × 2^20 bytes (MiB, the unit of VS Code's own file limits), ASCII only.
@@ -14,23 +14,25 @@
 
 ## Results
 
-| Size | Webview ready | First render | One edit | value shown | host applies it |
-|---|---|---|---|---|---|
-| 1 MiB (1,048,576 B) | **876** (920, 510, 876) | **1,031** (1,229, 638, 1,031) | **124** (124, 91, 154) | **22** (22, 17, 30) | **74** (77, 50, 74) |
-| 5 MiB (5,242,880 B) | **1,385** (2,274, 1,385, 1,170) | **1,654** (2,631, 1,654, 1,525) | **492** (675, 482, 492) | **34** (21, 34, 36) | **197** (246, 197, 197) |
-| 10 MiB (10,485,760 B) | **1,364** (2,300, 1,364, 1,249) | **1,940** (2,825, 1,940, 1,629) | **606** (701, 573, 606) | **34** (41, 34, 29) | **215** (215, 272, 205) |
-| 50 MiB (52,428,800 B) | **8,435** (11,632, 8,435, 6,624) | **10,230** (13,359, 10,230, 8,088) | **3,897** (3,898, 3,897, 3,229) | **78** (43, 78, 101) | **1,555** (1,822, 1,555, 1,531) |
+| Size | Webview ready | First render | One edit | value shown | host applies it | Second edit |
+|---|---|---|---|---|---|---|
+| 1 MiB (1,048,576 B) | **542** (1,681, 542, 491) | **752** (2,167, 688, 752) | **144** (144, 121, 264) | **19** (15, 19, 39) | **95** (99, 95, 91) | **241** (383, 241, 84) |
+| 5 MiB (5,242,880 B) | **948** (1,540, 902, 948) | **1,119** (1,742, 1,040, 1,119) | **253** (577, 220, 253) | **23** (63, 14, 23) | **94** (223, 94, 93) | **160** (143, 348, 160) |
+| 10 MiB (10,485,760 B) | **1,614** (1,727, 1,564, 1,614) | **1,960** (2,094, 1,960, 1,918) | **569** (585, 569, 438) | **23** (19, 23, 25) | **136** (134, 136, 152) | **556** (556, 426, 690) |
+| 50 MiB (52,428,800 B) | **7,917** (7,917, 9,128, 7,644) | **9,349** (9,349, 10,153, 8,672) | **2,248** (2,248, 2,284, 1,839) | **54** (41, 93, 54) | **883** (883, 1,115, 784) | **5,156** (3,486, 6,588, 5,156) |
 
 ## Against UNK-014's rule (open < 3 s, one edit < 500 ms)
 
 "Open" is the first render: the time until the user sees the document in the tree.
 
-| Size | First render | One edit | Verdict |
-|---|---|---|---|
-| 1 MiB | 1,031 | 124 | pass |
-| 5 MiB | 1,654 | 492 | pass |
-| 10 MiB | 1,940 | 606 | miss: edit too slow |
-| 50 MiB | 10,230 | 3,897 | miss: open too slow, edit too slow |
+Both edits count: the slower median of the first and the second edit must be under 500 ms.
+
+| Size | First render | One edit | Second edit | Verdict |
+|---|---|---|---|---|
+| 1 MiB | 752 | 144 | 241 | pass |
+| 5 MiB | 1,119 | 253 | 160 | pass |
+| 10 MiB | 1,960 | 569 | 556 | miss: edit too slow |
+| 50 MiB | 9,349 | 2,248 | 5,156 | miss: open too slow, edit too slow |
 
 Largest size that passes: **5 MiB**.
 
@@ -39,9 +41,9 @@ Largest size that passes: **5 MiB**.
 Timed again after the first launch closed, on the same runner: how far one launch's medians
 can move. The verdict above uses the first launch.
 
-| Size | Webview ready | First render | One edit | value shown |
-|---|---|---|---|---|
-| 1 MiB | **480** (1,657, 480, 458) | **610** (2,260, 610, 575) | **105** (275, 105, 96) | **21** (40, 21, 17) |
+| Size | Webview ready | First render | One edit | value shown | Second edit |
+|---|---|---|---|---|---|
+| 1 MiB | **352** (1,305, 352, 329) | **450** (1,626, 436, 450) | **77** (90, 74, 77) | **16** (14, 16, 19) | **131** (237, 129, 131) |
 
 ## What is measured
 
@@ -61,6 +63,9 @@ can move. The verdict above uses the first launch.
   the message, `core` applyPatch and the WorkspaceEdit. After the change the host parses the new
   text once in the background (format badge, schema validation, the next edit), which can delay
   an edit made right after.
+- **Second edit:** the same edit with another value, made as soon as the first settled: the host
+  now edits the text its first edit produced, not the one it parsed on open. Run 1 of each size
+  is the first open of that file in this VS Code launch (cold); runs 2 and 3 open it again.
 
 To reproduce: `pnpm build && CHR_TEST_HOOKS=1 pnpm package`, then `xvfb-run -a pnpm --filter
 @chr-json-editor/bench bench` (or the `bench` workflow, `.github/workflows/bench.yml`).
