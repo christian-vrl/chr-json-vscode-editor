@@ -4,7 +4,8 @@
 // commands, the webview's Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z and the library's menu buttons each move
 // one step in the document's undo stack, never two (the library's own history is not used). Typing
 // that text mode still holds back (text-mode.ts debounce) reaches the document before a save
-// (the `flush` request) and before an undo. The file is a copy in a temporary folder.
+// (the `flush` request) and before an undo; a hidden tab's save asks for no flush. The file is a
+// copy in a temporary folder.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -147,6 +148,26 @@ exports.runUndoSave = async function runUndoSave({
     await probeUntil('the undo in the editor', (p) => p.content?.text === typed);
     await waitFor('the undo to clear the dirty marker', () => !document.isDirty);
     console.log('criterion 3: Ctrl+Z right after typing in text mode undoes the typing');
+
+    // A save of a hidden tab does not ask its webview to flush: the webview is gone while the tab
+    // is hidden, so the save would only wait for the flush timeout.
+    const flushRequests = () => hooks.webviews().find((w) => w.uri === key).flushRequests;
+    const asked = flushRequests();
+    assert.ok(asked > 0, 'the saves of the visible tab asked for no flush');
+    const other = await vscode.workspace.openTextDocument(path.join(OPEN, 'sample.json'));
+    await vscode.window.showTextDocument(other, { preview: false });
+    await waitFor('the editor tab to be hidden', () => {
+      const active = vscode.window.tabGroups.activeTabGroup.activeTab;
+      return active?.input?.uri?.toString() === other.uri.toString();
+    });
+    const newline = new vscode.WorkspaceEdit();
+    newline.insert(uri, document.positionAt(document.getText().length), '\n');
+    assert.equal(await vscode.workspace.applyEdit(newline), true);
+    await waitFor('the document to be dirty', () => document.isDirty);
+    assert.equal(await document.save(), true);
+    assert.equal(onDisk(), document.getText(), 'the file on disk is not the document text');
+    assert.equal(flushRequests(), asked, 'the save of a hidden tab asked its webview to flush');
+    console.log('003 T7: saving a hidden tab does not wait for its webview');
 
     await closeAll();
   } finally {

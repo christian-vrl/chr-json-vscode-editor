@@ -54,6 +54,8 @@ export interface WebviewSnapshot {
   validationsShown: ShownValidation[];
   /** How many `edit` messages the webview sent (criterion 2: none for an external change). */
   editsReceived: number;
+  /** How many `flush` requests the host posted before a save (003 T7). */
+  flushRequests: number;
 }
 
 /** What the webview reports after decoding a `validation` message. */
@@ -204,6 +206,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         scriptLoaded: false,
         validationsShown: [],
         editsReceived: 0,
+        flushRequests: 0,
       };
       this.snapshots.set(panel, snapshot);
     }
@@ -232,7 +235,12 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
     const saving = vscode.workspace.onWillSaveTextDocument((event) => {
-      if (event.document === document && session.ready) event.waitUntil(this.flush(session));
+      // Not for a hidden panel: its webview is gone until the panel shows again (no
+      // `retainContextWhenHidden`), and text mode reported its typing when it lost focus, so
+      // nothing would answer and the save (Save All, auto save of a background tab) would only
+      // wait FLUSH_TIMEOUT_MS.
+      if (event.document !== document || !session.ready || !panel.visible) return;
+      event.waitUntil(this.flush(session));
     });
     const settings = vscode.workspace.onDidChangeConfiguration((event) => {
       if (
@@ -300,6 +308,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
    */
   private flush(session: Session): Promise<void> {
     const request = nextFlush++;
+    if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.flushRequests++;
     return new Promise<void>((resolve) => {
       const timer = setTimeout(done, FLUSH_TIMEOUT_MS);
       function done() {
