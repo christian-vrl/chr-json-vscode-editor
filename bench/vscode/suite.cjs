@@ -11,8 +11,9 @@
 //            and until the host's answer is in and the editor is free again (`ms`, the edit). On
 //            the host's clock: from sending the patch until the document changed (`host`: core's
 //            applyPatch and the WorkspaceEdit).
-//   second — the same right after the first edit settles, on another record: the host then edits a
-//            text it changed itself rather than the one it parsed on open (003 T11 review).
+//   second — the same edit with another value, right after the first settles: the host then edits
+//            the text its first edit made rather than the one it parsed on open (003 T11 review).
+//            The same record, since the tree shows only the first record's fields.
 // Open and `host` are on the extension host's clock, so they include the messages between host and
 // webview. Results go to the JSON file named by CHR_BENCH_OUT. A failure is recorded, not thrown,
 // so a size VS Code refuses still leaves the others measured.
@@ -88,9 +89,9 @@ async function timeOpen(hooks, uri, records) {
   return { readyMs: ready - start, renderMs: rendered - start };
 }
 
-async function timeEdit(hooks, uri, run, record = 0) {
+async function timeEdit(hooks, uri, run, which = 'first') {
   const key = uri.toString();
-  const value = `edited-${run}-${record}-${Date.now()}`;
+  const value = `edited-${which}-${run}-${Date.now()}`;
   let changedAt;
   const listener = vscode.workspace.onDidChangeTextDocument((event) => {
     if (event.document.uri.toString() === key && event.contentChanges.length > 0) {
@@ -99,7 +100,7 @@ async function timeEdit(hooks, uri, run, record = 0) {
   });
   try {
     const start = performance.now();
-    if (!hooks.patch(key, [{ op: 'replace', path: `/${record}/name`, value }])) {
+    if (!hooks.patch(key, [{ op: 'replace', path: '/0/name', value }])) {
       throw new Error('no editor shows the file');
     }
     // The edit starts in the webview, so it is timed there: from the edit until the tree shows it,
@@ -159,7 +160,7 @@ exports.run = async function run() {
       }
       try {
         entry.edit.push(await timeEdit(hooks, uri, run));
-        entry.second.push(await timeEdit(hooks, uri, run, 1));
+        entry.second.push(await timeEdit(hooks, uri, run, 'second'));
       } catch (error) {
         (entry.edit.length > entry.second.length ? entry.second : entry.edit).push({
           error: message(error),

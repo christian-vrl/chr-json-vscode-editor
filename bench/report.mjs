@@ -157,7 +157,7 @@ add(
   '  the message, `core` applyPatch and the WorkspaceEdit. After the change the host parses the new',
   '  text once in the background (format badge, schema validation, the next edit), which can delay',
   '  an edit made right after.',
-  '- **Second edit:** the same on the next record, made as soon as the first edit settled: the host',
+  '- **Second edit:** the same edit with another value, made as soon as the first settled: the host',
   '  now edits the text its first edit produced, not the one it parsed on open. Run 1 of each size',
   '  is the first open of that file in this VS Code launch (cold); runs 2 and 3 open it again.',
   '',
