@@ -1,6 +1,6 @@
 # SPEC 006 — Convert between JSON, JSONC and JSON5
 
-> **Status:** `draft` (awaiting owner approval; owner UNK-033, UNK-034 and UNK-035 resolved 2026-10-09)
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidVT5gy47SrYHitggeYZ7YQa, 2026-10-09)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -97,11 +97,11 @@ trailing commas (ADR-005: "the file's existing style kept on write").
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-033 | Keep the file's layout and comments, or re-stringify | whole spec (C1–C7 assume ★) | see ledger |
+| UNK-033 | Keep the file's layout and comments, or re-stringify | whole spec (C1–C7 follow its answer) | see ledger |
 | UNK-034 | What `NaN` and `Infinity` become in JSON or JSONC | C4, T1 cases | see ledger |
 | UNK-035 | Where the converted text goes | criterion 6, T3 | see ledger |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
 - [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Human approval recorded

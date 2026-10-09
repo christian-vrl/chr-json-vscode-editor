@@ -45,7 +45,7 @@ with comments and style kept.
 | UNK-010 | Svelte 5 vs plain TS shell | T2 | see ledger |
 | UNK-015 | Whole-document actions on files with comments | T8 | resolved: keep comments (002 R12–R14) |
 | UNK-018 | Comment-keeping repair | T8 | delegated (002 T11) |
-| UNK-014 | Large-file ceiling | spec 008 | delegated (T11 evidence) |
+| UNK-014 | Large-file ceiling | spec 008 | resolved (owner): 5 MiB, from T11 evidence |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable

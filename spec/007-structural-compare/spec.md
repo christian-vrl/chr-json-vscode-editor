@@ -1,6 +1,6 @@
 # SPEC 007 — Structural compare
 
-> **Status:** `draft` (awaiting owner approval; owner UNK-036 resolved 2026-10-09)
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidHm1YnN1U5VzZfFkSRkqPsk, 2026-10-09)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -99,4 +99,4 @@ as JSON Pointers: `added` exists only on the right, `removed` only on the left, 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
 - [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Human approval recorded
