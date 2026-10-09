@@ -106,7 +106,7 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
     loses or gains a comma so the container keeps or lacks its trailing comma (R6); a gained comma
     goes right after the value (reading 1). A `//` comment that no longer ends its line becomes a
     block comment (reading 7).
-11. **Leading comments** (UNK-021, open; the corpus follows its ★ option). Block comments before a
+11. **Leading comments** (UNK-021, owner: ★). Block comments before a
     member on its line, with only white space between, belong to that member: `remove` and `move`
     take them with it (`move` keeps them before it, as written), `add` at its index inserts before
     them, and `sort` moves them with it. A block comment after a member's comma with a member after
