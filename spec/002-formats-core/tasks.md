@@ -23,4 +23,4 @@
 - [x] **T11** (Large) Spike per UNK-018: comment-keeping repair of 20 broken commented JSONC/JSON5 fixtures (mask comments, repair, re-anchor); `spikes/repair-comments/REPORT.md`. `parallel` — *gate: report with keep-count per fixture; UNK-018 resolved per the delegation rule*
 
 ## Off the critical path
-- Spec 006 (conversion) reuses T7.
+- Spec 006 (conversion) keeps the file's layout (UNK-033), so it reads T3's and T5's token streams and does not use T7's `stringify`.

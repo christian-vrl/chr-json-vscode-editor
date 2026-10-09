@@ -1,0 +1,8 @@
+{
+  "outer": {
+    "v": "a\u000bb",
+    "nul": "\u0000",
+    "quote": "say \"hi\"",
+    "cont": "line   two"
+  }
+}

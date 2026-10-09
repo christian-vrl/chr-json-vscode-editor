@@ -1,0 +1,7 @@
+// header
+{
+  // above a
+  "a": 1, // after a
+  "b": /* inline */ 2
+}
+// footer
