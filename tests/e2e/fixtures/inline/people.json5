@@ -1,0 +1,5 @@
+// 004 T5: the second person breaks people.schema.json twice.
+[
+  {name: 'Ada', age: 36},
+  {name: '', age: 1.5,},
+]

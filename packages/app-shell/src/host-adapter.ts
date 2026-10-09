@@ -7,16 +7,19 @@ import type {
   EditorSettings,
   ErrorMessage,
   InitMessage,
+  SchemaDialect,
   SetFormatMessage,
   SetModeMessage,
   UpdateMessage,
+  ValidationMessage,
 } from './protocol.js';
 
 /** The document as the host first hands it over (the `init` message without its envelope). */
 export type OpenedDocument = Omit<InitMessage, 'protocol' | 'type'>;
 
 /** Something the host tells the UI after `open`: the host → UI messages other than `init`. */
-export type HostEvent = UpdateMessage | SetModeMessage | SetFormatMessage | ErrorMessage;
+export type HostEvent =
+  UpdateMessage | SetModeMessage | SetFormatMessage | ErrorMessage | ValidationMessage;
 
 /** A failure the UI asks the host to show (the UI → host `error` message without its envelope). */
 export type HostNotice = Omit<ErrorMessage, 'protocol' | 'type'>;
@@ -34,10 +37,15 @@ export interface HostAdapter {
    * UI last received; the host answers a stale change with an `error` event. Maps to `edit`.
    */
   save(docVersion: number, change: DocumentChange): void;
-  /** Subscribes to `update`, `setMode`, `setFormat` and `error` messages from the host. */
+  /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation` messages. */
   onExternalChange(listener: (event: HostEvent) => void): Disposable;
   /** The settings from `init`. Only valid after `open` has resolved. */
   getSettings(): EditorSettings;
   /** Asks the host to show a failure to the user; maps to the UI → host `error` message. */
   showMessage(notice: HostNotice): void;
+  /**
+   * The user's dialect for a schema that names none this editor knows (UNK-017's switch, 004 T5);
+   * the host validates again and answers with a `validation` event. Maps to `setDialect`.
+   */
+  setSchemaDialect(docVersion: number, dialect: SchemaDialect): void;
 }

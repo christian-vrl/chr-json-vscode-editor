@@ -311,6 +311,11 @@ exports.run = async function run() {
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor('the fix to revert', () => !person.isDirty);
 
+  // Gate (004 T5, criterion 5): errors inline in tree, table and text for all three formats, with
+  // the schema found by the association rules (inline.cjs).
+  await closeAll();
+  await require('./inline.cjs').runInline({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.

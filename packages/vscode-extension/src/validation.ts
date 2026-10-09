@@ -6,7 +6,8 @@
 // and a webview. 004 T4: the dialect comes from the schema's own `$schema` (UNK-017, UNK-031):
 // draft-04 runs on `ajv-draft-04`, draft-06 and draft-07 on `Ajv`, 2019-09 and 2020-12 on their own
 // Ajv classes; every meta-schema ships inside those packages and so inside this bundle. A missing
-// or unknown `$schema` is assumed draft-07; drafts before 04 are not validated. Where the schema comes from is 004 T5 (association, 004 T3's resolver).
+// or unknown `$schema` is assumed draft-07; drafts before 04 are not validated. Which schema
+// applies to a document is schemaBinding.ts (004 T5, the association rules of 004 T3).
 import { getAdapter, type Format } from '@chr-json-editor/core';
 import {
   PROTOCOL_VERSION,
@@ -49,21 +50,28 @@ const OLD_DRAFTS = /^https?:\/\/json-schema\.org\/(draft-0[0-3])\/schema#?$/;
 
 /**
  * Picks the dialect from the schema's own `$schema` (UNK-017, UNK-031). A missing `$schema`, or
- * one naming no dialect this editor knows (a custom meta-schema), runs as draft-07, `assumed`;
- * `override` is the user's switch for those, and a known `$schema` always wins over it. Returns a
- * string, the reason not to validate, when `$schema` names a draft before 04 or is not a string.
+ * one naming no dialect this editor knows (a custom meta-schema), runs as draft-07, `assumed`, and
+ * is `switchable`: `override` is the user's switch for those, and a known `$schema` always wins
+ * over it. Returns a string, the reason not to validate, when `$schema` names a draft before 04 or
+ * is not a string.
  */
 export function selectDialect(
   schema: object | boolean,
   override?: SchemaDialect,
 ): DialectChoice | string {
   const stated = typeof schema === 'object' ? (schema as { $schema?: unknown }).$schema : undefined;
-  const assumed: DialectChoice = { name: override ?? 'draft-07', assumed: override === undefined };
+  const assumed: DialectChoice = {
+    name: override ?? 'draft-07',
+    assumed: override === undefined,
+    switchable: true,
+  };
   if (stated === undefined) return assumed;
   if (typeof stated !== 'string') return "The schema's $schema is not a string.";
   const uri = stated.replace(/^http:\/\//, 'https://').replace(/#$/, '');
   for (const [name, meta] of Object.entries(META_SCHEMA) as [SchemaDialect, string][]) {
-    if (uri === meta.replace(/^http:\/\//, 'https://')) return { name, assumed: false };
+    if (uri === meta.replace(/^http:\/\//, 'https://')) {
+      return { name, assumed: false, switchable: false };
+    }
   }
   const old = OLD_DRAFTS.exec(stated);
   if (old) return `Schema draft not supported (${old[1]}); use draft-04 or later.`;
@@ -140,7 +148,8 @@ export function validateText(text: string, format: Format, validator: Validator)
 export interface ValidationTarget {
   /** The document's text and version now (VS Code: `getText()` and `version`). */
   snapshot(): { text: string; docVersion: number };
-  format: Format;
+  /** The format to parse the text as now: the format badge's choice can change it (003 T10). */
+  format(): Format;
   post(message: ValidationMessage): void;
 }
 
@@ -159,11 +168,25 @@ export class DocumentValidation {
   ) {}
 
   /**
-   * Sets the schema (undefined: none) and validates at once. `dialect` is the user's switch for a
-   * schema without `$schema` (UNK-017); without it such a schema runs as draft-07, `assumed`.
+   * Sets the schema and validates at once. `dialect` is the user's switch for a schema without
+   * `$schema` (UNK-017); without it such a schema runs as draft-07, `assumed`. Undefined removes
+   * the schema: the webview is told once (`none`) so it drops the errors it shows.
    */
   setSchema(schema: object | boolean | undefined, dialect?: SchemaDialect): void {
-    this.compiled = schema === undefined ? undefined : compileSchema(schema, dialect);
+    if (schema === undefined) {
+      const had = this.hasSchema;
+      this.compiled = undefined;
+      this.dispose();
+      if (had) this.post(null, { kind: 'none' });
+      return;
+    }
+    this.compiled = compileSchema(schema, dialect);
+    this.run();
+  }
+
+  /** A schema applies but cannot be used (unreadable, not JSON, remote): every run says why. */
+  setUnavailable(reason: string): void {
+    this.compiled = { ok: false, dialect: null, reason };
     this.run();
   }
 
@@ -185,9 +208,16 @@ export class DocumentValidation {
     if (!compiled) return;
     const { text, docVersion } = this.target.snapshot();
     const result: ValidationResult = compiled.ok
-      ? validateText(text, this.target.format, compiled.validate)
+      ? validateText(text, this.target.format(), compiled.validate)
       : { kind: 'skipped', reason: compiled.reason };
-    const { dialect } = compiled;
+    this.post(compiled.dialect, result, docVersion);
+  }
+
+  private post(
+    dialect: DialectChoice | null,
+    result: ValidationResult,
+    docVersion = this.target.snapshot().docVersion,
+  ): void {
     this.target.post({
       protocol: PROTOCOL_VERSION,
       type: 'validation',

@@ -1,7 +1,8 @@
 // HostAdapter for the standalone page (003 T2): keeps the document in memory, so app-shell runs in
 // a plain browser tab with no host behind it (`pnpm test:web`, local development). It speaks the
 // same contract as VscodeHostAdapter (test/host-adapter-contract.ts) and adds a few methods that
-// play the host's part: an external change, a mode or format switch.
+// play the host's part: an external change, a mode or format switch, a validation result. It runs
+// no validator itself (ADR-010: validation belongs to the host).
 //
 // Dev-only limitation: a patch is applied to `JSON.parse(text)` and the result re-serialised with
 // two-space indentation, so comments and style are not kept. Style-preserving edits are
@@ -22,7 +23,9 @@ import {
   type Format,
   type JsonPatchOperation,
   type Mode,
+  type SchemaDialect,
   type UpdateOrigin,
+  type ValidationMessage,
 } from './protocol.js';
 
 /** One change the UI handed over through `save`, as received. */
@@ -50,6 +53,8 @@ export class DevHostAdapter implements HostAdapter {
   readonly edits: DevEdit[] = [];
   /** Every notice `showMessage` received, oldest first. */
   readonly notices: HostNotice[] = [];
+  /** Every dialect `setSchemaDialect` received, oldest first. */
+  readonly dialects: SchemaDialect[] = [];
 
   constructor(document: DevDocument) {
     this.#text = document.text;
@@ -109,6 +114,21 @@ export class DevHostAdapter implements HostAdapter {
 
   showMessage(notice: HostNotice): void {
     this.notices.push(structuredClone(notice));
+  }
+
+  setSchemaDialect(_docVersion: number, dialect: SchemaDialect): void {
+    this.dialects.push(dialect);
+  }
+
+  /** Plays the host's validator: sends `validation` for the current version. */
+  validation(dialect: ValidationMessage['dialect'], result: ValidationMessage['result']): void {
+    this.#emit({
+      protocol: PROTOCOL_VERSION,
+      type: 'validation',
+      docVersion: this.#docVersion,
+      dialect,
+      result,
+    });
   }
 
   /** Plays another editor changing the document: bumps the version and sends `update`. */

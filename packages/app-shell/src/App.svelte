@@ -5,6 +5,11 @@
 
   vanilla-jsoneditor bundles its own Svelte runtime, so it is mounted through its plain
   `createJSONEditor` API rather than used as a component of this app (UNK-027).
+
+  Schema errors (004 T5) come from the host as `validation` events (the host runs Ajv, ADR-010) and
+  reach the library through its `validator` prop, which draws them inline in tree, table and text
+  mode. The toolbar shows the dialect the schema ran as, with UNK-017's switch when the schema
+  names none, and why a document was not validated.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -14,16 +19,23 @@
     type JsonEditor,
     type Mode as LibraryMode,
     type OnChangeStatus,
+    type ValidationError,
+    type Validator,
+    ValidationSeverity,
   } from 'vanilla-jsoneditor';
+  import { parseJSONPointer } from 'immutable-json-patch';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
   import { parserFor } from './parser.js';
   import {
     isEditError,
     MODES,
+    SCHEMA_DIALECTS,
     type DocumentChange,
     type Format,
     type JsonPatchOperation,
     type Mode,
+    type SchemaDialect,
+    type ValidationMessage,
   } from './protocol.js';
 
   let { host }: { host: HostAdapter } = $props();
@@ -34,6 +46,8 @@
   let mode = $state<Mode | undefined>();
   let format = $state<Format | undefined>();
   let notice = $state<string | undefined>();
+  /** The host's latest `validation`; its errors show only while it describes the shown text. */
+  let validation = $state<ValidationMessage | undefined>();
   let target: HTMLDivElement;
   let editor: JsonEditor | undefined;
 
@@ -63,6 +77,10 @@
           content: { text: doc.text },
           mode: doc.mode as LibraryMode,
           parser: parserFor(doc.format),
+          // The library hands the validator data read by this parser too; its default, JSON.parse,
+          // fails on JSONC and JSON5 text in text mode and reports that as a parse error (004 T5).
+          validationParser: parserFor(doc.format),
+          validator: validatorFor(validation),
           onChange,
           onChangeMode: (next: LibraryMode) => (mode = next as Mode),
         },
@@ -126,6 +144,33 @@
     host.save(docVersion, change);
   }
 
+  /**
+   * The library's `validator` for a host result: a new function per result, so the library
+   * validates again when one arrives. It reports the errors only while the editor shows the text
+   * they describe (the same `docVersion`, no edit pending); otherwise none, until the host's
+   * result for the new text arrives. Undefined when there are no errors to show.
+   */
+  function validatorFor(message: ValidationMessage | undefined): Validator | undefined {
+    if (message?.result.kind !== 'errors' || message.result.errors.length === 0) return undefined;
+    const errors: ValidationError[] = message.result.errors.map((e) => ({
+      path: parseJSONPointer(e.instancePath),
+      message: e.message,
+      // As the library's own Ajv validator and VS Code's JSON language service report them.
+      severity: ValidationSeverity.warning,
+    }));
+    const forVersion = message.docVersion;
+    return () => (forVersion === docVersion && !inFlight && queued.length === 0 ? errors : []);
+  }
+
+  /** Hands the latest result to the library again, after it arrives or the shown text changes. */
+  function showValidation(): void {
+    editor?.updateProps({ validator: validatorFor(validation) });
+  }
+
+  function selectDialect(dialect: SchemaDialect): void {
+    host.setSchemaDialect(docVersion, dialect);
+  }
+
   /** Shows the host's text, unless the editor already shows it or has unsent changes on top. */
   function showDocument(): void {
     if (!editor || inFlight || queued.length > 0) return;
@@ -147,6 +192,7 @@
           notice = undefined;
           sendNext();
           showDocument();
+          showValidation();
           return;
         }
         if (event.docVersion <= docVersion) return;
@@ -159,13 +205,21 @@
           notice = 'The document changed outside the editor; your latest change was not applied.';
         }
         if (!inFlight) editor?.update({ text: docText });
+        showValidation();
+        return;
+      case 'validation':
+        validation = event;
+        showValidation();
         return;
       case 'setMode':
         selectMode(event.mode);
         return;
       case 'setFormat':
         format = event.format;
-        editor?.updateProps({ parser: parserFor(event.format) });
+        editor?.updateProps({
+          parser: parserFor(event.format),
+          validationParser: parserFor(event.format),
+        });
         // Parse the document's text again with the new format (criterion 8); bytes are unchanged.
         if (!inFlight && queued.length === 0) editor?.update({ text: docText });
         return;
@@ -178,6 +232,7 @@
           queued.length = 0;
           if (event.docVersion > docVersion) docVersion = event.docVersion;
           editor?.update({ text: docText });
+          showValidation();
         }
         return;
     }
@@ -193,9 +248,34 @@
         </button>
       {/each}
     </div>
-    {#if format}
-      <span class="format" title="Detected format">{FORMAT_LABELS[format]}</span>
-    {/if}
+    <div class="status">
+      {#if validation && validation.result.kind !== 'none'}
+        <span class="schema">
+          {#if validation.dialect?.switchable}
+            <select
+              aria-label="Schema dialect"
+              title="The schema names no dialect this editor knows; choose the one to validate with"
+              value={validation.dialect.name}
+              onchange={(e) => selectDialect(e.currentTarget.value as SchemaDialect)}
+            >
+              {#each SCHEMA_DIALECTS as d (d)}
+                <option value={d}>
+                  {d === validation.dialect.name && validation.dialect.assumed ? `assumed ${d}` : d}
+                </option>
+              {/each}
+            </select>
+          {:else if validation.dialect}
+            <span title="The schema's dialect">{validation.dialect.name}</span>
+          {/if}
+          {#if validation.result.kind === 'skipped'}
+            <span class="reason">Not validated: {validation.result.reason}</span>
+          {/if}
+        </span>
+      {/if}
+      {#if format}
+        <span class="format" title="Detected format">{FORMAT_LABELS[format]}</span>
+      {/if}
+    </div>
   </div>
   <div class="notice" role="status">{notice ?? ''}</div>
   <div class="editor" bind:this={target}></div>
@@ -402,8 +482,71 @@
     outline: 1px solid var(--vscode-focusBorder);
     outline-offset: 1px;
   }
-  .format {
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-left: auto;
+    min-width: 0;
+  }
+  .schema {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .schema select {
+    font: inherit;
+    color: var(--vscode-dropdown-foreground);
+    background: var(--vscode-dropdown-background);
+    border: 1px solid var(--vscode-dropdown-border, transparent);
+  }
+  .schema select:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+  }
+  .reason {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /*
+    Text-mode lint marks (004 T5). CodeMirror draws the squiggle under an error, and the gutter icon
+    beside it, as `data:` SVG images, which the webview CSP's img-src blocks (spec 003 criterion 6
+    allows only the webview source). These rules, more specific than CodeMirror's theme, draw the
+    same marks with CSS instead, so no image is ever requested. Colours as the library's defaults.
+  */
+  .shell :global(.cm-lintRange) {
+    background-image: none;
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-skip-ink: none;
+  }
+  .shell :global(.cm-lintRange-error) {
+    text-decoration-color: var(--jse-error-color, #ee5341);
+  }
+  .shell :global(.cm-lintRange-warning) {
+    text-decoration-color: var(--jse-warning-color, #fdc539);
+  }
+  .shell :global(.cm-lintRange-info),
+  .shell :global(.cm-lintRange-hint) {
+    text-decoration-color: var(--jse-info-color, #4f91ff);
+  }
+  .shell :global(.cm-lint-marker) {
+    content: normal;
+    box-sizing: border-box;
+    width: 0.7em;
+    height: 0.7em;
+    margin: 0.15em;
+    border-radius: 50%;
+  }
+  .shell :global(.cm-lint-marker-error) {
+    background: var(--jse-error-color, #ee5341);
+  }
+  .shell :global(.cm-lint-marker-warning) {
+    background: var(--jse-warning-color, #fdc539);
+  }
+  .shell :global(.cm-lint-marker-info) {
+    background: var(--jse-info-color, #4f91ff);
   }
   .notice:empty {
     display: none;

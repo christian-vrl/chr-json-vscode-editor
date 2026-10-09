@@ -22,8 +22,10 @@ export interface TestHooks {
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
   setMode(uri: string, mode: Mode): boolean;
   formatBadge(): FormatBadgeSnapshot;
-  /** Validates the open editor of `uri` against `schema` (004 T2; 004 T5 adds association). */
+  /** Validates the open editor of `uri` against `schema`, over the association (004 T2). */
   setSchema(uri: string, schema: object | boolean | undefined): boolean;
+  /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
+  selectDialect(uri: string, dialect: string): boolean;
 }
 
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
@@ -46,6 +48,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         whenShown: (uri, text) => provider.whenShown(uri, text),
         patch: (uri, patch) => provider.patch(uri, patch),
         formatBadge: () => formatBadge.snapshot(),
+        selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
         setSchema(uri, schema) {
           let found = false;
           for (const [panel, validation] of provider.validations) {

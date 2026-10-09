@@ -9,6 +9,7 @@ import {
   PROTOCOL_VERSION,
   type DocumentChange,
   type EditorSettings,
+  type SchemaDialect,
   type ToHostMessage,
 } from '@chr-json-editor/app-shell/protocol';
 import type {
@@ -65,6 +66,10 @@ export class VscodeHostAdapter implements HostAdapter {
     this.#post({ protocol: PROTOCOL_VERSION, type: 'error', ...notice });
   }
 
+  setSchemaDialect(docVersion: number, dialect: SchemaDialect): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion, dialect });
+  }
+
   #receive(data: unknown): void {
     const decoded = decodeToWebview(data);
     if (!decoded.ok) {
@@ -88,9 +93,6 @@ export class VscodeHostAdapter implements HostAdapter {
         this.#resolveOpen = undefined;
         return;
       }
-      case 'validation':
-        // Shown through the library's `validator` prop from 004 T5; not a HostEvent yet.
-        return;
       default:
         for (const listener of [...this.#listeners]) listener(message);
     }

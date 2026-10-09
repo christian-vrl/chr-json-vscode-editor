@@ -8,8 +8,11 @@
  *  3: `validation` carries the schema's `dialect` (004 T4).
  *  4: adds the draft-04 and draft-06 dialects (004 T4, UNK-031).
  *  5: adds the UI → host `ready` message (003 T5).
- *  6: `update` says whether it answers the UI's edit (`origin`); edit errors have fixed codes (003 T5). */
-export const PROTOCOL_VERSION = 6;
+ *  6: `update` says whether it answers the UI's edit (`origin`); edit errors have fixed codes
+ *     (003 T5).
+ *  7: `validation` says whether the dialect can be switched (`switchable`) and has a `none` result;
+ *     adds the UI → host `setDialect` message (004 T5). */
+export const PROTOCOL_VERSION = 7;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -88,6 +91,14 @@ export interface SetModeMessage extends Envelope<'setMode'> {
 export interface SetFormatMessage extends Envelope<'setFormat'> {
   format: Format;
 }
+/**
+ * The user's choice of dialect for a schema whose own `$schema` names none this editor knows
+ * (UNK-017's one-click switch, 004 T5). The host validates again with it and answers with a
+ * `validation`; it applies only while the dialect is `switchable`.
+ */
+export interface SetDialectMessage extends Envelope<'setDialect'> {
+  dialect: SchemaDialect;
+}
 /** A failure the other side should show; `code` is machine-readable, `message` is for people. */
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
@@ -128,16 +139,26 @@ export interface SchemaError {
 /**
  * Schema validation of the document at `docVersion` (004 T2, ADR-010: the host runs the validator,
  * since the webview CSP forbids eval). `errors` lists every error, empty when the document is
- * valid; `skipped` says why the document was not validated (it does not parse, the format has no
- * parser yet, or the schema does not compile). A UI shows only the result for its current version.
+ * valid; `skipped` says why the document was not validated (it does not parse, the schema cannot
+ * be read or does not compile, or it is remote); `none` says no schema applies to the document any
+ * more, so the UI drops the errors it shows. A UI shows only the result for its current version.
  */
 export interface ValidationMessage extends Envelope<'validation'> {
-  /** The JSON Schema dialect the schema ran as (spec 004 criterion 2), `assumed` when the schema
-   *  has no `$schema`, or one naming no known dialect, and none was chosen, so the UI can say
-   *  "assumed draft-07" and offer a switch. `null` when no dialect applies (the schema names a
-   *  draft before 04, which is not supported). */
-  dialect: { name: SchemaDialect; assumed: boolean } | null;
-  result: { kind: 'errors'; errors: SchemaError[] } | { kind: 'skipped'; reason: string };
+  /** The JSON Schema dialect the schema ran as (spec 004 criterion 2). `switchable` when the
+   *  schema has no `$schema`, or one naming no known dialect, so the user's `setDialect` applies;
+   *  `assumed` when it is also not chosen yet, so the UI can say "assumed draft-07". `null` when no
+   *  dialect applies (no schema, or one naming a draft before 04, which is not supported). */
+  dialect: SchemaDialectChoice | null;
+  result:
+    | { kind: 'errors'; errors: SchemaError[] }
+    | { kind: 'skipped'; reason: string }
+    | { kind: 'none' };
+}
+
+export interface SchemaDialectChoice {
+  name: SchemaDialect;
+  assumed: boolean;
+  switchable: boolean;
 }
 
 export type ToWebviewMessage =
@@ -147,7 +168,7 @@ export type ToWebviewMessage =
   | SetFormatMessage
   | ErrorMessage
   | ValidationMessage;
-export type ToHostMessage = ReadyMessage | EditMessage | ErrorMessage;
+export type ToHostMessage = ReadyMessage | EditMessage | SetDialectMessage | ErrorMessage;
 export type ProtocolMessage = ToWebviewMessage | ToHostMessage;
 
 export type DecodeResult<M> = { ok: true; message: M } | { ok: false; error: string };
@@ -192,6 +213,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
   ready: { docVersion: zero },
   edit: { change: documentChange },
+  setDialect: { dialect: oneOf(SCHEMA_DIALECTS) },
   error: { code: str, message: str },
 };
 
@@ -323,12 +345,14 @@ function patchList(v: unknown, name: string): JsonPatchOperation[] {
 
 function schemaDialect(v: unknown, name: string): ValidationMessage['dialect'] {
   if (v === null) return null;
-  const fields = { name: oneOf(SCHEMA_DIALECTS), assumed: bool };
-  return readFields(record(v, name), fields, name) as ValidationMessage['dialect'];
+  const fields = { name: oneOf(SCHEMA_DIALECTS), assumed: bool, switchable: bool };
+  return readFields(record(v, name), fields, name) as unknown as SchemaDialectChoice;
 }
 
 function validationResult(v: unknown, name: string): ValidationMessage['result'] {
   const raw = record(v, name);
+  if (raw.kind === 'none')
+    return readFields(raw, { kind: str }, name) as ValidationMessage['result'];
   if (raw.kind === 'skipped') {
     return readFields(raw, { kind: str, reason: str }, name) as ValidationMessage['result'];
   }
@@ -339,7 +363,7 @@ function validationResult(v: unknown, name: string): ValidationMessage['result']
       name,
     ) as ValidationMessage['result'];
   }
-  throw new Invalid(`${name}.kind must be errors or skipped`);
+  throw new Invalid(`${name}.kind must be errors, skipped or none`);
 }
 
 function schemaErrorList(v: unknown, name: string): SchemaError[] {

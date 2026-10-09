@@ -3,7 +3,8 @@
 // The webview runs scripts only with a per-render nonce and loads files only from the extension's
 // dist folder (003 T4, criterion 6; see webviewHtml.ts). Each tab reports to the status-bar format
 // badge (003 T10). Schema validation runs here in the host and reaches the webview as `validation`
-// messages (004 T2, ADR-010; see validation.ts).
+// messages (004 T2, ADR-010; see validation.ts); which schema applies follows spec 004's
+// association rules (004 T5, schemaBinding.ts), and the webview shows the errors inline.
 //
 // The webview speaks app-shell's message protocol. It sends `ready` once its script listens; only
 // then does the host post `init`, the latest validation result, and an `update` for each later
@@ -18,10 +19,14 @@ import {
   type SchemaError,
   type ToHostMessage,
   type ToWebviewMessage,
+  type ValidationMessage,
 } from '@chr-json-editor/app-shell/protocol';
 import { detect } from '@chr-json-editor/core';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import type { FormatBadgeController } from './formatBadgeVscode';
+import { SchemaBinding } from './schemaBinding';
+import { collectSchemaScopes } from './schemaSettings';
+import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { RenderedProbe } from './testProbe';
 import { DocumentValidation } from './validation';
 import { createNonce, renderWebviewHtml } from './webviewHtml';
@@ -51,6 +56,7 @@ export interface ShownValidation {
   docVersion: number;
   errors: SchemaError[] | null;
   reason: string | null;
+  dialect: ValidationMessage['dialect'];
 }
 
 /** One open editor tab: its document, webview and validation. */
@@ -58,6 +64,7 @@ interface Session {
   document: vscode.TextDocument;
   panel: vscode.WebviewPanel;
   validation: DocumentValidation;
+  schema: SchemaBinding;
   sync: DocumentSync;
   /** Whether the webview sent `ready`; until then the host posts nothing. */
   ready: boolean;
@@ -66,7 +73,7 @@ interface Session {
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Filled only when `__CHR_TEST_HOOKS__` is true. */
   readonly snapshots = new Map<vscode.WebviewPanel, WebviewSnapshot>();
-  /** One per open panel. 004 T5 sets each one's schema from the association rules. */
+  /** One per open panel; its schema comes from the association rules (`Session.schema`). */
   readonly validations = new Map<vscode.WebviewPanel, DocumentValidation>();
   private readonly sessions = new Map<vscode.WebviewPanel, Session>();
   /** Test hooks: probes waiting for the webview's answer, by id. */
@@ -109,16 +116,33 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
     this.formatBadge.track(document, panel);
 
+    const validation = new DocumentValidation({
+      snapshot: () => ({ text: document.getText(), docVersion: document.version }),
+      format: () => this.formatOf(document),
+      post: (message) => this.post(session, message),
+    });
+    const schema = new SchemaBinding(
+      {
+        documentUri: () => document.uri.toString(true),
+        text: () => document.getText(),
+        format: () => this.formatOf(document),
+        settings: () => {
+          const workspace = vscodeSchemaWorkspace();
+          return {
+            jsonSchemas: collectSchemaScopes('json', workspace),
+            json5Schemas: collectSchemaScopes('json5', workspace),
+          };
+        },
+        readFile: readSchemaFile,
+      },
+      validation,
+    );
     const session: Session = {
       document,
       panel,
       ready: false,
-      validation: new DocumentValidation({
-        snapshot: () => ({ text: document.getText(), docVersion: document.version }),
-        // The format at open time; 004 T5 follows a switch made from the format badge (003 T10).
-        format: detect(document.uri.path, document.languageId, document.getText()).format,
-        post: (message) => this.post(session, message),
-      }),
+      validation,
+      schema,
       sync: new DocumentSync({
         text: () => document.getText(),
         version: () => document.version,
@@ -138,6 +162,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     };
     this.sessions.set(panel, session);
     this.validations.set(panel, session.validation);
+    // Before the webview is ready, so the first `validation` goes out with the `ready` answer.
+    void session.schema.refresh();
 
     let snapshot: WebviewSnapshot | undefined;
     if (__CHR_TEST_HOOKS__) {
@@ -167,13 +193,29 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.receive(session, decoded.message);
     });
     const changes = vscode.workspace.onDidChangeTextDocument((event) => {
-      if (event.document !== document || event.contentChanges.length === 0) return;
-      session.sync.changed();
-      session.validation.schedule();
+      if (event.contentChanges.length === 0) return;
+      if (event.document === document) {
+        session.sync.changed();
+        session.validation.schedule();
+        // The top-level `$schema` may have changed.
+        session.schema.schedule();
+      } else if (event.document.uri.toString(true) === session.schema.schemaFile) {
+        session.schema.schedule(true);
+      }
+    });
+    const settings = vscode.workspace.onDidChangeConfiguration((event) => {
+      if (
+        event.affectsConfiguration('json.schemas') ||
+        event.affectsConfiguration('json5.schemas')
+      ) {
+        void session.schema.refresh();
+      }
     });
     panel.onDidDispose(() => {
       received.dispose();
       changes.dispose();
+      settings.dispose();
+      session.schema.dispose();
       session.validation.dispose();
       this.sessions.delete(panel);
       this.validations.delete(panel);
@@ -202,6 +244,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.editsReceived++;
         void session.sync.edit(message);
         return;
+      case 'setDialect':
+        session.schema.setDialect(message.dialect);
+        return;
       case 'error':
         void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);
         return;
@@ -226,6 +271,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         docVersion: document.version,
         format,
       });
+      // Validation parses the text as the new format, and `$schema` is read with it too.
+      session.validation.run();
+      void session.schema.refresh();
     }
   }
 
@@ -251,6 +299,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         docVersion: shown.docVersion ?? -1,
         errors: shown.errors ?? null,
         reason: shown.reason ?? null,
+        dialect: shown.dialect ?? null,
       });
     }
     return true;
@@ -293,6 +342,15 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     return true;
   }
 
+  /** Test hook: has the webview of `uri` pick `dialect` in its toolbar switch, as a click would. */
+  selectDialect(uri: string, dialect: string): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'selectDialect', dialect });
+    return true;
+  }
+
   /** Test hook: has the host switch the webview of `uri` to `mode` (the `setMode` message). */
   setMode(uri: string, mode: Mode): boolean {
     if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
@@ -306,4 +364,17 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
     return true;
   }
+}
+
+/** Reads a local schema: an open document's text (unsaved edits included), else the file. */
+async function readSchemaFile(uri: string): Promise<string> {
+  const open = vscode.workspace.textDocuments.find((d) => d.uri.toString(true) === uri);
+  if (open) return open.getText();
+  // `uri` is the unencoded `toString(true)` spelling, so `Uri.parse` would read a `#`, `?` or `%`
+  // in the path as a fragment, query or escape; split it by hand instead.
+  const [, authority = '', path = '/'] = /^file:\/\/([^/]*)(\/.*)?$/i.exec(uri) ?? [];
+  const bytes = await vscode.workspace.fs.readFile(
+    vscode.Uri.from({ scheme: 'file', authority, path }),
+  );
+  return new TextDecoder().decode(bytes);
 }

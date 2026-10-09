@@ -61,7 +61,7 @@ that folder is a frozen pre-repo copy.
 - **FormatAdapter:** `core/formats` interface: `detect`, `parse → {data, tree, style, diagnostics}`,
   `applyPatch(text, patch) → text`, `stringify(data, style)`.
 - **Style:** `{indent: '\t' | number, eol: '\n' | '\r\n', finalNewline: boolean, quote: '"' | "'", unquotedKeys: boolean, trailingCommas: boolean}`.
-- **HostAdapter:** `app-shell` interface each host implements: `open`, `save`, `onExternalChange`, `getSettings`, `showMessage`.
+- **HostAdapter:** `app-shell` interface each host implements: `open`, `save`, `onExternalChange`, `getSettings`, `showMessage`, `setSchemaDialect`.
 - **Golden case:** folder with `input.<ext>`, `patch.json` (RFC 6902), `expected.<ext>`, `case.json`
   (machine-readable coverage tags). Pass = byte-equal output.
 - **Gate:** a binary condition, checked by a named script (below) or a named test.
