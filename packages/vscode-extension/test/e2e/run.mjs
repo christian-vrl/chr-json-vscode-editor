@@ -7,6 +7,8 @@
 //
 // VS Code is downloaded by @vscode/test-electron (dev-time only; nothing ships). Where its download
 // host is unreachable, set VSCODE_EXECUTABLE_PATH to an existing VS Code executable instead.
+// CHR_E2E_VSCODE_VERSION picks the downloaded release (default `stable`); the vscode-matrix
+// workflow sets it to test older releases (UNK-016).
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -31,7 +33,7 @@ if (vsixFiles.length !== 1) {
 const vsix = path.join(packageDir, vsixFiles[0]);
 
 const vscodeExecutablePath =
-  process.env.VSCODE_EXECUTABLE_PATH ?? (await downloadAndUnzipVSCode('stable'));
+  process.env.VSCODE_EXECUTABLE_PATH ?? (await downloadAndUnzipVSCode(process.env.CHR_E2E_VSCODE_VERSION || 'stable'));
 
 const profile = mkdtempSync(path.join(tmpdir(), 'chr-json-editor-e2e-'));
 const extensionsDir = path.join(profile, 'extensions');
