@@ -123,8 +123,8 @@ Complement — never replace — the constitution.
    outside the task.
 8. Never write secrets into any file; reference secret names only.
 9. **Shared ledgers:** `tasks.md`, `DECISIONS.md` and `UNKNOWNS.md` change in many PRs. Rebase on
-   `main` before merge and re-apply your rows; new ADR and UNK numbers are the next free number on
-   `main` at rebase time.
+   `main` or merge `main` into your branch before merge, and re-apply your rows; new ADR and UNK
+   numbers are the next free number on `main` at that time.
 
 ## Known gaps (ask the human when missing)
 

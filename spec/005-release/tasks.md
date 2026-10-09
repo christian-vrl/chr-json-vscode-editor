@@ -4,13 +4,13 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Content (risk-free / additive)
-- [ ] **T1** README (features, offline promise, ADR-007 credit, sponsor link), CHANGELOG, icon, marketplace fields; `pnpm check:readme`. — needs: 003 T12 — *gate: criteria 1, 2 green*
+- [ ] **T1** README (features, offline promise, ADR-007 credit, sponsor link), CHANGELOG, icon, marketplace fields; `pnpm check:readme`; bump `packages/vscode-extension/package.json` `version` to `1.0.0` (must land before T5's `v1.0.0` tag; PR #50 review). — needs: 003 T12 — *gate: criteria 1, 2 green*
 - [x] **T2** `release.yml` per criterion 3 plus a PR dry-run job. `parallel` — *gate: dry run green; Reviewer confirms criterion 3 from the workflow file*
 - [ ] **T6** Remove `"private": true` from `packages/vscode-extension/package.json` (set in 001 T2; `vsce publish` refuses private extensions, PR #2 review finding 1); must land before T5. `parallel` — *gate: `node -e "process.exit(require('./packages/vscode-extension/package.json').private === undefined ? 0 : 1)"` exit 0*
 
 ## Phase B — Publish (requires approval)
 - [~] **T3** Owner creates the Marketplace publisher and Open VSX access per the plan's runbook. — *gate: owner confirms*
-- [~] **T4** Owner creates the `release` environment with themself as required reviewer and adds `VSCE_PAT`, `OVSX_PAT`. — *gate: `gh api repos/<owner>/<repo>/environments/release` shows the protection rule*
+- [~] **T4** Owner creates the `release` environment with themself as required reviewer and adds `VSCE_PAT`, `OVSX_PAT`. Note (PR #50 review F2): a `v*` tag pushed from any branch starts `release.yml` and only this environment's approval gates the publish, so T4 may also add a deployment tag rule (`v*`) on the environment, and the owner checks the tag's commit is on `main` before approving T5's run. — *gate: `gh api repos/<owner>/<repo>/environments/release` shows the protection rule*
 - [~] **T5** Agent pushes tag `v1.0.0`; owner approves the run. — *gate: criterion 4*
 
 ## Off the critical path
