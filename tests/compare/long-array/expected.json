@@ -1,0 +1,11 @@
+[
+  {
+    "kind": "changed",
+    "leftPath": "/items/150/label",
+    "rightPath": "/items/150/label"
+  },
+  {
+    "kind": "removed",
+    "leftPath": "/items/250"
+  }
+]

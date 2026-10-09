@@ -1,0 +1,18 @@
+[
+  {
+    "kind": "added",
+    "rightPath": "/languages/1"
+  },
+  {
+    "kind": "removed",
+    "leftPath": "/languages/2"
+  },
+  {
+    "kind": "removed",
+    "leftPath": "/numbers/2"
+  },
+  {
+    "kind": "added",
+    "rightPath": "/numbers/4"
+  }
+]

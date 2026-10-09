@@ -1,0 +1,28 @@
+[
+  {
+    "kind": "removed",
+    "leftPath": "/spouse"
+  },
+  {
+    "kind": "changed",
+    "leftPath": "/name",
+    "rightPath": "/name"
+  },
+  {
+    "kind": "changed",
+    "leftPath": "/active",
+    "rightPath": "/active"
+  },
+  {
+    "kind": "removed",
+    "leftPath": "/address/street"
+  },
+  {
+    "kind": "added",
+    "rightPath": "/address/country"
+  },
+  {
+    "kind": "added",
+    "rightPath": "/children"
+  }
+]

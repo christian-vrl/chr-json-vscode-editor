@@ -1,0 +1,7 @@
+{
+  "name": "Ada",
+  "born": 1815,
+  "active": true,
+  "address": { "city": "London", "street": "St James's Square" },
+  "spouse": "William King"
+}

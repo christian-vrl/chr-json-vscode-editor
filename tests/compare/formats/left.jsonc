@@ -1,0 +1,7 @@
+// JSONC: comments and trailing commas are not data
+{
+  /* the editor's name */
+  "name": "CHR JSON Editor",
+  "formats": ["json", "jsonc",],
+  "version": 1,
+}
