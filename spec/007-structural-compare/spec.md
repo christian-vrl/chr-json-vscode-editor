@@ -95,6 +95,7 @@ as JSON Pointers: `added` exists only on the right, `removed` only on the left, 
 | UNK-036 | Compare panels read-only with copy buttons, or editable like the site | criteria 3, 6; T3, T4 | see ledger |
 | UNK-037 | Largest documents compare handles before falling back to text diff | criterion 10; T5 | delegated (T5 evidence) |
 | UNK-038 | How HEAD content is read | criterion 5; T2 | delegated (T2 evidence) |
+| UNK-039 | "Exactly one difference fewer" after a copy cannot always hold (a copy can realign array items) | criterion 2; T1 | see ledger |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
