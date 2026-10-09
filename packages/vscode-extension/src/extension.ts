@@ -2,6 +2,7 @@
 // external because VS Code supplies it at runtime. VS Code activates the extension from the
 // contributed custom editor and commands (spec 003 T3).
 import * as vscode from 'vscode';
+import { releaseParse } from '@chr-json-editor/core';
 import { registerCommands } from './commands';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
@@ -55,6 +56,8 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
       provider.formatChanged(document, format),
     ),
     ...registerCommands(),
+    // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
+    vscode.workspace.onDidCloseTextDocument((document) => releaseParse(document.getText())),
   );
   if (__CHR_TEST_HOOKS__) {
     return {

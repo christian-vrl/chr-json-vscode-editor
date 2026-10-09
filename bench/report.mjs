@@ -34,6 +34,8 @@ function median(values) {
 
 const ms = (value) => (value === undefined ? '—' : Math.round(value).toLocaleString('en-US'));
 const ok = (runs) => runs.length > 0 && !runs.some((r) => r.error);
+/** The runs of `key` in a size; results from before the second edit was timed have none. */
+const runsOf = (s, key) => s[key] ?? [];
 const med = (runs, key) => (ok(runs) ? median(runs.map((r) => r[key])) : undefined);
 
 /** "median (run1, run2, run3)" in ms, or a pointer to the recorded error. */
@@ -70,12 +72,12 @@ add(
   '',
   '## Results',
   '',
-  '| Size | Webview ready | First render | One edit | value shown | host applies it |',
-  '|---|---|---|---|---|---|',
+  '| Size | Webview ready | First render | One edit | value shown | host applies it | Second edit |',
+  '|---|---|---|---|---|---|---|',
 );
 for (const s of vscode.sizes) {
   add(
-    `| ${s.mib} MiB (${s.bytes.toLocaleString('en-US')} B) | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'shownMs')} | ${cell(s.edit, 'hostMs')} |`,
+    `| ${s.mib} MiB (${s.bytes.toLocaleString('en-US')} B) | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'shownMs')} | ${cell(s.edit, 'hostMs')} | ${cell(runsOf(s, 'second'), 'ms')} |`,
   );
 }
 
@@ -85,13 +87,20 @@ add(
   '',
   '"Open" is the first render: the time until the user sees the document in the tree.',
   '',
-  '| Size | First render | One edit | Verdict |',
-  '|---|---|---|---|',
+  'Both edits count: the slower median of the first and the second edit must be under 500 ms.',
+  '',
+  '| Size | First render | One edit | Second edit | Verdict |',
+  '|---|---|---|---|---|',
 );
 const passing = [];
 for (const s of vscode.sizes) {
   const render = med(s.open, 'renderMs');
-  const edit = med(s.edit, 'ms');
+  const first = med(s.edit, 'ms');
+  const second = med(runsOf(s, 'second'), 'ms');
+  const edit =
+    first === undefined || (runsOf(s, 'second').length && second === undefined)
+      ? undefined
+      : Math.max(first, second ?? first);
   const renderOk = render !== undefined && render < OPEN_LIMIT_MS;
   const editOk = edit !== undefined && edit < EDIT_LIMIT_MS;
   if (renderOk && editOk) passing.push(s.mib);
@@ -100,7 +109,7 @@ for (const s of vscode.sizes) {
     edit === undefined ? 'no edit measured' : editOk ? undefined : 'edit too slow',
   ].filter(Boolean);
   add(
-    `| ${s.mib} MiB | ${ms(render)} | ${ms(edit)} | ${why.length ? `miss: ${why.join(', ')}` : 'pass'} |`,
+    `| ${s.mib} MiB | ${ms(render)} | ${ms(first)} | ${ms(second)} | ${why.length ? `miss: ${why.join(', ')}` : 'pass'} |`,
   );
 }
 add(
@@ -113,7 +122,7 @@ add(
 if (second) {
   const rows = second.sizes.map(
     (s) =>
-      `| ${s.mib} MiB | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'shownMs')} |`,
+      `| ${s.mib} MiB | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'shownMs')} | ${cell(runsOf(s, 'second'), 'ms')} |`,
   );
   add(
     '',
@@ -122,8 +131,8 @@ if (second) {
     "Timed again after the first launch closed, on the same runner: how far one launch's medians",
     'can move. The verdict above uses the first launch.',
     '',
-    '| Size | Webview ready | First render | One edit | value shown |',
-    '|---|---|---|---|---|',
+    '| Size | Webview ready | First render | One edit | value shown | Second edit |',
+    '|---|---|---|---|---|---|',
     ...rows,
   );
 }
@@ -148,6 +157,9 @@ add(
   '  the message, `core` applyPatch and the WorkspaceEdit. After the change the host parses the new',
   '  text once in the background (format badge, schema validation, the next edit), which can delay',
   '  an edit made right after.',
+  '- **Second edit:** the same on the next record, made as soon as the first edit settled: the host',
+  '  now edits the text its first edit produced, not the one it parsed on open. Run 1 of each size',
+  '  is the first open of that file in this VS Code launch (cold); runs 2 and 3 open it again.',
   '',
   'To reproduce: `pnpm build && CHR_TEST_HOOKS=1 pnpm package`, then `xvfb-run -a pnpm --filter',
   '@chr-json-editor/bench bench` (or the `bench` workflow, `.github/workflows/bench.yml`).',
@@ -157,7 +169,7 @@ const failures = [vscode, second]
   .filter(Boolean)
   .flatMap((results) => results.sizes)
   .flatMap((s) =>
-    [...s.open, ...s.edit]
+    [...s.open, ...s.edit, ...runsOf(s, 'second')]
       .filter((r) => r.error)
       .map((r) => `- ${s.mib} MiB: ${r.error.replace(/\s+/g, ' ')}`),
   );

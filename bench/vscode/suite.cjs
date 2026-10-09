@@ -11,6 +11,8 @@
 //            and until the host's answer is in and the editor is free again (`ms`, the edit). On
 //            the host's clock: from sending the patch until the document changed (`host`: core's
 //            applyPatch and the WorkspaceEdit).
+//   second — the same right after the first edit settles, on another record: the host then edits a
+//            text it changed itself rather than the one it parsed on open (003 T11 review).
 // Open and `host` are on the extension host's clock, so they include the messages between host and
 // webview. Results go to the JSON file named by CHR_BENCH_OUT. A failure is recorded, not thrown,
 // so a size VS Code refuses still leaves the others measured.
@@ -86,9 +88,9 @@ async function timeOpen(hooks, uri, records) {
   return { readyMs: ready - start, renderMs: rendered - start };
 }
 
-async function timeEdit(hooks, uri, run) {
+async function timeEdit(hooks, uri, run, record = 0) {
   const key = uri.toString();
-  const value = `edited-${run}-${Date.now()}`;
+  const value = `edited-${run}-${record}-${Date.now()}`;
   let changedAt;
   const listener = vscode.workspace.onDidChangeTextDocument((event) => {
     if (event.document.uri.toString() === key && event.contentChanges.length > 0) {
@@ -97,7 +99,7 @@ async function timeEdit(hooks, uri, run) {
   });
   try {
     const start = performance.now();
-    if (!hooks.patch(key, [{ op: 'replace', path: '/0/name', value }])) {
+    if (!hooks.patch(key, [{ op: 'replace', path: `/${record}/name`, value }])) {
       throw new Error('no editor shows the file');
     }
     // The edit starts in the webview, so it is timed there: from the edit until the tree shows it,
@@ -132,7 +134,13 @@ exports.run = async function run() {
   for (const file of files) {
     const uri = vscode.Uri.file(file.path);
     const records = recordCount(file.path);
-    const entry = { mib: file.mib, bytes: fs.statSync(file.path).size, open: [], edit: [] };
+    const entry = {
+      mib: file.mib,
+      bytes: fs.statSync(file.path).size,
+      open: [],
+      edit: [],
+      second: [],
+    };
     results.sizes.push(entry);
     console.log(`bench: ${file.mib} MiB, ${records} records`);
     for (let run = 0; run < RUNS; run++) {
@@ -151,8 +159,11 @@ exports.run = async function run() {
       }
       try {
         entry.edit.push(await timeEdit(hooks, uri, run));
+        entry.second.push(await timeEdit(hooks, uri, run, 1));
       } catch (error) {
-        entry.edit.push({ error: message(error) });
+        (entry.edit.length > entry.second.length ? entry.second : entry.edit).push({
+          error: message(error),
+        });
       }
     }
     await closeAll();

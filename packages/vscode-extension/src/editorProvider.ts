@@ -25,7 +25,7 @@ import {
   type ToWebviewMessage,
   type ValidationMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { detect } from '@chr-json-editor/core';
+import { detect, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import type { FormatBadgeController } from './formatBadgeVscode';
@@ -253,6 +253,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.sessions.delete(panel);
       this.validations.delete(panel);
       this.snapshots.delete(panel);
+      // The host's cached parse of this text (core, UNK-014) can hold gigabytes for a big file.
+      releaseParse(document.getText());
     });
   }
 

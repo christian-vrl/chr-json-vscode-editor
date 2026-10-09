@@ -1,7 +1,7 @@
 // Each adapter parses a text once, however many callers parse or edit it (cache.ts, UNK-014).
 import { describe, expect, it, vi } from 'vitest';
 import { lastText } from '../src/formats/cache.js';
-import { getAdapter, type Format } from '../src/index.js';
+import { getAdapter, releaseParse, type Format } from '../src/index.js';
 
 describe('lastText', () => {
   it('computes once for equal texts and again for a different one', () => {
@@ -39,4 +39,22 @@ describe('adapters', () => {
       expect(adapter.parse(text).data).toEqual({ a: 1, b: [1, 2] });
     });
   }
+
+  it('releaseParse drops the parse of that text in every format, and only of that text', () => {
+    const text = '{"released": [1, 2, 3]}';
+    const other = '{"kept": true}';
+    const json5 = getAdapter('json5');
+    const jsonc = getAdapter('jsonc');
+    const kept = json5.parse(other);
+    const parsed = jsonc.parse(text);
+    releaseParse(other.replace('kept', 'never parsed'));
+    expect(json5.parse(other)).toBe(kept);
+    releaseParse(text);
+    expect(json5.parse(other)).toBe(kept);
+    const again = jsonc.parse(text);
+    expect(again).not.toBe(parsed);
+    expect(again.data).toEqual(parsed.data);
+    releaseParse();
+    expect(json5.parse(other)).not.toBe(kept);
+  });
 });
