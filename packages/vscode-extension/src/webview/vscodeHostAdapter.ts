@@ -70,6 +70,18 @@ export class VscodeHostAdapter implements HostAdapter {
     this.#post({ protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion, dialect });
   }
 
+  undo(docVersion: number): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'undo', docVersion });
+  }
+
+  redo(docVersion: number): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'redo', docVersion });
+  }
+
+  flushed(docVersion: number, request: number): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'flushed', docVersion, request });
+  }
+
   #receive(data: unknown): void {
     const decoded = decodeToWebview(data);
     if (!decoded.ok) {

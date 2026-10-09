@@ -10,6 +10,9 @@
 // answer to an edit only when the document holds exactly the text that edit produced, so the
 // webview never takes another editor's change for its own, and never gets its own edit back as an
 // external change to re-apply.
+//
+// Undo and redo (003 T7) run in the document's own history (VS Code's undo stack), after every edit
+// the webview sent before them; what they change reaches the webview as an external `update`.
 import {
   PROTOCOL_VERSION,
   type EditErrorCode,
@@ -27,6 +30,9 @@ export interface SyncTarget {
   format(): Format;
   /** Replaces the document's text with `text` (a WorkspaceEdit); false when the editor refused. */
   replace(text: string): Promise<boolean>;
+  /** Undoes or redoes the document's last change in its own history (VS Code's `undo` command);
+   *  never rejects. */
+  history(action: 'undo' | 'redo'): Promise<void>;
   post(message: ToWebviewMessage): void;
 }
 
@@ -41,6 +47,12 @@ export class DocumentSync {
   /** Handles an `edit` from the webview; resolves once it is answered. */
   edit(message: EditMessage): Promise<void> {
     this.queue = this.queue.then(() => this.apply(message));
+    return this.queue;
+  }
+
+  /** Handles an `undo` or `redo` from the webview, after the edits before it; resolves once run. */
+  history(action: 'undo' | 'redo'): Promise<void> {
+    this.queue = this.queue.then(() => this.target.history(action));
     return this.queue;
   }
 

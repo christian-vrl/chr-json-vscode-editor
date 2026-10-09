@@ -36,6 +36,7 @@ with comments and style kept.
 - ADR-001, ADR-002, ADR-003, ADR-006.
 - `vanilla-jsoneditor@3.13.0/index.d.ts:499-501` exposes `parser` and `validationParser` props; default parsing is `JSON.parse` (reviewer report 2026-10-08).
 - `onChange` returns `patchResult` with `redo` patch (`index.d.ts:302-305`); text-mode edits do not set it (verified in 003 T6: text mode calls `onChange` with `patchResult` undefined), so `App.svelte`'s `'text' in updated` branch sends the whole text and the host diffs it into one `WorkspaceEdit` (`documentSync.ts` `minimalReplacement`; plan 003 risk R3).
+- A webview's Ctrl+Z / Ctrl+Y reach the workbench as well as the page: VS Code's webview frame forwards every keydown (`out/vs/workbench/contrib/webview/browser/pre/index.html:590-621` `handleInnerKeydown`, VS Code 1.141.0), and the workbench's `undo` for an active custom editor undoes the document (`CustomEditorInput.undo` → `undoRedoService.undo(resource)`, priority 105). The library also undoes in its own history, so one key moved two steps; 003 T7 stops the keys in the webview and sends `undo`/`redo` to the host, which runs VS Code's commands (plan 003 risk R1).
 
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |

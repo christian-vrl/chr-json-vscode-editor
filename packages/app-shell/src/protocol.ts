@@ -11,8 +11,10 @@
  *  6: `update` says whether it answers the UI's edit (`origin`); edit errors have fixed codes
  *     (003 T5).
  *  7: `validation` says whether the dialect can be switched (`switchable`) and has a `none` result;
- *     adds the UI → host `setDialect` message (004 T5). */
-export const PROTOCOL_VERSION = 7;
+ *     adds the UI → host `setDialect` message (004 T5).
+ *  8: adds the UI → host `undo` and `redo` messages, and the host → UI `flush` request with its
+ *     UI → host `flushed` answer (003 T7). */
+export const PROTOCOL_VERSION = 8;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -99,6 +101,26 @@ export interface SetFormatMessage extends Envelope<'setFormat'> {
 export interface SetDialectMessage extends Envelope<'setDialect'> {
   dialect: SchemaDialect;
 }
+/**
+ * Undo or redo in the host's history of the document (003 T7, spec 003 criterion 3, plan 003 risk
+ * R1). The UI keeps no undo history of its own: its undo and redo keys and buttons send these, so
+ * the document's one history (VS Code's, which also holds changes made in other editors) decides
+ * what changes. Sent after every `edit` the UI made before it, in order. There is no answer of its
+ * own: a change it makes comes back as an `update` with origin `external`.
+ */
+export type UndoMessage = Envelope<'undo'>;
+export type RedoMessage = Envelope<'redo'>;
+/**
+ * The host is about to save the document (003 T7). The UI hands over any change it still holds,
+ * such as typing text mode has not reported yet (text-mode.ts), and answers `flushed` with the same
+ * `request` once every `edit` it made is answered, so the saved file has what the user sees.
+ */
+export interface FlushMessage extends Envelope<'flush'> {
+  request: number;
+}
+export interface FlushedMessage extends Envelope<'flushed'> {
+  request: number;
+}
 /** A failure the other side should show; `code` is machine-readable, `message` is for people. */
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
@@ -167,8 +189,16 @@ export type ToWebviewMessage =
   | SetModeMessage
   | SetFormatMessage
   | ErrorMessage
-  | ValidationMessage;
-export type ToHostMessage = ReadyMessage | EditMessage | SetDialectMessage | ErrorMessage;
+  | ValidationMessage
+  | FlushMessage;
+export type ToHostMessage =
+  | ReadyMessage
+  | EditMessage
+  | SetDialectMessage
+  | UndoMessage
+  | RedoMessage
+  | FlushedMessage
+  | ErrorMessage;
 export type ProtocolMessage = ToWebviewMessage | ToHostMessage;
 
 export type DecodeResult<M> = { ok: true; message: M } | { ok: false; error: string };
@@ -193,12 +223,7 @@ type Fields = Record<string, (value: unknown, name: string) => unknown>;
 const BASE: Fields = {
   protocol: (v) => v,
   type: (v) => v,
-  docVersion: (v, name) => {
-    if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0) {
-      throw new Invalid(`${name} must be a non-negative integer`);
-    }
-    return v;
-  },
+  docVersion: count,
 };
 
 const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
@@ -208,12 +233,16 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   setFormat: { format: oneOf(FORMATS) },
   error: { code: str, message: str },
   validation: { dialect: schemaDialect, result: validationResult },
+  flush: { request: count },
 };
 
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
   ready: { docVersion: zero },
   edit: { change: documentChange },
   setDialect: { dialect: oneOf(SCHEMA_DIALECTS) },
+  undo: {},
+  redo: {},
+  flushed: { request: count },
   error: { code: str, message: str },
 };
 
@@ -252,6 +281,13 @@ function record(v: unknown, name: string): Record<string, unknown> {
     throw new Invalid(`${name} must be an object`);
   }
   return v as Record<string, unknown>;
+}
+
+function count(v: unknown, name: string): number {
+  if (typeof v !== 'number' || !Number.isSafeInteger(v) || v < 0) {
+    throw new Invalid(`${name} must be a non-negative integer`);
+  }
+  return v;
 }
 
 function zero(v: unknown, name: string): 0 {
