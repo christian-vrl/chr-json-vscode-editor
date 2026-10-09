@@ -1,7 +1,8 @@
-// 002 T10: comment-keeping compact (spec 002 R12) and sort (R13). Unit cases for details the golden
-// corpus does not show, and a property test for criterion 8's second half over random commented
-// documents: the data is kept (compact) or sorted as `vanilla-jsoneditor` sorts it (sort), the
-// output parses, and every input comment is in the output (neither action removes a member).
+// 002 T10: comment-keeping compact (spec 002 R12) and sort (R13); 003 T8: format (`prettyPrint`) and
+// sort by a given order. Unit cases for details the golden corpus does not show, and a property
+// test for criterion 8's second half (and spec 003 criterion 10 for format) over random commented
+// documents: the data is kept (compact, format) or sorted as `vanilla-jsoneditor` sorts it (sort),
+// the output parses, and every input comment is in the output (no action removes a member).
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { sortData } from '../../../tests/golden/sort-reference.js';
@@ -84,12 +85,82 @@ describe('sort (R13)', () => {
     );
   });
 
+  it('puts members in a given order (003 T8), and refuses one that is not a permutation', () => {
+    expect(jsonc.sort('{"a": 1, "b": 2, "c": 3}', { order: [2, 0, 1] })).toBe(
+      '{"c": 3, "a": 1, "b": 2}',
+    );
+    expect(jsonc.sort('[1, 2]', { order: [0, 1] })).toBe('[1, 2]');
+    for (const order of [[0], [0, 0], [0, 2], [1, 0.5]])
+      expect(() => jsonc.sort('[1, 2]', { order })).toThrow(PatchError);
+  });
+
+  it('refuses a comma-first layout it would break (002 T10 review F1)', () => {
+    const text = '{ "b": 1\n, "a": 2\n}\n';
+    expect(() => jsonc.sort(text)).toThrow(/would not parse/);
+    expect(() => getAdapter('json5').sort('{ b: 1\n, a: 2\n}\n')).toThrow(PatchError);
+  });
+
   it('throws a PatchError for a path that is missing or not a container, and for no value', () => {
     expect(() => jsonc.sort('{"a": 1}', { path: '/a' })).toThrow(PatchError);
     expect(() => jsonc.sort('{"a": 1}', { path: '/b' })).toThrow(PatchError);
     expect(() => jsonc.sort('[1]', { path: '/x' })).toThrow(PatchError);
     expect(() => jsonc.sort('// nothing\n')).toThrow(PatchError);
     expect(() => jsonc.sort('{"a": }')).toThrow(PatchError);
+  });
+});
+
+describe('format (003 T8, prettyPrint)', () => {
+  const jsonc = getAdapter('jsonc');
+
+  it('lays out data like JSON.stringify with the indent unit, keeping tokens as written', () => {
+    const data = { a: [1, { b: null }], c: {}, d: [] };
+    expect(getAdapter('json').prettyPrint(JSON.stringify(data))).toBe(
+      JSON.stringify(data, null, 2),
+    );
+    expect(jsonc.prettyPrint('{\n\t"a": [1.0, 2E1]\n}\n')).toBe(
+      '{\n\t"a": [\n\t\t1.0,\n\t\t2E1\n\t]\n}\n',
+    );
+  });
+
+  it('keeps the line ending and the final newline', () => {
+    expect(jsonc.prettyPrint('{"a":\r\n1}\r\n')).toBe('{\r\n  "a": 1\r\n}\r\n');
+    expect(jsonc.prettyPrint('[1]')).toBe('[\n  1\n]');
+  });
+
+  it('keeps comments on their lines, before or after what they were next to', () => {
+    expect(jsonc.prettyPrint('[1, // one\n2 /* two */, /* three */ 3]')).toBe(
+      '[\n  1, // one\n  2 /* two */,\n  /* three */ 3\n]',
+    );
+    expect(jsonc.prettyPrint('{"a": // why\n1}')).toBe('{\n  "a": // why\n  1\n}');
+    expect(jsonc.prettyPrint('/* head */ {"a": 1} // tail')).toBe(
+      '/* head */ {\n  "a": 1\n} // tail',
+    );
+  });
+
+  it('keeps one blank line next to a comment, and none elsewhere', () => {
+    expect(jsonc.prettyPrint('{\n\n"a": 1,\n\n// c\n\n"b": 2}')).toBe(
+      '{\n  "a": 1,\n\n  // c\n\n  "b": 2\n}',
+    );
+  });
+
+  it('writes a comma after a // comment on the next line, so it still follows its member', () => {
+    expect(jsonc.prettyPrint('[1 // one\n, 2]')).toBe('[\n  1 // one\n  ,\n  2\n]');
+  });
+
+  it('keeps comments in an empty container, and the document with comments only', () => {
+    expect(jsonc.prettyPrint('{ // none\n}')).toBe('{ // none\n}');
+    expect(jsonc.prettyPrint('// a\n/* b */\n')).toBe('// a\n/* b */\n');
+    expect(jsonc.prettyPrint('')).toBe('');
+  });
+
+  it('is unchanged when run again', () => {
+    const once = jsonc.prettyPrint('{"a": [1, /* x */ 2], // y\n"b": {"c": 3}}');
+    expect(jsonc.prettyPrint(once)).toBe(once);
+  });
+
+  it('throws a PatchError for a text that does not parse', () => {
+    for (const format of formats)
+      expect(() => getAdapter(format).prettyPrint('{"a": }')).toThrow(PatchError);
   });
 });
 
@@ -147,7 +218,7 @@ function itemProperties(container: unknown): string[] {
 /** Data as text with its key order; equal numbers print the same (-0 as 0, NaN as null). */
 const ordered = (data: unknown) => JSON.stringify(data);
 
-function check(format: Format, action: 'compact' | 'sort') {
+function check(format: Format, action: 'compact' | 'sort' | 'format') {
   const adapter = getAdapter(format);
   fc.assert(
     fc.property(dataArbitrary(format), styleArbitrary, fc.gen(), (data, style, g) => {
@@ -158,6 +229,10 @@ function check(format: Format, action: 'compact' | 'sort') {
       if (action === 'compact') {
         output = adapter.compact(input);
         expected = parsed.data;
+      } else if (action === 'format') {
+        output = adapter.prettyPrint(input);
+        expected = parsed.data;
+        expect(adapter.prettyPrint(output)).toBe(output);
       } else {
         const paths = containers(parsed.data);
         if (paths.length === 0) return;
@@ -183,7 +258,7 @@ function check(format: Format, action: 'compact' | 'sort') {
 
 describe('criterion 8: random commented documents keep their comments', () => {
   for (const format of formats) {
-    for (const action of ['compact', 'sort'] as const) {
+    for (const action of ['compact', 'sort', 'format'] as const) {
       it(`${format} ${action}: ${RUNS} runs, seed ${SEED}`, () => check(format, action), 60_000);
     }
   }

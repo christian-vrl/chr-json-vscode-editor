@@ -5,7 +5,7 @@
 import naturalCompare from 'natural-compare-lite';
 import { blockComment, dataOf, type Doc, type Open } from './edit.js';
 import { parseIndex, parsePointer } from './pointer.js';
-import { Kind } from './tokens.js';
+import { isComment, Kind, type Token } from './tokens.js';
 import { PatchError, type FormatNode, type SortOptions } from './types.js';
 
 /** R12: every token kept in order with no white space or line break between tokens; a `//` comment
@@ -22,27 +22,170 @@ export function compact(text: string, open: Open): string {
   return doc.style.finalNewline && out !== '' ? out + doc.style.eol : out;
 }
 
+/**
+ * Format (003 T8, spec 003 criterion 10): the text laid out as `JSON.stringify(data, null, unit)`
+ * lays out data, keeping every token as written (quotes, keys, numbers, trailing commas) and every
+ * comment. `unit` is the document's indent unit (R1; 2 spaces for a text with no line breaks), the
+ * line ending and final newline stay as detected (R10). Comments:
+ * - one that started its own line still does, at the indent of what follows it;
+ * - one that shared its line with the token before it stays after that token on the same line
+ *   (after its comma, if the comma followed it), and what came after a `//` comment goes on the
+ *   next line; but a block comment with a token after it on its line goes with that token;
+ * - a blank line between a comment and the token next to it stays as one blank line, so comments
+ *   attached to a member by UNK-008 stay attached and those attached to none stay unattached.
+ * An empty container (no members, no comments) is written `{}` or `[]`.
+ */
+export function prettyPrint(text: string, open: Open): string {
+  const doc = open(text);
+  const { tokens, style } = doc;
+  const unit = doc.unit;
+  const eol = style.eol;
+  let out = '';
+  let depth = 0;
+  /** The next token starts a new line at `depth`. */
+  let pendingBreak = false;
+  /** That new line comes after a blank line. */
+  let blankLine = false;
+  /** An inline block comment was written last: a space goes before the next token. */
+  let pendingSpace = false;
+  /** Line breaks since the last token that was not white space. */
+  let breaks = 0;
+  let previous: Token | undefined;
+
+  const write = (s: string) => {
+    if (pendingBreak && out !== '') out += (blankLine ? eol : '') + eol + unit.repeat(depth);
+    else if (pendingSpace) out += ' ';
+    pendingBreak = false;
+    pendingSpace = false;
+    out += s;
+  };
+
+  /** A block comment at `i` is followed on its line by a token that is not a comment: when a line
+   *  break comes before the comment, it goes on the new line with that token (UNK-021 leaves open
+   *  which member such a comment belongs to, so it stays next to the one it was next to). */
+  const leadsLine = (i: number): boolean => {
+    if (tokens[i]!.kind !== Kind.BlockComment) return false;
+    for (let j = i + 1; j < tokens.length; j++) {
+      const t = tokens[j]!;
+      if (t.kind === Kind.Whitespace) continue;
+      return t.kind !== Kind.LineBreak && !isComment(t);
+    }
+    return false;
+  };
+
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]!;
+    if (t.kind === Kind.Whitespace) continue;
+    if (t.kind === Kind.LineBreak) {
+      breaks++;
+      continue;
+    }
+    const raw = text.slice(t.offset, t.end);
+    blankLine = breaks > 1 && (isComment(t) || isComment(previous));
+    // A line break between a comment and the token next to it stays.
+    if (breaks > 0 && previous && (isComment(t) || isComment(previous))) pendingBreak = true;
+    if (isComment(t)) {
+      if (previous === undefined || breaks > 0 || (pendingBreak && leadsLine(i))) write(raw);
+      else {
+        // Shares the line with the token before it, even when a line break is pending after it.
+        if (!out.endsWith(' ')) out += ' ';
+        out += raw;
+      }
+      if (t.kind === Kind.LineComment) pendingBreak = true;
+      else pendingSpace = !pendingBreak;
+    } else {
+      switch (t.kind) {
+        case Kind.OpenBrace:
+        case Kind.OpenBracket: {
+          write(raw);
+          let j = i + 1;
+          while (j < tokens.length && isSpace(tokens[j]!)) j++;
+          const next = tokens[j];
+          if (next && (next.kind === Kind.CloseBrace || next.kind === Kind.CloseBracket)) {
+            // Empty: the closing bracket follows at once.
+            out += text.slice(next.offset, next.end);
+            i = j;
+          } else {
+            depth++;
+            pendingBreak = true;
+          }
+          break;
+        }
+        case Kind.CloseBrace:
+        case Kind.CloseBracket:
+          depth--;
+          pendingBreak = true;
+          write(raw);
+          break;
+        case Kind.Comma:
+          // After a `//` comment the comma starts the next line, so it still follows its member.
+          if (pendingBreak) write(raw);
+          else out += raw;
+          pendingSpace = false;
+          pendingBreak = true;
+          break;
+        case Kind.Colon:
+          write(raw + ' ');
+          break;
+        default:
+          write(raw);
+      }
+    }
+    previous = t;
+    breaks = 0;
+  }
+  if (style.finalNewline && out !== '') out += eol;
+  return out;
+}
+
+const isSpace = (t: Token) => t.kind === Kind.Whitespace || t.kind === Kind.LineBreak;
+
 /** R13: the members of the container at `options.path` in sorted order, by the comparison
  *  `vanilla-jsoneditor` 3.13.0 uses (`src/lib/logic/sort.ts`: keys by case-insensitive natural
  *  order; array items by `property`, booleans < numbers < strings < other types). Each member
  *  moves with its attached comments (R5); the text between members, with any comment attached to
- *  none, stays where it is. */
+ *  none, stays where it is. With `options.order` the members go in that order instead (003 T8:
+ *  the editor's own sort dialog and table header sort the data; the text follows their order). */
 export function sort(text: string, open: Open, options: SortOptions = {}): string {
   const doc = open(text);
   if (!doc.root) throw new PatchError('cannot sort: the document has no value');
-  const container = lookup(doc.root, options.path ?? '');
+  const path = options.path ?? '';
+  const container = lookup(doc.root, path);
   const members = container.children ?? [];
-  const direction = options.direction === 'desc' ? -1 : 1;
-  const property = parsePointer(options.property ?? '');
-  const keyed = members.map((member, index) => ({
-    index,
-    key: container.type === 'object' ? member.children![0]!.value : getIn(dataOf(member), property),
-  }));
-  const compare = container.type === 'object' ? caseInsensitiveNaturalCompare : compareValues;
-  // Array.prototype.sort is stable, as in the library, so equal members keep their order.
-  const order = keyed.sort((a, b) => direction * compare(a.key, b.key)).map((k) => k.index);
+  const order = options.order ? checkedOrder(options.order, members.length) : sortedOrder();
   if (order.every((from, to) => from === to)) return text;
-  return reorder(doc, members, order);
+  const sorted = reorder(doc, members, order);
+  // 002 T10 review F1: a layout `reorder` does not read (commas at the start of lines) can come
+  // out with misplaced commas. Such a result is refused rather than written.
+  try {
+    open(sorted);
+  } catch (error) {
+    if (!(error instanceof PatchError)) throw error;
+    throw new PatchError(`cannot sort "${path}" in this layout: the result would not parse`);
+  }
+  return sorted;
+
+  function sortedOrder(): number[] {
+    const direction = options.direction === 'desc' ? -1 : 1;
+    const property = parsePointer(options.property ?? '');
+    const keyed = members.map((member, index) => ({
+      index,
+      key:
+        container.type === 'object' ? member.children![0]!.value : getIn(dataOf(member), property),
+    }));
+    const compare = container.type === 'object' ? caseInsensitiveNaturalCompare : compareValues;
+    // Array.prototype.sort is stable, as in the library, so equal members keep their order.
+    return keyed.sort((a, b) => direction * compare(a.key, b.key)).map((k) => k.index);
+  }
+}
+
+/** `order` when it is a permutation of the `length` members' indices. */
+function checkedOrder(order: readonly number[], length: number): readonly number[] {
+  const seen = new Set<number>();
+  for (const n of order) if (Number.isInteger(n) && n >= 0 && n < length) seen.add(n);
+  if (order.length !== length || seen.size !== length)
+    throw new PatchError(`order must be a permutation of the container's ${length} members`);
+  return order;
 }
 
 function lookup(root: FormatNode, path: string): FormatNode {
@@ -115,7 +258,7 @@ function reorder(doc: Doc, members: readonly FormatNode[], order: readonly numbe
     let tail = unit.tail;
     if (unit.comma >= 0 && !needsComma)
       tail = tail.slice(0, unit.comma) + tail.slice(unit.comma + 1);
-    if (!slot.unit.endsLine && unit.endsLine) tail = inlineComments(doc, tail);
+    if (!slot.unit.endsLine && unit.endsLine) tail = inlineComments(tail);
     out += unit.lead + unit.body + (unit.comma < 0 && needsComma ? ',' : '') + tail;
     const next = slots[to + 1];
     out += doc.text.slice(slot.end, next ? next.start : undefined);
@@ -125,7 +268,7 @@ function reorder(doc: Doc, members: readonly FormatNode[], order: readonly numbe
 
 /** `tail` with each `//` comment written as a block comment. A tail holds only white space, one
  *  comma and comments, so a `//` outside a block comment starts a line comment. */
-function inlineComments(doc: Doc, tail: string): string {
+function inlineComments(tail: string): string {
   return tail.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, (comment) =>
     comment.startsWith('//') ? blockComment(comment) : comment,
   );

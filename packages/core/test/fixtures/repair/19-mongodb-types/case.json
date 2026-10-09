@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "MongoDB shell types",
+  "jsonrepairClass": "Strip MongoDB data types like `NumberLong(2)` and `ISODate(\"2012-12-19T06:01:17.171Z\")`",
+  "comments": [
+    {
+      "text": "// exported from mongo shell",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// primary key",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}

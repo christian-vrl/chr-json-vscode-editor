@@ -1,0 +1,9 @@
+// settings header
+
+{"editor": {"tabSize": 2, // spaces
+  /* wrap */ "wordWrap": "on"},
+  // files
+  "files": ["a.json", /* second */ "b.json"],
+
+  // unattached, before the end
+}

@@ -1,0 +1,7 @@
+{
+  "text": 'one \
+two', // continued
+  "crlf": "a\
+b",
+  "plain": "it's"
+}

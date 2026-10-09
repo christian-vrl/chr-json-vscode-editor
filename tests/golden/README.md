@@ -20,8 +20,8 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
 
 - `load.test.ts` — the loader. It rejects folders under `tests/golden/` that are not a format and
   files directly inside a format folder.
-- `actions.test.ts` — criterion 8 (002 T10): cases tagged `compact` or `sort` run through the
-  format adapter's `compact` / `sort`, are byte-equal to `expected`, and keep every input comment
+- `actions.test.ts` — criterion 8 (002 T10): cases tagged `compact`, `sort` or `format` run
+  through the format adapter's `compact` / `sort` / `prettyPrint`, are byte-equal to `expected`, and keep every input comment
   not listed in `removedComments`.
   `data-diff` cases (R14) apply `diff(parse(input).data, value)` with `applyPatch`. `apply.test.ts`
   skips these cases.
@@ -36,14 +36,17 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
   `compact` the data and its key order are unchanged and every comment is there, with `//` comments
   written as block comments; for `sort` the data equals the sort `vanilla-jsoneditor` 3.13.0 does
   (`sort-reference.ts`), with every comment kept; `compact` leaves no line break outside a string
-  or block comment and keeps the final newline.
+  or block comment and keeps the final newline. For `format` (003 T8) the data, its key order and
+  every comment, as written, are unchanged.
 
 ## Whole-document actions (R12–R14, criterion 8)
 
-A case tagged `compact`, `sort` or `data-diff` holds one action in `patch.json` instead of an
-RFC 6902 patch: `[{"op": "compact", "path": ""}]`, or `[{"op": "sort", "path": "<container>",
+A case tagged `compact`, `sort`, `format` or `data-diff` holds one action in `patch.json` instead
+of an RFC 6902 patch: `[{"op": "compact", "path": ""}]`, `[{"op": "format", "path": ""}]` (003 T8:
+`prettyPrint`, the editor's Format), or `[{"op": "sort", "path": "<container>",
 "property": "<pointer inside each item>", "direction": "asc" | "desc"}]` (`property` and
-`direction` optional, as in `SortOptions`), or `[{"op": "data-diff", "path": "", "value": <new
+`direction` optional, as in `SortOptions`; or `"order": [<old index>, …]`, the order the editor's
+own sort chose, 003 T8), or `[{"op": "data-diff", "path": "", "value": <new
 data>, "removedComments": [...]}]`: the data a data-level action (transform, repair, compare,
 CSV merge) produced, and the input comments attached to members it removes (R5, UNK-015), as
 written; `corpus.test.ts` checks that expected parses to `value` and keeps every other comment.

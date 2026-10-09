@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "unquoted string value",
+  "jsonrepairClass": "not a README item; jsonrepair repairs it (see results)",
+  "comments": [
+    {
+      "text": "// where it runs",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// not staging",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}

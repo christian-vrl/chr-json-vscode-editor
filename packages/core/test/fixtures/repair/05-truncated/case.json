@@ -1,0 +1,25 @@
+{
+  "format": "jsonc",
+  "breakage": "file cut off: missing closing braces",
+  "jsonrepairClass": "Repair truncated JSON",
+  "comments": [
+    {
+      "text": "// user settings",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// spaces",
+      "container": "/editor",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "// wrap long lines",
+      "container": "/editor",
+      "before": 1,
+      "trailing": false
+    }
+  ]
+}
