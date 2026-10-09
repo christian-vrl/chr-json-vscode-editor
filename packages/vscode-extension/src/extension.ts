@@ -6,7 +6,7 @@ import { registerCommands } from './commands';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
 import type { DomStep, RenderedProbe } from './testProbe';
-import { testConfirm } from './confirm';
+import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -34,9 +34,10 @@ export interface TestHooks {
   setSchema(uri: string, schema: object | boolean | undefined): boolean;
   /** Runs `steps` on the page of `uri`'s webview (003 T8); see testProbe.ts. */
   dom(uri: string, steps: DomStep[]): Promise<(string | null)[]>;
-  /** Answers every later confirmation with `answer` instead of a dialog (undefined: show it);
-   *  returns the questions asked since the previous call (003 T8, UNK-018). */
-  confirm(answer: boolean | undefined): string[];
+  /** Answers every later confirmation with `answer` instead of a dialog (undefined: show it); a
+   *  function is called for each question and gives its answer. Returns the questions asked since
+   *  the previous call (003 T8, UNK-018). */
+  confirm(answer: TestAnswer | undefined): string[];
   /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
   selectDialect(uri: string, dialect: string): boolean;
 }
