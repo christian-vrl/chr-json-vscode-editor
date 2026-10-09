@@ -9,6 +9,8 @@
 // `{ chrTest: 'whenSettled', id }` answers once every edit was answered and the editor shows the
 // document, so it can time an edit until the editor is free again. Both answers carry `ms`, the
 // time since the last `patch` on the webview's clock, as a person editing in the webview sees it.
+// `{ chrTest: 'type', id, text }` types `text` at the end of text mode's editor and answers
+// with the time the last character went in (criterion 9, 003 T6).
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { RenderedProbe } from '../testProbe';
@@ -47,6 +49,14 @@ export function installTestHooks(
       content: app()?.content() ?? null,
       format: document.querySelector('[role="toolbar"] .format')?.textContent?.trim() ?? '',
       notice: document.querySelector('.notice')?.textContent ?? '',
+      errorMessage:
+        document.querySelector('.jse-text-mode .jse-message.jse-error')?.textContent?.trim() ??
+        null,
+      errorMarkers: [...document.querySelectorAll('.jse-text-mode .cm-lint-marker-error')].filter(
+        (marker) =>
+          marker.getBoundingClientRect().width > 0 &&
+          getComputedStyle(marker).backgroundColor !== 'rgba(0, 0, 0, 0)',
+      ).length,
       validationMarks: validationMarks(root ?? null),
       schemaStatus: schemaStatus(),
 
@@ -55,6 +65,24 @@ export function installTestHooks(
         nonce: s.nonce !== '',
       })),
     };
+  }
+
+  /**
+   * Types `text` at the end of text mode's editor the way the browser does for a keystroke
+   * (`insertText`, which CodeMirror reads like typing); returns `Date.now()` after the last
+   * character, so the host can time how long the document takes to follow.
+   */
+  async function type(text: string): Promise<number> {
+    const content = document.querySelector<HTMLElement>('.jse-text-mode .cm-content');
+    if (!content) throw new Error('text mode is not shown');
+    content.focus();
+    const selection = getSelection();
+    selection?.selectAllChildren(content);
+    selection?.collapseToEnd();
+    // CodeMirror takes the caret from the DOM selection on `selectionchange`, a task later.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    for (const character of text) document.execCommand('insertText', false, character);
+    return Date.now();
   }
 
   /** The toolbar's schema status as a person reads it: the chosen option, then any reason. */
@@ -121,6 +149,14 @@ export function installTestHooks(
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'probe') {
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'type') {
+      void type(String(message.text)).then(
+        (typedAt) => api.postMessage({ chrTest: 'probe', id: message.id, result: { typedAt } }),
+        (error: unknown) =>
+          api.postMessage({ chrTest: 'probe', id: message.id, result: { error: String(error) } }),
+      );
       return true;
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'selectDialect') {

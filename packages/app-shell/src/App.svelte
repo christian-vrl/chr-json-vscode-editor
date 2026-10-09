@@ -55,7 +55,8 @@
   // `docVersion` and the host answers every edit, in order, with an `update` (origin `edit`) or an
   // edit error. Only one edit is in flight, so each is made on the version the host holds; changes
   // made meanwhile wait in `queued`. The library never reports a programmatic `update` as a change,
-  // so text from the host is never echoed back.
+  // so text from the host is never echoed back. Typing the library has not reported yet is not in
+  // `editor.get()`, so a host answer arriving meanwhile leaves the newer keystrokes in place.
   //
   // A tree or table edit is already in the library's data when it is sent. When the host answers
   // it, the editor keeps that data instead of parsing the whole new text again (UNK-014): the host
@@ -156,7 +157,10 @@
     if (status.patchResult) {
       change = { kind: 'patch', patch: status.patchResult.redo as JsonPatchOperation[] };
     } else if ('text' in updated) {
-      // Text mode sends the whole text; 003 T6 debounces it. Only the newest text matters.
+      // Text mode (003 T6, criterion 9): the library reports typing once it pauses for
+      // TEXT_DEBOUNCE_MS (text-mode.ts), and the whole text goes to the host, which writes only the
+      // changed span. The text goes as typed, valid or not: an error marker shows a parse error,
+      // and the document never gets a repaired text in its place. Only the newest text matters.
       const last = queued.at(-1);
       if (last?.change.kind === 'text') queued.pop();
       change = { kind: 'text', text: updated.text };
@@ -563,6 +567,8 @@
     beside it, as `data:` SVG images, which the webview CSP's img-src blocks (spec 003 criterion 6
     allows only the webview source). These rules, more specific than CodeMirror's theme, draw the
     same marks with CSS instead, so no image is ever requested. Colours as the library's defaults.
+    The same marks show a text-mode parse error (003 T6, criterion 9). Warnings (schema errors) get
+    a triangle, as CodeMirror draws them, so they read apart from errors without colour.
   */
   .shell :global(.cm-lintRange) {
     background-image: none;
@@ -592,6 +598,8 @@
     background: var(--jse-error-color, #ee5341);
   }
   .shell :global(.cm-lint-marker-warning) {
+    border-radius: 0;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
     background: var(--jse-warning-color, #fdc539);
   }
   .shell :global(.cm-lint-marker-info) {
