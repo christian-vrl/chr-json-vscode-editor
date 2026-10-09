@@ -268,6 +268,10 @@ exports.run = async function run() {
   await closeAll();
   await require('./sync.cjs').runSync({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (003 T6): text mode, criterion 9 (textMode.cjs).
+  await closeAll();
+  await require('./textMode.cjs').runTextMode({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
   // keyed by docVersion. The webview's test hook decodes each message with app-shell's protocol
   // decoder and reports what it got; the CSP checked above has no unsafe-eval.

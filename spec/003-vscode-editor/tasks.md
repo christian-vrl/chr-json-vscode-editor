@@ -13,7 +13,7 @@
 
 ## Phase C — Sync
 - [x] **T5** Webview→document via `core.applyPatch` → `WorkspaceEdit`; document→webview with echo suppression; library `parser` prop backed by `core` (criterion 10). — needs: 002 T6 (json, jsonc cases); 002 T5 for json5 cases — *gate: criteria 1, 2, 10 green*
-- [ ] **T6** Text mode: debounced text diff becomes a `WorkspaceEdit`; invalid text shows the error state. — *gate: criterion 9 green*
+- [x] **T6** Text mode: debounced text diff becomes a `WorkspaceEdit`; invalid text shows the error state. — *gate: criterion 9 green*
 - [ ] **T7** Undo/redo/save routed to VS Code. — *gate: criterion 3 green*
 
 ## Phase D — Features (risk-free / additive)
