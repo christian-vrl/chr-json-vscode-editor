@@ -34,7 +34,7 @@ tasks run in order unless marked `parallel`.
 | 006-convert-formats | Convert between JSON, JSONC, JSON5 with lossy-step warnings | 002 token streams; keeps layout and comments (UNK-033) |
 | 007-structural-compare | Structural compare (two files or vs Git HEAD, ignoring key order) | reuses 002 T9 `diff`; 006 and 007 can run in parallel |
 | 008 | Large-file mode | above 5 MiB (UNK-014) |
-| 009 | CSV import/export | merges via 002 R14 |
+| 009-csv | CSV import and export with options and preview, csv42's field-name notation | own code in `core`; replace document data via 002 R14 (UNK-042); can run in parallel with 007 and 008 |
 | 010 | Smart format | FracturedJson library (MIT), as the site uses |
 | 011 | JavaScript and Lodash queries | uses ADR-010's eval location |
 | 012 | NDJSON / JSON Lines in table mode | |
