@@ -11,7 +11,7 @@ const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
 const REPO = path.resolve(__dirname, '../../../..');
 const GOLDEN = path.join(REPO, 'tests/golden');
 // The `op` tags of whole-document golden cases (tests/golden/load.ts `wholeDocumentOps`).
-const WHOLE_DOCUMENT_OPS = ['compact', 'sort', 'data-diff'];
+const WHOLE_DOCUMENT_OPS = ['compact', 'sort', 'data-diff', 'format'];
 const OPEN = path.join(REPO, 'tests/e2e/fixtures/open');
 const FORMATS = ['json', 'jsonc', 'json5'];
 const CASES_PER_FORMAT = 10;

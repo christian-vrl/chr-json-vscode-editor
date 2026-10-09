@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "missing comma after a hex number",
+  "jsonrepairClass": "Add missing commas",
+  "comments": [
+    {
+      "text": "// colors",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// pure red",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  'url': 'http://example.com', // homepage
+  // the API base
+  'api': 'https://api.example.com/v1'
+}

@@ -231,7 +231,7 @@ describe('commonSubsequence is a longest common subsequence', () => {
     const list = fc.array(fc.integer({ min: 0, max: 4 }), { maxLength: 30 });
     fc.assert(
       fc.property(list, list, (a, b) => {
-        const pairs = commonSubsequence(a, b);
+        const pairs = commonSubsequence(a, b)!;
         expect(pairs).toHaveLength(lcsLength(a, b));
         pairs.forEach(([i, j], n) => {
           expect(a[i]).toBe(b[j]);

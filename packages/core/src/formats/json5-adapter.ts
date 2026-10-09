@@ -1,7 +1,7 @@
 // JSON5 adapter (002 T5, ADR-009) on our own parser (`json5-parser.ts`). Patch operations run
 // through the edit layer shared with JSON and JSONC (`edit.ts`); this adapter supplies
 // JSON5's tree, tokens and line terminators, and writes new keys and values by R4 and R8.
-import { compact, sort } from './actions.js';
+import { compact, prettyPrint, sort } from './actions.js';
 import { lastText } from './cache.js';
 import { applyOperation, Doc, type Rebuild, type Writer } from './edit.js';
 import { parseJson5 } from './json5-parser.js';
@@ -104,4 +104,5 @@ export const json5Adapter: FormatAdapter = {
   stringify: (data, style) => stringify(data, 'json5', style),
   compact: (text) => compact(text, open),
   sort: (text, options) => sort(text, open, options),
+  prettyPrint: (text) => prettyPrint(text, open),
 };

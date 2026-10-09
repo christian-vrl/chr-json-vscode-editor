@@ -1,0 +1,5 @@
+{
+  // where it runs
+  mode: production, // not staging
+  replicas: 2,
+}

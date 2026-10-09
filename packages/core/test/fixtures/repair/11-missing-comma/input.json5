@@ -1,0 +1,5 @@
+{
+  // app config
+  name: 'demo'
+  port: 3000, // dev port
+}

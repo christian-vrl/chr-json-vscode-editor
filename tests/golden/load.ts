@@ -31,9 +31,10 @@ export const goldenRoot = import.meta.dirname;
 
 /** `op` tags of whole-document actions (spec 002 R12–R14, criterion 8). Their patch.json holds one
  *  action, not an RFC 6902 patch: `{"op": "compact", "path": ""}`, `{"op": "sort", "path",
- *  "property"?, "direction"?}` (`SortOptions`). `apply.test.ts` skips them; `actions.test.ts`
+ *  "property"?, "direction"?, "order"?}` (`SortOptions`), `{"op": "format", "path": ""}` (003 T8).
+ *  `apply.test.ts` skips them; `actions.test.ts`
  *  runs them. */
-export const wholeDocumentOps: readonly string[] = ['compact', 'sort', 'data-diff'];
+export const wholeDocumentOps: readonly string[] = ['compact', 'sort', 'data-diff', 'format'];
 
 /**
  * Loads every case under `root`, sorted by format then name. Throws on any malformed case, on a

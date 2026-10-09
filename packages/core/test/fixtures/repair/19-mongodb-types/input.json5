@@ -1,0 +1,5 @@
+{
+  // exported from mongo shell
+  _id: ObjectId('5f1d7a'), // primary key
+  count: NumberLong(42),
+}

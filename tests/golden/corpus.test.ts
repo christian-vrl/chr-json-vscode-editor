@@ -48,6 +48,11 @@ describe.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))('%s', (_,
       const comments = (text: string) => commentsOf(text).map(asBlock).sort();
       expect(comments(c.expected)).toEqual(comments(c.input));
     });
+  } else if (c.tags.op === 'format') {
+    it('expected has the input data, keys in the same order, and every comment as written', () => {
+      expect(ordered(JSON5.parse(c.expected))).toBe(ordered(parseData(c.input)));
+      expect(commentsOf(c.expected)).toEqual(commentsOf(c.input));
+    });
   } else if (c.tags.op === 'data-diff') {
     it('expected has the new data and the comments not listed as removed (R14)', () => {
       const action = c.patch[0] as unknown as { value: unknown; removedComments?: string[] };

@@ -9,6 +9,8 @@ export interface SortAction {
   path: string;
   property?: string;
   direction?: 'asc' | 'desc';
+  /** The members' new order by their old indices (003 T8), replacing the comparison. */
+  order?: number[];
 }
 
 function caseInsensitiveNaturalCompare(a: unknown, b: unknown): number {
@@ -63,6 +65,11 @@ export function sortData(data: unknown, action: SortAction): unknown {
   const path = parsePath(data, action.path);
   const direction = action.direction === 'desc' ? -1 : 1;
   const sorted = (value: unknown): unknown => {
+    if (action.order) {
+      if (Array.isArray(value)) return action.order.map((i): unknown => value[i]);
+      const entries = Object.entries(value as Record<string, unknown>);
+      return Object.fromEntries(action.order.map((i) => entries[i]!));
+    }
     if (Array.isArray(value))
       return value
         .slice()

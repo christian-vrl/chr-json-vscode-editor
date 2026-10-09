@@ -1,0 +1,6 @@
+{
+  // signed numbers
+  delta: +1
+  ratio: +.5, // half
+  big: +1e3,
+}
