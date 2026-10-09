@@ -35,7 +35,7 @@ with comments and style kept.
 ## Current evidence (D2 — path + lines / section)
 - ADR-001, ADR-002, ADR-003, ADR-006.
 - `vanilla-jsoneditor@3.13.0/index.d.ts:499-501` exposes `parser` and `validationParser` props; default parsing is `JSON.parse` (reviewer report 2026-10-08).
-- `onChange` returns `patchResult` with `redo` patch (`index.d.ts:302-305`); HYPOTHESIS that it is set for text-mode edits — T5/T6 verify.
+- `onChange` returns `patchResult` with `redo` patch (`index.d.ts:302-305`); text-mode edits do not set it (verified in 003 T6: text mode calls `onChange` with `patchResult` undefined), so `App.svelte`'s `'text' in updated` branch sends the whole text and the host diffs it into one `WorkspaceEdit` (`documentSync.ts` `minimalReplacement`; plan 003 risk R3).
 
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |

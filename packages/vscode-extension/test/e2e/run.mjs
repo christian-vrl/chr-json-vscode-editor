@@ -57,7 +57,16 @@ try {
       extensionDevelopmentPath: path.join(here, 'harness'),
       extensionTestsPath: path.join(here, 'suite.cjs'),
       extensionTestsEnv: { CHR_E2E_EXTENSIONS_DIR: extensionsDir },
-      launchArgs: [...profileArgs, '--disable-gpu'],
+      // Chromium's timer throttling flags (003 T6): under xvfb about one run in three aligned the
+      // webview's text-mode debounce timer to whole seconds (the edit arrived 1000 ms after typing,
+      // not 300 ms, with the page visible and focused), which a user's visible window does not do.
+      launchArgs: [
+        ...profileArgs,
+        '--disable-gpu',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
+      ],
     });
     console.log('test:e2e: passed');
   }

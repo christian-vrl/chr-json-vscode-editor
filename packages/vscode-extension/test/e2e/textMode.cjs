@@ -94,7 +94,9 @@ exports.runTextMode = async function runTextMode({
       latency < 2 * TEXT_DEBOUNCE_MS,
       `the document changed ${latency} ms after typing stopped: more than one interval late`,
     );
-    assert.equal(document.isDirty, true);
+    // VS Code reports the dirty state to the extension host after the change event, so it can lag
+    // the text by a tick (seen locally: false at the change event, true 50 ms later, same version).
+    await waitFor('the document to be dirty', () => document.isDirty);
     const valid = await probeUntil(
       'the typed text in the editor',
       (p) => p.content?.text === document.getText(),
