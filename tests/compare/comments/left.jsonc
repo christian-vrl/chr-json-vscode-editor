@@ -1,0 +1,7 @@
+{
+  // Settings for the build
+  "target": "es2022", // newest supported
+  "minify": false,
+  /* Paths to include */
+  "include": ["src", "test"]
+}

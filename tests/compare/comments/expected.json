@@ -1,0 +1,20 @@
+[
+  {
+    "kind": "changed",
+    "leftPath": "/target",
+    "rightPath": "/target"
+  },
+  {
+    "kind": "changed",
+    "leftPath": "/minify",
+    "rightPath": "/minify"
+  },
+  {
+    "kind": "removed",
+    "leftPath": "/include/1"
+  },
+  {
+    "kind": "added",
+    "rightPath": "/sourcemap"
+  }
+]

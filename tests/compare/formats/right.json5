@@ -1,0 +1,7 @@
+// JSON5: unquoted keys, single quotes, hex numbers
+{
+  name: 'CHR JSON Editor',
+  formats: ['json', 'jsonc', 'json5'],
+  version: 0x2,
+  ratio: Infinity,
+}
