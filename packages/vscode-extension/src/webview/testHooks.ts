@@ -10,7 +10,9 @@
 // document, so it can time an edit until the editor is free again. Both answers carry `ms`, the
 // time since the last `patch` on the webview's clock, as a person editing in the webview sees it.
 // `{ chrTest: 'type', id, text }` types `text` at the end of text mode's editor and answers
-// with the time the last character went in (criterion 9, 003 T6).
+// with the time the last character went in (criterion 9, 003 T6). `{ chrTest: 'press', key, shift }`
+// presses Ctrl+`key` in the focused element, and `{ chrTest: 'click', title }` clicks the menu
+// button with that title (undo and redo, criterion 3, 003 T7).
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { RenderedProbe } from '../testProbe';
@@ -131,6 +133,22 @@ export function installTestHooks(
     requestAnimationFrame(check);
   }
 
+  /** Presses Ctrl+`key` (Shift too when `shift`) where the focus is, as a keystroke would. */
+  function press(key: string, shift: boolean): void {
+    const target = document.activeElement ?? document.body;
+    const init = { key, code: `Key${key.toUpperCase()}`, ctrlKey: true, shiftKey: shift };
+    target.dispatchEvent(
+      new KeyboardEvent('keydown', { ...init, bubbles: true, cancelable: true }),
+    );
+    target.dispatchEvent(new KeyboardEvent('keyup', { ...init, bubbles: true, cancelable: true }));
+  }
+
+  function click(title: string): void {
+    const button = document.querySelector<HTMLButtonElement>(`button[title="${title}"]`);
+    if (!button) throw new Error(`no button titled ${title}`);
+    button.click();
+  }
+
   /** Returns true for a test message, which the editor never sees. */
   return (data: unknown): boolean => {
     const message = data as { chrTest?: unknown; id?: unknown; patch?: unknown; text?: unknown };
@@ -157,6 +175,15 @@ export function installTestHooks(
         (error: unknown) =>
           api.postMessage({ chrTest: 'probe', id: message.id, result: { error: String(error) } }),
       );
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'press') {
+      const { key, shift } = message as { key?: unknown; shift?: unknown };
+      press(String(key), shift === true);
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'click') {
+      click(String((message as { title?: unknown }).title));
       return true;
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'selectDialect') {

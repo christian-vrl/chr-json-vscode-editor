@@ -10,13 +10,21 @@
   reach the library through its `validator` prop, which draws them inline in tree, table and text
   mode. The toolbar shows the dialect the schema ran as, with UNK-017's switch when the schema
   names none, and why a document was not validated.
+
+  Undo and redo (003 T7, plan 003 risk R1) belong to the host's history of the document, never the
+  library's: the undo and redo keys and the library's menu buttons send `undo` and `redo` to the
+  host, which undoes there (in VS Code, the document's own undo stack), and the result comes back
+  as an external `update`. Before the host saves, it asks for a `flush`, so the saved file has the
+  typing text mode has not reported yet.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
     createJSONEditor,
     type Content,
+    isMenuButton,
     type JsonEditor,
+    type MenuItem,
     type Mode as LibraryMode,
     type OnChangeStatus,
     type ValidationError,
@@ -75,11 +83,18 @@
     change: DocumentChange;
     shown: boolean;
   }
-  const queued: Pending[] = [];
+  /** Changes and undo/redo steps waiting to go to the host, oldest first. */
+  const queued: (Pending | { kind: 'undo' } | { kind: 'redo' })[] = [];
+  /** `flush` requests to answer once nothing the UI made is waiting for the host (003 T7). */
+  const flushes: number[] = [];
 
   onMount(() => {
     let disposed = false;
     const subscription = host.onExternalChange(onHostEvent);
+    // Capture phase on the window, so neither the library nor the page around it sees the keys:
+    // the library would undo in its own history, and the VS Code webview would forward the key to
+    // the workbench, which undoes the document as well (003 T7: two undos for one key).
+    window.addEventListener('keydown', onKeydown, true);
     void host.open().then((doc) => {
       if (disposed) return;
       docVersion = doc.docVersion;
@@ -97,6 +112,7 @@
           validationParser: parserFor(doc.format),
           validator: validatorFor(validation),
           onChange,
+          onRenderMenu,
           onChangeMode,
         },
       });
@@ -104,6 +120,7 @@
     return () => {
       disposed = true;
       subscription.dispose();
+      window.removeEventListener('keydown', onKeydown, true);
       void editor?.destroy();
     };
   });
@@ -162,7 +179,7 @@
       // changed span. The text goes as typed, valid or not: an error marker shows a parse error,
       // and the document never gets a repaired text in its place. Only the newest text matters.
       const last = queued.at(-1);
-      if (last?.change.kind === 'text') queued.pop();
+      if (last && 'change' in last && last.change.kind === 'text') queued.pop();
       change = { kind: 'text', text: updated.text };
     } else {
       // Not produced by any edit the library makes today.
@@ -179,12 +196,83 @@
   }
 
   function sendNext(): void {
-    if (inFlight) return;
-    const next = queued.shift();
-    if (!next) return;
-    inFlight = true;
-    if (!next.shown) ownChanges = false;
-    host.save(docVersion, next.change);
+    while (!inFlight) {
+      const next = queued.shift();
+      if (!next) break;
+      if ('change' in next) {
+        inFlight = true;
+        if (!next.shown) ownChanges = false;
+        host.save(docVersion, next.change);
+      } else {
+        // The step changes the document to something the library does not hold.
+        ownChanges = false;
+        if (next.kind === 'undo') host.undo(docVersion);
+        else host.redo(docVersion);
+      }
+    }
+    answerFlushes();
+  }
+
+  /** Undo or redo in the host's history, after every change made before it (003 T7). */
+  async function history(kind: 'undo' | 'redo'): Promise<void> {
+    await reportTyping();
+    queued.push({ kind });
+    sendNext();
+  }
+
+  /** The undo and redo keys VS Code binds: Ctrl+Z; Ctrl+Y and Ctrl+Shift+Z (Cmd on macOS). */
+  function onKeydown(event: KeyboardEvent): void {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+    const z = isKey(event, 'z', 'KeyZ');
+    const y = isKey(event, 'y', 'KeyY');
+    if (!z && !y) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void history(z && !event.shiftKey ? 'undo' : 'redo');
+  }
+
+  /** `letter` as the layout types it, or its physical key where the layout types no Latin letter. */
+  function isKey(event: KeyboardEvent, letter: string, code: string): boolean {
+    const key = event.key.toLowerCase();
+    return key === letter || (!/^[a-z]$/.test(key) && event.code === code);
+  }
+
+  /** The library's undo and redo buttons go to the host's history too; modals keep their own. */
+  function onRenderMenu(items: MenuItem[], context: { modal: boolean }): MenuItem[] {
+    if (context.modal) return items;
+    return items.map((item) => {
+      if (!isMenuButton(item)) return item;
+      const kind = item.className?.includes('jse-undo')
+        ? 'undo'
+        : item.className?.includes('jse-redo')
+          ? 'redo'
+          : undefined;
+      // Enabled always: the host's history, not the library's, says whether there is a step.
+      return kind ? { ...item, disabled: false, onClick: () => void history(kind) } : item;
+    });
+  }
+
+  /**
+   * Has text mode report typing it holds back (text-mode.ts: it reports once typing pauses, or at
+   * once when the editor loses focus), so it goes to the host before an undo or a save. The only
+   * way the library offers is losing focus, so focus leaves and comes back; the library notices a
+   * blur on a zero-delay timer, so this waits one too. Tree and table mode report every edit at
+   * once.
+   */
+  async function reportTyping(): Promise<void> {
+    const active = document.activeElement;
+    if (mode !== 'text' || !(active instanceof HTMLElement) || !target.contains(active)) return;
+    active.blur();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (active.isConnected && document.activeElement === document.body) {
+      active.focus({ preventScroll: true });
+    }
+  }
+
+  /** Answers the host's `flush` requests once nothing the UI made waits for an answer. */
+  function answerFlushes(): void {
+    if (inFlight || queued.length > 0) return;
+    for (const request of flushes.splice(0)) host.flushed(docVersion, request);
   }
 
   /**
@@ -259,6 +347,7 @@
         }
         if (!inFlight) showText();
         showValidation();
+        answerFlushes();
         return;
       case 'validation':
         validation = event;
@@ -286,7 +375,12 @@
           if (event.docVersion > docVersion) docVersion = event.docVersion;
           showText();
           showValidation();
+          answerFlushes();
         }
+        return;
+      case 'flush':
+        flushes.push(event.request);
+        void reportTyping().then(answerFlushes);
         return;
     }
   }

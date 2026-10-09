@@ -10,6 +10,10 @@
 // then does the host post `init`, the latest validation result, and an `update` for each later
 // change of the document, so nothing is posted into a page that cannot receive it yet. Edits from
 // the webview reach the document through DocumentSync (documentSync.ts, 003 T5).
+//
+// Undo, redo and save stay VS Code's (003 T7, spec 003 criterion 3): the webview's undo and redo
+// keys and buttons send `undo` and `redo`, which run VS Code's own commands on the document's undo
+// stack, and before VS Code saves the document the webview is asked to `flush` the typing it holds.
 import * as vscode from 'vscode';
 import {
   decodeToHost,
@@ -68,7 +72,18 @@ interface Session {
   sync: DocumentSync;
   /** Whether the webview sent `ready`; until then the host posts nothing. */
   ready: boolean;
+  /** `flush` requests waiting for the webview's `flushed`, by request number (003 T7). */
+  flushes: Map<number, () => void>;
 }
+
+/**
+ * How long a save waits for the webview's `flushed` before it goes ahead without it (003 T7). The
+ * webview answers once its last edit is applied, normally within milliseconds; a webview that is
+ * gone, or a window whose timers Chromium throttles (a hidden window aligns them to whole seconds),
+ * must not hold the save up for long.
+ */
+const FLUSH_TIMEOUT_MS = 1500;
+let nextFlush = 1;
 
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Filled only when `__CHR_TEST_HOOKS__` is true. */
@@ -141,6 +156,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       document,
       panel,
       ready: false,
+      flushes: new Map(),
       validation,
       schema,
       sync: new DocumentSync({
@@ -156,6 +172,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
             replacement,
           );
           return Promise.resolve(vscode.workspace.applyEdit(edit));
+        },
+        history: async (action) => {
+          // VS Code's undo and redo act on the active editor; the webview asks only from its own
+          // keys and buttons, so the panel is active unless the user moved on meanwhile.
+          if (!panel.active) return;
+          try {
+            await vscode.commands.executeCommand(action);
+          } catch (error) {
+            console.error(`CHR JSON Editor: ${action} failed: ${String(error)}`);
+          }
         },
         post: (message) => this.post(session, message),
       }),
@@ -203,6 +229,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         session.schema.schedule(true);
       }
     });
+    const saving = vscode.workspace.onWillSaveTextDocument((event) => {
+      if (event.document === document && session.ready) event.waitUntil(this.flush(session));
+    });
     const settings = vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration('json.schemas') ||
@@ -214,7 +243,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     panel.onDidDispose(() => {
       received.dispose();
       changes.dispose();
+      saving.dispose();
       settings.dispose();
+      for (const resolve of session.flushes.values()) resolve();
       session.schema.dispose();
       session.validation.dispose();
       this.sessions.delete(panel);
@@ -247,10 +278,41 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       case 'setDialect':
         session.schema.setDialect(message.dialect);
         return;
+      case 'undo':
+      case 'redo':
+        void session.sync.history(message.type);
+        return;
+      case 'flushed':
+        session.flushes.get(message.request)?.();
+        session.flushes.delete(message.request);
+        return;
       case 'error':
         void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);
         return;
     }
+  }
+
+  /**
+   * Asks the webview to hand over what it still holds before a save, and resolves once it says
+   * every edit it made is applied, or after FLUSH_TIMEOUT_MS.
+   */
+  private flush(session: Session): Promise<void> {
+    const request = nextFlush++;
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(done, FLUSH_TIMEOUT_MS);
+      function done() {
+        clearTimeout(timer);
+        session.flushes.delete(request);
+        resolve();
+      }
+      session.flushes.set(request, done);
+      this.post(session, {
+        protocol: PROTOCOL_VERSION,
+        type: 'flush',
+        docVersion: session.document.version,
+        request,
+      });
+    });
   }
 
   /** The format the badge holds for the document: detected, or chosen by the user. */
@@ -381,6 +443,24 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return false;
     void session.panel.webview.postMessage({ chrTest: 'selectDialect', dialect });
+    return true;
+  }
+
+  /** Test hook: presses Ctrl+`key` (and Shift when `shift`) in the webview of `uri` (003 T7). */
+  press(uri: string, key: string, shift = false): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'press', key, shift });
+    return true;
+  }
+
+  /** Test hook: clicks the button titled `title` in the webview of `uri` (003 T7). */
+  click(uri: string, title: string): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'click', title });
     return true;
   }
 

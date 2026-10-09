@@ -71,6 +71,7 @@ const toWebview: ToWebviewMessage[] = [
     dialect: null,
     result: { kind: 'skipped', reason: 'Schema draft not supported (draft-03).' },
   },
+  { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 8, request: 3 },
 ];
 
 const toHost: ToHostMessage[] = [
@@ -98,6 +99,9 @@ const toHost: ToHostMessage[] = [
     change: { kind: 'text', text: '' },
   },
   { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 3, dialect: 'draft-04' },
+  { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 4 },
+  { protocol: PROTOCOL_VERSION, type: 'redo', docVersion: 5 },
+  { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 3 },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 5, code: 'parse', message: 'Bad' },
 ];
 
@@ -112,14 +116,18 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
       [
         'edit',
         'error',
+        'flush',
+        'flushed',
         'init',
         'ready',
+        'redo',
+        'undo',
         'setDialect',
         'setFormat',
         'setMode',
@@ -208,6 +216,12 @@ describe('protocol rejects malformed messages', () => {
     ['protocol 3 (before draft-04 and draft-06)', { ...update, protocol: 3 }],
     ['protocol 4 (before ready)', { ...update, protocol: 4 }],
     ['protocol 6 (before switchable dialects)', { ...update, protocol: 6 }],
+    ['protocol 7 (before undo, redo and flush)', { ...update, protocol: 7 }],
+    ['a flush without request', { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 1 }],
+    [
+      'a flush with a negative request',
+      { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 1, request: -1 },
+    ],
     [
       'a validation without result',
       { protocol: PROTOCOL_VERSION, type: 'validation', docVersion: 1 },
@@ -287,6 +301,18 @@ describe('protocol rejects malformed messages', () => {
     [
       'a setDialect without dialect',
       { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 1 },
+    ],
+    ['an undo from protocol 7', { protocol: 7, type: 'undo', docVersion: 1 }],
+    ['an undo with a count', { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 1, steps: 2 }],
+    ['a redo without docVersion', { protocol: PROTOCOL_VERSION, type: 'redo' }],
+    ['a flushed without request', { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 1 }],
+    [
+      'a flushed with a string request',
+      { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 1, request: '1' },
+    ],
+    [
+      'a flush (host → webview only)',
+      { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 1, request: 1 },
     ],
   ])('webview → host: %s', (_why, data) => {
     const result = decodeToHost(data);
