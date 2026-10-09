@@ -98,6 +98,18 @@ const toHost: ToHostMessage[] = [
     docVersion: 0,
     change: { kind: 'text', text: '' },
   },
+  ...(['format', 'compact', 'repair'] as const).map((name): ToHostMessage => ({
+    protocol: PROTOCOL_VERSION,
+    type: 'edit',
+    docVersion: 4,
+    change: { kind: 'action', action: { name } },
+  })),
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'edit',
+    docVersion: 4,
+    change: { kind: 'action', action: { name: 'sort', path: '/a~1b/0', order: [2, 0, 1] } },
+  },
   { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 3, dialect: 'draft-04' },
   { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 4 },
   { protocol: PROTOCOL_VERSION, type: 'redo', docVersion: 5 },
@@ -276,6 +288,7 @@ describe('protocol rejects malformed messages', () => {
   });
 
   const patchEdit = (patch: unknown) => ({ ...edit, change: { kind: 'patch', patch } });
+  const actionEdit = (action: unknown) => ({ ...edit, change: { kind: 'action', action } });
 
   it.each([
     ['an update', update],
@@ -289,6 +302,13 @@ describe('protocol rejects malformed messages', () => {
     ['remove with a value', patchEdit([{ op: 'remove', path: '/a', value: 1 }])],
     ['a value that is not JSON', patchEdit([{ op: 'add', path: '/a', value: Infinity }])],
     ['a nested undefined', patchEdit([{ op: 'add', path: '/a', value: [undefined] }])],
+    ['an unknown action', actionEdit({ name: 'beautify' })],
+    ['an action that is not an object', actionEdit('format')],
+    ['a format action with a path', actionEdit({ name: 'format', path: '' })],
+    ['a sort without order', actionEdit({ name: 'sort', path: '' })],
+    ['a sort with a negative index', actionEdit({ name: 'sort', path: '', order: [0, -1] })],
+    ['a sort with a fractional index', actionEdit({ name: 'sort', path: '', order: [0.5] })],
+    ['a sort whose path is not a pointer', actionEdit({ name: 'sort', path: 'a', order: [] })],
     [
       'a ready with a document version',
       { protocol: PROTOCOL_VERSION, type: 'ready', docVersion: 1 },

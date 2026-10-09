@@ -13,13 +13,18 @@
 //
 // Undo and redo (003 T7) run in the document's own history (VS Code's undo stack), after every edit
 // the webview sent before them; what they change reaches the webview as an external `update`.
+//
+// Whole-document actions (003 T8: format, compact, sort, repair) run core's own action on the
+// document's text here, so comments and style are kept (002 R12–R13, UNK-018), and reach the
+// document as one edit like any other. A repair that cannot keep every comment asks first.
 import {
   PROTOCOL_VERSION,
+  type DocumentAction,
   type EditErrorCode,
   type EditMessage,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { getAdapter, PatchError, type Format } from '@chr-json-editor/core';
+import { getAdapter, PatchError, repair, type Format } from '@chr-json-editor/core';
 
 /** What the sync needs from the document and the webview. */
 export interface SyncTarget {
@@ -34,6 +39,8 @@ export interface SyncTarget {
    *  never rejects. */
   history(action: 'undo' | 'redo'): Promise<void>;
   post(message: ToWebviewMessage): void;
+  /** Asks whether to write a repair that removes `lostComments` (VS Code: a modal warning). */
+  confirmRepair(lostComments: readonly string[]): Promise<boolean>;
 }
 
 export class DocumentSync {
@@ -82,13 +89,18 @@ export class DocumentSync {
     const text = this.target.text();
     let next: string;
     try {
-      next =
-        change.kind === 'text'
-          ? change.text
-          : getAdapter(this.target.format()).applyPatch(text, change.patch);
+      if (change.kind === 'text') next = change.text;
+      else if (change.kind === 'patch')
+        next = getAdapter(this.target.format()).applyPatch(text, change.patch);
+      else next = await this.runAction(text, change.action);
     } catch (error) {
       if (!(error instanceof PatchError)) throw error;
       this.error('patch-failed', error.message);
+      return;
+    }
+    if (this.target.version() !== version) {
+      // Changed while the user was asked: the action was made on the old text.
+      this.error('stale-edit', 'The document changed before the action was applied.');
       return;
     }
     if (next === text) {
@@ -113,6 +125,27 @@ export class DocumentSync {
           ? 'The document changed while the edit was applied.'
           : 'The editor refused the edit.',
       );
+    }
+  }
+
+  /** Core's action on `text`: the new text, or `text` itself when the user declined a repair. */
+  private async runAction(text: string, action: DocumentAction): Promise<string> {
+    const format = this.target.format();
+    const adapter = getAdapter(format);
+    switch (action.name) {
+      case 'format':
+        return adapter.prettyPrint(text);
+      case 'compact':
+        return adapter.compact(text);
+      case 'sort':
+        return adapter.sort(text, { path: action.path, order: action.order });
+      case 'repair': {
+        const result = repair(text, format);
+        if (result.lostComments.length === 0) return result.text;
+        // UNK-018's fallback: ask before removing comments the repair could not keep.
+        const ok = await this.target.confirmRepair(result.lostComments);
+        return ok ? result.text : text;
+      }
     }
   }
 

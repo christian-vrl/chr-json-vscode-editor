@@ -276,6 +276,10 @@ exports.run = async function run() {
   await closeAll();
   await require('./undoSave.cjs').runUndoSave({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (003 T8): whole-document actions, criteria 4, 5 and 10, and Repair JSON (actions.cjs).
+  await closeAll();
+  await require('./actions.cjs').runActions({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
   // keyed by docVersion. The webview's test hook decodes each message with app-shell's protocol
   // decoder and reports what it got; the CSP checked above has no unsafe-eval.

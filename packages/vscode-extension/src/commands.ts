@@ -3,11 +3,17 @@
 // editor in place: the new editor opens in the active group and the old tab closes. A tab with
 // unsaved edits stays open instead: closing it asks to save, and "Don't Save" reverts the shared
 // document, losing the edits in the new editor too. The e2e test covers this.
+// "Repair JSON" (003 T8) repairs the document of the active text editor with core's
+// comment-keeping repair (UNK-018, UNK-028), asking first when a comment cannot be kept.
 import * as vscode from 'vscode';
+import { detect, PatchError, repair } from '@chr-json-editor/core';
+import { confirmRepair } from './confirm';
+import { minimalReplacement } from './documentSync';
 import { VIEW_TYPE } from './editorProvider';
 
 export const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
 export const REOPEN_AS_TEXT_COMMAND = 'chrJsonEditor.reopenAsText';
+export const REPAIR_COMMAND = 'chrJsonEditor.repairJson';
 
 export function registerCommands(): vscode.Disposable[] {
   return [
@@ -17,7 +23,38 @@ export function registerCommands(): vscode.Disposable[] {
     vscode.commands.registerCommand(REOPEN_AS_TEXT_COMMAND, (uri?: vscode.Uri) =>
       swapEditor(uri, 'default', (tab) => tab.input instanceof vscode.TabInputText),
     ),
+    vscode.commands.registerCommand(REPAIR_COMMAND, () => repairActiveEditor()),
   ];
+}
+
+/** "Repair JSON": resolves true when the document was changed. */
+async function repairActiveEditor(): Promise<boolean> {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) return false;
+  const { document } = editor;
+  const text = document.getText();
+  const { format } = detect(document.uri.path, document.languageId, text);
+  let result;
+  try {
+    result = repair(text, format);
+  } catch (error) {
+    if (!(error instanceof PatchError)) throw error;
+    void vscode.window.showErrorMessage(`CHR JSON Editor: ${error.message}`);
+    return false;
+  }
+  if (result.text === text) {
+    void vscode.window.showInformationMessage('CHR JSON Editor: the document needs no repair.');
+    return false;
+  }
+  if (result.lostComments.length > 0 && !(await confirmRepair(result.lostComments))) return false;
+  const { start, end, text: replacement } = minimalReplacement(text, result.text);
+  const edit = new vscode.WorkspaceEdit();
+  edit.replace(
+    document.uri,
+    new vscode.Range(document.positionAt(start), document.positionAt(end)),
+    replacement,
+  );
+  return vscode.workspace.applyEdit(edit);
 }
 
 function isCustomTab(tab: vscode.Tab): boolean {

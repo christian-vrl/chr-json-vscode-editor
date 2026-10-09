@@ -54,6 +54,13 @@ describe('parse', () => {
     expect(result.diagnostics).toEqual([]);
   });
 
+  it('reports more warnings than a call can take as arguments (003 T8 review)', () => {
+    const n = 200_000;
+    const { diagnostics } = getAdapter('json').parse(`[${'0 /**/,'.repeat(n)}0]`);
+    expect(diagnostics).toHaveLength(n);
+    expect(diagnostics.every((d) => d.severity === 'warning')).toBe(true);
+  });
+
   it('reports comments and trailing commas in JSON as warnings, not errors', () => {
     const result = jsonAdapter.parse('{\n  // c\n  "a": 1,\n}');
     expect(result.data).toEqual({ a: 1 });

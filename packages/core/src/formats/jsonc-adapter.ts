@@ -43,7 +43,9 @@ function parse(analysis: Analysis, text: string, format: Format): ParseResult {
     offset: e.offset,
     length: e.length,
   }));
-  if (format === 'json') diagnostics.push(...strictJsonWarnings(tokens));
+  // A loop, not `push(...warnings)`: 100k+ arguments would overflow the call stack.
+  if (format === 'json')
+    for (const warning of strictJsonWarnings(tokens)) diagnostics.push(warning);
   diagnostics.sort((a, b) => a.offset - b.offset);
   return { data: parseData(text), tree: root, style, diagnostics };
 }

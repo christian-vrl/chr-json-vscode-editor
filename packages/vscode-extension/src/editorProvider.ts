@@ -26,12 +26,13 @@ import {
   type ValidationMessage,
 } from '@chr-json-editor/app-shell/protocol';
 import { detect } from '@chr-json-editor/core';
+import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding } from './schemaBinding';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
-import type { RenderedProbe } from './testProbe';
+import type { DomStep, RenderedProbe } from './testProbe';
 import { DocumentValidation } from './validation';
 import { createNonce, renderWebviewHtml } from './webviewHtml';
 
@@ -184,6 +185,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           }
         },
         post: (message) => this.post(session, message),
+        confirmRepair,
       }),
     };
     this.sessions.set(panel, session);
@@ -389,6 +391,17 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
     if (result.typedAt === undefined) throw new Error(`typing failed: ${result.error}`);
     return result.typedAt;
+  }
+
+  /** Test hook: runs `steps` on the webview's page, as a person would click, fill in and press
+   *  keys (003 T8); resolves with what the `read` steps found. */
+  async dom(uri: string, steps: DomStep[]): Promise<(string | null)[]> {
+    const result = await this.ask<{ reads?: (string | null)[]; error?: string }>(uri, {
+      chrTest: 'dom',
+      steps,
+    });
+    if (!result.reads) throw new Error(`DOM steps failed: ${result.error}`);
+    return result.reads;
   }
 
   private ask<T>(uri: string, message: { chrTest: string; [key: string]: unknown }): Promise<T> {

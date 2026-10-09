@@ -5,7 +5,8 @@ import * as vscode from 'vscode';
 import { registerCommands } from './commands';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
-import type { RenderedProbe } from './testProbe';
+import type { DomStep, RenderedProbe } from './testProbe';
+import { testConfirm } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -35,6 +36,11 @@ export interface TestHooks {
   formatBadge(): FormatBadgeSnapshot;
   /** Validates the open editor of `uri` against `schema`, over the association (004 T2). */
   setSchema(uri: string, schema: object | boolean | undefined): boolean;
+  /** Runs `steps` on the page of `uri`'s webview (003 T8); see testProbe.ts. */
+  dom(uri: string, steps: DomStep[]): Promise<(string | null)[]>;
+  /** Answers every later confirmation with `answer` instead of a dialog (undefined: show it);
+   *  returns the questions asked since the previous call (003 T8, UNK-018). */
+  confirm(answer: boolean | undefined): string[];
   /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
   selectDialect(uri: string, dialect: string): boolean;
 }
@@ -64,6 +70,11 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         click: (uri, title) => provider.click(uri, title),
         formatBadge: () => formatBadge.snapshot(),
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
+        dom: (uri, steps) => provider.dom(uri, steps),
+        confirm(answer) {
+          testConfirm.answer = answer;
+          return testConfirm.asked.splice(0);
+        },
         setSchema(uri, schema) {
           let found = false;
           for (const [panel, validation] of provider.validations) {

@@ -16,28 +16,41 @@
   host, which undoes there (in VS Code, the document's own undo stack), and the result comes back
   as an external `update`. Before the host saves, it asks for a `flush`, so the saved file has the
   typing text mode has not reported yet.
+
+  Whole-document actions (003 T8) never let the library rewrite the text, which would drop comments
+  (its text mode writes `JSON.stringify` of the data). Format, compact and repair go to the host as
+  actions core runs on the document's text; a sort or transform, which the library hands back as
+  new data for a whole object or array, goes as core's sort with the new order or as core's diff
+  (data-change.ts, 002 R12–R14). The library's own buttons and shortcuts are rerouted here.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
     createJSONEditor,
+    jmespathQueryLanguage,
+    jsonpathQueryLanguage,
+    jsonQueryLanguage,
     type Content,
     isMenuButton,
     type JsonEditor,
     type MenuItem,
     type Mode as LibraryMode,
     type OnChangeStatus,
+    type QueryLanguage,
+    type RenderMenuContext,
     type ValidationError,
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { parseJSONPointer } from 'immutable-json-patch';
+  import { getIn, parseJSONPointer } from 'immutable-json-patch';
+  import { dataChange, isContainer } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
   import { parserFor } from './parser.js';
   import {
     isEditError,
     MODES,
     SCHEMA_DIALECTS,
+    type DocumentAction,
     type DocumentChange,
     type Format,
     type JsonPatchOperation,
@@ -50,6 +63,14 @@
 
   const MODE_LABELS: Record<Mode, string> = { tree: 'Tree', text: 'Text', table: 'Table' };
   const FORMAT_LABELS: Record<Format, string> = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
+  /** Transform's query languages (spec 003 criterion 5). JavaScript and Lodash run user code and
+   *  are not registered (spec 011). The library's JSONPath is jsonpath-plus, Goessner's JSONPath,
+   *  not RFC 9535. JSONQuery's description links to jsonquerylang.org (004 T1 review). */
+  const QUERY_LANGUAGES: QueryLanguage[] = [
+    jsonQueryLanguage,
+    jmespathQueryLanguage,
+    { ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' },
+  ];
 
   let mode = $state<Mode | undefined>();
   let format = $state<Format | undefined>();
@@ -87,6 +108,8 @@
   const queued: (Pending | { kind: 'undo' } | { kind: 'redo' })[] = [];
   /** `flush` requests to answer once nothing the UI made is waiting for the host (003 T7). */
   const flushes: number[] = [];
+  /** The library's text-mode sort dialog is open: the text it writes next is a sort (003 T8). */
+  let textSortPending = false;
 
   onMount(() => {
     let disposed = false;
@@ -111,19 +134,167 @@
           // fails on JSONC and JSON5 text in text mode and reports that as a parse error (004 T5).
           validationParser: parserFor(doc.format),
           validator: validatorFor(validation),
+          queryLanguages: QUERY_LANGUAGES,
+          queryLanguageId: QUERY_LANGUAGES[0]!.id,
+          onRenderMenu: renderMenu,
           onChange,
-          onRenderMenu,
           onChangeMode,
         },
       });
     });
+    // Capture phase: these run before the library's own handlers and can stop them.
+    target.addEventListener('keydown', interceptShortcut, true);
+    target.addEventListener('click', interceptRepair, true);
     return () => {
       disposed = true;
+      target.removeEventListener('keydown', interceptShortcut, true);
+      target.removeEventListener('click', interceptRepair, true);
       subscription.dispose();
       window.removeEventListener('keydown', onKeydown, true);
       void editor?.destroy();
     };
   });
+
+  /** Runs a whole-document action in the host (003 T8): format, compact or repair. */
+  export function runAction(name: Exclude<DocumentAction['name'], 'sort'>): void {
+    if (!editor) return;
+    flushText();
+    queue({ kind: 'action', action: { name } });
+  }
+
+  /** In text mode, hands typing the library has not reported yet to `onChange`, so an action
+   *  queued next runs on the text as typed (`validate()` flushes the library's debounce first). */
+  function flushText(): void {
+    if (mode === 'text') editor?.validate();
+  }
+
+  /** The library's menus with format, compact, sort and transform routed through core. */
+  function renderMenu(items: MenuItem[], context: RenderMenuContext): MenuItem[] {
+    const routed = onRenderMenu(items, context);
+    if (context.modal || context.readOnly) return routed;
+    return routed.map((item) => {
+      if (item.type !== 'button') return item;
+      switch (item.className) {
+        case 'jse-format':
+          return { ...item, onClick: () => runAction('format') };
+        case 'jse-compact':
+          return { ...item, onClick: () => runAction('compact') };
+        case 'jse-sort':
+          // The library's dialog picks the order; in text mode its result arrives as new text.
+          if (context.mode !== 'text') return item;
+          return {
+            ...item,
+            onClick: (event: MouseEvent) => {
+              flushText();
+              textSortPending = true;
+              item.onClick(event);
+            },
+          };
+        case 'jse-transform':
+          // In tree and table mode the result arrives as a patch (see `routePatch`).
+          if (context.mode !== 'text') return item;
+          return { ...item, onClick: () => transformText() };
+        default:
+          return item;
+      }
+    });
+  }
+
+  /** Text mode's transform: the library's dialog, with its result sent as data, not as text. */
+  function transformText(): void {
+    if (!editor) return;
+    flushText();
+    editor.transform({
+      rootPath: [],
+      onTransform: ({ json, transformedJson }) => {
+        const change = dataChange('', json, transformedJson);
+        if (change) queue(change);
+      },
+    });
+  }
+
+  /** Text mode's format and compact shortcuts (Ctrl+I, Ctrl+Shift+I) run core's actions. */
+  function interceptShortcut(event: KeyboardEvent): void {
+    if (mode !== 'text' || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+    if (event.key.toLowerCase() !== 'i') return;
+    event.preventDefault();
+    event.stopPropagation();
+    runAction(event.shiftKey ? 'compact' : 'format');
+  }
+
+  /** The library's "Auto repair" buttons (text mode's parse error message and lint tooltip) run
+   *  core's comment-keeping repair (UNK-018) instead of rewriting the text with jsonrepair. */
+  function interceptRepair(event: MouseEvent): void {
+    const button = (event.target as Element | null)?.closest('button');
+    if (button?.textContent?.trim() !== 'Auto repair') return;
+    event.preventDefault();
+    event.stopPropagation();
+    runAction('repair');
+  }
+
+  /** Queues `change` for the host; `shown` when the library already shows its result. */
+  function queue(change: DocumentChange, shown = false): void {
+    queued.push({ change, shown });
+    sendNext();
+  }
+
+  /** Whether the host's text parses in the current format. */
+  function documentParses(): boolean {
+    try {
+      parserFor(format ?? 'json').parse(docText);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * The changes for a tree or table patch. On a document that does not parse, the library shows
+   * jsonrepair's reading of it, and the only edit is accepting that view ("Ok", a `replace` of the
+   * root) or one made on it: either way core repairs the text first (repair on open, UNK-018). A
+   * patch that replaces a whole object or array with new data (sort, transform, a paste) goes as
+   * data (data-change.ts). Every other patch goes as it is.
+   */
+  function routePatch(redo: JsonPatchOperation[], previousJson: unknown): DocumentChange[] {
+    if (!documentParses()) {
+      const repair: DocumentChange = { kind: 'action', action: { name: 'repair' } };
+      const accept = redo.length === 1 && redo[0]!.op === 'replace' && redo[0]!.path === '';
+      return accept ? [repair] : [repair, { kind: 'patch', patch: redo }];
+    }
+    const only = redo.length === 1 ? redo[0]! : undefined;
+    if (only?.op === 'replace' && isContainer(only.value)) {
+      const before: unknown = getIn(previousJson, parseJSONPointer(only.path));
+      if (isContainer(before)) {
+        const change = dataChange(only.path, before, only.value);
+        return change ? [change] : [];
+      }
+    }
+    return [{ kind: 'patch', patch: redo }];
+  }
+
+  /** The changes for new data at the root: a repair when the document does not parse (repair on
+   *  open, UNK-018), else the data change from what the document holds (data-change.ts). */
+  function replaceRoot(json: unknown): DocumentChange[] {
+    if (!documentParses()) return [{ kind: 'action', action: { name: 'repair' } }];
+    const change = dataChange('', parserFor(format ?? 'json').parse(docText), json);
+    return change ? [change] : [];
+  }
+
+  /** The library's text-mode sort, read back from the text it wrote: a reordering of the root,
+   *  sent as core's sort (R13), or undefined when the text is not one. */
+  function textSort(previous: Content, updated: string): DocumentChange | undefined {
+    const parser = parserFor(format ?? 'json');
+    try {
+      const before: unknown =
+        typeof (previous as { text?: unknown }).text === 'string'
+          ? parser.parse((previous as { text: string }).text)
+          : (previous as { json: unknown }).json;
+      const change = dataChange('', before, parser.parse(updated));
+      return change?.kind === 'action' ? change : undefined;
+    } catch {
+      return undefined;
+    }
+  }
 
   /**
    * Test hook (spec 003 criterion 1): sends operations down the same path as a tree or table edit,
@@ -166,33 +337,48 @@
 
   function onChangeMode(next: LibraryMode): void {
     mode = next as Mode;
+    textSortPending = false;
     showDocument();
   }
 
-  function onChange(updated: Content, _previous: Content, status: OnChangeStatus): void {
-    let change: DocumentChange;
+  function onChange(updated: Content, previous: Content, status: OnChangeStatus): void {
     if (status.patchResult) {
-      change = { kind: 'patch', patch: status.patchResult.redo as JsonPatchOperation[] };
-    } else if ('text' in updated) {
-      // Text mode (003 T6, criterion 9): the library reports typing once it pauses for
-      // TEXT_DEBOUNCE_MS (text-mode.ts), and the whole text goes to the host, which writes only the
-      // changed span. The text goes as typed, valid or not: an error marker shows a parse error,
-      // and the document never gets a repaired text in its place. Only the newest text matters.
-      const last = queued.at(-1);
-      if (last && 'change' in last && last.change.kind === 'text') queued.pop();
-      change = { kind: 'text', text: updated.text };
-    } else {
-      // Not produced by any edit the library makes today.
-      host.showMessage({
-        docVersion,
-        code: 'unsupported-change',
-        message: 'Change without a patch',
-      });
+      const { redo, previousJson } = status.patchResult;
+      const changes = routePatch(redo as JsonPatchOperation[], previousJson);
+      // Only a patch sent as the library applied it is already in what the library shows; the host
+      // answers a repair, a sort or a diff with text the library has not seen.
+      const asApplied =
+        changes.length === 1 && changes[0]!.kind === 'patch' && changes[0]!.patch === redo;
+      for (const c of changes) queue(c, asApplied);
+      // Nothing to send (a sort that kept the order): show the host's text again.
+      showDocument();
       return;
     }
-    // Every change the library reports is already in what it shows.
-    queued.push({ change, shown: true });
-    sendNext();
+    // The library hands content with both `text` and `json` keys, one of them undefined.
+    const text = (updated as { text?: unknown }).text;
+    if (typeof text !== 'string') {
+      // New data for the whole document without a patch (tree mode: accepting the library's
+      // repaired view with "Ok", or a paste over the root).
+      for (const c of replaceRoot((updated as { json: unknown }).json)) queue(c);
+      showDocument();
+      return;
+    }
+    if (textSortPending) {
+      textSortPending = false;
+      const sort = textSort(previous, text);
+      if (sort) {
+        queue(sort);
+        return;
+      }
+    }
+    // Text mode (003 T6, criterion 9): the library reports typing once it pauses for
+    // TEXT_DEBOUNCE_MS (text-mode.ts), and the whole text goes to the host, which writes only the
+    // changed span. The text goes as typed, valid or not: an error marker shows a parse error,
+    // and the document never gets a repaired text in its place. Only the newest text matters.
+    const last = queued.at(-1);
+    if (last && 'change' in last && last.change.kind === 'text') queued.pop();
+    // Typed text is already in what the library shows.
+    queue({ kind: 'text', text }, true);
   }
 
   function sendNext(): void {

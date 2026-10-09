@@ -13,8 +13,9 @@
  *  7: `validation` says whether the dialect can be switched (`switchable`) and has a `none` result;
  *     adds the UI → host `setDialect` message (004 T5).
  *  8: adds the UI → host `undo` and `redo` messages, and the host → UI `flush` request with its
- *     UI → host `flushed` answer (003 T7). */
-export const PROTOCOL_VERSION = 8;
+ *     UI → host `flushed` answer (003 T7).
+ *  9: `edit` can carry a whole-document action (`kind: 'action'`, 003 T8). */
+export const PROTOCOL_VERSION = 9;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -42,7 +43,20 @@ export type JsonPatchOperation =
  * host diffs it (plan 003 risk R3, task T6).
  */
 export type DocumentChange =
-  { kind: 'patch'; patch: JsonPatchOperation[] } | { kind: 'text'; text: string };
+  | { kind: 'patch'; patch: JsonPatchOperation[] }
+  | { kind: 'text'; text: string }
+  | { kind: 'action'; action: DocumentAction };
+
+/**
+ * A whole-document action the host runs with core on the document's text (003 T8, 002 R12–R13,
+ * UNK-018), so comments and style are kept: `format` (core `prettyPrint`), `compact`, `repair`, and
+ * `sort`, which puts the members of the container at `path` in `order` (their indices before the
+ * sort), the order the editor's sort chose. Data-level changes (transform) are a `patch` made by
+ * core's `diff` (002 R14).
+ */
+export type DocumentAction =
+  { name: 'format' | 'compact' | 'repair' } | { name: 'sort'; path: string; order: number[] };
+export const ACTION_NAMES = ['format', 'compact', 'repair', 'sort'] as const;
 
 interface Envelope<T extends string> {
   protocol: typeof PROTOCOL_VERSION;
@@ -371,7 +385,29 @@ function documentChange(v: unknown, name: string): DocumentChange {
   if (raw.kind === 'patch') {
     return readFields(raw, { kind: str, patch: patchList }, name) as DocumentChange;
   }
-  throw new Invalid(`${name}.kind must be patch or text`);
+  if (raw.kind === 'action') {
+    return readFields(raw, { kind: str, action: documentAction }, name) as DocumentChange;
+  }
+  throw new Invalid(`${name}.kind must be patch, text or action`);
+}
+
+function documentAction(v: unknown, name: string): DocumentAction {
+  const raw = record(v, name);
+  const action = oneOf(ACTION_NAMES)(raw.name, `${name}.name`);
+  if (action === 'sort') {
+    return readFields(raw, { name: str, path: pointer, order: indexList }, name) as DocumentAction;
+  }
+  return readFields(raw, { name: str }, name) as DocumentAction;
+}
+
+function indexList(v: unknown, name: string): number[] {
+  if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
+  return v.map((n, i) => {
+    if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 0) {
+      throw new Invalid(`${name}[${i}] must be a non-negative integer`);
+    }
+    return n;
+  });
 }
 
 function patchList(v: unknown, name: string): JsonPatchOperation[] {
