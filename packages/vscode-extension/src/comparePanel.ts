@@ -17,7 +17,7 @@ import {
   type CompareDifference,
   type ToCompareHostMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { detect, type Format } from '@chr-json-editor/core';
+import type { Format } from '@chr-json-editor/core';
 import {
   buildCompare,
   compareMessage,
@@ -236,18 +236,16 @@ export class ComparePanel {
     this.post();
   }
 
-  /** A side's text and format now. A HEAD side is parsed as its working file is (plan 007). */
+  /** A side's text and format now. A HEAD side is parsed as its working file is (plan 007): the
+   *  format the badge holds for it, else the one detected from its name, language and text, so a
+   *  HEAD text with comments in a `.json` file reads as the working file does. */
   private async read(source: CompareSource): Promise<CompareSideInput> {
     const name = this.name(source);
-    if (source.kind === 'head') {
-      const open = vscode.workspace.textDocuments.find(
-        (d) => d.uri.toString() === source.uri.toString(),
-      );
-      const format = open ? this.formatOf(open) : detect(source.uri.path).format;
-      return { name, format, text: source.text, writable: false };
-    }
+    // The working file of a HEAD side is the other side, so it opens here anyway.
     const document = await vscode.workspace.openTextDocument(source.uri);
-    return { name, format: this.formatOf(document), text: document.getText(), writable: true };
+    const format = this.formatOf(document);
+    if (source.kind === 'head') return { name, format, text: source.text, writable: false };
+    return { name, format, text: document.getText(), writable: true };
   }
 
   private post(): void {
