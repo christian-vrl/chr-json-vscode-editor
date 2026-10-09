@@ -5,8 +5,8 @@
 
 ## Run
 
-- Where: GitHub Actions, [run 37872733611](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37872733611); commit `da7d83f39acddedab90687c051ab19a093f71b25`.
-- Machine: Linux x64 (`ubuntu24`), 2 × AMD EPYC 9V45 96-Core Processor, 8 GiB RAM.
+- Where: GitHub Actions, [run 37874204494](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37874204494); commit `1b50e1d11d99e9a52f158831c148713bc99caf72`.
+- Machine: Linux x64 (`ubuntu24`), 2 × AMD EPYC 7763 64-Core Processor, 8 GiB RAM.
 - VS Code 1.141.0 (stable at run time, `--disable-gpu`, under xvfb), the e2e .vsix (release build plus test hooks).
 - 3 runs per size; each cell is **median** (run 1, run 2, run 3), in milliseconds (the edit on the webview's clock, the rest on the extension host's). The editor is closed between runs, so every run opens the file again in the same VS Code window; the edit runs right after each open.
 - Files: `node bench/generate.mjs`, one pretty-printed JSON array of 7-field records per size, exactly N × 2^20 bytes (MiB, the unit of VS Code's own file limits), ASCII only.
@@ -16,10 +16,10 @@
 
 | Size | Webview ready | First render | One edit | value shown | host applies it | Second edit |
 |---|---|---|---|---|---|---|
-| 1 MiB (1,048,576 B) | **542** (1,681, 542, 491) | **752** (2,167, 688, 752) | **144** (144, 121, 264) | **19** (15, 19, 39) | **95** (99, 95, 91) | **241** (383, 241, 84) |
-| 5 MiB (5,242,880 B) | **948** (1,540, 902, 948) | **1,119** (1,742, 1,040, 1,119) | **253** (577, 220, 253) | **23** (63, 14, 23) | **94** (223, 94, 93) | **160** (143, 348, 160) |
-| 10 MiB (10,485,760 B) | **1,614** (1,727, 1,564, 1,614) | **1,960** (2,094, 1,960, 1,918) | **569** (585, 569, 438) | **23** (19, 23, 25) | **136** (134, 136, 152) | **556** (556, 426, 690) |
-| 50 MiB (52,428,800 B) | **7,917** (7,917, 9,128, 7,644) | **9,349** (9,349, 10,153, 8,672) | **2,248** (2,248, 2,284, 1,839) | **54** (41, 93, 54) | **883** (883, 1,115, 784) | **5,156** (3,486, 6,588, 5,156) |
+| 1 MiB (1,048,576 B) | **1,016** (1,823, 529, 1,016) | **1,267** (2,116, 701, 1,267) | **151** (148, 151, 197) | **27** (21, 27, 39) | **90** (75, 90, 94) | **366** (376, 366, 98) |
+| 5 MiB (5,242,880 B) | **2,019** (2,019, 2,187, 1,194) | **2,613** (2,651, 2,613, 1,406) | **515** (587, 515, 253) | **36** (55, 36, 14) | **194** (275, 194, 115) | **370** (370, 494, 317) |
+| 10 MiB (10,485,760 B) | **2,352** (2,004, 2,352, 2,360) | **2,881** (2,564, 2,901, 2,881) | **588** (601, 588, 550) | **43** (17, 43, 45) | **209** (190, 227, 209) | **553** (894, 553, 418) |
+| 50 MiB (52,428,800 B) | **11,323** (11,234, 11,323, 13,361) | **13,087** (13,087, 13,032, 15,033) | **3,737** (4,085, 3,737, 3,394) | **49** (40, 49, 149) | **1,632** (1,938, 1,495, 1,632) | **4,351** (4,351, 4,427, 3,452) |
 
 ## Against UNK-014's rule (open < 3 s, one edit < 500 ms)
 
@@ -29,12 +29,12 @@ Both edits count: the slower median of the first and the second edit must be und
 
 | Size | First render | One edit | Second edit | Verdict |
 |---|---|---|---|---|
-| 1 MiB | 752 | 144 | 241 | pass |
-| 5 MiB | 1,119 | 253 | 160 | pass |
-| 10 MiB | 1,960 | 569 | 556 | miss: edit too slow |
-| 50 MiB | 9,349 | 2,248 | 5,156 | miss: open too slow, edit too slow |
+| 1 MiB | 1,267 | 151 | 366 | pass |
+| 5 MiB | 2,613 | 515 | 370 | miss: edit too slow |
+| 10 MiB | 2,881 | 588 | 553 | miss: edit too slow |
+| 50 MiB | 13,087 | 3,737 | 4,351 | miss: open too slow, edit too slow |
 
-Largest size that passes: **5 MiB**.
+Largest size that passes: **1 MiB**.
 
 ## The same in a second VS Code launch
 
@@ -43,7 +43,7 @@ can move. The verdict above uses the first launch.
 
 | Size | Webview ready | First render | One edit | value shown | Second edit |
 |---|---|---|---|---|---|
-| 1 MiB | **352** (1,305, 352, 329) | **450** (1,626, 436, 450) | **77** (90, 74, 77) | **16** (14, 16, 19) | **131** (237, 129, 131) |
+| 1 MiB | **474** (1,756, 474, 454) | **600** (2,169, 600, 585) | **143** (143, 132, 143) | **18** (18, 19, 18) | **341** (341, 201, 349) |
 
 ## What is measured
 

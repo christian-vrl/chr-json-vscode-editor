@@ -28,6 +28,7 @@ import {
 import { detect, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
+import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding } from './schemaBinding';
 import { collectSchemaScopes } from './schemaSettings';
@@ -262,7 +263,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.validations.delete(panel);
       this.snapshots.delete(panel);
       // The host's cached parse of this text (core, UNK-014) can hold gigabytes for a big file.
-      releaseParse(document.getText());
+      this.releaseParses(document);
     });
   }
 
@@ -382,6 +383,14 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       });
     }
     return true;
+  }
+
+  /** Drops core's cached parses (UNK-014) that nothing needs once `document` closed, or a tab
+   *  closed on it (parseRelease.ts). */
+  releaseParses(document: vscode.TextDocument): void {
+    const release = parseToRelease(document, this.sessions.size);
+    if (release === 'all') releaseParse();
+    else if (release) releaseParse(release.text);
   }
 
   private sessionFor(uri: string): Session | undefined {
