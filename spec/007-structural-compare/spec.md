@@ -1,6 +1,6 @@
 # SPEC 007 — Structural compare
 
-> **Status:** `draft` (awaiting owner approval; UNK-036 is the owner's)
+> **Status:** `draft` (awaiting owner approval; owner UNK-036 resolved 2026-10-09)
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 

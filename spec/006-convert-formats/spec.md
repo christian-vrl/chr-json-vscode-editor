@@ -1,6 +1,6 @@
 # SPEC 006 — Convert between JSON, JSONC and JSON5
 
-> **Status:** `draft` (awaiting owner approval; UNK-033, UNK-034 and UNK-035 are the owner's)
+> **Status:** `draft` (awaiting owner approval; owner UNK-033, UNK-034 and UNK-035 resolved 2026-10-09)
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
