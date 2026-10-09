@@ -48,7 +48,7 @@ working file's detected format.
 | Risk | Mitigation |
 |---|---|
 | R1 Index mapping from `diff`'s sequential paths to left paths is wrong for mixed inserts and removes | criterion 1's "every path resolves" plus a check that the value at `leftPath` is the one `diff` removed or replaced |
-| R2 Copying one item shifts the alignment of later items, so the count drops by more or less than one | criterion 2 is a property test; a counterexample becomes an UNKNOWN on the copy rule, not a weaker test |
+| R2 Copying one item shifts the alignment of later items, so the count drops by more or less than one | happened (UNK-039): criterion 2 restated by the owner to "only the copied location changes; one-at-a-time copying ends equal within 2n copies" |
 | R3 Large disjoint arrays are slow (002 T9 review: 20k items ≈ 6 s before `LCS_BUDGET`) | measure in E; the size limit and the text-diff fallback bound it |
 | R6 `copyDifference` re-runs `diff` on each array it walks through to find the alignment (007 T1 review), so one copy in a large document repeats array diffs | include a copy in E's benchmark |
 | R4 `onClassName` runs for every rendered node | look-up by a `Set` of path keys built once per `compare` result |
