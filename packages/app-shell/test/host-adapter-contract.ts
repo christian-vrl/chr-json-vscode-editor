@@ -77,6 +77,53 @@ export function describeHostAdapterContract(
       expect(event!.docVersion).toBeGreaterThan(doc.docVersion);
     });
 
+    it('a whole-document action comes back as an update with the result of core (003 T8)', async () => {
+      const { adapter } = await create('{"b": 1, "a": [1,2]}');
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.save(doc.docVersion, { kind: 'action', action: { name: 'format' } });
+      const [formatted] = await rec.next();
+      expect(formatted).toMatchObject({
+        type: 'update',
+        text: '{\n  "b": 1,\n  "a": [\n    1,\n    2\n  ]\n}',
+        origin: 'edit',
+      });
+      adapter.save(formatted!.docVersion, {
+        kind: 'action',
+        action: { name: 'sort', path: '', order: [1, 0] },
+      });
+      const [sorted] = await rec.next();
+      const text = (sorted as Extract<HostEvent, { type: 'update' }>).text;
+      expect(Object.keys(JSON.parse(text) as object)).toEqual(['a', 'b']);
+      adapter.save(sorted!.docVersion, { kind: 'action', action: { name: 'compact' } });
+      const [compact] = await rec.next();
+      expect(compact).toMatchObject({ type: 'update', text: '{"a":[1,2],"b":1}' });
+    });
+
+    it('a repair action repairs the text; on text that parses it changes nothing', async () => {
+      const { adapter } = await create("{a: 1 'b': 2}");
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.save(doc.docVersion, { kind: 'action', action: { name: 'repair' } });
+      const [repaired] = await rec.next();
+      expect(repaired).toMatchObject({ type: 'update', text: '{"a": 1, "b": 2}', origin: 'edit' });
+      adapter.save(repaired!.docVersion, { kind: 'action', action: { name: 'repair' } });
+      const [again] = await rec.next();
+      expect(again).toMatchObject({ type: 'update', text: '{"a": 1, "b": 2}', origin: 'edit' });
+    });
+
+    it('a sort action whose order does not fit is answered with patch-failed', async () => {
+      const { adapter } = await create(TEXT);
+      const doc = await adapter.open();
+      const rec = recorder(adapter);
+      adapter.save(doc.docVersion, {
+        kind: 'action',
+        action: { name: 'sort', path: '', order: [0, 1] },
+      });
+      const [event] = await rec.next();
+      expect(event).toMatchObject({ type: 'error', code: 'patch-failed' });
+    });
+
     it('a change on a stale version is answered with an error and leaves the document alone', async () => {
       const harness = await create(TEXT);
       const { adapter } = harness;

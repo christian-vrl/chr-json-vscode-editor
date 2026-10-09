@@ -1,0 +1,8 @@
+{
+  "title": "Release notes",
+  "status": "draft",
+  "items": [
+    { "name": "intro", "state": "draft" },
+    { "name": "body", "state": "done" }
+  ]
+}

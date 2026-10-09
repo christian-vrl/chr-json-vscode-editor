@@ -9,10 +9,11 @@
 // `{ chrTest: 'type', id, text }` types `text` at the end of text mode's editor and answers
 // with the time the last character went in (criterion 9, 003 T6). `{ chrTest: 'press', key, shift }`
 // presses Ctrl+`key` in the focused element, and `{ chrTest: 'click', title }` clicks the menu
-// button with that title (undo and redo, criterion 3, 003 T7).
+// button with that title (undo and redo, criterion 3, 003 T7). `{ chrTest: 'dom', id, steps }`
+// clicks, fills in and presses keys on the page as a person would (003 T8; see DomStep).
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
-import type { RenderedProbe } from '../testProbe';
+import type { DomStep, RenderedProbe } from '../testProbe';
 
 const MODE_ROOTS = [
   ['tree', '.jse-tree-mode'],
@@ -79,6 +80,58 @@ export function installTestHooks(
     await new Promise((resolve) => setTimeout(resolve, 50));
     for (const character of text) document.execCommand('insertText', false, character);
     return Date.now();
+  }
+
+  /** The first element matching `selector` (and `text`, when given), or null. */
+  function find(selector: string, text?: string): HTMLElement | null {
+    for (const element of document.querySelectorAll<HTMLElement>(selector)) {
+      if (text === undefined || element.textContent?.trim() === text) return element;
+    }
+    return null;
+  }
+
+  /** Waits for `find(selector, text)` (or, with `gone`, for no match) for up to five seconds. */
+  async function waitFor(selector: string, text?: string, gone = false): Promise<HTMLElement> {
+    const deadline = Date.now() + 5000;
+    for (;;) {
+      const element = find(selector, text);
+      if (gone ? !element : element) return element!;
+      if (Date.now() > deadline) {
+        const what = text === undefined ? selector : `${selector} "${text}"`;
+        throw new Error(gone ? `${what} is still shown` : `nothing matches ${what}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+
+  async function runSteps(steps: DomStep[]): Promise<(string | null)[]> {
+    const reads: (string | null)[] = [];
+    for (const step of steps) {
+      if ('click' in step) (await waitFor(step.click, step.text)).click();
+      else if ('fill' in step) {
+        const field = (await waitFor(step.fill)) as HTMLInputElement | HTMLTextAreaElement;
+        field.focus();
+        field.value = step.value;
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if ('key' in step) {
+        const element = await waitFor(step.on);
+        element.focus();
+        element.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: step.key,
+            ctrlKey: step.ctrl ?? false,
+            shiftKey: step.shift ?? false,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      } else if ('waitFor' in step) await waitFor(step.waitFor, step.text, step.gone);
+      else {
+        const element = await waitFor(step.read, step.text);
+        reads.push(step.attr ? element.getAttribute(step.attr) : (element.textContent ?? ''));
+      }
+    }
+    return reads;
   }
 
   /** The toolbar's schema status as a person reads it: the chosen option, then any reason. */
@@ -153,6 +206,14 @@ export function installTestHooks(
     if (typeof message === 'object' && message !== null && message.chrTest === 'type') {
       void type(String(message.text)).then(
         (typedAt) => api.postMessage({ chrTest: 'probe', id: message.id, result: { typedAt } }),
+        (error: unknown) =>
+          api.postMessage({ chrTest: 'probe', id: message.id, result: { error: String(error) } }),
+      );
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'dom') {
+      void runSteps((message as { steps?: DomStep[] }).steps ?? []).then(
+        (reads) => api.postMessage({ chrTest: 'probe', id: message.id, result: { reads } }),
         (error: unknown) =>
           api.postMessage({ chrTest: 'probe', id: message.id, result: { error: String(error) } }),
       );

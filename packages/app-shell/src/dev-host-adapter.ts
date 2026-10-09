@@ -7,7 +7,10 @@
 //
 // Dev-only limitation: a patch is applied to `JSON.parse(text)` and the result re-serialised with
 // two-space indentation, so comments and style are not kept. Style-preserving edits are
-// `core.applyPatch` in the extension host (plan 003 §Constraints, task T5), never here.
+// `core.applyPatch` in the extension host (plan 003 §Constraints, task T5), never here. Whole-document
+// actions (003 T8) run core's own action on the text, as the extension host does, so the page
+// shows what they do; a repair that would lose comments is applied without asking.
+import { getAdapter, repair } from '@chr-json-editor/core';
 import { immutableJSONPatch } from 'immutable-json-patch';
 import type {
   Disposable,
@@ -18,6 +21,7 @@ import type {
 } from './host-adapter.js';
 import {
   PROTOCOL_VERSION,
+  type DocumentAction,
   type DocumentChange,
   type EditErrorCode,
   type EditorSettings,
@@ -125,7 +129,9 @@ export class DevHostAdapter implements HostAdapter {
     }
     let text: string;
     try {
-      text = change.kind === 'text' ? change.text : applyJsonPatch(this.#text, change.patch);
+      if (change.kind === 'text') text = change.text;
+      else if (change.kind === 'patch') text = applyJsonPatch(this.#text, change.patch);
+      else text = runAction(this.#text, this.#format, change.action);
     } catch (e) {
       this.#emitError('patch-failed', e instanceof Error ? e.message : String(e));
       return;
@@ -260,6 +266,21 @@ export class DevHostAdapter implements HostAdapter {
         if (this.#listeners.has(listener)) listener(copy);
       });
     }
+  }
+}
+
+/** Core's whole-document action on the text, as the extension host runs it (003 T8). */
+function runAction(text: string, format: Format, action: DocumentAction): string {
+  const adapter = getAdapter(format);
+  switch (action.name) {
+    case 'format':
+      return adapter.prettyPrint(text);
+    case 'compact':
+      return adapter.compact(text);
+    case 'repair':
+      return repair(text, format).text;
+    case 'sort':
+      return adapter.sort(text, { path: action.path, order: action.order });
   }
 }
 
