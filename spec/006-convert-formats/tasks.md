@@ -17,7 +17,7 @@
   criterion 1 all cases green; criteria 3–5 property suite green*
 
 ## Phase C — VS Code (risk-free / additive)
-- [ ] **T3** Commands `chrJsonEditor.convertToJson`, `…ToJsonc`, `…ToJson5` (palette and editor
+- [x] **T3** Commands `chrJsonEditor.convertToJson`, `…ToJsonc`, `…ToJson5` (palette and editor
   title, in the custom and text editors, hiding the document's own format), loss modal, write per
   UNK-035, broken-source message; e2e for criteria 6–7. Needs UNK-035 resolved. — needs: 003 T3 —
   *gate: criteria 6, 7 green in `pnpm test:e2e`; `pnpm check:offline` green (criterion 8)*

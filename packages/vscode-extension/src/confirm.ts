@@ -14,14 +14,16 @@ export const testConfirm: { answer: TestAnswer | undefined; asked: string[] } = 
   asked: [],
 };
 
-/** Shows `message` as a modal warning with an `action` button; true when the user picks it. */
-export async function confirm(message: string, action: string): Promise<boolean> {
+/** Shows `message` as a modal warning with an `action` button; true when the user picks it. The
+ *  test hooks record `message`, then `detail` on its own line when there is one. */
+export async function confirm(message: string, action: string, detail?: string): Promise<boolean> {
   if (__CHR_TEST_HOOKS__ && testConfirm.answer !== undefined) {
-    testConfirm.asked.push(message);
+    testConfirm.asked.push(detail ? `${message}\n${detail}` : message);
     const { answer } = testConfirm;
     return typeof answer === 'function' ? answer() : answer;
   }
-  return (await vscode.window.showWarningMessage(message, { modal: true }, action)) === action;
+  const options: vscode.MessageOptions = detail ? { modal: true, detail } : { modal: true };
+  return (await vscode.window.showWarningMessage(message, options, action)) === action;
 }
 
 /** UNK-018's fallback: asks before writing a repair that removes the comments it could not keep. */
