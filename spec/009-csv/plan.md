@@ -57,7 +57,7 @@ otherwise, the spec changes first and this plan follows.
 | R3 Flattening arrays makes very many columns (the site warns about this) | off by default; the preview shows the column count before saving |
 | R4 Table mode's shown array cannot be read from the library | spec §Current evidence HYPOTHESIS; T4 verifies first and, if it fails, falls back to the document's data and records why in the PR, with the spec changed first |
 | R5 Large CSV files (tens of MB) in the extension host | one linear pass; timings and peak heap at 1, 10 and 50 MiB (`bench/generate.mjs`) recorded in T2's PR; the ceiling stops anything VS Code itself would refuse |
-| R7 Export from a large-file-mode tab needs the data, which 008 avoids keeping (about 2 GB of heap for a full parse at 50 MiB, 008 §Problem) | T5 exports through `parseData` (008 criterion 6), which holds only the data and nothing in core's cache; the data and the CSV text live only for the export; T5's PR records peak heap for a 50 MiB export |
+| R7 Export from a locked tab needs the data, which 008 avoids keeping (about 2 GB of heap for a full parse at 50 MiB, 008 §Problem) | T5 exports through `parseData` (008 criterion 6), which holds only the data and nothing in core's cache; the data and the CSV text live only for the export; T5's PR records peak heap for a 50 MiB export |
 | R6 Excel reads UTF-8 CSV without a BOM as a local code page | the "UTF-8 BOM (for Excel)" option |
 
 ## Definition of Done

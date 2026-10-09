@@ -83,9 +83,9 @@ a message and, for import, a 1-based line number. Options and defaults are in §
    rule with `tests/themes/{light,dark,hc}.json`.
 10. **Large-file mode (e2e):** in a locked tab, "Import CSV…" is not offered (editor title and
     palette) and the panel offers no "Replace Document Data"; both come back after "Edit anyway".
-    "Export to CSV…" and "Convert CSV to JSON" stay available. Export from a large-file-mode tab reads
-    the data with 008's `parseData`, so core's parse cache holds no parse of the document afterwards
-    (008 criterion 8's test hook).
+    "Export to CSV…" and "Convert CSV to JSON" stay available. Export from a locked tab reads the data
+    with 008's `parseData`, so core's parse cache holds no parse of the document afterwards (008
+    criterion 8's test hook); an unlocked tab exports like any other.
 
 ## Options
 | Option | Applies to | Values | Default |
