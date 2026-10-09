@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Core (risk-free / additive)
-- [ ] **T1** (Large) `parseData(format, text)` in `packages/core/src/formats/parse-data.ts`, exported
+- [x] **T1** (Large) `parseData(format, text)` in `packages/core/src/formats/parse-data.ts`, exported
   from `@chr-json-editor/core`; fast-check suite for criterion 6 (seed committed, 10 000 runs per
   format) plus every golden input; `parseData` time and retained-heap columns in the core bench and
   `bench/RESULTS.md` regenerated. — needs: 002 T8 (core bench) — *gate: criterion 6 suite green;
