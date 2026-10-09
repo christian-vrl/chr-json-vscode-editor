@@ -90,6 +90,30 @@ test('sort in tree mode goes as core sort with the new order', async ({ page }) 
   ]);
 });
 
+test('text mode: sort goes as core sort; after a cancelled sort, typing goes as text', async ({
+  page,
+}) => {
+  await open(page, '{"b": 1, "a": 2}', 'text');
+  const sortDialog = page.locator('.jse-modal.jse-sort-modal');
+  await page.locator('.jse-text-mode .jse-sort').click();
+  await sortDialog.getByRole('button', { name: 'Sort', exact: true }).click();
+  await expect.poll(() => hostText(page)).toBe('{"a": 2, "b": 1}');
+  expect(await changesOf(page)).toEqual([
+    { kind: 'action', action: { name: 'sort', path: '', order: [1, 0] } },
+  ]);
+
+  // Cancelled: the next text is typing, even when it only reorders the members.
+  await page.locator('.jse-text-mode .jse-sort').click();
+  await expect(sortDialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(sortDialog).toBeHidden();
+  await page.locator('.jse-text-mode .cm-content').click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.type('{"b": 1, "a": 2}');
+  await expect.poll(() => hostText(page)).toBe('{"b": 1, "a": 2}');
+  expect((await changesOf(page)).slice(1)).toEqual([{ kind: 'text', text: '{"b": 1, "a": 2}' }]);
+});
+
 test('transform offers JSONQuery, JMESPath and JSONPath (Goessner) only, and runs JSONPath', async ({
   page,
 }) => {

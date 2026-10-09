@@ -252,6 +252,44 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
       assert.equal(asked.length, 1);
       assert.equal(document.getText(), '{\n  "a": "xy",\n  "b": 1 // kept\n}\n');
       await vscode.commands.executeCommand('workbench.action.files.revert');
+
+      // The document changes while the question is open: the repair is made again on the new
+      // text, not written over it at the old offsets, and the comment already agreed to is not
+      // asked about again.
+      let edited = false;
+      hooks.confirm(async () => {
+        if (!edited) {
+          edited = true;
+          const edit = new vscode.WorkspaceEdit();
+          edit.insert(uri, new vscode.Position(0, 0), '// top\n');
+          assert.equal(await vscode.workspace.applyEdit(edit), true);
+        }
+        return true;
+      });
+      await vscode.commands.executeCommand(REPAIR_COMMAND);
+      asked = hooks.confirm(undefined);
+      assert.equal(asked.length, 1, 'the repair asked again about the comment already agreed to');
+      assert.equal(document.getText(), '// top\n{\n  "a": "xy",\n  "b": 1 // kept\n}\n');
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+      await closeAll();
+
+      // JSON5-only values come through Repair as they are (UNK-028); only quoting, the missing
+      // comma and the trailing comma change.
+      const json5 = path.join(fs.mkdtempSync(path.join(work, 'case-')), 'broken.json5');
+      fs.writeFileSync(
+        json5,
+        '{\n  hex: 0x1F // kept\n  inf: Infinity,\n  nan: NaN,\n  plus: +1,\n  neg: -Infinity,\n' +
+          "  text: 'line \\\n  continued',\n}\n",
+      );
+      const json5Doc = await vscode.workspace.openTextDocument(vscode.Uri.file(json5));
+      await vscode.window.showTextDocument(json5Doc);
+      await vscode.commands.executeCommand(REPAIR_COMMAND);
+      assert.equal(
+        json5Doc.getText(),
+        '{\n  "hex": 0x1F, // kept\n  "inf": Infinity,\n  "nan": NaN,\n  "plus": +1,\n' +
+          '  "neg": -Infinity,\n  "text": \'line \\\n  continued\'\n}\n',
+      );
+      await vscode.commands.executeCommand('workbench.action.files.revert');
       await closeAll();
 
       const repairSource = path.join(FIXTURES, 'repair/input.json');
@@ -266,7 +304,10 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
       );
       await vscode.commands.executeCommand('workbench.action.files.revert');
       await closeAll();
-      console.log('Repair JSON: repairs in the text editor and asks before removing a comment');
+      console.log(
+        'Repair JSON: repairs in the text editor, asks before removing a comment, follows ' +
+          'edits made while asking and keeps JSON5-only values',
+      );
     }
   } finally {
     hooks.confirm(undefined);
