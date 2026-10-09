@@ -27,34 +27,48 @@ export function registerCommands(): vscode.Disposable[] {
   ];
 }
 
-/** "Repair JSON": resolves true when the document was changed. */
+/**
+ * "Repair JSON": resolves true when the document was changed. The repair is computed again when
+ * the document changes while the question is open, so the edit always fits the text it replaces;
+ * it asks again only when the new repair removes comments the person did not agree to remove.
+ */
 async function repairActiveEditor(): Promise<boolean> {
   const editor = vscode.window.activeTextEditor;
   if (!editor) return false;
   const { document } = editor;
-  const text = document.getText();
-  const { format } = detect(document.uri.path, document.languageId, text);
-  let result;
-  try {
-    result = repair(text, format);
-  } catch (error) {
-    if (!(error instanceof PatchError)) throw error;
-    void vscode.window.showErrorMessage(`CHR JSON Editor: ${error.message}`);
-    return false;
+  let agreed: readonly string[] = [];
+  for (;;) {
+    const version = document.version;
+    const text = document.getText();
+    const { format } = detect(document.uri.path, document.languageId, text);
+    let result;
+    try {
+      result = repair(text, format);
+    } catch (error) {
+      if (!(error instanceof PatchError)) throw error;
+      void vscode.window.showErrorMessage(`CHR JSON Editor: ${error.message}`);
+      return false;
+    }
+    if (result.text === text) {
+      void vscode.window.showInformationMessage('CHR JSON Editor: the document needs no repair.');
+      return false;
+    }
+    const { lostComments } = result;
+    if (lostComments.some((comment) => !agreed.includes(comment))) {
+      if (!(await confirmRepair(lostComments))) return false;
+      agreed = lostComments;
+      if (document.isClosed) return false;
+      if (document.version !== version) continue;
+    }
+    const { start, end, text: replacement } = minimalReplacement(text, result.text);
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(
+      document.uri,
+      new vscode.Range(document.positionAt(start), document.positionAt(end)),
+      replacement,
+    );
+    return vscode.workspace.applyEdit(edit);
   }
-  if (result.text === text) {
-    void vscode.window.showInformationMessage('CHR JSON Editor: the document needs no repair.');
-    return false;
-  }
-  if (result.lostComments.length > 0 && !(await confirmRepair(result.lostComments))) return false;
-  const { start, end, text: replacement } = minimalReplacement(text, result.text);
-  const edit = new vscode.WorkspaceEdit();
-  edit.replace(
-    document.uri,
-    new vscode.Range(document.positionAt(start), document.positionAt(end)),
-    replacement,
-  );
-  return vscode.workspace.applyEdit(edit);
 }
 
 function isCustomTab(tab: vscode.Tab): boolean {
