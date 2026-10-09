@@ -5,7 +5,10 @@
 // tree edit would (criterion 1). It also reports each `validation` message it sees (004 T2), and
 // `{ chrTest: 'selectDialect', dialect }` picks a dialect in the toolbar switch (004 T5).
 // `{ chrTest: 'whenShown', id, text }` answers once the editor renders `text`, without sending
-// what it holds, so the large-file benchmark (003 T11) can time renders of big documents.
+// what it holds, so the large-file benchmark (003 T11) can time renders of big documents;
+// `{ chrTest: 'whenSettled', id }` answers once every edit was answered and the editor shows the
+// document, so it can time an edit until the editor is free again. Both answers carry `ms`, the
+// time since the last `patch` on the webview's clock, as a person editing in the webview sees it.
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { RenderedProbe } from '../testProbe';
@@ -21,6 +24,9 @@ export function installTestHooks(
   app: () => AppHandle | undefined,
 ) {
   const violations: string[] = [];
+  /** When the last `patch` reached the editor (`performance.now()`). */
+  let patchedAt: number | undefined;
+  const sincePatch = () => (patchedAt === undefined ? undefined : performance.now() - patchedAt);
   document.addEventListener('securitypolicyviolation', (e) => {
     violations.push(`${e.effectiveDirective} ${e.blockedURI} at ${e.sourceFile}:${e.lineNumber}`);
   });
@@ -82,10 +88,19 @@ export function installTestHooks(
   /** Answers `id` in the first frame whose rendered text contains `text` (003 T11 benchmark). */
   function whenShown(id: unknown, text: string): void {
     const check = () => {
-      if (shownText().includes(text)) api.postMessage({ chrTest: 'shown', id });
+      if (shownText().includes(text)) api.postMessage({ chrTest: 'shown', id, ms: sincePatch() });
       else requestAnimationFrame(check);
     };
     check();
+  }
+
+  /** Answers `id` in the first frame after every edit is answered and shown (003 T11 benchmark). */
+  function whenSettled(id: unknown): void {
+    const check = () => {
+      if (app()?.settled()) api.postMessage({ chrTest: 'settled', id, ms: sincePatch() });
+      else requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
   }
 
   /** Returns true for a test message, which the editor never sees. */
@@ -100,6 +115,10 @@ export function installTestHooks(
       whenShown(message.id, message.text);
       return true;
     }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'whenSettled') {
+      whenSettled(message.id);
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'probe') {
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
       return true;
@@ -109,6 +128,7 @@ export function installTestHooks(
       return true;
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'patch') {
+      patchedAt = performance.now();
       app()?.patch(message.patch as Parameters<AppHandle['patch']>[0]);
       return true;
     }

@@ -1,6 +1,6 @@
 # Benchmarks on the GitHub Actions runner. Each job writes its report, shows it in the run summary
 # and the log, and uploads it with the raw results; the committed copies come from such runs.
-# - vscode-open (003 T11, evidence for UNK-014): open, first render and one edit at 1, 10 and
+# - vscode-open (003 T11, evidence for UNK-014): open, first render and one edit at 1, 5, 10 and
 #   50 MiB, end to end in VS Code's custom editor webview; bench/vscode-open.md.
 # - core (002 T8, spec 002 criterion 7): core parse and one edit per format at 1, 10, 50 MiB;
 #   bench/RESULTS.md.
@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   vscode-open:
-    name: open, render, edit at 1/10/50 MiB
+    name: open, render, edit at 1/5/10/50 MiB
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -39,24 +39,15 @@ jobs:
       - name: Install xvfb
         run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
       - run: pnpm build
-      # The e2e .vsix (test hooks) twice: first with an unminified webview.js, kept aside to compare
-      # open times at 1 MiB, then the shipped minified one that every size is measured with.
-      - name: Package the unminified build for comparison
-        run: |
-          CHR_WEBVIEW_MINIFY=0 CHR_TEST_HOOKS=1 pnpm package
-          mkdir -p bench/.results
-          mv packages/vscode-extension/*.vsix bench/.results/unminified.vsix
-          cp packages/vscode-extension/dist/webview.js bench/.results/webview.unminified.js
+      # The e2e .vsix: the release build plus test hooks.
       - run: CHR_TEST_HOOKS=1 pnpm package
       # VS Code stable is downloaded by @vscode/test-electron, as in ci.yml's e2e job.
       - run: xvfb-run -a pnpm --filter @chr-json-editor/bench bench
-        env:
-          CHR_BENCH_UNMINIFIED_VSIX: ${{ github.workspace }}/bench/.results/unminified.vsix
       # Also printed to the log, so the report and its raw results can be read without the artifact.
       - name: Report in the run summary and the log
         run: |
           cat bench/vscode-open.md >> "$GITHUB_STEP_SUMMARY"
-          cat bench/vscode-open.md bench/.results/vscode.json bench/.results/vscode-unminified.json
+          cat bench/vscode-open.md bench/.results/vscode.json bench/.results/vscode-second.json
       - uses: actions/upload-artifact@v4
         with:
           name: bench-vscode-open

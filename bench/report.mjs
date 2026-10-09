@@ -1,24 +1,21 @@
 // Writes bench/vscode-open.md (003 T11, evidence for UNK-014) from the results bench/run.mjs left in
-// <resultsDir>: vscode.json and, when the unminified build was timed too, vscode-unminified.json and
-// webview.unminified.js. Every number in the report comes from those files; the text around them
-// says what each one covers.
+// <resultsDir>: vscode.json and, when 1 MiB was timed in a second VS Code launch, vscode-second.json.
+// Every number in the report comes from those files; the text around them says what each covers.
 //
 //   node bench/report.mjs <resultsDir> <out.md>
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const [resultsDir, out] = process.argv.slice(2);
 if (!out) {
   console.error('usage: node bench/report.mjs <resultsDir> <out.md>');
   process.exit(2);
 }
-const here = path.dirname(fileURLToPath(import.meta.url));
 const read = (file) => JSON.parse(readFileSync(path.join(resultsDir, file), 'utf8'));
 const vscode = read('vscode.json');
-const unminified = existsSync(path.join(resultsDir, 'vscode-unminified.json'))
-  ? read('vscode-unminified.json')
+const second = existsSync(path.join(resultsDir, 'vscode-second.json'))
+  ? read('vscode-second.json')
   : undefined;
 
 // UNK-014's evidence rule.
@@ -36,7 +33,6 @@ function median(values) {
 }
 
 const ms = (value) => (value === undefined ? '—' : Math.round(value).toLocaleString('en-US'));
-const kb = (bytes) => `${Math.round(bytes / 1024).toLocaleString('en-US')} KiB`;
 const ok = (runs) => runs.length > 0 && !runs.some((r) => r.error);
 const med = (runs, key) => (ok(runs) ? median(runs.map((r) => r[key])) : undefined);
 
@@ -68,18 +64,18 @@ add(
   `- Where: ${runUrl ? `GitHub Actions, [run ${process.env.GITHUB_RUN_ID}](${runUrl})` : 'local machine (not the CI runner)'}; commit \`${commit}\`.`,
   `- Machine: ${process.env.RUNNER_OS ?? os.type()} ${os.arch()} (\`${process.env.ImageOS ?? os.release()}\`), ${cpus.length} × ${cpus[0]?.model ?? 'unknown CPU'}, ${Math.round(os.totalmem() / 2 ** 30)} GiB RAM.`,
   `- VS Code ${vscode.vscodeVersion} (stable at run time, \`--disable-gpu\`, under xvfb), the e2e .vsix (release build plus test hooks).`,
-  `- ${vscode.runs} runs per size; each cell is **median** (run 1, run 2, run 3), in milliseconds on the extension host's clock. The editor is closed between runs, so every run opens the file again in the same VS Code window; the edit runs right after each open.`,
+  `- ${vscode.runs} runs per size; each cell is **median** (run 1, run 2, run 3), in milliseconds (the edit on the webview's clock, the rest on the extension host's). The editor is closed between runs, so every run opens the file again in the same VS Code window; the edit runs right after each open.`,
   "- Files: `node bench/generate.mjs`, one pretty-printed JSON array of 7-field records per size, exactly N × 2^20 bytes (MiB, the unit of VS Code's own file limits), ASCII only.",
   `- 100 MiB is not measured: VS Code does not hand files above 50 MB to extensions ("Files above 50MB cannot be synchronized with extensions"), so the custom editor never opens it ([run 37844893412](${LIMIT_RUN})).`,
   '',
   '## Results',
   '',
-  '| Size | Webview ready | First render | One edit | of which host | of which webview |',
+  '| Size | Webview ready | First render | One edit | value shown | host applies it |',
   '|---|---|---|---|---|---|',
 );
 for (const s of vscode.sizes) {
   add(
-    `| ${s.mib} MiB (${s.bytes.toLocaleString('en-US')} B) | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'hostMs')} | ${cell(s.edit, 'viewMs')} |`,
+    `| ${s.mib} MiB (${s.bytes.toLocaleString('en-US')} B) | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'shownMs')} | ${cell(s.edit, 'hostMs')} |`,
   );
 }
 
@@ -114,24 +110,21 @@ add(
     : `**No measured size passes**, not even ${Math.min(...vscode.sizes.map((s) => s.mib))} MiB.`,
 );
 
-if (unminified) {
-  const minifiedJs = path.join(here, '../packages/vscode-extension/dist/webview.js');
-  const unminifiedJs = path.join(resultsDir, 'webview.unminified.js');
-  const one = (results) => results.sizes.find((s) => s.mib === 1);
-  const rows = [
-    ['minified (shipped)', minifiedJs, one(vscode)],
-    ['unminified', unminifiedJs, one(unminified)],
-  ];
+if (second) {
+  const rows = second.sizes.map(
+    (s) =>
+      `| ${s.mib} MiB | ${cell(s.open, 'readyMs')} | ${cell(s.open, 'renderMs')} | ${cell(s.edit, 'ms')} | ${cell(s.edit, 'shownMs')} |`,
+  );
   add(
     '',
-    '## webview.js, minified and not (1 MiB)',
+    '## The same in a second VS Code launch',
     '',
-    '| Build | webview.js | Webview ready | First render |',
-    '|---|---|---|---|',
-    ...rows.map(
-      ([name, file, s]) =>
-        `| ${name} | ${existsSync(file) ? kb(statSync(file).size) : '—'} | ${s ? cell(s.open, 'readyMs') : 'not run'} | ${s ? cell(s.open, 'renderMs') : 'not run'} |`,
-    ),
+    "Timed again after the first launch closed, on the same runner: how far one launch's medians",
+    'can move. The verdict above uses the first launch.',
+    '',
+    '| Size | Webview ready | First render | One edit | value shown |',
+    '|---|---|---|---|---|',
+    ...rows,
   );
 }
 
@@ -143,19 +136,24 @@ add(
   '  sends `ready`. Covers VS Code reading the file, syncing it to the extension host, creating the',
   '  webview and loading webview.js.',
   '- **First render:** from the same start until the tree shows the root\'s "<n> items" tag. On top of',
-  "  ready: the host sends the text (`init`), the webview parses it with `core` (the library's",
-  '  `parser` prop, criterion 10) and the library renders the tree.',
-  "- **One edit:** a `replace` of the first record's `name`, sent down the webview's edit path (test",
-  '  hook `patch`: the same `edit` message a tree edit sends, without the click and typing). Timed until',
-  '  the tree shows the new value. **Host:** until the document changed: the message, `core`',
-  '  applyPatch (which parses the whole text) and the WorkspaceEdit. **Webview:** the rest: the',
-  '  `update` message with the full text, `core` parsing it again in the webview, and the render.',
+  "  ready: the host sends the text (`init`), the webview parses it (the library's `parser` prop,",
+  '  criterion 10: `JSON.parse` for strict JSON, else `core`) and the library renders the tree.',
+  "- **One edit:** a `replace` of the first record's `name`, made down the webview's edit path (test",
+  '  hook `patch`: the library applies it, as a tree edit does, and the same `edit` message goes to',
+  "  the host, without the click and typing). Timed on the webview's clock, where the edit starts,",
+  "  until the host's answer is in and the editor is free again: nothing in flight, the document",
+  '  shown. The answer carries the whole new text; the webview keeps the data it already shows.',
+  '  **Value shown:** until the tree shows the new value, which it does before the host answers.',
+  "  **Host applies it:** on the host's clock, from sending the patch until the document changed:",
+  '  the message, `core` applyPatch and the WorkspaceEdit. After the change the host parses the new',
+  '  text once in the background (format badge, schema validation, the next edit), which can delay',
+  '  an edit made right after.',
   '',
   'To reproduce: `pnpm build && CHR_TEST_HOOKS=1 pnpm package`, then `xvfb-run -a pnpm --filter',
   '@chr-json-editor/bench bench` (or the `bench` workflow, `.github/workflows/bench.yml`).',
 );
 
-const failures = [unminified, vscode]
+const failures = [vscode, second]
   .filter(Boolean)
   .flatMap((results) => results.sizes)
   .flatMap((s) =>

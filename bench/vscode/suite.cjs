@@ -5,11 +5,13 @@
 //   render — from the same start until the tree shows the document's root ("<n> items", which
 //            needs the whole text sent to the webview and parsed by core there). This is what a
 //            user waits for, so UNK-014's "open" is this number.
-//   edit   — one tree edit sent through the webview's edit path (test hook `patch`, the same
-//            `edit` message a tree edit sends): the host applies it with core's applyPatch and a
-//            WorkspaceEdit (`host`, until the document changed), then the webview gets the new text,
-//            parses it again and renders it (`view`, until the tree shows the new value).
-// Every number is the extension host's clock, so it includes the messages between host and
+//   edit   — one tree edit made through the webview's edit path (test hook `patch`: the library
+//            applies it, as a tree edit does, and the same `edit` message goes to the host). On
+//            the webview's clock, where the edit starts: until the tree shows the value (`shown`)
+//            and until the host's answer is in and the editor is free again (`ms`, the edit). On
+//            the host's clock: from sending the patch until the document changed (`host`: core's
+//            applyPatch and the WorkspaceEdit).
+// Open and `host` are on the extension host's clock, so they include the messages between host and
 // webview. Results go to the JSON file named by CHR_BENCH_OUT. A failure is recorded, not thrown,
 // so a size VS Code refuses still leaves the others measured.
 const fs = require('node:fs');
@@ -98,10 +100,12 @@ async function timeEdit(hooks, uri, run) {
     if (!hooks.patch(key, [{ op: 'replace', path: '/0/name', value }])) {
       throw new Error('no editor shows the file');
     }
-    await withTimeout('the tree to show the edit', hooks.whenShown(key, value));
-    const shown = performance.now();
+    // The edit starts in the webview, so it is timed there: from the edit until the tree shows it,
+    // and until the webview has the host's answer and is free again.
+    const shownMs = await withTimeout('the tree to show the edit', hooks.whenShown(key, value));
+    const ms = await withTimeout('the editor to settle', hooks.whenSettled(key));
     if (changedAt === undefined) throw new Error('the document never changed');
-    return { ms: shown - start, hostMs: changedAt - start, viewMs: shown - changedAt };
+    return { ms, shownMs, hostMs: changedAt - start };
   } finally {
     listener.dispose();
   }
@@ -115,7 +119,7 @@ exports.run = async function run() {
   const extension = vscode.extensions.getExtension(EXTENSION_ID);
   if (!extension) throw new Error(`${EXTENSION_ID} is not installed`);
   const hooks = (await extension.activate()).testHooks;
-  if (!hooks || !hooks.whenShown) {
+  if (!hooks || !hooks.whenSettled) {
     throw new Error('no test hooks: build the .vsix with CHR_TEST_HOOKS=1 pnpm package');
   }
 

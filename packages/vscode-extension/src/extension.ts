@@ -15,8 +15,12 @@ export interface TestHooks {
   webviews(): WebviewSnapshot[];
   /** What the webview of `uri` renders (003 T5); see webview/testHooks.ts. */
   probe(uri: string): Promise<RenderedProbe>;
-  /** Resolves once the webview of `uri` renders `text`, whitespace collapsed (003 T11 benchmark). */
-  whenShown(uri: string, text: string): Promise<void>;
+  /** Resolves once the webview of `uri` renders `text`, whitespace collapsed (003 T11 benchmark),
+   *  with the milliseconds since the last `patch` on the webview's clock. */
+  whenShown(uri: string, text: string): Promise<number | undefined>;
+  /** Resolves once the webview of `uri` has every edit answered and shown (003 T11 benchmark),
+   *  with the milliseconds since the last `patch` on the webview's clock. */
+  whenSettled(uri: string): Promise<number | undefined>;
   /** Has the webview of `uri` send `patch` as a tree edit (criterion 1); false when none shows it. */
   patch(uri: string, patch: unknown): boolean;
   /** Posts `setMode` to the webview of `uri`; false when no editor shows it. */
@@ -46,6 +50,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         probe: (uri) => provider.probe(uri),
         setMode: (uri, mode) => provider.setMode(uri, mode),
         whenShown: (uri, text) => provider.whenShown(uri, text),
+        whenSettled: (uri) => provider.whenSettled(uri),
         patch: (uri, patch) => provider.patch(uri, patch),
         formatBadge: () => formatBadge.snapshot(),
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),

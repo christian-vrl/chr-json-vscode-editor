@@ -16,11 +16,14 @@ export interface Writer {
   value(value: unknown, unit: string | undefined): string;
 }
 
-interface Edit {
+export interface Edit {
   offset: number;
   end: number;
   text: string;
 }
+
+/** Makes a `Doc` of a text whose tree and tokens are already known (see `Doc.without`). */
+export type Rebuild = (text: string, root: FormatNode, tokens: Token[]) => Doc;
 
 /** A document being edited: text, tree and tokens for one operation. */
 export class Doc {
@@ -34,7 +37,94 @@ export class Doc {
     /** The characters that end a line: `\n` for JSON and JSONC, and also `\r`, U+2028 and U+2029
      *  for JSON5 (spec §6). */
     private readonly lineBreaks = '\n',
+    /** The adapter's `Doc` for another text of this document, from its tree and tokens (its style
+     *  and writer read the text). Without it, `without` always leaves the caller to parse. */
+    private readonly rebuild?: Rebuild,
   ) {}
+
+  /**
+   * The document after `edits`, deletions that take out `member` (with its comments, comma and
+   * white space): this tree and these tokens with the member left out and the offsets after each
+   * deletion moved back, so `move` does not parse the document a second time (UNK-014). Style is
+   * detected again from the new text. Undefined when an edit is not a deletion, or cuts into a
+   * token or a node other than the member; the caller then parses the new text.
+   */
+  without(edits: readonly Edit[], member: FormatNode): Doc | undefined {
+    if (!this.rebuild || !this.root || edits.some((e) => e.text !== '')) return undefined;
+    const cuts = [...edits].sort((a, b) => a.offset - b.offset);
+    const first = cuts[0]!.offset;
+    const last = cuts.at(-1)!.end;
+    const removed = cuts.reduce((sum, cut) => sum + cut.end - cut.offset, 0);
+    /** Where `offset` lands after the cuts; -1 when a cut removes the character before it. */
+    const moved = (offset: number): number => {
+      if (offset >= last) return offset - removed;
+      let before = 0;
+      for (const cut of cuts) {
+        if (cut.end <= offset) before += cut.end - cut.offset;
+        else if (cut.offset < offset) return -1;
+        else break;
+      }
+      return offset - before;
+    };
+    const cutAway = (offset: number, end: number) =>
+      cuts.some((cut) => cut.offset <= offset && end <= cut.end);
+
+    // Tokens before the first cut stay as they are; after the last one, all move by `removed`.
+    const kept = tokenFrom(this.tokens, first);
+    const tokens = this.tokens.slice(0, kept);
+    if (kept > 0 && this.tokens[kept - 1]!.end > first) return undefined;
+    for (let i = kept; i < this.tokens.length; i++) {
+      const t = this.tokens[i]!;
+      if (t.offset >= last) {
+        tokens.push({ kind: t.kind, offset: t.offset - removed, end: t.end - removed });
+        continue;
+      }
+      if (cutAway(t.offset, t.end)) continue;
+      const offset = moved(t.offset);
+      const end = moved(t.end);
+      if (offset < 0 || end < 0) return undefined;
+      tokens.push({ kind: t.kind, offset, end });
+    }
+
+    const copy = (node: FormatNode, offset: number, length: number, children?: FormatNode[]) => {
+      const shifted: { -readonly [K in keyof FormatNode]: FormatNode[K] } = {
+        type: node.type,
+        offset,
+        length,
+      };
+      if (node.value !== undefined) shifted.value = node.value;
+      if (children) shifted.children = children;
+      return shifted;
+    };
+    /** A node after every cut: it and its children move by `removed`. */
+    const after = (node: FormatNode): FormatNode =>
+      copy(node, node.offset - removed, node.length, node.children?.map(after));
+    let ok = true;
+    const shift = (node: FormatNode): FormatNode | undefined => {
+      const end = node.offset + node.length;
+      if (end <= first) return node;
+      if (node.offset >= last) return after(node);
+      if (node === member) return undefined;
+      const offset = moved(node.offset);
+      const movedEnd = moved(end);
+      if (offset < 0 || movedEnd < 0 || cutAway(node.offset, end)) {
+        ok = false;
+        return node;
+      }
+      let children: FormatNode[] | undefined;
+      if (node.children) {
+        children = [];
+        for (const child of node.children) {
+          const kept = shift(child);
+          if (kept) children.push(kept);
+        }
+      }
+      return copy(node, offset, movedEnd - offset, children);
+    };
+    const root = shift(this.root);
+    if (!ok || !root) return undefined;
+    return this.rebuild(this.apply([...edits]), root, tokens);
+  }
 
   apply(edits: Edit[]): string {
     let text = this.text;
@@ -378,6 +468,17 @@ function addToEmpty(doc: Doc, container: FormatNode, name: string, piece: Piece)
 }
 
 function remove(doc: Doc, target: Target): string {
+  return doc.apply(removal(doc, target));
+}
+
+/** The deletions that remove the member at `path`, and that member (for tests of `Doc.without`). */
+export function removalAt(doc: Doc, path: string): { edits: Edit[]; member: FormatNode } {
+  const target = existing(doc.root!, path);
+  return { edits: removal(doc, target), member: target.member! };
+}
+
+/** The edits that remove the member at `target`: only deletions (R5, R6, UNK-008). */
+function removal(doc: Doc, target: Target): Edit[] {
   const { container, member, index } = target;
   if (!container) throw new PatchError('cannot remove the root');
   if (!member) throw new PatchError('path does not exist');
@@ -394,17 +495,15 @@ function remove(doc: Doc, target: Target): string {
       const comma = doc.tail(previous).comma;
       if (comma) edits.push({ offset: comma.offset, end: comma.end, text: '' });
     }
-    return doc.apply(edits);
+    return edits;
   }
-  if (!isLast) {
-    return doc.apply([{ offset: member.offset, end: items[index + 1]!.offset, text: '' }]);
-  }
-  if (!previous) return doc.apply([{ offset: member.offset, end: tail.end, text: '' }]);
+  if (!isLast) return [{ offset: member.offset, end: items[index + 1]!.offset, text: '' }];
+  if (!previous) return [{ offset: member.offset, end: tail.end, text: '' }];
   const prevComma = doc.tail(previous).comma!;
   // `[1, 2,]` → `[1,]`: the trailing comma stays (R6); `[1, 2]` → `[1]`.
   return tail.comma
-    ? doc.apply([{ offset: prevComma.end, end: tail.comma.end, text: '' }])
-    : doc.apply([{ offset: prevComma.offset, end: tail.end, text: '' }]);
+    ? [{ offset: prevComma.end, end: tail.comma.end, text: '' }]
+    : [{ offset: prevComma.offset, end: tail.end, text: '' }];
 }
 
 /** The data a node holds. */
@@ -503,7 +602,9 @@ export function applyOperation(text: string, op: PatchOperation, open: Open): st
         throw new PatchError(`cannot move "${op.from}" into itself`);
       if (op.path === op.from) return text;
       const piece = movedPiece(doc, source);
-      const after = open(remove(doc, source));
+      // The document without the member, from this parse rather than a second one (UNK-014).
+      const edits = removal(doc, source);
+      const after = doc.without(edits, source.member!) ?? open(doc.apply(edits));
       return add(after, resolve(after.root!, op.path), piece);
     }
     default:

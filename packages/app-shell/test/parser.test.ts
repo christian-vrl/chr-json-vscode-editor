@@ -1,4 +1,5 @@
 // The library's `parser` prop backed by core (003 T5, criterion 10).
+import { getAdapter } from '@chr-json-editor/core';
 import { describe, expect, it } from 'vitest';
 import { parserFor } from '../src/parser.js';
 
@@ -25,6 +26,25 @@ describe('parserFor', () => {
     ['json5', ''],
   ] as const)('throws for %s that does not parse: %j', (format, text) => {
     expect(() => parserFor(format).parse(text)).toThrow(SyntaxError);
+  });
+
+  // Strict JSON skips core (JSON.parse, UNK-014): the data must be what core gives.
+  it.each([
+    '{"a": [1, -0, 1e400, 0.1, -1.5e-7, 12345678901234567890], "b": {"c": null, "d": true}}',
+    '{"__proto__": {"x": 1}, "constructor": 2, "toString": "s", "a": 1, "a": 2}',
+    '["\\u00e9\\ud83d\\ude00", "\\ud800", "tab\\tline\\n", "\u2028\u2029", "ünï"]',
+    '"just a string"',
+    '\n  42  \n',
+    '[]',
+  ])('reads strict JSON as core does: %s', (text) => {
+    for (const format of ['json', 'jsonc', 'json5'] as const) {
+      const data = parserFor(format).parse(text);
+      expect(data, format).toStrictEqual(getAdapter(format).parse(text).data);
+      if (text.includes('__proto__')) {
+        expect(Object.getPrototypeOf(data)).toBe(Object.prototype);
+        expect(Object.keys(data as object)).toContain('__proto__');
+      }
+    }
   });
 
   it('stringifies like JSON.stringify and returns one parser per format', () => {

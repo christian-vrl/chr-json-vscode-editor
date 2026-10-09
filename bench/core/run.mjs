@@ -105,8 +105,7 @@ export function benchDocument(format, bytes) {
   return commentedText(bytes, format === 'jsonc' ? jsoncElement : json5Element);
 }
 
-/** The single-operation patches, all on the middle record so the edit lands mid-file. `move`
- *  re-parses between its remove and add (002 T6), so it is timed separately. */
+/** The single-operation patches, all on the middle record so the edit lands mid-file. */
 export function operations(records) {
   const mid = Math.floor(records / 2);
   return {
@@ -155,14 +154,31 @@ function measure(format, mib) {
       adapter.applyPatch(warm.text, patch);
   }
   const retained = checkAndMeasureRetained(adapter, text, records, `${format} ${mib} MiB`);
+  // Core keeps the parse of the last text it saw per format (UNK-014), so calls alternate between
+  // two texts of the same size that differ in one padding character: each timed call parses.
+  const at = text.lastIndexOf('.');
+  const texts = [text, `${text.slice(0, at)}-${text.slice(at + 1)}`];
+  let last = 0;
+  const unparsed = () => texts[(last = 1 - last)];
   const result = { format, mib, bytes, records, retainedHeapBytes: retained, parse: [] };
-  for (let run = 0; run < RUNS; run++) result.parse.push(time(() => adapter.parse(text)).ms);
+  for (let run = 0; run < RUNS; run++) {
+    const input = unparsed();
+    result.parse.push(time(() => adapter.parse(input)).ms);
+  }
+  const edit = (name, input, patch) => {
+    const { ms, result: out } = time(() => adapter.applyPatch(input, patch));
+    if (typeof out !== 'string' || out === input) throw new Error(`${format} ${name}: no edit`);
+    return ms;
+  };
   for (const [name, patch] of Object.entries(operations(records))) {
     result[name] = [];
+    result[`${name}Parsed`] = [];
+    for (let run = 0; run < RUNS; run++) result[name].push(edit(name, unparsed(), patch));
+    // The host's case: the text was parsed already (format badge, validation, the last edit).
     for (let run = 0; run < RUNS; run++) {
-      const { ms, result: out } = time(() => adapter.applyPatch(text, patch));
-      if (typeof out !== 'string' || out === text) throw new Error(`${format} ${name}: no edit`);
-      result[name].push(ms);
+      const input = unparsed();
+      adapter.parse(input);
+      result[`${name}Parsed`].push(edit(name, input, patch));
     }
   }
   // Peak resident memory of this process (KiB on Linux): the source text, the parse and the edits.

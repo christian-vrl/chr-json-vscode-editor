@@ -5,10 +5,13 @@ import type { JsonPatchOperation } from './protocol.js';
 
 /** The mounted editor UI. */
 export interface AppHandle extends Disposable {
-  /** Sends operations as a tree or table edit would, and the view follows (e2e test hooks). */
+  /** Sends operations as a tree or table edit would: the editor shows them at once, where it can,
+   *  and follows the host's answer (e2e test hooks). */
   patch(operations: JsonPatchOperation[]): void;
   /** What the editor library holds now: `{ text }` or `{ json }`, undefined before it mounts. */
   content(): { text: string } | { json: unknown } | undefined;
+  /** Every change was answered and the editor shows the document (e2e test hooks, benchmark). */
+  settled(): boolean;
 }
 
 export type MountApp = (target: HTMLElement, host: HostAdapter) => AppHandle;

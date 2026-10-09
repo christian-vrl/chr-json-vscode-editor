@@ -46,10 +46,9 @@ await build({
   target: 'chrome128',
   define: { __CHR_TEST_HOOKS__: JSON.stringify(testHooks) },
   // Minified (003 T11 benchmark carry-forward): the bundle holds Svelte, vanilla-jsoneditor and
-  // CodeMirror, about 1.5 MB as written, and the webview loads all of it on every open. Also
-  // folds the test hooks away in release builds, as for the extension host. CHR_WEBVIEW_MINIFY=0
-  // builds it unminified (syntax folding only), so the benchmark can compare the two.
-  ...(process.env.CHR_WEBVIEW_MINIFY === '0' ? { minifySyntax: true } : { minify: true }),
+  // CodeMirror, 1.5 MB as written and 0.94 MB minified. Also folds the test hooks away in release
+  // builds, as for the extension host. (Open time at 1 MiB did not measurably change: PR #37.)
+  minify: true,
   sourcemap: false,
   logLevel: 'info',
 });
