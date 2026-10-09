@@ -230,8 +230,8 @@ const lineEnd = (text: string, offset: number) => {
 
 /**
  * The span of a member a step removes or moves: its own lines (its first to its last), clipped to
- * the space between its neighbors, plus the comment lines directly above it when it starts its line
- * (UNK-008: no blank line between).
+ * the space between its neighbors, plus the comment lines directly above it when only its leading
+ * block comments precede it on its line (UNK-008: no blank line between; UNK-021 ★).
  */
 function memberSpan(text: string, container: FormatNode, member: FormatNode): [number, number] {
   const items = container.children ?? [];
@@ -241,7 +241,8 @@ function memberSpan(text: string, container: FormatNode, member: FormatNode): [n
     i < items.length - 1 ? items[i + 1]!.offset : container.offset + container.length - 1;
   let start = Math.max(lineStart(text, member.offset), prevEnd);
   const end = Math.min(lineEnd(text, member.offset + member.length), nextStart);
-  if (text.slice(lineStart(text, member.offset), member.offset).trim() === '') {
+  const before = text.slice(lineStart(text, member.offset), member.offset);
+  if (before.replace(/\/\* c\d+ \*\//g, '').trim() === '') {
     for (;;) {
       const above = lineStart(text, start - 1);
       if (start === 0 || above < prevEnd) break;

@@ -64,8 +64,8 @@ export function prettyPrint(text: string, open: Open): string {
   };
 
   /** A block comment at `i` is followed on its line by a token that is not a comment: when a line
-   *  break comes before the comment, it goes on the new line with that token (UNK-021 leaves open
-   *  which member such a comment belongs to, so it stays next to the one it was next to). */
+   *  break comes before the comment, it goes on the new line with that token, the member it
+   *  belongs to (UNK-021 ★). */
   const leadsLine = (i: number): boolean => {
     if (tokens[i]!.kind !== Kind.BlockComment) return false;
     for (let j = i + 1; j < tokens.length; j++) {
@@ -229,7 +229,8 @@ interface Unit {
 /**
  * Puts the units of `members` into the members' slots in `order`. When every member sits on lines
  * of its own, a slot spans its attached comment lines above it (UNK-008) to the end of its line;
- * otherwise a slot spans the member and its same-line tail. The text between slots, the bytes
+ * otherwise a slot spans the member with its leading block comments (UNK-021 ★) and its same-line
+ * tail. The text between slots, the bytes
  * before the first and after the last stay. A unit placed last loses or gains its comma so the
  * container keeps or lacks a trailing comma as before (R6); one that gains a comma gets it right
  * after its value (README reading 1). A unit whose `//` comment would no longer end its line
@@ -239,7 +240,7 @@ function reorder(doc: Doc, members: readonly FormatNode[], order: readonly numbe
   const ownLines = members.every((m) => doc.ownLines(m));
   const slots = members.map((member) => {
     const tail = doc.tail(member);
-    const start = ownLines ? doc.blockStart(member) : member.offset;
+    const start = ownLines ? doc.blockStart(member) : doc.leadStart(member);
     const end = member.offset + member.length;
     return {
       start,
