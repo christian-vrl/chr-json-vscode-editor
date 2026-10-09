@@ -95,7 +95,8 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
         assert.equal(hooks.patch(uri.toString(), patch), true);
         await waitFor(`${format}/${name} to be edited`, () => document.version > before);
         assert.equal(document.getText(), expected, `${format}/${name}: document text`);
-        assert.equal(document.isDirty, true, `${format}/${name}: not dirty`);
+        // isDirty can lag the version change by a tick (seen on VS Code 1.139.1, PR #57).
+        await waitFor(`${format}/${name} to be dirty`, () => document.isDirty);
         // The tree keeps the data it made, which the host's text holds too (UNK-014); text mode
         // shows the host's new text, comments included, not an echo of its own (criterion 10).
         await hooks.whenSettled(uri.toString());

@@ -7,7 +7,7 @@
 - [ ] **T1** (Large) `compare(left, right)` and `copyDifference(source, target, d)` in
   `packages/core/src/compare.ts`, exported from `@chr-json-editor/core`; fast-check suite for
   criteria 1–2 (seed committed, 10 000 runs). — needs: 002 T9 — *gate: criteria 1, 2 property suite green*
-- [ ] **T2** HEAD reader per UNK-038's evidence rule, with e2e on a temp repository: committed file
+- [x] **T2** HEAD reader per UNK-038's evidence rule, with e2e on a temp repository: committed file
   with an unsaved edit, untracked file, folder outside Git. `parallel` with T1 — needs: 003 T3 —
   *gate: e2e reads HEAD text byte-equal to the committed bytes; UNK-038 resolved per the delegation rule*
 

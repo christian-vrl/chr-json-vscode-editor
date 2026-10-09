@@ -8,6 +8,8 @@ import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
 import type { DomStep, RenderedProbe } from './testProbe';
 import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
+import type { HeadResult } from './gitHead';
+import { readHeadOf } from './gitHeadVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -44,6 +46,8 @@ export interface TestHooks {
   confirm(answer: TestAnswer | undefined): string[];
   /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
   selectDialect(uri: string, dialect: string): boolean;
+  /** Reads `uri`'s committed bytes from Git HEAD (007 T2, UNK-038). */
+  readHead(uri: string): Promise<HeadResult>;
 }
 
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
@@ -74,6 +78,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         formatBadge: () => formatBadge.snapshot(),
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
         dom: (uri, steps) => provider.dom(uri, steps),
+        readHead: (uri) => readHeadOf(vscode.Uri.parse(uri)),
         confirm(answer) {
           testConfirm.answer = answer;
           return testConfirm.asked.splice(0);
