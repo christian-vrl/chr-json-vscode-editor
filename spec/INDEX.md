@@ -33,7 +33,7 @@ tasks run in order unless marked `parallel`.
 |---|---|---|
 | 006 | Convert between JSON, JSONC, JSON5 with lossy-step warnings | reuses 002 T7 |
 | 007 | Structural compare (two files or vs Git HEAD, ignoring key order) | reuses 002 T9 `diff` |
-| 008 | Large-file mode | UNK-014 |
+| 008 | Large-file mode | above 5 MiB (UNK-014) |
 | 009 | CSV import/export | merges via 002 R14 |
 | 010 | Smart format | FracturedJson library (MIT), as the site uses |
 | 011 | JavaScript and Lodash queries | uses ADR-010's eval location |
