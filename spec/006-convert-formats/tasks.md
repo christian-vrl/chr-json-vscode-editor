@@ -10,7 +10,7 @@
   002 T1 (golden corpus and `pnpm test:golden`) — *gate: `pnpm test:golden -- --coverage-only` green (criterion 2); Reviewer PASS on C1–C7 per case*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** `convert(text, from, to) → { text, losses }` in `packages/core/src/formats/convert.ts`,
+- [x] **T2** `convert(text, from, to) → { text, losses }` in `packages/core/src/formats/convert.ts`,
   exported from `@chr-json-editor/core`, on the token streams of 002 T3 (`tokenize`) and 002 T5
   (`parseJson5`); fast-check suite for criteria 3–5 (seed committed, 10 000
   runs per pair); time on the 002 bench documents (1, 10, 50 MB) recorded in the PR body. — needs: 002 T3, 002 T5 — *gate:
