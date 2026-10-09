@@ -10,7 +10,7 @@
 // CHR_E2E_VSCODE_VERSION picks the downloaded release (default `stable`); the vscode-matrix
 // workflow sets it to test older releases (UNK-016).
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,6 +38,8 @@ const vscodeExecutablePath =
 
 const profile = mkdtempSync(path.join(tmpdir(), 'chr-json-editor-e2e-'));
 const extensionsDir = path.join(profile, 'extensions');
+const scratch = path.join(profile, 'scratch');
+mkdirSync(scratch);
 const profileArgs = [
   `--extensions-dir=${extensionsDir}`,
   `--user-data-dir=${path.join(profile, 'user-data')}`,
@@ -63,6 +65,10 @@ try {
         CHR_E2E_EXTENSIONS_DIR: extensionsDir,
         // 004 T5 writes `json.schemas`/`json5.schemas` here, as a user would (inline.cjs).
         CHR_E2E_USER_SETTINGS: path.join(profile, 'user-data', 'User', 'settings.json'),
+        // 007 T2 makes Git repositories here. They outlive the suite: VS Code's Git extension keeps
+        // running `git` in a repository for a moment after it closes, so the folders go with the
+        // profile once VS Code has exited (`finally` below).
+        CHR_E2E_SCRATCH: scratch,
       },
       // Chromium's timer throttling flags (003 T6): under xvfb about one run in three aligned the
       // webview's text-mode debounce timer to whole seconds (the edit arrived 1000 ms after typing,
