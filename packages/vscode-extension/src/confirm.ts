@@ -5,8 +5,11 @@ import * as vscode from 'vscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
+/** A test's answer: fixed, or computed when asked (so a test can act while the question is open). */
+export type TestAnswer = boolean | (() => boolean | Promise<boolean>);
+
 /** Test hooks only: the answer to give instead of showing the dialog, and the questions asked. */
-export const testConfirm: { answer: boolean | undefined; asked: string[] } = {
+export const testConfirm: { answer: TestAnswer | undefined; asked: string[] } = {
   answer: undefined,
   asked: [],
 };
@@ -15,7 +18,8 @@ export const testConfirm: { answer: boolean | undefined; asked: string[] } = {
 export async function confirm(message: string, action: string): Promise<boolean> {
   if (__CHR_TEST_HOOKS__ && testConfirm.answer !== undefined) {
     testConfirm.asked.push(message);
-    return testConfirm.answer;
+    const { answer } = testConfirm;
+    return typeof answer === 'function' ? answer() : answer;
   }
   return (await vscode.window.showWarningMessage(message, { modal: true }, action)) === action;
 }

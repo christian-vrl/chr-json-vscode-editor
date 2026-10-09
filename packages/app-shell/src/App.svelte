@@ -108,7 +108,8 @@
   const queued: (Pending | { kind: 'undo' } | { kind: 'redo' })[] = [];
   /** `flush` requests to answer once nothing the UI made is waiting for the host (003 T7). */
   const flushes: number[] = [];
-  /** The library's text-mode sort dialog is open: the text it writes next is a sort (003 T8). */
+  /** The text-mode sort dialog was opened from the menu: text written while it is open is the
+   *  sort (003 T8). */
   let textSortPending = false;
 
   onMount(() => {
@@ -282,6 +283,10 @@
 
   /** The library's text-mode sort, read back from the text it wrote: a reordering of the root,
    *  sent as core's sort (R13), or undefined when the text is not one. */
+  function sortDialogOpen(): boolean {
+    return target.querySelector('dialog.jse-sort-modal[open]') !== null;
+  }
+
   function textSort(previous: Content, updated: string): DocumentChange | undefined {
     const parser = parserFor(format ?? 'json');
     try {
@@ -363,9 +368,12 @@
       showDocument();
       return;
     }
+    // The library writes the sorted text while its dialog is still open (SortModal.svelte calls
+    // onSort before onClose). Text that comes once the dialog is gone is typing: the sort was
+    // cancelled, or kept the order and wrote nothing.
     if (textSortPending) {
       textSortPending = false;
-      const sort = textSort(previous, text);
+      const sort = sortDialogOpen() ? textSort(previous, text) : undefined;
       if (sort) {
         queue(sort);
         return;
