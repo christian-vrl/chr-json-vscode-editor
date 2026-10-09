@@ -1,0 +1,4 @@
+{
+  "Infinity": 0x10, // a key named Infinity
+  "NaN": [0xff, -0XAB]
+}

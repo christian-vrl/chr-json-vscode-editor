@@ -8,3 +8,7 @@ spikes/json5-cst/cases/** -text
 
 # json5-tests conformance fixtures (002 T5) are read byte for byte; new-lines/ holds CR and CRLF files.
 packages/core/test/fixtures/json5-tests/** -text
+
+# Repair fixtures (003 T8) are broken on purpose and compared byte for byte.
+packages/core/test/fixtures/repair/** -text
+packages/core/test/fixtures/repair-json5/** -text

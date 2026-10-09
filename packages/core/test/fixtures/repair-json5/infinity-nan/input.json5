@@ -1,0 +1,7 @@
+{
+  max: Infinity // unbounded
+  min: -Infinity,
+  pos: +Infinity,
+  none: NaN
+  neg: -NaN,
+}

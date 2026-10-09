@@ -11,7 +11,8 @@
       "test-fail",
       "compact",
       "sort",
-      "data-diff"
+      "data-diff",
+      "format"
     ],
     "location": ["root", "nested-object", "array-start", "array-middle", "array-end", "document"],
     "comments": ["none", "before", "after", "inline"],

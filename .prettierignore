@@ -11,6 +11,8 @@ spikes/json5-cst/results.json
 
 # Spike fixtures are broken on purpose and read byte for byte.
 spikes/repair-comments/fixtures/
+packages/core/test/fixtures/repair/
+packages/core/test/fixtures/repair-json5/
 # Written by the spike's run.ts; regenerated, never hand-edited.
 spikes/repair-comments/results.json
 

@@ -1,9 +1,9 @@
-// Spec 002 criterion 8 (002 T10): golden cases of whole-document actions. `compact` (R12) and
-// `sort` (R13) run through the case's format adapter; `data-diff` (R14) applies
+// Spec 002 criterion 8 (002 T10): golden cases of whole-document actions. `compact` (R12),
+// `sort` (R13) and `format` (003 T8, spec 003 criterion 10) run through the case's format adapter; `data-diff` (R14) applies
 // `diff(parse(input).data, value)` with `applyPatch`. The output is byte-equal to `expected`, and
 // every comment of the input is in the output except those the action lists in `removedComments`
 // (attached to members the data change removes; compact and sort remove none).
-// `pnpm test:golden -- --op compact,sort,data-diff` runs only these cases.
+// `pnpm test:golden -- --op compact,sort,data-diff,format` runs only these cases.
 import { diff, getAdapter } from '../../packages/core/src/index.js';
 import { describe, expect, it } from 'vitest';
 import { commentsOf } from './facts.js';
@@ -22,6 +22,8 @@ function run(c: GoldenCase): string {
       return adapter.compact(c.input);
     case 'sort':
       return adapter.sort(c.input, action);
+    case 'format':
+      return adapter.prettyPrint(c.input);
     case 'data-diff':
       return adapter.applyPatch(c.input, diff(adapter.parse(c.input).data, action.value));
     default:

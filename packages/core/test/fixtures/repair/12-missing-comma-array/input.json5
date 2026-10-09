@@ -1,0 +1,6 @@
+[
+  'a', /* first */
+  'b'
+  // third comes next
+  'c',
+]

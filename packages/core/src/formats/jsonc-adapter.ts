@@ -3,7 +3,7 @@
 // (`edit.ts`) from `parseTree` offsets and the scanner's tokens rather than jsonc-parser's `modify`
 // (plan 002 risk R1).
 import { parseTree, printParseErrorCode, visit, type ParseError } from 'jsonc-parser';
-import { compact, sort } from './actions.js';
+import { compact, prettyPrint, sort } from './actions.js';
 import { applyOperation, Doc, type Writer } from './edit.js';
 import { detectStyle } from './style.js';
 import { stringify } from './stringify.js';
@@ -158,6 +158,7 @@ function makeAdapter(format: 'json' | 'jsonc'): FormatAdapter {
     stringify: (data, style) => stringify(data, format, style),
     compact: (text) => compact(text, (t) => open(t, format)),
     sort: (text, options) => sort(text, (t) => open(t, format), options),
+    prettyPrint: (text) => prettyPrint(text, (t) => open(t, format)),
   };
 }
 

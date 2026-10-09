@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "file cut off inside a nested object",
+  "jsonrepairClass": "Repair truncated JSON",
+  "comments": [
+    {
+      "text": "// primary",
+      "container": "/servers",
+      "before": 1,
+      "trailing": true
+    },
+    {
+      "text": "// backup",
+      "container": "/servers",
+      "before": 1,
+      "trailing": false
+    }
+  ]
+}

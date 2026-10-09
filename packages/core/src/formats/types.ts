@@ -65,6 +65,10 @@ export interface FormatAdapter {
    *  its attached comments (002 T10, `actions.ts`). Throws a `PatchError` for a text that does not
    *  parse or a path that is not an object or array. */
   sort(text: string, options?: SortOptions): string;
+  /** The text laid out like `JSON.stringify(data, null, indent)` in the document's indent unit,
+   *  keeping every token as written and every comment (003 T8, `actions.ts` `prettyPrint`).
+   *  Throws a `PatchError` when the text does not parse. */
+  prettyPrint(text: string): string;
 }
 
 /** What `FormatAdapter.sort` sorts and how (002 T10). */
@@ -75,6 +79,10 @@ export interface SortOptions {
    *  itself (`""`) by default. Ignored for an object, whose keys are sorted. */
   property?: string;
   direction?: 'asc' | 'desc';
+  /** The members' new order, as their indices before the sort: `order[i]` is the member that goes
+   *  to position `i`. Replaces `property` and `direction` (003 T8). Throws a `PatchError` when it
+   *  is not a permutation of the members. */
+  order?: readonly number[];
 }
 
 export class PatchError extends Error {

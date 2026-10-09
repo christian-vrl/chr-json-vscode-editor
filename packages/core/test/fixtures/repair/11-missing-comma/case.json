@@ -1,0 +1,19 @@
+{
+  "format": "json5",
+  "breakage": "missing comma between members",
+  "jsonrepairClass": "Add missing commas",
+  "comments": [
+    {
+      "text": "// app config",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// dev port",
+      "container": "",
+      "before": 2,
+      "trailing": true
+    }
+  ]
+}

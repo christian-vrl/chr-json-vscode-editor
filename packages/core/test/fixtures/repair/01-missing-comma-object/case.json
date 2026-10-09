@@ -1,0 +1,19 @@
+{
+  "format": "jsonc",
+  "breakage": "missing comma between object members",
+  "jsonrepairClass": "Add missing commas",
+  "comments": [
+    {
+      "text": "// server settings",
+      "container": "",
+      "before": 0,
+      "trailing": false
+    },
+    {
+      "text": "// default host",
+      "container": "",
+      "before": 1,
+      "trailing": true
+    }
+  ]
+}
