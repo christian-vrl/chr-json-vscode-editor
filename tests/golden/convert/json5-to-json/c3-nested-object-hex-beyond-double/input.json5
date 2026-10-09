@@ -1,0 +1,9 @@
+{
+  "n": {
+    "big": 0x1FFFFFFFFFFFFFFFF,
+    "upper": 0XAbC,
+    "plusHex": +0x1f,
+    "negLead": -.25e-1,
+    "plusLead": +.5
+  }
+}

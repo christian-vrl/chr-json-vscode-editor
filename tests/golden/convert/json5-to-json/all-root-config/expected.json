@@ -1,0 +1,7 @@
+{
+  "name": "demo",
+  "port": 8080,
+  "ratio": 0.75,
+  "limit": null,
+  "tags": ["a", "b"]
+}

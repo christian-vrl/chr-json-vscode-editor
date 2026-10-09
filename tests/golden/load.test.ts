@@ -110,6 +110,11 @@ describe('loadGoldenCases', () => {
     );
   });
 
+  it('skips the conversion corpus folder (spec 006, convert.ts)', () => {
+    const files = { ...validCase, 'convert/json5-to-json/a/input.json5': '1' };
+    expect(loadGoldenCases(corpus(files))).toHaveLength(1);
+  });
+
   it('accepts files beside the format folders', () => {
     const files = { ...validCase, 'load.ts': '', 'tags.json': '{}' };
     expect(loadGoldenCases(corpus(files))).toHaveLength(1);

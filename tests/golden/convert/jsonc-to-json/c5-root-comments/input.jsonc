@@ -1,0 +1,8 @@
+/* header
+   block */
+
+{
+  "a": 1, // one
+  // above b
+  "b": 2
+}

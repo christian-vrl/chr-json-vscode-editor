@@ -1,0 +1,9 @@
+{
+  "hex": 255,
+  "neg": -16,
+  "plus": 1,
+  "lead": 0.5,
+  "trail": 5,
+  "trailExp": 5e3,
+  "kept": 1.0E+2
+}
