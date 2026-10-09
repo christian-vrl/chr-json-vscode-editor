@@ -15,7 +15,7 @@
       "format"
     ],
     "location": ["root", "nested-object", "array-start", "array-middle", "array-end", "document"],
-    "comments": ["none", "before", "after", "inline"],
+    "comments": ["none", "before", "after", "inline", "leading"],
     "trailingComma": ["yes", "no"],
     "quote": ["single", "double"],
     "keyStyle": ["quoted", "unquoted"],

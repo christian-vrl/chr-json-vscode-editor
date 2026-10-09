@@ -1,9 +1,8 @@
 # SPEC 002 — Format core: JSON, JSONC, JSON5 with style-preserving edits
 
-> **Status:** `approved (owner: Chris, thread message cmsg_01Wz9SKzwQD2da69nuNGPcidEGps3h6QkUAkZLe48ZhPH2, 2026-10-08)`
-> **Progress:** every task (T1–T11) is merged on `main`. Not `done` yet: owner UNKNOWNS UNK-021,
-> UNK-022 and UNK-023 are open, and golden cases for UNK-021 are added once it is answered. Spec 005
-> criterion 5 needs this spec `done`.
+> **Status:** `done` (approved by owner: Chris, thread message cmsg_01Wz9SKzwQD2da69nuNGPcidEGps3h6QkUAkZLe48ZhPH2, 2026-10-08)
+> **Progress:** every task (T1–T11) is merged and every result-affecting UNKNOWN is resolved
+> (UNK-021, UNK-022 and UNK-023 by the owner on 2026-10-09, with UNK-021's golden cases).
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -39,7 +38,7 @@ as minimal text edits that leave every byte outside the edited spans unchanged.
 - **R2 Placement:** `add` to `/-` or a new key appends after the last member; an array index inserts at that index.
 - **R3 Single-line containers:** a container written on one line stays on one line; new members are joined with `, ` (or the separator already used).
 - **R4 Quotes (JSON5):** new keys are unquoted when identifier-safe and most existing keys in that object are unquoted; strings use the file's majority quote character. JSON/JSONC always double quotes.
-- **R5 Removal:** per UNK-008.
+- **R5 Removal:** per UNK-008; a block comment before a member on its own line belongs to that member (UNK-021).
 - **R6 Trailing commas:** a container with a trailing comma keeps one after its new last member; one without never gains one. JSON never gets one.
 - **R7 Move:** `move` = remove at `from` (R5 decides which comments go) + add at `path` carrying those comments.
 - **R8 Scalars:** new numbers and strings are written as `JSON.stringify` would, except R4's quote character in JSON5. Patch values are plain JSON, so JSON5-only literals (hex, `Infinity`, `NaN`) appear only in inputs; existing ones are never rewritten unless their member is replaced.
@@ -72,6 +71,6 @@ as minimal text edits that leave every byte outside the edited spans unchanged.
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved — UNK-008, UNK-012, UNK-018 resolved; UNK-021, UNK-022, UNK-023 open (owner)
+- [x] Result-affecting UNKNOWNS resolved — UNK-008, UNK-012, UNK-018, UNK-021, UNK-022, UNK-023 resolved
 - [x] Human approval recorded (G0)
 - [x] All tasks merged (T1–T11)

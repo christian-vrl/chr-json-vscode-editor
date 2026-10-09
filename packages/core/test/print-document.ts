@@ -1,8 +1,8 @@
 // Documents with comments for format-core property tests (002 T6, shared with 002 T10): data in a
 // format and style, printed with comments in every place the golden corpus tags (`before` lines, with
 // or without a blank line; `after` on the member's line; `inline` between key and value or before the
-// comma; comments in single-line and empty containers, before a closing bracket and around the
-// root), mixing single-line and multi-line containers.
+// comma; `leading` before the member on its line; comments in single-line and empty containers,
+// before a closing bracket and around the root), mixing single-line and multi-line containers.
 import fc from 'fast-check';
 import { stringify, type Format, type Style } from '../src/index.js';
 
@@ -68,7 +68,8 @@ export function printDocument(
       const comma = i < entries.length - 1 || trailing ? ',' : '';
       const beforeComma = chance(5) ? ` ${blockComment()}` : '';
       const after = chance(20) ? ` ${anyComment()}` : '';
-      text += `${inner}${name(k)}${value(item, inner)}${beforeComma}${comma}${after}${eol}`;
+      const leading = chance(5) ? `${blockComment()} ` : '';
+      text += `${inner}${leading}${name(k)}${value(item, inner)}${beforeComma}${comma}${after}${eol}`;
     });
     if (chance(10)) text += `${inner}${anyComment()}${eol}`;
     return `${text}${indent}${close}`;
