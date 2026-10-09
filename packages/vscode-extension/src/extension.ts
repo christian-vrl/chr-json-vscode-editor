@@ -2,7 +2,7 @@
 // external because VS Code supplies it at runtime. VS Code activates the extension from the
 // contributed custom editor and commands (spec 003 T3).
 import * as vscode from 'vscode';
-import { registerCommands } from './commands';
+import { registerCommands, testCeiling } from './commands';
 import { registerConvertCommands, testConvert } from './convertCommand';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
@@ -57,6 +57,9 @@ export interface TestHooks {
     messages: string[];
     context: Record<string, string | undefined>;
   };
+  /** 008 T4: answers every later ceiling message of "Open in CHR JSON Editor" (true: "Open as
+   *  Text", false: dismiss; undefined: show it). Returns the messages shown since the previous call. */
+  ceiling(answer: boolean | undefined): string[];
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -106,6 +109,10 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
             messages: testConvert.messages.splice(0),
             context: { ...testConvert.context },
           };
+        },
+        ceiling(answer) {
+          testCeiling.answer = answer;
+          return testCeiling.messages.splice(0);
         },
         confirm(answer) {
           testConfirm.answer = answer;
