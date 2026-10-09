@@ -11,7 +11,7 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 | Command | Runs |
 |---|---|
 | `pnpm test:golden` | every test in this folder |
-| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4) and `convert-coverage.test.ts` (spec 006 criterion 2) |
+| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2) and `csv-coverage.test.ts` (spec 009 criterion 2) |
 | `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
@@ -170,3 +170,71 @@ Readings the conversion corpus takes where C1–C7 leave a detail open:
    (RFC 8259 allows it). One that is not is rewritten whole, so its valid escapes go too:
    `"\x41\u0042"` becomes `"AB"`.
 6. **Hexadecimal zero with a sign** (C3) keeps the sign: `-0x0` becomes `-0`.
+
+## CSV corpus (spec 009)
+
+`csv/export/<case>/` holds `input.json`, `options.json`, `case.json` and either `expected.csv` or
+`error.json`; `csv/import/<case>/` holds `input.csv`, `options.json`, `case.json` and either
+`expected.json` with `warnings.json`, or `error.json`. A case passes when `jsonToCsv(input,
+options)` gives `expected.csv` byte for byte, or `csvToJson(input, options)` gives `data`
+deep-equal to `expected.json` (`isDeepStrictEqual`, key order checked) and `warnings` equal to
+`warnings.json`; otherwise the error equals `error.json` (criterion 1, 009 T2). Every expected file
+was written by hand from rules X1–X7 and I1–I7 of `spec/009-csv/spec.md` and changes only with a
+spec change.
+
+- `options.json`: the options of spec 009 §Options that differ from their defaults. Export:
+  `delimiter` (`","`, `";"`, `"\t"`, `"|"`; default `","`), `header` (true), `flattenObjects`
+  (true), `flattenArrays` (false), `bom` (false). Import: `delimiter` (left out for "Detect",
+  I3), `header` (true), `nestedObjects` ("Nested objects from field names", true).
+- `error.json` and each entry of `warnings.json`: `{"message"}` for export, `{"message", "line"}`
+  for import, `line` 1-based.
+- `case.json`: `{"rules": [...], "values"?: [...], "features"?: [...]}` (criterion 2). `rules`
+  lists the X or I rules the case exercises; `values` the I7 value types it has (`number`, `true`,
+  `false`, `null`, `empty`, `json`, `text`); `features` holds `one-column-null-row` for a
+  one-column table with a `null` row. Delimiter and header coverage are read from `options.json`.
+  The vocabulary is `csv` in `tags.json`.
+
+Tests: `csv.ts` loads the cases and lists the criterion 2 cells no case covers
+(`csv-coverage.test.ts`, run by `--coverage-only`); `csv-load.test.ts` tests the loader;
+`csv-corpus.test.ts` checks facts that do not use core's CSV code: exported text is strict RFC 4180
+with the case's delimiter, CR LF after every record, a BOM exactly when `bom` is on, one record per
+row plus the header, every record the same width; export errors only for a row source that is not
+an array or object; import data is an array of objects; message lines exist in the input; each
+`values` and `features` tag matches the case's data.
+
+Readings the CSV corpus takes where X1–X7 and I1–I7 leave a detail open:
+
+1. **Messages.** The corpus fixes the texts. Export: `CSV export needs an array or an object`
+   (X1). Import errors: `The CSV file is empty` (line 1) and `A quoted field is not closed` (the
+   line of the opening quote). Import warnings: `Text after a closing quote is kept as part of the
+   field` (I2, once per such field), `Field name "<name>" is repeated; this column is named
+   "<new name>"` (I4), `Field name "<name>" conflicts with "<earlier name>"; it is kept as a flat
+   key` (I5), `The record has more fields than there are field names; extra fields are kept as
+   "Field 3", "Field 4"` (I6, once per record, naming each extra field).
+2. **Lines** are physical lines of the input: CR LF, LF and CR each end one, inside quoted fields
+   too. A record's line is the line it starts on. Field-name warnings (I4, I5) are on line 1.
+   Warnings are listed by line, and within a line in column order, I4's before I5's.
+3. **Text after a closing quote** keeps the field quoted, so it stays a string (I7): `"ab"cd` is
+   `"abcd"` and `"p" q` is `"p q"`.
+4. **Detection** (I3) counts the header among the first 10 records and finds records with the same
+   quote rules for every candidate: `"a,b";c` splits on `;` only
+   (`import/i3-detect-ignores-quoted-delimiters`). Only the first 10 records count: the 11th
+   record of `i3-detect-reads-first-ten-records` would rule out `;`.
+5. **Field-name notation** (I5) is read as written by §Terms: a first key (plain, or `["…"]` with a
+   JSON string), then any of `.key`, `[n]` (decimal, no leading zero) and `["…"]`; a plain key is
+   non-empty and has none of `.`, `[`, `]`, `"`. Anything else (`c.`, `d[x]`) is not notation and
+   stays a flat key without a warning. A name conflicts when an earlier name's path is a prefix of
+   its own or the other way round, or when it needs an object where an earlier name made an array
+   (`t[0]` then `t.k`); the warning names that earlier field.
+6. **Key order.** `input.json` and `expected.json` are read with `JSON.parse`, so integer-like keys
+   (`"0"`, `"7"`) come first in their object, as in any JavaScript object; X2's columns follow that
+   order (`export/x3-key-notation`).
+7. **X6 white space** is what JavaScript's `\s` matches, a tab included (`"\tx"`). A string that
+   I7 reads back as text (`007`, `1e3`, `-0`, `NaN`, `True`, `{}`) is not quoted.
+8. **A non-object item** (X2) gets a column whose header is the empty string, written `""` by X6.
+
+Not in the corpus because the spec leaves them open; 009 T2 raises an UNKNOWN if it must decide
+them: an empty array or rows of `{}` only (no columns), non-object array items with "Flatten
+nested arrays" on, ragged records with the header off, a rename that hits an existing name
+(`a,a,a_1`), a plain field name holding `"`, and `NaN` or `Infinity` cells (X5), which
+`input.json` cannot hold.

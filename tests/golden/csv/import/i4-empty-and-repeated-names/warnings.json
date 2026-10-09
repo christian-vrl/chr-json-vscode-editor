@@ -1,0 +1,14 @@
+[
+  {
+    "message": "Field name \"a\" is repeated; this column is named \"a_1\"",
+    "line": 1
+  },
+  {
+    "message": "Field name \"Field 1\" is repeated; this column is named \"Field 1_1\"",
+    "line": 1
+  },
+  {
+    "message": "Field name \"a\" is repeated; this column is named \"a_2\"",
+    "line": 1
+  }
+]

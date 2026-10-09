@@ -1,0 +1,14 @@
+[
+  {
+    "message": "Field name \"a.b\" conflicts with \"a\"; it is kept as a flat key",
+    "line": 1
+  },
+  {
+    "message": "Field name \"t.k\" conflicts with \"t[0]\"; it is kept as a flat key",
+    "line": 1
+  },
+  {
+    "message": "Field name \"u.v.w\" conflicts with \"u.v\"; it is kept as a flat key",
+    "line": 1
+  }
+]

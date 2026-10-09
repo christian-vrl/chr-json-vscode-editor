@@ -1,0 +1,14 @@
+[
+  {
+    "Field 0": 1,
+    "Field 1": "x"
+  },
+  {
+    "Field 0": 2,
+    "Field 1": null
+  },
+  {
+    "Field 0": true,
+    "Field 1": "y"
+  }
+]
