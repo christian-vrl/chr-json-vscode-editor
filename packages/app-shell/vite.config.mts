@@ -1,4 +1,4 @@
-// Vite build of app-shell's standalone pages (001 T6, 003 T2, 007 T3). `pnpm test:web` serves dist/web with
+// Vite build of app-shell's standalone pages (001 T6, 003 T2, 007 T3, 009 T3). `pnpm test:web` serves dist/web with
 // `vite preview`. The Svelte plugin compiles the UI's .svelte components (UNK-010); libraryCss moves
 // vanilla-jsoneditor's runtime-injected CSS into the CSS bundle (UNK-029). vite.lib.config.mts builds
 // the same UI as a library for the VS Code webview (003 T5).
@@ -18,11 +18,13 @@ export default defineConfig({
   build: {
     outDir: 'dist/web',
     emptyOutDir: true,
-    // Two pages: the editor (index.html) and the compare page (compare.html, 007 T3).
+    // Three pages: the editor (index.html), the compare page (compare.html, 007 T3) and the CSV
+    // panel page (csv.html, 009 T3).
     rolldownOptions: {
       input: {
         index: fileURLToPath(new URL('./index.html', import.meta.url)),
         compare: fileURLToPath(new URL('./compare.html', import.meta.url)),
+        csv: fileURLToPath(new URL('./csv.html', import.meta.url)),
       },
     },
   },

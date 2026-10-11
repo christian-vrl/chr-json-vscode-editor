@@ -19,7 +19,7 @@
   property suite green*
 
 ## Phase C — UI (risk-free / additive)
-- [ ] **T3** CSV panel page in `app-shell` (`Csv.svelte`, `CsvHostAdapter`, dev host): options with
+- [x] **T3** CSV panel page in `app-shell` (`Csv.svelte`, `CsvHostAdapter`, dev host): options with
   defaults, preview of the first 100 rows, warnings, error state, buttons per mode; fixtures in
   `tests/csv/`. Needs UNK-042 and UNK-044 resolved. — needs: 009 T2 — *gate: criterion 6 and the
   theme part of criterion 9 green in `pnpm test:web`*

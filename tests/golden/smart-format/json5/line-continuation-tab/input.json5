@@ -1,0 +1,11 @@
+{
+	greeting: 'Hello, \
+world',
+	note: 'A JSON5 string may go on to the next line after a backslash; smart format keeps it byte for byte.',
+	lines: [
+		'one',
+		'two \
+and a half',
+		'three'
+	]
+}

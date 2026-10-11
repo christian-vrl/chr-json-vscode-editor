@@ -1,0 +1,18 @@
+{
+  "layout": [
+    "expanded",
+    "table"
+  ],
+  "comments": [
+    "before"
+  ],
+  "trailingComma": "no",
+  "special": [
+    "none"
+  ],
+  "style": [
+    "indent-4",
+    "bom",
+    "no-final-newline"
+  ]
+}

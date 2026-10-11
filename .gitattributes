@@ -12,3 +12,6 @@ packages/core/test/fixtures/json5-tests/** -text
 # Repair fixtures (003 T8) are broken on purpose and compared byte for byte.
 packages/core/test/fixtures/repair/** -text
 packages/core/test/fixtures/repair-json5/** -text
+
+# CSV panel fixtures (009 T3) are read byte for byte; import/many.csv uses CR LF on purpose.
+tests/csv/** -text

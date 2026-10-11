@@ -1,0 +1,17 @@
+{
+  "layout": [
+    "expanded",
+    "inline"
+  ],
+  "comments": [
+    "between-key-and-value",
+    "inline"
+  ],
+  "trailingComma": "no",
+  "special": [
+    "none"
+  ],
+  "style": [
+    "indent-2"
+  ]
+}
