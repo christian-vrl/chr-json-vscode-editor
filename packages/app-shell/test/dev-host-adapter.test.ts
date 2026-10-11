@@ -52,6 +52,35 @@ describe('DevHostAdapter', () => {
     expect(host.text).toBe('{}');
   });
 
+  it('a locked large file refuses changes, undo and redo until unlocked (spec 008)', async () => {
+    const largeFile = { bytes: 6_291_456, unlocked: false };
+    const host = new DevHostAdapter({ text: '{"a": 1}', format: 'json', mode: 'tree', largeFile });
+    const doc = await host.open();
+    expect(doc.largeFile).toEqual(largeFile);
+    const events: unknown[] = [];
+    host.onExternalChange((e) => events.push(e));
+    host.save(doc.docVersion, { kind: 'text', text: '{}' });
+    host.undo();
+    await expect.poll(() => events).toMatchObject([{ type: 'error', code: 'read-only' }]);
+    expect(host.text).toBe('{"a": 1}');
+    expect(host.docVersion).toBe(doc.docVersion);
+
+    host.openAsText();
+    host.unlock();
+    expect(host.banner).toEqual(['openAsText', 'unlock']);
+    expect(host.largeFile).toEqual({ bytes: 6_291_456, unlocked: true });
+    expect((await host.open()).largeFile).toEqual({ bytes: 6_291_456, unlocked: true });
+    host.save(doc.docVersion, { kind: 'text', text: '{}' });
+    expect(host.text).toBe('{}');
+  });
+
+  it('opens the normal editor without a largeFile', async () => {
+    const host = new DevHostAdapter({ text: '{}', format: 'json', mode: 'tree' });
+    expect((await host.open()).largeFile).toBeNull();
+    host.unlock();
+    expect(host.largeFile).toBeNull();
+  });
+
   it('refuses getSettings before open', () => {
     const host = new DevHostAdapter({ text: '{}', format: 'json', mode: 'tree' });
     expect(() => host.getSettings()).toThrow(/before open/);

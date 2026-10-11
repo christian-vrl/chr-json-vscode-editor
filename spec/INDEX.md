@@ -37,7 +37,7 @@ tasks run in order unless marked `parallel`.
 | 009-csv | CSV import and export with options and preview, csv42's field-name notation | own code in `core`; replace document data via 002 R14 (UNK-042); can run in parallel with 007 and 008 |
 | 010-smart-format | Smart format: short arrays and objects on one line, tables, keeping keys, values and comments as written | FracturedJson 5.1.0 (MIT), as the site uses; key order per UNK-045, trailing commas per UNK-046, fixed options per UNK-047; off above 5 MiB; can run in parallel with 007–009 |
 | 011-js-queries | JavaScript and Lodash queries in the Transform dialog, run in a sealed engine (QuickJS) inside the page | eval location per ADR-011 / UNK-048 (amends 003 criterion 6 by `'wasm-unsafe-eval'`); above 5 MiB per UNK-049; can run in parallel with 007–010 |
-| 012 | NDJSON / JSON Lines in table mode | |
+| 012-json-lines | JSON Lines (NDJSON): open `.jsonl`/`.ndjson` in table mode, line-by-line edits, convert to and from JSON | `jsonl` as a fourth format (ADR-012); T2 needs 008 T1; T6 needs 008 T3 and 009 T4; UNK-050, UNK-051 |
 | 013 | vscode.dev (web extension) build | |
 
 ## P2 — backlog
