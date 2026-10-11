@@ -276,7 +276,8 @@ exports.runLargeFile = async function runLargeFile({
   assert.equal(hooks.patch(editKey, [{ op: 'replace', path: '/0/marker', value: 'edited' }]), true);
   await waitFor('the edit', () => editDocument.getText() !== before, 30000);
   assert.equal(editDocument.getText(), expected, 'the edit did not give the expected bytes');
-  assert.equal(editDocument.isDirty, true);
+  // VS Code marks the document dirty a moment after the change event.
+  await waitFor('the document to be dirty', () => editDocument.isDirty);
   await vscode.commands.executeCommand('workbench.action.files.save');
   await waitFor('the save', () => !editDocument.isDirty);
   assert.equal(fs.readFileSync(editable.fsPath, 'utf8'), expected);
