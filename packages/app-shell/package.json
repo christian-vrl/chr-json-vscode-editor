@@ -24,6 +24,10 @@
       "types": "./src/compare-ui.d.ts",
       "default": "./dist/lib/compare.js"
     },
+    "./csv": {
+      "types": "./src/csv-ui.d.ts",
+      "default": "./dist/lib/csv.js"
+    },
     "./ui.css": "./dist/lib/app.css",
     "./page.css": "./src/page.css"
   },
