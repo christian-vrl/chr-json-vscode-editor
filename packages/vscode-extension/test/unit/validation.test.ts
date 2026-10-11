@@ -94,6 +94,47 @@ describe('DocumentValidation', () => {
     return { doc, posted, validation };
   }
 
+  it('while paused, runs only on runOnce, from the data alone (spec 008 criterion 10)', () => {
+    vi.useFakeTimers();
+    const doc = { text: '{"name": "Ada", "age": 36}', docVersion: 1 };
+    const posted: ValidationMessage[] = [];
+    let paused = true;
+    let changes = 0;
+    const validation = new DocumentValidation({
+      snapshot: () => ({ ...doc }),
+      format: () => 'json',
+      paused: () => paused,
+      post: (m) => posted.push(m),
+      schemaChanged: () => changes++,
+    });
+    expect(validation.paused).toBe(false);
+    validation.setSchema(schema);
+    expect(changes).toBe(1);
+    expect(validation.paused).toBe(true);
+    doc.text = '{"name": "Ada", "age": -1}';
+    doc.docVersion = 2;
+    validation.schedule();
+    validation.run();
+    vi.runAllTimers();
+    expect(posted).toEqual([]);
+    validation.runOnce();
+    expect(posted).toHaveLength(1);
+    expect(posted[0]?.docVersion).toBe(2);
+    expect(keys(posted[0]!.result)).toEqual([{ instancePath: '/age', keyword: 'minimum' }]);
+    // A schema that cannot be used is reported without a parse, paused or not.
+    validation.setUnavailable('Remote schemas are not loaded (offline)');
+    expect(validation.paused).toBe(false);
+    expect(posted[1]?.result).toEqual({
+      kind: 'skipped',
+      reason: 'Remote schemas are not loaded (offline)',
+    });
+    paused = false;
+    validation.setSchema(schema);
+    expect(posted).toHaveLength(3);
+    validation.setSchema(undefined);
+    expect(changes).toBe(4);
+  });
+
   it('posts nothing until it has a schema', () => {
     vi.useFakeTimers();
     const { posted, validation } = setup('{}');

@@ -4,7 +4,12 @@
 // edits the document, so choosing another format leaves its bytes unchanged.
 // This package is CommonJS and core is ESM: type-only imports of ESM from CJS need `resolution-mode`,
 // and the runtime functions come in as `FormatCore` (esbuild bundles core into the extension).
-import type { DetectionSource, Format, FormatAdapter } from '@chr-json-editor/core' with {
+import type {
+  DetectionSource,
+  Format,
+  FormatAdapter,
+  ParseDataResult,
+} from '@chr-json-editor/core' with {
   'resolution-mode': 'import',
 };
 
@@ -18,6 +23,8 @@ export interface FormatCore {
     text?: string,
   ): { format: Format; source: DetectionSource };
   getAdapter(format: Format): FormatAdapter;
+  /** Core's data-only parse, for a document open in a locked large-file tab (spec 008). */
+  parseData(format: Format, text: string): ParseDataResult;
 }
 
 export const FORMATS: readonly Format[] = ['json', 'jsonc', 'json5'];
@@ -67,13 +74,25 @@ const SOURCE_LABELS: Readonly<Record<DetectionSource, string>> = {
   default: 'the default',
 };
 
-/** Parses `text` as `format`; never throws. A format whose `getAdapter` throws is `unsupported`. */
-export function reparse(core: FormatCore, text: string, format: Format): ParseOutcome {
+/**
+ * Parses `text` as `format`; never throws. A format whose `getAdapter` throws is `unsupported`.
+ * With `dataOnly` (a locked large-file tab, spec 008 criterion 8) it reads the data alone with
+ * `parseData`, which keeps no parse: the outcome is valid or one error, and warnings go uncounted.
+ */
+export function reparse(
+  core: FormatCore,
+  text: string,
+  format: Format,
+  dataOnly = false,
+): ParseOutcome {
   let adapter: FormatAdapter;
   try {
     adapter = core.getAdapter(format);
   } catch (error) {
     return { kind: 'unsupported', reason: error instanceof Error ? error.message : String(error) };
+  }
+  if (dataOnly) {
+    return { kind: 'parsed', errors: 'error' in core.parseData(format, text) ? 1 : 0, warnings: 0 };
   }
   const { diagnostics } = adapter.parse(text);
   return {
@@ -89,9 +108,10 @@ export function initialState(
   path: string,
   languageId: string,
   text: string,
+  dataOnly = false,
 ): FormatState {
   const { format, source } = core.detect(path, languageId, text);
-  return { format, detected: format, source, outcome: reparse(core, text, format) };
+  return { format, detected: format, source, outcome: reparse(core, text, format, dataOnly) };
 }
 
 /** The state after the user chose `format`, or after the text changed (same `format`). */
@@ -100,8 +120,9 @@ export function withFormat(
   state: FormatState,
   text: string,
   format: Format,
+  dataOnly = false,
 ): FormatState {
-  return { ...state, format, outcome: reparse(core, text, format) };
+  return { ...state, format, outcome: reparse(core, text, format, dataOnly) };
 }
 
 export function badge(state: FormatState): Badge {

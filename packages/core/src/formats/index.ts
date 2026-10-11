@@ -6,7 +6,7 @@ export { jsonAdapter, jsoncAdapter } from './jsonc-adapter.js';
 export { json5Adapter } from './json5-adapter.js';
 export { jsonlAdapter } from './jsonl-adapter.js';
 export { getAdapter } from './adapters.js';
-export { releaseParse } from './cache.js';
+export { cachedParseTexts, releaseParse } from './cache.js';
 export { parseData, type ParseDataResult } from './parse-data.js';
 export { convert, ConvertError } from './convert.js';
 export type { ConversionLoss, ConvertResult } from './convert.js';
