@@ -13,6 +13,9 @@ export default defineConfig({
       '@chr-json-editor/app-shell/protocol': fileURLToPath(
         new URL('packages/app-shell/src/protocol.ts', import.meta.url),
       ),
+      '@chr-json-editor/app-shell/csv-preview': fileURLToPath(
+        new URL('packages/app-shell/src/csv-preview.ts', import.meta.url),
+      ),
     },
   },
   test: {

@@ -70,7 +70,7 @@ function setContext(key: string, format: Format | undefined): void {
 }
 
 /** The format the command reads a text editor's document as; undefined when it is not one of ours. */
-function textFormat(editor: vscode.TextEditor | undefined): Format | undefined {
+export function textFormat(editor: vscode.TextEditor | undefined): Format | undefined {
   if (!editor) return undefined;
   const { document } = editor;
   const detection = detect(document.uri.path, document.languageId);

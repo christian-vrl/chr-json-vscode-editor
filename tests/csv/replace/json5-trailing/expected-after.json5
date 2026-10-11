@@ -1,0 +1,8 @@
+[
+  {id: 1, note: 'fine'}, // keep me
+  {id: 2, note: 'new'},
+  {
+    id: 3,
+    note: 'added'
+  },
+]

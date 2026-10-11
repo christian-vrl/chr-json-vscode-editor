@@ -10,7 +10,8 @@
     // Tests import workspace packages from source, so type-aware lint never depends on a build.
     "paths": {
       "@chr-json-editor/core": ["./packages/core/src/index.ts"],
-      "@chr-json-editor/app-shell/protocol": ["./packages/app-shell/src/protocol.ts"]
+      "@chr-json-editor/app-shell/protocol": ["./packages/app-shell/src/protocol.ts"],
+      "@chr-json-editor/app-shell/csv-preview": ["./packages/app-shell/src/csv-preview.ts"]
     }
   },
   "include": [

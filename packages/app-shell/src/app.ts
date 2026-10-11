@@ -6,7 +6,7 @@ import App from './App.svelte';
 import type { AppHandle, MountApp } from './mount.js';
 
 /** What App.svelte exports (typed here for tools that do not read .svelte files). */
-type AppExports = Pick<AppHandle, 'patch' | 'content' | 'settled'>;
+type AppExports = Pick<AppHandle, 'patch' | 'content' | 'settled' | 'select'>;
 
 export const mountApp: MountApp = (target, host) => {
   const app = mount(App, { target, props: { host } }) as AppExports;
@@ -14,6 +14,7 @@ export const mountApp: MountApp = (target, host) => {
     patch: (operations) => app.patch(operations),
     content: () => app.content(),
     settled: () => app.settled(),
+    select: (path) => app.select(path),
     dispose: () => void unmount(app),
   };
 };

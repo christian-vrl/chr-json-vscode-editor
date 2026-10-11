@@ -20,6 +20,10 @@
       "types": "./src/ui.d.ts",
       "default": "./dist/lib/app.js"
     },
+    "./csv-preview": {
+      "types": "./dist/csv-preview.d.ts",
+      "default": "./dist/csv-preview.js"
+    },
     "./compare": {
       "types": "./src/compare-ui.d.ts",
       "default": "./dist/lib/compare.js"

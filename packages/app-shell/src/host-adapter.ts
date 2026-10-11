@@ -7,6 +7,7 @@ import type {
   EditorSettings,
   ErrorMessage,
   FlushMessage,
+  GetRowSourceMessage,
   InitMessage,
   SchemaDialect,
   SetFormatMessage,
@@ -25,7 +26,8 @@ export type HostEvent =
   | SetFormatMessage
   | ErrorMessage
   | ValidationMessage
-  | FlushMessage;
+  | FlushMessage
+  | GetRowSourceMessage;
 
 /** A failure the UI asks the host to show (the UI → host `error` message without its envelope). */
 export type HostNotice = Omit<ErrorMessage, 'protocol' | 'type'>;
@@ -43,8 +45,8 @@ export interface HostAdapter {
    * UI last received; the host answers a stale change with an `error` event. Maps to `edit`.
    */
   save(docVersion: number, change: DocumentChange): void;
-  /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation`, `flush`
-   *  messages. */
+  /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation`, `flush`,
+   *  `getRowSource` messages. */
   onExternalChange(listener: (event: HostEvent) => void): Disposable;
   /** The settings from `init`. Only valid after `open` has resolved. */
   getSettings(): EditorSettings;
@@ -69,4 +71,7 @@ export interface HostAdapter {
   /** "Edit anyway" in the large-file banner (spec 008 criterion 4): the host accepts this UI's
    *  changes from now on. Maps to `unlock`. */
   unlock(docVersion: number): void;
+  /** Answers the host's `getRowSource` event with the JSON Pointer of what the user is looking at
+   *  (spec 009 criterion 7): `''` for the document's data. Maps to `rowSource`. */
+  rowSource(docVersion: number, request: number, path: string): void;
 }

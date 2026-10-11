@@ -6,9 +6,12 @@ import { registerCommands, testCeiling } from './commands';
 import { registerCompareCommands, testCompare } from './compareCommands';
 import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
+import { OPEN_COMMAND } from './commands';
+import { registerCsvCommands, testCsvCommands } from './csvCommands';
+import { CsvPanels, testCsvPanel, type CsvSnapshot } from './csvPanel';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
-import type { ComparePageProbe, DomStep, RenderedProbe } from './testProbe';
+import type { ComparePageProbe, CsvPageProbe, DomStep, RenderedProbe } from './testProbe';
 import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
 import type { HeadResult } from './gitHead';
@@ -73,6 +76,27 @@ export interface TestHooks {
    *  (undefined: show the pick). Returns the messages the compare commands showed since the
    *  previous call. */
   comparePick(answer: ((listed: string[]) => string | undefined) | undefined): string[];
+  /** 009 T4: selects the node at JSON Pointer `path` in the tree of `uri`'s webview. */
+  select(uri: string, path: string): boolean;
+  /** 009 T4: every CSV panel opened so far, closed ones included. */
+  csvs(): CsvSnapshot[];
+  /** What the open CSV panel titled `title` renders. */
+  probeCsv(title: string): Promise<CsvPageProbe>;
+  /** Runs `steps` on the page of the open CSV panel titled `title`. */
+  domCsv(title: string, steps: DomStep[]): Promise<(string | null)[]>;
+  /** Answers every later CSV open dialog with `answers.pick()` and save dialog with
+   *  `answers.saveAs(prefilled URI)` (undefined: show the dialogs). Returns the save dialogs'
+   *  prefilled URIs and the messages the CSV commands showed since the previous call. */
+  csv(
+    answers:
+      | {
+          pick?: () => string | undefined;
+          saveAs?: (defaultUri: string) => string | undefined;
+        }
+      | undefined,
+  ): { saveAs: string[]; messages: string[] };
+  /** What `csv` returns, without changing its answers. */
+  csvSeen(): { saveAs: string[]; messages: string[] };
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -87,8 +111,15 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
       formatBadge.format(document) ??
       detect(document.uri.path, document.languageId, document.getText()).format,
   );
+  const csvPanels = new CsvPanels(context.extensionUri, {
+    formatOf: (document) =>
+      formatBadge.format(document) ??
+      detect(document.uri.path, document.languageId, document.getText()).format,
+    openJson: (uri) => vscode.commands.executeCommand(OPEN_COMMAND, uri),
+  });
   context.subscriptions.push(
     compares,
+    csvPanels,
     formatBadge,
     disposable,
     formatBadge.onDidChangeFormat(({ document, format }) => {
@@ -98,6 +129,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
     ...registerCommands(),
     ...registerConvertCommands(formatBadge),
     ...registerCompareCommands(compares, formatBadge),
+    ...registerCsvCommands(csvPanels, formatBadge, provider),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -125,6 +157,34 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         domCompare(title, steps) {
           const panel = compares.find(title);
           return panel ? panel.dom(steps) : Promise.reject(new Error(`no compare panel ${title}`));
+        },
+        select: (uri, path) => provider.select(uri, path),
+        csvs: () => csvPanels.snapshots,
+        probeCsv(title) {
+          const panel = csvPanels.find(title);
+          return panel ? panel.probe() : Promise.reject(new Error(`no CSV panel ${title}`));
+        },
+        domCsv(title, steps) {
+          const panel = csvPanels.find(title);
+          return panel ? panel.dom(steps) : Promise.reject(new Error(`no CSV panel ${title}`));
+        },
+        csvSeen: () => ({
+          saveAs: testCsvPanel.asked.splice(0),
+          messages: testCsvCommands.messages.splice(0),
+        }),
+        csv(answers) {
+          testCsvCommands.pick = answers?.pick;
+          const saveAs = answers?.saveAs;
+          testCsvPanel.saveAs = saveAs
+            ? (defaultUri) => {
+                const picked = saveAs(defaultUri.toString());
+                return picked === undefined ? undefined : vscode.Uri.parse(picked);
+              }
+            : undefined;
+          return {
+            saveAs: testCsvPanel.asked.splice(0),
+            messages: testCsvCommands.messages.splice(0),
+          };
         },
         comparePick(answer) {
           testCompare.pick = answer;

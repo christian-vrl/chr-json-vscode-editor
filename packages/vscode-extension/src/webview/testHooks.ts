@@ -200,6 +200,11 @@ export function installTestHooks(
       selectDialect(String((message as { dialect?: unknown }).dialect));
       return true;
     }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'select') {
+      const { path } = message as { path?: unknown };
+      app()?.select(typeof path === 'string' ? path : '');
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'patch') {
       patchedAt = performance.now();
       app()?.patch(message.patch as Parameters<AppHandle['patch']>[0]);
