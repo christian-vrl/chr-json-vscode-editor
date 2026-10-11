@@ -37,7 +37,7 @@ tasks run in order unless marked `parallel`.
 | 009-csv | CSV import and export with options and preview, csv42's field-name notation | own code in `core`; replace document data via 002 R14 (UNK-042); can run in parallel with 007 and 008 |
 | 010 | Smart format | FracturedJson library (MIT), as the site uses |
 | 011 | JavaScript and Lodash queries | uses ADR-010's eval location |
-| 012 | NDJSON / JSON Lines in table mode | |
+| 012-json-lines | JSON Lines (NDJSON): open `.jsonl`/`.ndjson` in table mode, line-by-line edits, convert to and from JSON | `jsonl` as a fourth format (ADR-012); T2 needs 008 T1; T6 needs 008 T3 and 009 T4; UNK-050, UNK-051 |
 | 013 | vscode.dev (web extension) build | |
 
 ## P2 — backlog
