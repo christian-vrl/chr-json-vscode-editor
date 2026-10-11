@@ -1,6 +1,6 @@
 # SPEC 010 — Smart format
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcid295hfb5pKFM11yuRJrHsXK, 2026-10-11)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -86,15 +86,15 @@ point without rewriting them), except:
   comment warnings keeps them too.
 - **L4 Blank lines** between members are kept (`PreserveBlankLines`), as in JSONC config files where
   they group settings.
-- **L5 Key order** is never changed (UNK-045 ★): an array whose object rows list their keys in
+- **L5 Key order** is never changed (UNK-045, owner: never): an array whose object rows list their keys in
   different orders is not laid out as one table where that would reorder them.
-- **L6 Trailing commas** in JSONC and JSON5 per UNK-046 ★: a container written on several lines keeps
+- **L6 Trailing commas** in JSONC and JSON5 per UNK-046 (owner: multi-line only): a container written on several lines keeps
   a trailing comma after its last member when it had one; a container written on one line (inline, a
   table row, a compact-array row) has none. JSON never has one.
 - **L7 JSON5 tokens** that JSON lacks (unquoted keys, single quotes, hex, `Infinity`, `NaN`, a `+` or a
   leading or trailing `.`, line continuations) are kept byte for byte; they count with their written
   width when FracturedJson measures line length and columns.
-- **L8 Options** are fixed (UNK-047 ★): no setting changes them in this spec; spec 019 (Settings) may
+- **L8 Options** are fixed (UNK-047, owner: fixed now): no setting changes them in this spec; spec 019 (Settings) may
   add line length and the others later.
 
 ## Where we differ from jsoneditoronline.org
@@ -147,11 +147,11 @@ point without rewriting them), except:
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-045 | May smart format reorder keys to line up a table | L5, criterion 3; T1, T2 | see ledger (owner) |
-| UNK-046 | Trailing commas in JSONC and JSON5 after smart format | L6, criterion 3; T1, T2 | see ledger (owner) |
-| UNK-047 | Fixed options or user settings now | L8; T2, T3 | see ledger (owner) |
+| UNK-045 | May smart format reorder keys to line up a table | L5, criterion 3; T1, T2 | resolved (owner): never reorder |
+| UNK-046 | Trailing commas in JSONC and JSON5 after smart format | L6, criterion 3; T1, T2 | resolved (owner): multi-line only |
+| UNK-047 | Fixed options or user settings now | L8; T2, T3 | resolved (owner): fixed now |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved
+- [x] Human approval recorded

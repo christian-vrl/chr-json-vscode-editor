@@ -77,4 +77,4 @@ threshold first (criterion 10). The dev host's action switch gets `smartFormat` 
 | R6 East Asian wide characters misalign columns | out of scope: widths are UTF-16 lengths, as the site's default; a later spec may pass a width function |
 
 ## Definition of Done
-1. Criteria 1–12 pass in CI. 2. UNK-045 and UNK-046 resolved before T1 starts; UNK-047 before T2.
+1. Criteria 1–12 pass in CI. 2. UNK-045, UNK-046 and UNK-047 resolved before T1 starts (all three resolved by the owner, 2026-10-11).
