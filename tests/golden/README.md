@@ -195,7 +195,8 @@ spec change.
   The vocabulary is `csv` in `tags.json`.
 
 Tests: `csv.ts` loads the cases and lists the criterion 2 cells no case covers
-(`csv-coverage.test.ts`, run by `--coverage-only`); `csv-load.test.ts` tests the loader;
+(`csv-coverage.test.ts`, run by `--coverage-only`); `csv-apply.test.ts` runs criterion 1 on core's
+`jsonToCsv` and `csvToJson` (009 T2); `csv-load.test.ts` tests the loader;
 `csv-corpus.test.ts` checks facts that do not use core's CSV code: exported text is strict RFC 4180
 with the case's delimiter, CR LF after every record, a BOM exactly when `bom` is on, one record per
 row plus the header, every record the same width; export errors only for a row source that is not
@@ -232,9 +233,17 @@ Readings the CSV corpus takes where X1–X7 and I1–I7 leave a detail open:
 7. **X6 white space** is what JavaScript's `\s` matches, a tab included (`"\tx"`). A string that
    I7 reads back as text (`007`, `1e3`, `-0`, `NaN`, `True`, `{}`) is not quoted.
 8. **A non-object item** (X2) gets a column whose header is the empty string, written `""` by X6.
+9. **JSON text in a cell** (I7, 009 T2): a cell, quoted or not, is read as an object or array only
+   when its text starts with `{` or `[`, ends with `}` or `]`, and parses as JSON. So `" [1]"`
+   (`import/i7-values`) and `"[1] "` stay strings, as X6 quotes them for white space.
+10. **Text after a closing quote** (I2, 009 T2): the warning names the physical line where the
+    closing quote is, which is later than the record's line when the quoted field spans lines.
+11. **A plain field name holding `"`** (`a"b`) is not notation (reading 5) and stays a flat key with
+    no warning (009 T2).
 
-Not in the corpus because the spec leaves them open; 009 T2 raises an UNKNOWN if it must decide
-them: an empty array or rows of `{}` only (no columns), non-object array items with "Flatten
-nested arrays" on, ragged records with the header off, a rename that hits an existing name
-(`a,a,a_1`), a plain field name holding `"`, and `NaN` or `Infinity` cells (X5), which
-`input.json` cannot hold.
+Not in the corpus because the spec leaves them open; 009 T2 decided each as a delegated UNKNOWN and
+tests it in `packages/core/test/csv.test.ts`: a row source with no column (UNK-057), array items
+with "Flatten nested arrays" on (UNK-058), ragged records with the header off (UNK-059), a rename
+that hits a name already used (UNK-060), a conflicting name whose flat key a nested member holds
+(UNK-061), and empty lines during delimiter detection (UNK-062). `NaN` and `Infinity` cells (X5),
+which `input.json` cannot hold, are tested there too.
