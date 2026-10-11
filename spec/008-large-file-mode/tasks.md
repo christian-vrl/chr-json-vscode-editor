@@ -21,7 +21,7 @@
   in the format badge, validation and the webview parser for large JSONC and JSON5, a test hook
   reporting core's cached parses; e2e fixtures generated at 5,242,880, 5,242,881 and 6 MiB. — needs:
   008 T1, T2 — *gate: criteria 1–5 and 8 green in `pnpm test:e2e`; `pnpm check:offline` green*
-- [ ] **T4** Ceiling: measure VS Code's sync limit with files just below and above 50 × 2^20 bytes on
+- [x] **T4** Ceiling: measure VS Code's sync limit with files just below and above 50 × 2^20 bytes on
   stable and correct the spec's HYPOTHESIS if needed; `workspace.fs.stat` check and message with
   "Open as Text" in "Open in CHR JSON Editor". `parallel` with T1–T3 — needs: 003 T3 — *gate:
   criterion 9 green in `pnpm test:e2e`*
@@ -34,6 +34,13 @@
   e2e green; UNK-041 resolved per the delegation rule*
 
 ## Off the critical path
+- T4 found the ceiling counts the text, not the bytes on disk. Criterion 9 compares the size on
+  disk, so a file above 52,428,800 bytes whose text still fits (a BOM, or multi-byte UTF-8, or a
+  UTF-16 file) gets the ceiling message although VS Code would hand it over; opening it with "Open
+  With…" still works. Counting the text first would mean reading up to the whole file in the
+  command; not worth it unless someone hits it.
+- T4's e2e checks that a file at the ceiling opens in CHR JSON Editor; that it opens in large-file
+  mode follows from criterion 1 once T3 lands (T3 can add the assertion to `ceiling.cjs`).
 - A threshold setting belongs to 019 (Settings). A host answer by text delta (UNK-014 idea) would
   speed unlocked edits and spec 003's normal edits alike; it is a later spec if wanted. Compare of
   large files is 007's UNK-037.

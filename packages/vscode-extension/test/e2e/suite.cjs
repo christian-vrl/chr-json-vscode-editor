@@ -340,6 +340,10 @@ exports.run = async function run() {
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
+  await closeAll();
+  await require('./ceiling.cjs').runCeiling({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.
