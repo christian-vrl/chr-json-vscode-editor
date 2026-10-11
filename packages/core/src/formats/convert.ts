@@ -38,6 +38,7 @@ const SUPERSETS: Record<Format, readonly Format[]> = {
   json: ['jsonc', 'json5'],
   jsonc: ['json5'],
   json5: [],
+  jsonl: [],
 };
 
 /** An RFC 8259 string literal (C1's test), matched in place at a token's offset. */
@@ -50,6 +51,9 @@ const JSON_NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
  * superset pair (and for `from === to`) the text comes back unchanged with no losses.
  */
 export function convert(text: string, from: Format, to: Format): ConvertResult {
+  // J1 and J2 (spec 012) come with 012 T3.
+  if (from !== to && (from === 'jsonl' || to === 'jsonl'))
+    throw new Error('Converting to or from JSON Lines is not available yet.');
   const source = read(text, from);
   if (from === to || SUPERSETS[from].includes(to)) return { text, losses: [] };
   return new Converter(text, source, to === 'json').run();

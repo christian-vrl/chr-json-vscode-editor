@@ -182,6 +182,22 @@ export function sort(text: string, open: Open, options: SortOptions = {}): strin
   }
 }
 
+/** The order `sort` puts array items with data `values` in (R13): `options.order` checked, or
+ *  sorted by `options.property` and `options.direction`. For containers that are not one text
+ *  node, such as the lines of a JSON Lines document (012 T2). */
+export function itemOrder(
+  values: readonly unknown[],
+  options: SortOptions = {},
+): readonly number[] {
+  if (options.order) return checkedOrder(options.order, values.length);
+  const direction = options.direction === 'desc' ? -1 : 1;
+  const property = parsePointer(options.property ?? '');
+  return values
+    .map((value, index) => ({ index, key: getIn(value, property) }))
+    .sort((a, b) => direction * compareValues(a.key, b.key))
+    .map((k) => k.index);
+}
+
 /** `order` when it is a permutation of the `length` members' indices. */
 function checkedOrder(order: readonly number[], length: number): readonly number[] {
   const seen = new Set<number>();

@@ -29,6 +29,7 @@ import { detect, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import { parseToRelease } from './parseRelease';
+import { webviewFormat } from './formatBadge';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding } from './schemaBinding';
 import { collectSchemaScopes } from './schemaSettings';
@@ -338,9 +339,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** The format the badge holds for the document: detected, or chosen by the user. */
   private formatOf(document: vscode.TextDocument): Format {
-    return (
+    return webviewFormat(
       this.formatBadge.format(document) ??
-      detect(document.uri.path, document.languageId, document.getText()).format
+        detect(document.uri.path, document.languageId, document.getText()).format,
     );
   }
 

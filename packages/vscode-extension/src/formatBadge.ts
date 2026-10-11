@@ -22,10 +22,22 @@ export interface FormatCore {
 
 export const FORMATS: readonly Format[] = ['json', 'jsonc', 'json5'];
 
+/** The formats the webview parses (app-shell's protocol); JSON Lines joins them in 012 T4. */
+export type WebviewFormat = Exclude<Format, 'jsonl'>;
+
+/** The format the webview parses a document as. Until 012 T4 the webview has no JSON Lines parser,
+ *  and until 012 T5 the editor, compare and their commands take only `.json`, `.jsonc` and `.json5`
+ *  files, so JSON Lines reaches them only through a language association; such a document opens as
+ *  JSON, as R11's extension step read it before spec 012. */
+export function webviewFormat(format: Format): WebviewFormat {
+  return format === 'jsonl' ? 'json' : format;
+}
+
 export const FORMAT_LABELS: Readonly<Record<Format, string>> = {
   json: 'JSON',
   jsonc: 'JSONC',
   json5: 'JSON5',
+  jsonl: 'JSON Lines',
 };
 
 /** What a re-parse as one format found. `unsupported` means core has no parser for it yet. */

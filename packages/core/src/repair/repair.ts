@@ -31,6 +31,8 @@ export interface RepairResult {
 
 /** Repairs `text` as a document of `format`. Throws a `PatchError` when jsonrepair cannot. */
 export function repair(text: string, format: Format): RepairResult {
+  // jsonrepair would turn the lines into one array; JSON Lines has "Repair Lines" (spec 012 L10).
+  if (format === 'jsonl') throw new PatchError('Repair JSON is not available for JSON Lines.');
   const adapter = getAdapter(format);
   if (parses(text, format)) return { text, lostComments: [] };
   const found = scan(text, format === 'json5');

@@ -13,6 +13,9 @@ const byLanguageId: Row[] = [
   ['data.json5', 'json', '{a: 1}', 'json'],
   ['data.json', 'json5', '{"a": 1}', 'json5'],
   ['settings.json', 'json', '{}', 'json'],
+  // Spec 012 criterion 4: VS Code's built-in "JSON Lines" language.
+  ['data.txt', 'jsonl', undefined, 'jsonl'],
+  ['data.json', 'jsonl', '{"a": 1}', 'jsonl'],
 ];
 
 // R11 step 3: extension.
@@ -23,6 +26,10 @@ const byExtension: Row[] = [
   ['/home/u/project/package.json', undefined, '// comment\n{}', 'json'],
   ['C:\\Users\\u\\data.jsonc', undefined, '{"a": 1}', 'jsonc'],
   ['data.JSON5', undefined, undefined, 'json5'],
+  // Spec 012 criterion 4.
+  ['data.jsonl', undefined, undefined, 'jsonl'],
+  ['logs/events.ndjson', undefined, '{"a": 1}\n{"b": 2}\n', 'jsonl'],
+  ['C:\\logs\\events.NDJSON', undefined, undefined, 'jsonl'],
   // Not one of R11's languageIds: falls through to the next step.
   ['data.jsonc', 'plaintext', undefined, 'jsonc'],
 ];
@@ -64,6 +71,9 @@ const byContent: Row[] = [
   ['data.txt', undefined, '\u00A0', 'json5'],
   ['', undefined, '\ufeff{"a": 1}', 'json'],
   ['README', undefined, '[1, 2]', 'json'],
+  // Spec 012 criterion 4: the content step never returns jsonl.
+  ['data.txt', undefined, '{"a": 1}\n{"b": 2}\n', 'json5'],
+  ['data.txt', undefined, '{"a": 1}\n', 'json'],
 ];
 
 describe('detect (spec 002 R11)', () => {
@@ -86,8 +96,10 @@ describe('detect (spec 002 R11)', () => {
     const tested = new Set(
       [...byLanguageId, ...byExtension, ...byFileName].flatMap(([p, l]) => [p, l]),
     );
-    for (const id of ['json', 'jsonc', 'json5']) expect(tested).toContain(id);
-    for (const ext of ['data.json', 'data.jsonc', 'data.json5']) expect(tested).toContain(ext);
+    for (const id of ['json', 'jsonc', 'json5', 'jsonl']) expect(tested).toContain(id);
+    for (const ext of ['data.json', 'data.jsonc', 'data.json5', 'data.jsonl'])
+      expect(tested).toContain(ext);
+    expect(tested).toContain('logs/events.ndjson');
     for (const name of jsoncFileNames) expect(tested).toContain(name);
   });
 
