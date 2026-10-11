@@ -118,7 +118,8 @@ criterion uses the text size.
 |---|---|---|---|
 | UNK-014 | Large-file threshold | criterion 1 | resolved (owner): 5 MiB |
 | UNK-040 | What large-file mode does | criteria 2–4; T2, T3 | resolved (owner): read-only with "Edit anyway" |
-| UNK-041 | Largest large-file size at which schema validation still runs on open and change | criterion 10; T5 | delegated (T5 evidence) |
+| UNK-041 | Largest large-file size at which schema validation still runs on open and change | criterion 10; T5 | resolved (delegated, T5 evidence): 10 MiB |
+| UNK-064 | Criterion 7 misses on the CI runner for json5 at 10 MiB (50.2%) | criterion 7 | owner, open |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable

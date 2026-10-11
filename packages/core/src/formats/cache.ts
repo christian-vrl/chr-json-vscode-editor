@@ -7,7 +7,7 @@
 // that text closes. Callers must not change what they get back.
 
 /** Every cache `lastText` made, so `releaseParse` can empty them. */
-const caches = new Set<{ forget(text?: string): void }>();
+const caches = new Set<{ forget(text?: string): void; text(): string | undefined }>();
 
 /** `compute`, remembering the result for the last text it was called with. A text equal to that
  *  one returns the same result without computing it again. Nothing is kept when `compute` throws. */
@@ -17,6 +17,7 @@ export function lastText<T>(compute: (text: string) => T): (text: string) => T {
     forget(text) {
       if (text === undefined || last?.text === text) last = undefined;
     },
+    text: () => last?.text,
   });
   return (text) => {
     if (last?.text !== text) last = { text, value: compute(text) };
@@ -28,4 +29,13 @@ export function lastText<T>(compute: (text: string) => T): (text: string) => T {
  *  is given; the next parse of it starts afresh. For a host to call when a document closes. */
 export function releaseParse(text?: string): void {
   for (const cache of caches) cache.forget(text);
+}
+
+/** The texts whose parse is remembered now, one per cache that holds one. For tests that check a
+ *  text was never fully parsed or was released (spec 008 criterion 8's e2e hook). */
+export function cachedParseTexts(): string[] {
+  return [...caches].flatMap((cache) => {
+    const text = cache.text();
+    return text === undefined ? [] : [text];
+  });
 }

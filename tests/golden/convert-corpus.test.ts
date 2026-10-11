@@ -16,9 +16,14 @@
 // - every number token is C3's rewrite of the input's (hexadecimal to its exact decimal digits by
 //   `BigInt`), and byte for byte the same in a case not tagged C3;
 // - expected uses no line ending the input does not.
+// The JSON Lines pairs (spec 012, 012 T1) take the same checks, JSON Lines read as jsonl-reference.ts
+// reads it and treated as `json` for C1–C5; J1's layout is checked against `j1`, J2's lines are each
+// one item written compact (002 R12) and ended by the source's line ending (`\n` when it has none).
+// Error cases (error.json) are a JSON Lines source with a bad line, or a source to JSON Lines whose
+// root is not an array (spec 012 criterion 9).
 import JSON5 from 'json5';
 import { describe, expect, it } from 'vitest';
-import { loadConvertCases, supersetPairs, type ConvertCase } from './convert.js';
+import { jsonlPairs, loadConvertCases, supersetPairs, type ConvertCase } from './convert.js';
 import {
   codeIn,
   commentsIn,
@@ -28,11 +33,22 @@ import {
   locationAt,
   setAll,
 } from './convert-reference.js';
+import { compactJson, j1, jsonlStyle, readJsonl, splitLines } from './jsonl-reference.js';
 
-const cases = loadConvertCases();
+const all = loadConvertCases();
+const cases = all.filter((c) => !c.error);
+const errorCases = all.filter((c) => c.error);
+
+/** Reads a JSON Lines text as its array of items, throwing on a bad line. */
+function readLines(text: string): unknown[] {
+  const reading = readJsonl(text);
+  if (reading.bad.length > 0) throw new SyntaxError(`line ${reading.bad[0]} is bad`);
+  return reading.items;
+}
 
 /** Reads a text the way its format allows, throwing on anything the format lacks. */
 function read(text: string, format: string): unknown {
+  if (format === 'jsonl') return readLines(text);
   if (format === 'json') return JSON.parse(text);
   if (format === 'jsonc') return JSON.parse(jsoncAsJson(text));
   return JSON5.parse(text);
@@ -75,55 +91,64 @@ function c1c2(token: { text: string; unquoted: boolean }): string {
 
 const eols = (text: string) => new Set(text.match(/\r\n|\r|\n/g) ?? []);
 
+/** The source's data: JSON Lines as its items, anything else as JSON5 reads it. */
+const sourceData = (c: ConvertCase): unknown =>
+  c.from === 'jsonl' ? readLines(c.input) : JSON5.parse(c.input);
+
+/** A target that is strict JSON per value: comments and non-finite numbers are losses. */
+const strictTarget = (c: ConvertCase) => c.to === 'json' || c.to === 'jsonl';
+
 describe.each(cases.map((c) => [`${c.pair}/${c.name}`, c] as const))('%s', (_, c: ConvertCase) => {
-  const valueLosses = c.losses.filter((l) => l.kind === 'value');
-  const commentLosses = c.losses.filter((l) => l.kind === 'comment');
+  const losses = c.losses!;
+  const expected = c.expected!;
+  const valueLosses = losses.filter((l) => l.kind === 'value');
+  const commentLosses = losses.filter((l) => l.kind === 'comment');
   const slice = (l: { offset: number; length: number }) =>
     c.input.slice(l.offset, l.offset + l.length);
 
   it(`input is ${c.from} and expected is ${c.to}`, () => {
     expect(() => read(c.input, c.from)).not.toThrow();
-    expect(() => read(c.expected, c.to)).not.toThrow();
+    expect(() => read(expected, c.to)).not.toThrow();
   });
 
   it('expected holds the input data, with null at each value loss (C4, UNK-034)', () => {
     const want = setAll(
-      JSON5.parse(c.input),
+      sourceData(c),
       valueLosses.map((l) => l.path!),
       null,
     );
-    const got = read(c.expected, c.to);
+    const got = read(expected, c.to);
     expect(got).toEqual(want);
     expect(ordered(got)).toBe(ordered(want));
   });
 
   if (supersetPairs.includes(c.pair)) {
     it('a superset pair returns the input unchanged with no loss (criterion 3)', () => {
-      expect(c.expected).toBe(c.input);
-      expect(c.losses).toEqual([]);
+      expect(expected).toBe(c.input);
+      expect(losses).toEqual([]);
       expect(c.tags.rules).toEqual(['C7']);
     });
   } else {
     it('the case rewrites something', () => {
-      expect(c.expected).not.toBe(c.input);
+      expect(expected).not.toBe(c.input);
     });
   }
 
   it('losses are in input order and do not overlap', () => {
-    for (let i = 1; i < c.losses.length; i++) {
-      const before = c.losses[i - 1]!;
-      expect(c.losses[i]!.offset).toBeGreaterThanOrEqual(before.offset + before.length);
+    for (let i = 1; i < losses.length; i++) {
+      const before = losses[i - 1]!;
+      expect(losses[i]!.offset).toBeGreaterThanOrEqual(before.offset + before.length);
     }
-    for (const l of c.losses) expect(l.offset + l.length).toBeLessThanOrEqual(c.input.length);
+    for (const l of losses) expect(l.offset + l.length).toBeLessThanOrEqual(c.input.length);
   });
 
   it('comment losses are exactly the input comments to json; other targets keep them (C5)', () => {
     const comments = commentsIn(c.input, c.from);
-    if (c.to === 'json') {
+    if (strictTarget(c)) {
       expect(commentLosses.map(slice)).toEqual(comments);
     } else {
       expect(commentLosses).toEqual([]);
-      expect(commentsIn(c.expected, c.to)).toEqual(comments);
+      expect(commentsIn(expected, c.to)).toEqual(comments);
     }
   });
 
@@ -134,7 +159,7 @@ describe.each(cases.map((c) => [`${c.pair}/${c.name}`, c] as const))('%s', (_, c
     } else {
       expect(valueLosses.map(slice)).toEqual(tokens);
     }
-    const data = JSON5.parse<unknown>(c.input);
+    const data = sourceData(c);
     for (const l of valueLosses) {
       expect(slice(l)).toMatch(/^[+-]?(?:NaN|Infinity)$/);
       expect(Number.isFinite(getAt(data, l.path!))).toBe(false);
@@ -148,12 +173,12 @@ describe.each(cases.map((c) => [`${c.pair}/${c.name}`, c] as const))('%s', (_, c
   });
 
   it("each loss is in the case's location", () => {
-    for (const l of c.losses) expect(locationAt(c.input, c.from, l.offset)).toBe(c.tags.location);
+    for (const l of losses) expect(locationAt(c.input, c.from, l.offset)).toBe(c.tags.location);
   });
 
   it('strings and keys are rewritten by C1 and C2 only, as their JSON.stringify', () => {
     const before = keysAndStrings(c.input, c.from);
-    const after = keysAndStrings(c.expected, c.to);
+    const after = keysAndStrings(expected, c.to);
     const rewrite = c.to === 'json5' ? (t: { text: string }) => t.text : c1c2;
     expect(after.map((t) => t.text)).toEqual(before.map(rewrite));
     const changed = (isKey: boolean) =>
@@ -164,7 +189,7 @@ describe.each(cases.map((c) => [`${c.pair}/${c.name}`, c] as const))('%s', (_, c
 
   it('number tokens are rewritten by C3 only, without a digit changing', () => {
     const before = codeIn(c.input, c.from).match(number) ?? [];
-    const after = codeIn(c.expected, c.to).match(number) ?? [];
+    const after = codeIn(expected, c.to).match(number) ?? [];
     const rewrite = c.to === 'json5' ? (t: string) => t : c3;
     expect(after).toEqual(before.map(rewrite));
     expect(c.tags.rules.includes('C3')).toBe(before.some((t) => rewrite(t) !== t));
@@ -172,6 +197,43 @@ describe.each(cases.map((c) => [`${c.pair}/${c.name}`, c] as const))('%s', (_, c
 
   it('expected uses no line ending the input lacks', () => {
     const input = eols(c.input);
-    for (const eol of eols(c.expected)) expect(input.has(eol)).toBe(true);
+    // J1 and J2 write `\n` for a source with no line ending (L2).
+    if (input.size === 0 && jsonlPairs.includes(c.pair)) input.add('\n');
+    for (const eol of eols(expected)) expect(input.has(eol)).toBe(true);
   });
+
+  if (c.from === 'jsonl') {
+    it('is J1 of the input: the item bytes in an array, two spaces in', () => {
+      expect(expected).toBe(j1(c.input));
+    });
+  }
+
+  if (c.to === 'jsonl') {
+    it("is J2: one compact item per line, each ended by the source's line ending", () => {
+      const lines = splitLines(expected);
+      const items = read(expected, 'jsonl') as unknown[];
+      expect(lines).toHaveLength(items.length);
+      const { eol } = jsonlStyle(c.input);
+      for (const line of lines) {
+        expect(line.ending).toBe(eol);
+        expect(compactJson(line.content)).toBe(line.content);
+      }
+    });
+  }
+});
+
+describe.each(errorCases.map((c) => [`${c.pair}/${c.name}`, c] as const))('%s', (_, c) => {
+  if (c.from === 'jsonl') {
+    it('the JSON Lines source has a bad line, which the message names (criterion 9)', () => {
+      const { bad } = readJsonl(c.input);
+      expect(bad.length).toBeGreaterThan(0);
+      expect(c.error!.message).toBe(`Line ${bad[0]} is not valid JSON.`);
+    });
+  } else {
+    it('the source reads in its format and its root is not an array (criterion 9, J2)', () => {
+      expect(c.to).toBe('jsonl');
+      expect(Array.isArray(read(c.input, c.from))).toBe(false);
+      expect(c.error!.message).toBe('JSON Lines needs an array at the root.');
+    });
+  }
 });

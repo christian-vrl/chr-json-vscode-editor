@@ -3,8 +3,11 @@
 // behind it. Choosing a format re-parses the document's text in the host and never edits it; the
 // editor's webviews parse again too (`onDidChangeFormat`, the `setFormat` message, 003 T5). A
 // chosen format is kept for the document until the window closes, even after its last tab closes.
+// While a tab shows the document locked in large-file mode (spec 008 criterion 8), the badge reads
+// it with core's data-only parse, so no full parse of a big text stays in core's cache.
 import * as vscode from 'vscode';
 import { detect, getAdapter } from '@chr-json-editor/core';
+import { dataOf } from './largeFile';
 import {
   badge,
   FORMAT_LABELS,
@@ -34,6 +37,8 @@ export class FormatBadgeController implements vscode.Disposable {
   /** Per document URI, shared by every tab showing that document. */
   private readonly states = new Map<string, FormatState>();
   private readonly panels = new Map<vscode.WebviewPanel, vscode.TextDocument>();
+  /** Per panel, whether it is a locked large-file tab now (spec 008). */
+  private readonly locked = new Map<vscode.WebviewPanel, () => boolean>();
   /** Formats the user chose, per document URI, kept after the document's last tab closes. */
   private readonly chosen = new Map<string, Format>();
   /** Re-parses waiting after a text change, per document URI. */
@@ -71,37 +76,52 @@ export class FormatBadgeController implements vscode.Disposable {
       ),
       // Re-parse after changes, so the badge's error state follows the text. A burst of changes
       // (typing, a webview edit) is parsed once, when it settles.
-      vscode.workspace.onDidChangeTextDocument(({ document }) => {
-        const key = document.uri.toString();
-        if (!this.states.has(key)) return;
-        clearTimeout(this.pending.get(key));
-        this.pending.set(
-          key,
-          setTimeout(() => {
-            this.pending.delete(key);
-            const state = this.states.get(key);
-            if (!state) return;
-            this.states.set(key, withFormat(this.core, state, document.getText(), state.format));
-            this.refresh();
-          }, this.reparseDelayMs),
-        );
-      }),
+      vscode.workspace.onDidChangeTextDocument(({ document }) => this.reparseLater(document)),
     );
   }
 
-  /** Called for each CHR JSON Editor tab; detects the format on the document's first tab. */
-  track(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
+  /** Parses `document` again once a burst of calls settles: after a text change, and after "Edit
+   *  anyway" unlocks a large-file tab, whose badge read the data alone until then (spec 008). */
+  reparseLater(document: vscode.TextDocument): void {
     const key = document.uri.toString();
+    if (!this.states.has(key)) return;
+    clearTimeout(this.pending.get(key));
+    this.pending.set(
+      key,
+      setTimeout(() => {
+        this.pending.delete(key);
+        const state = this.states.get(key);
+        if (!state) return;
+        this.states.set(
+          key,
+          withFormat(this.core, state, document.getText(), state.format, this.dataOnly(key)),
+        );
+        this.refresh();
+      }, this.reparseDelayMs),
+    );
+  }
+
+  /** Called for each CHR JSON Editor tab; detects the format on the document's first tab.
+   *  `locked` says whether the tab is a locked large-file tab, now. */
+  track(
+    document: vscode.TextDocument,
+    panel: vscode.WebviewPanel,
+    locked: () => boolean = () => false,
+  ): void {
+    const key = document.uri.toString();
+    this.panels.set(panel, document);
+    this.locked.set(panel, locked);
     if (!this.states.has(key)) {
       const text = document.getText();
-      const state = initialState(this.core, document.uri.path, document.languageId, text);
+      const dataOnly = this.dataOnly(key);
+      const state = initialState(this.core, document.uri.path, document.languageId, text, dataOnly);
       const chosen = this.chosen.get(key);
-      this.states.set(key, chosen ? withFormat(this.core, state, text, chosen) : state);
+      this.states.set(key, chosen ? withFormat(this.core, state, text, chosen, dataOnly) : state);
     }
-    this.panels.set(panel, document);
     panel.onDidChangeViewState(() => this.refresh());
     panel.onDidDispose(() => {
       this.panels.delete(panel);
+      this.locked.delete(panel);
       if (![...this.panels.values()].some((d) => d.uri.toString() === key)) {
         this.states.delete(key);
         clearTimeout(this.pending.get(key));
@@ -110,6 +130,14 @@ export class FormatBadgeController implements vscode.Disposable {
       this.refresh();
     });
     this.refresh();
+  }
+
+  /** Whether a tab shows the document of `key` locked in large-file mode: read data only. */
+  private dataOnly(key: string): boolean {
+    for (const [panel, document] of this.panels) {
+      if (document.uri.toString() === key && this.locked.get(panel)?.()) return true;
+    }
+    return false;
   }
 
   /** The format the badge holds for `document`: the detected one, or the one the user chose. */
@@ -139,7 +167,10 @@ export class FormatBadgeController implements vscode.Disposable {
       if (!picked) return;
       chosen = picked.format;
     }
-    this.states.set(key, withFormat(this.core, state, document.getText(), chosen));
+    this.states.set(
+      key,
+      withFormat(this.core, state, document.getText(), chosen, this.dataOnly(key)),
+    );
     if (chosen === state.detected) this.chosen.delete(key);
     else this.chosen.set(key, chosen);
     this.refresh();
@@ -196,4 +227,4 @@ export class FormatBadgeController implements vscode.Disposable {
 
 /** The core functions the badge uses. Imported statically like everywhere else in the host (003
  *  T5): esbuild bundles core, and the editor cannot work without it anyway. */
-export const formatCore: FormatCore = { detect, getAdapter };
+export const formatCore: FormatCore = { detect, getAdapter, parseData: dataOf };

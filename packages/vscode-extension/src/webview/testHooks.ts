@@ -14,7 +14,9 @@
 // presses Ctrl+`key` in the focused element, and `{ chrTest: 'click', title }` clicks the menu
 // button with that title (undo and redo, criterion 3, 003 T7). `{ chrTest: 'dom', id, steps }`
 // clicks, fills in and presses keys on the page as a person would (003 T8; see DomStep).
-import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
+// `{ chrTest: 'send', message }` posts `message`, with the protocol version, to the host as it is,
+// past the editor's own checks (spec 008 plan R3: the host refuses a locked tab's `edit`).
+import { decodeToWebview, PROTOCOL_VERSION } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { DomStep, RenderedProbe } from '../testProbe';
 import { runSteps } from './domSteps';
@@ -167,6 +169,12 @@ export function installTestHooks(
       whenSettled(message.id);
       return true;
     }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'heap') {
+      // Chromium's non-standard `performance.memory` (008 T5 benchmark, spec 008 plan R6).
+      const memory = (performance as { memory?: { usedJSHeapSize?: number } }).memory;
+      api.postMessage({ chrTest: 'probe', id: message.id, result: memory?.usedJSHeapSize ?? null });
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'probe') {
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
       return true;
@@ -198,6 +206,11 @@ export function installTestHooks(
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'selectDialect') {
       selectDialect(String((message as { dialect?: unknown }).dialect));
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'send') {
+      const sent = (message as { message?: object }).message;
+      api.postMessage({ protocol: PROTOCOL_VERSION, ...sent });
       return true;
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'patch') {

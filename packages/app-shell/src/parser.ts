@@ -3,7 +3,9 @@
 // syntax reach the tree and table views as data and are never lost on the way there. `stringify`
 // stays `JSON.stringify`: the editor only writes text for display or copy, while the document's
 // text always comes from the host (core's style-preserving `applyPatch`).
-import { getAdapter, type Format } from '@chr-json-editor/core';
+// A large-file tab (spec 008 criterion 8) parses with core's data-only `parseData`, which builds the
+// data alone and keeps nothing in core's parse cache; strict JSON still goes through `JSON.parse`.
+import { getAdapter, parseData, type Format } from '@chr-json-editor/core';
 
 /** The shape of vanilla-jsoneditor's `JSONParser` (index.d.ts, `interface JSONParser`). */
 export interface TextParser {
@@ -19,16 +21,42 @@ export interface TextParser {
   ): string | undefined;
 }
 
-const parsers = new Map<Format, TextParser>();
+const parsers = new Map<string, TextParser>();
 
-/** One parser per format, so the library sees the same object until the format changes. */
-export function parserFor(format: Format): TextParser {
-  let parser = parsers.get(format);
+/** One parser per format (and per kind, `large` for a large-file tab), so the library sees the
+ *  same object until the format changes. */
+export function parserFor(format: Format, large = false): TextParser {
+  const key = large ? `${format}:large` : format;
+  let parser = parsers.get(key);
   if (!parser) {
-    parser = createParser(format);
-    parsers.set(format, parser);
+    parser = large ? createDataParser(format) : createParser(format);
+    parsers.set(key, parser);
   }
   return parser;
+}
+
+/** The large-file parser: the data alone, with the same errors as `createParser`'s. */
+function createDataParser(format: Format): TextParser {
+  return {
+    parse(text) {
+      const result = parseData(format, text);
+      if ('error' in result) {
+        throw new SyntaxError(`${result.error.message} at position ${result.error.offset}`);
+      }
+      // Only text without a value (empty, whitespace, comments) reads as undefined.
+      if (result.data === undefined) throw new SyntaxError('The document holds no value');
+      return result.data;
+    },
+    stringify,
+  };
+}
+
+function stringify(
+  value: unknown,
+  replacer?: ((this: unknown, key: string, value: unknown) => unknown) | (number | string)[] | null,
+  space?: string | number,
+): string | undefined {
+  return JSON.stringify(value, replacer as Parameters<typeof JSON.stringify>[1], space);
 }
 
 function createParser(format: Format): TextParser {
@@ -48,9 +76,7 @@ function createParser(format: Format): TextParser {
       if (result.tree === undefined) throw new SyntaxError('The document holds no value');
       return result.data;
     },
-    stringify(value, replacer, space) {
-      return JSON.stringify(value, replacer as Parameters<typeof JSON.stringify>[1], space);
-    },
+    stringify,
   };
 }
 

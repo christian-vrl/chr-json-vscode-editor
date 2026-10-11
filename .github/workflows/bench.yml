@@ -6,6 +6,9 @@
 #   bench/RESULTS.md.
 # - compare (007 T5, evidence for UNK-037): structural compare at 1, 5, 10 and 50 MiB, in core and
 #   end to end in VS Code's compare panel (open, one live refresh); bench/compare.md.
+# - large-file (008 T5, spec 008 criterion 11, evidence for UNK-041): large-file mode for JSON, JSONC
+#   and JSON5 at 6, 10 and 50 MiB (open, host busy time, one validation, heap, one unlocked edit at
+#   50 MiB); bench/large-file.md.
 # Not part of ci.yml: they take minutes and measure, they do not gate. Run on demand and on pull
 # requests that change the benchmarks.
 name: bench
@@ -108,5 +111,33 @@ jobs:
           path: |
             bench/compare.md
             bench/.results/compare-*.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  large-file:
+    name: large-file mode, JSON/JSONC/JSON5 at 6/10/50 MiB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install xvfb
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+      - run: pnpm build
+      # The e2e .vsix: the release build plus test hooks.
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      - run: xvfb-run -a pnpm --filter @chr-json-editor/bench bench:large-file
+      - name: Report in the run summary and the log
+        run: |
+          cat bench/large-file.md >> "$GITHUB_STEP_SUMMARY"
+          cat bench/large-file.md bench/.results/large-file.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-large-file
+          path: |
+            bench/large-file.md
+            bench/.results/large-file.json
           include-hidden-files: true
           if-no-files-found: error
