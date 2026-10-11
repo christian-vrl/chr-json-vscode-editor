@@ -205,6 +205,14 @@ describe('csvToJson huge array indices (I5, UNK-063)', () => {
     });
   });
 
+  it('reads an exported array longer than the cap back as flat keys past it', () => {
+    const items = Array.from({ length: 100_002 }, (_, i) => i);
+    const { data, warnings } = read(text([{ a: items }], { flattenArrays: true }));
+    expect(warnings).toEqual([{ message: over('a[100001]'), line: 1 }]);
+    expect(Object.keys(data[0]!)).toEqual(['a', 'a[100001]']);
+    expect((data[0] as { a: number[] }).a).toEqual(items.slice(0, 100_001));
+  });
+
   it('allows exactly 1,000,000 nulls, then stops with an error naming the line', () => {
     const rows = (n: number) => 'a[100000]\r\n' + 'x\r\n'.repeat(n);
     expect(read(rows(10)).data).toHaveLength(10);

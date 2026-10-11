@@ -141,8 +141,11 @@ a message and, for import, a 1-based line number. Options and defaults are in §
   conflict. Array indices missing below the highest one given (`tags[2]` without `tags[0]`) become
   `null`, as csv42 does. Off, every field name is a flat key. **Limits (UNK-063):** a name with an
   index above 100,000 (`a[4294967294]`) stays a flat key, with a warning; and when the `null` items
-  for missing indices would come to more than 1,000,000 in all, the import is an error naming the
-  line of the record that goes past it. Neither limit changes a CSV this spec exports.
+  for missing indices would come to more than 1,000,000 in all (counted over every row of the
+  import), the import is an error naming the line of the record that goes past it. A CSV this spec
+  exports never reaches the second limit (X4 writes every index); the cap changes only an array of
+  more than 100,001 items exported with "Flatten nested arrays" on, whose items past index 100,000
+  read back as flat keys, with the warning.
 - **I6 Rows:** each record becomes one object with its members in column order. A record with fewer
   fields than there are names leaves the missing members out; a record with more fields keeps the
   extra ones as `Field <n>` and gets a warning naming its line. The result is an array, empty when the
