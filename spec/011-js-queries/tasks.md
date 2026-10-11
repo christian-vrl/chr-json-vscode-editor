@@ -7,10 +7,13 @@
 - [ ] **T1** Spike in `spikes/query-engine/` (dev-only, like `spikes/eval-location/`): a custom editor
   webview rendered by `renderWebviewHtml` with `'wasm-unsafe-eval'` added to `script-src`, loading
   the QuickJS single-file browser module from a nonce'd script; run the spec's sealed probes, the
-  5-second loop, the allocation loop at 256 MiB and the 1 and 5 MiB bench queries in the webview on
-  VS Code 1.141.0; record no CSP violation, the stop times and the speeds in `REPORT.md`. Needs
-  UNK-048 resolved. — needs: 003 T4 (CSP) — *gate: the spec's CSP HYPOTHESIS confirmed with results
-  committed, or the spec changed and an owner UNKNOWN raised; Reviewer PASS on the report*
+  5-second loop, the allocation loop at 256 MiB, criterion 5's built-in cases and the 1 and 5 MiB
+  bench queries in the webview on VS Code 1.141.0; check how the engine chunk loads under the nonce
+  CSP (plan R7) and how the preview behaves while typing on 5 MiB (plan R2); record no CSP
+  violation, the loading route, the stop times, the typing measurements and the speeds in
+  `REPORT.md`. Needs UNK-048 resolved. — needs: 003 T4 (CSP) — *gate: the spec's CSP HYPOTHESIS
+  confirmed with results committed, or the spec changed and an owner UNKNOWN raised; Reviewer PASS
+  on the report*
 
 ## Phase B — Contract (risk-free / additive)
 - [ ] **T2** Write the query corpus in `tests/query/<case>/` (`input.json5`, `case.json`, `query.js`,

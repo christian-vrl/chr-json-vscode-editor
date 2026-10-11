@@ -64,8 +64,11 @@ result is written back like any other transform, keeping comments.
 5. **Limits (web):** a run is stopped after 5 seconds or 256 MiB of engine memory. `while (true) {}`
    in the preview shows "The query was stopped after 5 seconds." within 6 seconds of the run starting;
    a query that keeps allocating shows "The query used more than 256 MiB and was stopped." within
-   15 seconds; after either, the editor responds to a click within 500 ms and the next query runs.
-   Neither changes the document.
+   15 seconds. Work done inside one built-in call is stopped the same way, each within 15 seconds with
+   one of those two messages: catastrophic regex backtracking (`/^(a+)+$/.test('a'.repeat(32) + 'b')`),
+   a huge `'x'.repeat(2 ** 28)`, a huge `Array(3e7).fill('ab').join(',')`, and a `sort` with a
+   comparator over 3 million numbers repeated until the deadline. After any of these, the editor
+   responds to a click within 500 ms and the next query runs. None changes the document.
 6. **Errors:** a syntax error, a thrown error, a missing `query` function and a Lodash chain without
    `.value()` each show their message in the dialog's preview (the library's error display), and
    Transform is disabled; the document is unchanged.
@@ -87,9 +90,12 @@ result is written back like any other transform, keeping comments.
 10. **Loading (web):** the editor shows the document before the engine's WebAssembly is compiled (the
     engine is compiled only when the Transform dialog first opens; a test hook records both moments).
     Opening Transform the first time waits for the engine, then opens the dialog.
-11. **Large files (e2e, per UNK-049 ★):** in a large-file tab unlocked with "Edit anyway" (008
-    criterion 4) the Transform dialog lists JSONQuery, JMESPath and JSONPath only; a locked tab offers
-    no Transform at all (008 criterion 2).
+11. **Large files (e2e, per UNK-049 ★):** the size is the document text's UTF-8 length when the
+    Transform dialog opens (as in spec 010 criterion 10), not the size the tab opened with. Above the
+    threshold the dialog lists JSONQuery, JMESPath and JSONPath only, in a large-file tab unlocked with
+    "Edit anyway" (008 criterion 4) and in a normal tab whose text has grown past 5 MiB alike; at or
+    below it all five are listed, also in an unlocked large-file tab whose text has shrunk. A locked
+    tab offers no Transform at all (008 criterion 2).
 12. **Speed (bench):** `bench/RESULTS.md`, regenerated in one run, gives the median time of one
     run of the bench queries (`bench/query/*.js`: filter-map in JavaScript, filter-orderBy-map in
     Lodash) at 1 and 5 MiB in the engine beside the reference. HYPOTHESIS (sandbox check, Node 22,
