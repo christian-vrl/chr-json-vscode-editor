@@ -1,6 +1,6 @@
 # SPEC 011 — JavaScript and Lodash queries
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidRscu3ZXKCSuEYXQLTudCUZ, 2026-10-11)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -184,10 +184,10 @@ result is written back like any other transform, keeping comments.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-048 | Where JavaScript and Lodash queries run, and the CSP change it needs | criteria 4, 5, 9, 10; ADR-011; T1–T4 | see ledger (owner) |
-| UNK-049 | JavaScript and Lodash above 5 MiB | criterion 11; T5 | see ledger (owner) |
+| UNK-048 | Where JavaScript and Lodash queries run, and the CSP change it needs | criteria 4, 5, 9, 10; ADR-011; T1–T4 | resolved (owner): sealed engine in the page |
+| UNK-049 | JavaScript and Lodash above 5 MiB | criterion 11; T6 | resolved (owner): not above 5 MiB |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved
+- [x] Human approval recorded
