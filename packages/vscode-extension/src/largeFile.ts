@@ -12,9 +12,12 @@ export const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
 /**
  * UNK-041 (spec 008 criterion 10): the largest large-file text, in UTF-8 bytes, whose schema
  * validation still runs on open and on change. Above it validation is paused and runs once per
- * click on the status-bar item (pausedValidation.ts). Set from `bench/large-file.md` (008 T5).
+ * click on the status-bar item (pausedValidation.ts). 10 MiB per UNK-041's evidence rule:
+ * `bench/large-file.md` (008 T5, run 38169445043) times one validation at 38 / 228 / 131 ms for
+ * JSON / JSONC / JSON5 at 10 MiB and 224 / 1,233 / 682 ms at 50 MiB, so 10 MiB is the largest
+ * measured size under 1 s for every format.
  */
-export const VALIDATION_LIMIT_BYTES = LARGE_FILE_THRESHOLD;
+export const VALIDATION_LIMIT_BYTES = 10 * 1024 * 1024;
 
 /** Test hooks (008 T5 e2e): a limit to use in place of UNK-041's; undefined uses UNK-041's. */
 export const testValidationLimit: { bytes: number | undefined } = { bytes: undefined };
