@@ -142,9 +142,9 @@ describe('compare size limit', () => {
   });
 
   it('offers the text diff in its message', () => {
-    expect(oversizedMessage({ name: 'big.json', bytes: 12.34 * 2 ** 20 }, 2 ** 20)).toBe(
-      "big.json is too large to compare by data (12.3 MiB; the limit is 1 MiB). Open VS Code's " +
-        'text diff of the two documents instead?',
+    expect(oversizedMessage({ name: 'big.json', bytes: 12.34 * 2 ** 20 }, 1.5 * 2 ** 20)).toBe(
+      "big.json is larger than the 1.5 MiB compare limit. Open VS Code's text diff of the two " +
+        'documents instead?',
     );
   });
 });

@@ -351,29 +351,29 @@ async function runSizeLimit({ hooks, waitFor, closeAll, dir, scratch, opened, sn
   await closeAll();
 
   const mib = (bytes) => `${(bytes / 2 ** 20).toFixed(1).replace(/\.0$/, '')} MiB`;
-  const offer = (name, bytes) =>
-    `${name} is too large to compare by data (${mib(bytes)}; the limit is ${mib(limit)}). ` +
+  const offer = (name) =>
+    `${name} is larger than the ${mib(limit)} compare limit. ` +
     "Open VS Code's text diff of the two documents instead?";
 
   // Dismissed: nothing opens.
   hooks.compareLimit(undefined, false);
   let count = hooks.compares().length;
   await vscode.commands.executeCommand(COMPARE_SELECTED, small, [small, above]);
-  assert.deepEqual(hooks.comparePick(undefined), [offer('above.json', limit + 1)]);
+  assert.deepEqual(hooks.comparePick(undefined), [offer('above.json')]);
   assert.equal(hooks.compares().length, count, 'above the limit: no compare panel');
   assert.equal(textDiffTabs().length, 0, 'dismissed: no text diff');
 
   // Accepted: VS Code's text diff of the same two documents, left as original.
   hooks.compareLimit(undefined, true);
   await vscode.commands.executeCommand(COMPARE_SELECTED, small, [small, above]);
-  assert.deepEqual(hooks.comparePick(undefined), [offer('above.json', limit + 1)]);
+  assert.deepEqual(hooks.comparePick(undefined), [offer('above.json')]);
   assert.equal(hooks.compares().length, count, 'above the limit: no compare panel');
   await waitFor('the text diff', () => textDiffTabs().length === 1);
   let [tab] = textDiffTabs();
   assert.equal(tab.input.original.toString(), small.toString());
   assert.equal(tab.input.modified.toString(), above.toString());
   assert.equal(tab.label, 'small.json ↔ above.json');
-  console.log(`compare: above the limit "${offer('above.json', limit + 1)}" opens the text diff`);
+  console.log(`compare: above the limit "${offer('above.json')}" opens the text diff`);
   await closeAll();
 
   // Sizes are the documents as currently edited: an unsaved edit that takes the at-limit side
@@ -386,7 +386,7 @@ async function runSizeLimit({ hooks, waitFor, closeAll, dir, scratch, opened, sn
   await waitFor('the unsaved edit', () => atDocument.isDirty);
   count = hooks.compares().length;
   await vscode.commands.executeCommand(COMPARE_SELECTED, atLimit, [atLimit, small]);
-  assert.deepEqual(hooks.comparePick(undefined), [offer('at-limit.json', limit + 1)]);
+  assert.deepEqual(hooks.comparePick(undefined), [offer('at-limit.json')]);
   assert.equal(hooks.compares().length, count, 'an unsaved edit above the limit: no panel');
   await waitFor('the text diff of the edited document', () => textDiffTabs().length === 1);
   await vscode.window.showTextDocument(atDocument);
@@ -408,7 +408,7 @@ async function runSizeLimit({ hooks, waitFor, closeAll, dir, scratch, opened, sn
     await vscode.window.showTextDocument(document);
     count = hooks.compares().length;
     await vscode.commands.executeCommand(COMPARE_WITH_HEAD);
-    assert.deepEqual(hooks.comparePick(undefined), [offer('large.json (HEAD)', limit + 1)]);
+    assert.deepEqual(hooks.comparePick(undefined), [offer('large.json (HEAD)')]);
     assert.equal(hooks.compares().length, count, 'HEAD above the limit: no compare panel');
     await waitFor('the HEAD text diff', () => textDiffTabs().length === 1);
     [tab] = textDiffTabs();

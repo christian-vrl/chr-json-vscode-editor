@@ -210,7 +210,7 @@ function mib(bytes: number): string {
 /** The message shown instead of the compare panel when a side is too large (criterion 10). */
 export function oversizedMessage(side: OversizedSide, limit: number = COMPARE_LIMIT_BYTES): string {
   return (
-    `${side.name} is too large to compare by data (${mib(side.bytes)}; the limit is ` +
-    `${mib(limit)}). Open VS Code's text diff of the two documents instead?`
+    `${side.name} is larger than the ${mib(limit)} compare limit. ` +
+    "Open VS Code's text diff of the two documents instead?"
   );
 }
