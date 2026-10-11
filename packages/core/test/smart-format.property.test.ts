@@ -323,8 +323,9 @@ describe('smartFormat property suite (spec 010 criteria 3–6)', () => {
     add(new URL(`smart-format/${format}/`, root), format, `smart-format/${format}`);
   }
   for (const pair of readdirSync(new URL('convert/', root))) {
+    // JSON Lines (spec 012) is not a smart-format format.
     const from = pair.split('-to-')[0] as Format;
-    add(new URL(`convert/${pair}/`, root), from, `convert/${pair}`);
+    if (FORMATS.includes(from)) add(new URL(`convert/${pair}/`, root), from, `convert/${pair}`);
   }
 
   it('finds the golden inputs of 002, 006 and 010', () => {
