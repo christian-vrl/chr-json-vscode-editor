@@ -1,0 +1,24 @@
+{
+  "layout": [
+    "expanded",
+    "inline"
+  ],
+  "comments": [
+    "header",
+    "before",
+    "after",
+    "between-key-and-value",
+    "inline",
+    "standalone",
+    "multi-line-block",
+    "footer"
+  ],
+  "trailingComma": "yes",
+  "special": [
+    "unquoted-key",
+    "single-quote"
+  ],
+  "style": [
+    "indent-2"
+  ]
+}

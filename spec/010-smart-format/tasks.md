@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** Write the smart-format corpus in `tests/golden/smart-format/{json,jsonc,json5}/`:
+- [x] **T1** Write the smart-format corpus in `tests/golden/smart-format/{json,jsonc,json5}/`:
   `input.*`, `expected.*` (generated with FracturedJson 5.1.0 and §Layout's options, then hand-checked
   and corrected for L1–L8), `case.json` tags, plus the coverage test; add the folder to
   `.prettierignore` and to `pnpm test:golden`. Needs UNK-045 and UNK-046 resolved. — needs: 002 T1

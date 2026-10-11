@@ -1,0 +1,16 @@
+{
+  "layout": [
+    "expanded",
+    "table"
+  ],
+  "comments": [
+    "after"
+  ],
+  "trailingComma": "yes",
+  "special": [
+    "key-order"
+  ],
+  "style": [
+    "indent-2"
+  ]
+}
