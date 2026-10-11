@@ -16,7 +16,7 @@
   on the report*
 
 ## Phase B — Contract (risk-free / additive)
-- [ ] **T2** Write the query corpus in `tests/query/<case>/` (`input.json5`, `case.json`, `query.js`,
+- [x] **T2** Write the query corpus in `tests/query/<case>/` (`input.json5`, `case.json`, `query.js`,
   `expected.json5` or `error.json`), wizard cases generated with the library's `createQuery`, plus the
   coverage test (criterion 2) and the reference runner (the library's `executeQuery` in Node); add
   the folder to `.prettierignore`. `parallel` with T1 — needs: 003 T8 — *gate: coverage test green;

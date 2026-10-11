@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { registerCommands, testCeiling } from './commands';
 import { registerCompareCommands, testCompare } from './compareCommands';
+import { COMPARE_LIMIT_BYTES } from './compareModel';
 import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
@@ -73,6 +74,10 @@ export interface TestHooks {
    *  (undefined: show the pick). Returns the messages the compare commands showed since the
    *  previous call. */
   comparePick(answer: ((listed: string[]) => string | undefined) | undefined): string[];
+  /** 007 T5: the compare size limit in bytes in place of UNK-037's (undefined: UNK-037's), and the
+   *  answer to the text diff offered above it (true: open it, false: dismiss it, undefined: show
+   *  the message). Returns UNK-037's limit. */
+  compareLimit(limit: number | undefined, textDiff: boolean | undefined): number;
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -129,6 +134,11 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         comparePick(answer) {
           testCompare.pick = answer;
           return testCompare.messages.splice(0);
+        },
+        compareLimit(limit, textDiff) {
+          testCompare.limit = limit;
+          testCompare.textDiff = textDiff;
+          return COMPARE_LIMIT_BYTES;
         },
         convert(answer) {
           const saveAs = convertSaveAs.splice(0);

@@ -1,0 +1,7 @@
+{
+  "colors": [
+    {"name": "red",   "hex": "#ff0000"},  // primary
+    {"name": "green", "hex": "#00ff00"},
+    {"name": "blue",  "hex": "#0000ff"}   // primary too
+  ]
+}
