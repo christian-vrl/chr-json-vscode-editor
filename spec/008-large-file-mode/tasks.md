@@ -11,7 +11,7 @@
   criterion 7 holds in the committed `bench/RESULTS.md`*
 
 ## Phase B — UI and host (risk-free / additive)
-- [ ] **T2** Large-file state in `app-shell`: `readOnly`, Tree and Table only, whole-document actions
+- [x] **T2** Large-file state in `app-shell`: `readOnly`, Tree and Table only, whole-document actions
   hidden, the banner with "Open as Text" and "Edit anyway" (locked and unlocked texts), the
   `openAsText` and `unlock` messages (protocol bump), a dev-host switch; web tests. Needs UNK-040
   resolved. `parallel` with T1 — needs: 003 T8 — *gate: criteria 2 and 3 (banner texts, read-only

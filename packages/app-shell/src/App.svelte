@@ -23,6 +23,12 @@
   actions core runs on the document's text; a sort or transform, which the library hands back as
   new data for a whole object or array, goes as core's sort with the new order or as core's diff
   (data-change.ts, 002 R12–R14). The library's own buttons and shortcuts are rerouted here.
+
+  Large-file mode (spec 008, UNK-040) is the host's choice when the tab opens: a banner says so,
+  the modes are Tree and Table only (VS Code's text editor is the way to edit text), and the tab
+  starts locked: the library is `readOnly`, the whole-document actions are not offered, and no
+  change, undo or redo leaves the UI. "Edit anyway" unlocks it until the tab closes; "Open as Text"
+  asks the host for its text editor.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -56,6 +62,7 @@
     type DocumentChange,
     type Format,
     type JsonPatchOperation,
+    type LargeFile,
     type Mode,
     type SchemaDialect,
     type ValidationMessage,
@@ -74,7 +81,17 @@
     { ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' },
   ];
 
+  /** The library's buttons for whole-document actions (003 T8), hidden on a locked large file. */
+  const ACTION_BUTTONS = ['jse-format', 'jse-compact', 'jse-sort', 'jse-transform'];
+  /** The modes large-file mode offers (spec 008 criterion 2). */
+  const LARGE_FILE_MODES: readonly Mode[] = ['tree', 'table'];
+
   let mode = $state<Mode | undefined>();
+  /** Large-file mode, as the host chose it in `init` (spec 008); null for the normal editor. */
+  let largeFile = $state<LargeFile | null>(null);
+  /** A large file the user has not chosen "Edit anyway" for: read-only (criterion 2). */
+  const locked = $derived(largeFile !== null && !largeFile.unlocked);
+  const modes = $derived(largeFile ? LARGE_FILE_MODES : MODES);
   let format = $state<Format | undefined>();
   let notice = $state<string | undefined>();
   /** The host's latest `validation`; its errors show only while it describes the shown text. */
@@ -126,12 +143,14 @@
       docVersion = doc.docVersion;
       docText = doc.text;
       format = doc.format;
-      mode = doc.mode;
+      largeFile = doc.largeFile;
+      mode = largeFile && doc.mode === 'text' ? 'tree' : doc.mode;
       editor = createJSONEditor({
         target,
         props: {
           content: { text: doc.text },
-          mode: doc.mode as LibraryMode,
+          mode: mode as LibraryMode,
+          readOnly: locked,
           parser: parserFor(doc.format),
           // The library hands the validator data read by this parser too; its default, JSON.parse,
           // fails on JSONC and JSON5 text in text mode and reports that as a parse error (004 T5).
@@ -171,9 +190,12 @@
     if (mode === 'text') editor?.validate();
   }
 
-  /** The library's menus with format, compact, sort and transform routed through core. */
+  /** The library's menus with format, compact, sort and transform routed through core. A large
+   *  file's main menu has no text mode, and a locked one no such actions (spec 008 criterion 2). */
   function renderMenu(items: MenuItem[], context: RenderMenuContext): MenuItem[] {
-    const routed = onRenderMenu(items, context);
+    let routed = onRenderMenu(items, context);
+    if (largeFile && !context.modal) routed = withoutTextMode(routed);
+    if (locked && !context.modal) return routed.filter((item) => !isActionButton(item));
     if (context.modal || context.readOnly) return routed;
     return routed.map((item) => {
       if (item.type !== 'button') return item;
@@ -201,6 +223,35 @@
           return item;
       }
     });
+  }
+
+  /** The library's own mode switch without its text button; tree, next to it, starts the group. */
+  function withoutTextMode(items: MenuItem[]): MenuItem[] {
+    return items
+      .filter((item) => !(isMenuButton(item) && item.title?.startsWith('Switch to text mode')))
+      .map((item) =>
+        isMenuButton(item) && item.title?.startsWith('Switch to tree mode')
+          ? { ...item, className: `${item.className ?? ''} jse-first` }
+          : item,
+      );
+  }
+
+  function isActionButton(item: MenuItem): boolean {
+    return item.type === 'button' && ACTION_BUTTONS.some((name) => item.className?.includes(name));
+  }
+
+  /** "Open as Text" in the large-file banner: the host's own text editor takes over. */
+  function openAsText(): void {
+    host.openAsText(docVersion);
+  }
+
+  /** "Edit anyway" in the large-file banner (criterion 4): editable until the tab closes. The host
+   *  hears it before any change made after it, since messages keep their order. */
+  function unlock(): void {
+    if (!largeFile || largeFile.unlocked) return;
+    largeFile = { ...largeFile, unlocked: true };
+    host.unlock(docVersion);
+    editor?.updateProps({ readOnly: false });
   }
 
   /** Text mode's transform: the library's dialog, with its result sent as data, not as text. */
@@ -237,6 +288,8 @@
 
   /** Queues `change` for the host; `shown` when the library already shows its result. */
   function queue(change: DocumentChange, shown = false): void {
+    // A locked large file sends nothing (spec 008 criterion 2); the editor shows the document again.
+    if (locked) return;
     queued.push({ change, shown });
     sendNext();
   }
@@ -310,6 +363,9 @@
    */
   export function patch(operations: JsonPatchOperation[]): void {
     if (!editor) throw new Error('The editor is not mounted yet');
+    // A locked large file sends no edit (spec 008 criterion 2), and the library's `readOnly` data
+    // stays as it is.
+    if (locked) return;
     // A tree edit is in the library's data before it is sent; `patch()` puts it there the same way.
     // Where it cannot (text mode, a document with no value, a path that does not exist), the
     // editor shows the host's answer instead.
@@ -337,12 +393,18 @@
   }
 
   function selectMode(next: Mode): void {
+    if (!modes.includes(next)) return;
     mode = next;
     editor?.updateProps({ mode: next as LibraryMode });
     showDocument();
   }
 
   function onChangeMode(next: LibraryMode): void {
+    if (!modes.includes(next as Mode)) {
+      // Not offered in large-file mode (criterion 2): back to the mode the toolbar shows.
+      editor?.updateProps({ mode: mode as LibraryMode });
+      return;
+    }
     mode = next as Mode;
     textSortPending = false;
     showDocument();
@@ -411,6 +473,8 @@
 
   /** Undo or redo in the host's history, after every change made before it (003 T7). */
   async function history(kind: 'undo' | 'redo'): Promise<void> {
+    // A locked large file's document never changes from here (spec 008 criterion 2).
+    if (locked) return;
     await reportTyping();
     queued.push({ kind });
     sendNext();
@@ -512,6 +576,11 @@
     return () => (forVersion === docVersion && !inFlight && queued.length === 0 ? errors : []);
   }
 
+  /** `bytes` in MiB with one decimal, rounded down (spec 008 criterion 3). */
+  function sizeMiB(bytes: number): string {
+    return (Math.floor((bytes * 10) / 2 ** 20) / 10).toFixed(1);
+  }
+
   /** Hands the latest result to the library again, after it arrives or the shown text changes. */
   function showValidation(): void {
     editor?.updateProps({ validator: validatorFor(validation) });
@@ -608,7 +677,7 @@
 <div class="shell chr-theme">
   <div class="toolbar" role="toolbar" aria-label="Editor">
     <div class="modes" role="group" aria-label="Mode">
-      {#each MODES as m (m)}
+      {#each modes as m (m)}
         <button type="button" aria-pressed={mode === m} onclick={() => selectMode(m)}>
           {MODE_LABELS[m]}
         </button>
@@ -643,6 +712,19 @@
       {/if}
     </div>
   </div>
+  {#if largeFile}
+    <div class="banner" role="region" aria-label="Large file">
+      <span>
+        Large file ({sizeMiB(largeFile.bytes)} MiB): {locked
+          ? 'read-only to stay fast.'
+          : 'edits may be slow.'}
+      </span>
+      <button type="button" onclick={openAsText}>Open as Text</button>
+      {#if locked}
+        <button type="button" onclick={unlock}>Edit anyway</button>
+      {/if}
+    </div>
+  {/if}
   <div class="notice" role="status">{notice ?? ''}</div>
   <div class="editor" bind:this={target}></div>
 </div>
@@ -753,6 +835,29 @@
   }
   .shell :global(.cm-lint-marker-info) {
     background: var(--jse-info-color, #4f91ff);
+  }
+  .banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-editorWidget-border, var(--vscode-contrastBorder, transparent));
+  }
+  .banner button {
+    font: inherit;
+    color: var(--vscode-button-secondaryForeground);
+    background: var(--vscode-button-secondaryBackground, var(--vscode-editor-background));
+    border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+  }
+  .banner button:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+  }
+  .banner button:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: 1px;
   }
   .notice:empty {
     display: none;

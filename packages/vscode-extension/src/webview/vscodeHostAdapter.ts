@@ -82,6 +82,14 @@ export class VscodeHostAdapter implements HostAdapter {
     this.#post({ protocol: PROTOCOL_VERSION, type: 'flushed', docVersion, request });
   }
 
+  openAsText(docVersion: number): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion });
+  }
+
+  unlock(docVersion: number): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'unlock', docVersion });
+  }
+
   #receive(data: unknown): void {
     const decoded = decodeToWebview(data);
     if (!decoded.ok) {
@@ -99,6 +107,7 @@ export class VscodeHostAdapter implements HostAdapter {
           format: message.format,
           mode: message.mode,
           settings: message.settings,
+          largeFile: message.largeFile,
         };
         this.#settings = doc.settings;
         this.#resolveOpen(doc);

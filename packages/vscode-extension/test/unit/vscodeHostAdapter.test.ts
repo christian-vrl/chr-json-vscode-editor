@@ -22,6 +22,7 @@ const init = {
   format: 'jsonc',
   mode: 'tree',
   settings: { indent: 2 },
+  largeFile: { bytes: 6_291_456, unlocked: false },
 } as const;
 
 describe('VscodeHostAdapter', () => {
@@ -38,6 +39,7 @@ describe('VscodeHostAdapter', () => {
       format: 'jsonc',
       mode: 'tree',
       settings: { indent: 2 },
+      largeFile: { bytes: 6_291_456, unlocked: false },
     });
     expect(adapter.getSettings()).toEqual({ indent: 2 });
   });
@@ -84,6 +86,8 @@ describe('VscodeHostAdapter', () => {
     adapter.undo(3);
     adapter.redo(4);
     adapter.flushed(5, 7);
+    adapter.openAsText(5);
+    adapter.unlock(5);
     expect(posted).toEqual([
       {
         protocol: PROTOCOL_VERSION,
@@ -96,6 +100,8 @@ describe('VscodeHostAdapter', () => {
       { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 3 },
       { protocol: PROTOCOL_VERSION, type: 'redo', docVersion: 4 },
       { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 7 },
+      { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 5 },
+      { protocol: PROTOCOL_VERSION, type: 'unlock', docVersion: 5 },
     ]);
   });
 

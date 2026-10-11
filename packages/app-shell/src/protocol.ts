@@ -16,8 +16,10 @@
  *     UI → host `flushed` answer (003 T7).
  *  9: `edit` can carry a whole-document action (`kind: 'action'`, 003 T8).
  *  10: adds the compare panel's messages (007 T4): UI → host `compareReady` and `copy`, host → UI
- *      `compare`. */
-export const PROTOCOL_VERSION = 10;
+ *      `compare`.
+ *  11: `init` carries `largeFile`; adds the UI → host `openAsText` and `unlock` messages and the
+ *      `read-only` edit error (008 T2). */
+export const PROTOCOL_VERSION = 11;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -85,6 +87,18 @@ export interface InitMessage extends Envelope<'init'> {
   format: Format;
   mode: Mode;
   settings: EditorSettings;
+  /** Set when the document opened in large-file mode (spec 008), `null` for the normal editor. */
+  largeFile: LargeFile | null;
+}
+/**
+ * Large-file mode (spec 008, UNK-040): the host chose it when the tab opened, for a text of more
+ * than 5 MiB. `bytes` is the text's UTF-8 length then. A locked tab is read-only (criterion 2);
+ * `unlocked` once the user chose "Edit anyway" (criterion 4), which lasts until the tab closes, so
+ * a reloaded webview gets it again in `init`.
+ */
+export interface LargeFile {
+  bytes: number;
+  unlocked: boolean;
 }
 /**
  * The document's text at `docVersion`. `origin: 'edit'` answers the UI's oldest unanswered `edit`:
@@ -137,6 +151,17 @@ export interface FlushMessage extends Envelope<'flush'> {
 export interface FlushedMessage extends Envelope<'flushed'> {
   request: number;
 }
+/**
+ * "Open as Text" in the large-file banner (spec 008 criterion 3): the host replaces the tab with
+ * VS Code's text editor on the same document ("Reopen as Text"). No answer; the webview goes away.
+ */
+export type OpenAsTextMessage = Envelope<'openAsText'>;
+/**
+ * "Edit anyway" in the large-file banner (spec 008 criterion 4): the host lets this tab edit from
+ * now on, until it closes. No answer: the UI unlocks itself when it sends this, and every `edit`
+ * it sends after it reaches the host after it.
+ */
+export type UnlockMessage = Envelope<'unlock'>;
 /** A failure the other side should show; `code` is machine-readable, `message` is for people. */
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
@@ -149,8 +174,10 @@ export interface ErrorMessage extends Envelope<'error'> {
  * - `stale-edit`: the edit was made on an older `docVersion` than the document's.
  * - `patch-failed`: a patch operation did not apply to the text (core's `PatchError`).
  * - `edit-failed`: the editor refused the change (VS Code's `applyEdit` returned false).
+ * - `read-only`: the tab is a locked large-file tab (spec 008 criterion 2), so the host applies no
+ *   change from it. A locked tab's UI sends none; the host checks anyway (plan 008 risk R3).
  */
-export const EDIT_ERROR_CODES = ['stale-edit', 'patch-failed', 'edit-failed'] as const;
+export const EDIT_ERROR_CODES = ['stale-edit', 'patch-failed', 'edit-failed', 'read-only'] as const;
 export type EditErrorCode = (typeof EDIT_ERROR_CODES)[number];
 
 export function isEditError(message: ErrorMessage): boolean {
@@ -262,6 +289,8 @@ export type ToHostMessage =
   | UndoMessage
   | RedoMessage
   | FlushedMessage
+  | OpenAsTextMessage
+  | UnlockMessage
   | ErrorMessage;
 export type ProtocolMessage =
   ToWebviewMessage | ToHostMessage | ToComparePageMessage | ToCompareHostMessage;
@@ -302,7 +331,13 @@ const BASE: Fields = {
 };
 
 const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
-  init: { text: str, format: oneOf(FORMATS), mode: oneOf(MODES), settings: jsonObject },
+  init: {
+    text: str,
+    format: oneOf(FORMATS),
+    mode: oneOf(MODES),
+    settings: jsonObject,
+    largeFile: largeFile,
+  },
   update: { text: str, origin: oneOf(UPDATE_ORIGINS) },
   setMode: { mode: oneOf(MODES) },
   setFormat: { format: oneOf(FORMATS) },
@@ -318,6 +353,8 @@ const TO_HOST: Record<ToHostMessage['type'], Fields> = {
   undo: {},
   redo: {},
   flushed: { request: count },
+  openAsText: {},
+  unlock: {},
   error: { code: str, message: str },
 };
 
@@ -484,6 +521,15 @@ function indexList(v: unknown, name: string): number[] {
 function patchList(v: unknown, name: string): JsonPatchOperation[] {
   if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
   return v.map((op, i) => patchOperation(op, `${name}[${i}]`));
+}
+
+function largeFile(v: unknown, name: string): LargeFile | null {
+  if (v === null) return null;
+  return readFields(
+    record(v, name),
+    { bytes: count, unlocked: bool },
+    name,
+  ) as unknown as LargeFile;
 }
 
 function schemaDialect(v: unknown, name: string): ValidationMessage['dialect'] {
