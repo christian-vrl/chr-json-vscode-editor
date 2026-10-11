@@ -1,0 +1,7 @@
+{
+  // Settings for the release build
+  "target": "es2020",
+  "minify": true, // smaller bundle
+  "include": ["src"],
+  "sourcemap": "external"
+}

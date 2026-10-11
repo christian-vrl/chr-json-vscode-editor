@@ -6,6 +6,7 @@ tests/golden/json/
 tests/golden/jsonc/
 tests/golden/json5/
 tests/golden/convert/
+tests/golden/csv/
 spikes/json5-cst/cases/
 # Written by the spike's run.ts; regenerated, never hand-edited.
 spikes/json5-cst/results.json
@@ -22,6 +23,8 @@ packages/core/test/fixtures/json5-tests/
 
 # E2E fixtures are opened as-is, in each format's own syntax.
 tests/e2e/fixtures/
+# Compare fixtures (007 T3) too; copies into them are compared byte for byte (spec 007 criterion 6).
+tests/compare/*/
 
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/

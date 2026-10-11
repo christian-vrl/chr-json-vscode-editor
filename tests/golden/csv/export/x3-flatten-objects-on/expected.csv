@@ -1,0 +1,3 @@
+id,address.city,address.geo.lat,address.geo.lon
+1,Oslo,59.9,10.7
+2,Lima,,

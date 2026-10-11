@@ -6,6 +6,7 @@ import { parseTree, printParseErrorCode, visit, type Node, type ParseError } fro
 import { compact, prettyPrint, sort } from './actions.js';
 import { lastText } from './cache.js';
 import { applyOperation, Doc, type Open, type Rebuild, type Writer } from './edit.js';
+import { setMember } from './member.js';
 import { detectStyle } from './style.js';
 import { stringify } from './stringify.js';
 import { isComment, Kind, tokenize, type Token } from './tokens.js';
@@ -47,28 +48,26 @@ function parse(analysis: Analysis, text: string, format: Format): ParseResult {
   if (format === 'json')
     for (const warning of strictJsonWarnings(tokens)) diagnostics.push(warning);
   diagnostics.sort((a, b) => a.offset - b.offset);
-  return { data: parseData(text), tree: root, style, diagnostics };
+  return { data: visitData(text), tree: root, style, diagnostics };
 }
 
 /**
  * The document's data, built like jsonc-parser's `parse` (same visitor, same error tolerance) except
  * that object members are defined as own properties. `parse` assigns them, so a `"__proto__"` key
- * set the object's prototype instead of becoming a member and its data was lost.
+ * set the object's prototype instead of becoming a member and its data was lost. `onError` gets
+ * the errors `parseTree` reports (it runs the same visitor), in the same order.
  */
-function parseData(text: string): unknown {
+export function visitData(
+  text: string,
+  onError?: (error: number, offset: number, length: number) => void,
+): unknown {
   const root: unknown[] = [];
   let parent: unknown[] | Record<string, unknown> = root;
   let property: string | null = null;
   const parents: (unknown[] | Record<string, unknown>)[] = [];
   const onValue = (value: unknown): void => {
     if (Array.isArray(parent)) parent.push(value);
-    else if (property !== null)
-      Object.defineProperty(parent, property, {
-        value,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
+    else if (property !== null) setMember(parent, property, value);
   };
   const begin = (container: unknown[] | Record<string, unknown>): void => {
     onValue(container);
@@ -90,6 +89,7 @@ function parseData(text: string): unknown {
       onArrayBegin: () => begin([]),
       onArrayEnd: end,
       onLiteralValue: onValue,
+      onError,
     },
     parseOptions,
   );
