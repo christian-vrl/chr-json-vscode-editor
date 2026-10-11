@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** Write the JSON Lines corpus in `tests/golden/jsonl/` (patch cases with hand-written
+- [x] **T1** Write the JSON Lines corpus in `tests/golden/jsonl/` (patch cases with hand-written
   `expected.jsonl` or `error.json`, parse cases with `data.json` and `diagnostics.json`,
   `repairLines` cases) and the conversion cases in `tests/golden/convert/jsonl-to-{json,jsonc,json5}/`
   and `{json,jsonc,json5}-to-jsonl/`, with `case.json` tags and the coverage test; add the folder to

@@ -3,7 +3,7 @@
 // vacuously; here every flag is either understood or an error.
 //
 //   --coverage-only       run only the coverage tests (spec 002 criterion 4, spec 006 criterion 2,
-//                         spec 009 criterion 2)
+//                         spec 009 criterion 2, spec 012 criterion 2)
 //   --format a,b          only cases of these formats (json, jsonc, json5)
 //   --op a,b              only cases with these `op` tags
 //
@@ -60,6 +60,7 @@ if (coverageOnly) {
     'tests/golden/coverage.test.ts',
     'tests/golden/convert-coverage.test.ts',
     'tests/golden/csv-coverage.test.ts',
+    'tests/golden/jsonl-coverage.test.ts',
   );
 }
 

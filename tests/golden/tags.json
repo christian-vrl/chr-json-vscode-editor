@@ -28,9 +28,15 @@
       "jsonc-to-json",
       "jsonc-to-json5",
       "json5-to-json",
-      "json5-to-jsonc"
+      "json5-to-jsonc",
+      "jsonl-to-json",
+      "jsonl-to-jsonc",
+      "jsonl-to-json5",
+      "json-to-jsonl",
+      "jsonc-to-jsonl",
+      "json5-to-jsonl"
     ],
-    "rules": ["C1", "C2", "C3", "C4", "C5", "C6", "C7"],
+    "rules": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "J1", "J2"],
     "location": ["root", "nested-object", "array"]
   },
   "csv": {
@@ -44,5 +50,10 @@
       "export": [",", ";", "\t", "|"],
       "import": [",", ";", "\t", "|", "detect"]
     }
+  },
+  "jsonl": {
+    "rules": ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"],
+    "op": ["add", "replace", "remove", "move", "copy", "test", "test-fail"],
+    "location": ["item", "nested", "root"]
   }
 }

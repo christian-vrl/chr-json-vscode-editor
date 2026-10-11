@@ -11,7 +11,7 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 | Command | Runs |
 |---|---|
 | `pnpm test:golden` | every test in this folder |
-| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2) and `csv-coverage.test.ts` (spec 009 criterion 2) |
+| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2) and `jsonl-coverage.test.ts` (spec 012 criterion 2) |
 | `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
@@ -247,3 +247,71 @@ with "Flatten nested arrays" on (UNK-058), ragged records with the header off (U
 that hits a name already used (UNK-060), a conflicting name whose flat key a nested member holds
 (UNK-061), and empty lines during delimiter detection (UNK-062). `NaN` and `Infinity` cells (X5),
 which `input.json` cannot hold, are tested there too.
+
+## JSON Lines corpus (spec 012)
+
+`jsonl/<case>/` holds `input.jsonl`, `case.json` and the files of one kind:
+
+- **patch:** `patch.json` (RFC 6902) and either `expected.jsonl` or `error.json`. A case passes
+  when `applyPatch(input, patch, 'jsonl')` is byte-equal to `expected.jsonl`, or throws a
+  `PatchError`; `error.json` is `{"message": ...}` where L8 or L9 fixes the message, and `{}` for
+  a failing `test` (any `PatchError`, as 002's `test-fail` cases).
+- **parse:** `data.json` and `diagnostics.json` (`[{severity, message, offset, length}]`): what
+  `parse(input, 'jsonl')` gives (L1).
+- **repair:** `expected.jsonl` and `unrepaired.json` (1-based line numbers): what
+  `repairLines(input)` gives as `text` and `unrepaired` (L10).
+
+Every expected file was written by hand from rules L1–L10 of `spec/012-json-lines/spec.md` and
+changes only with a spec change.
+
+- `case.json`: `{"rules": [...], "op"?, "location"?}` (criterion 2). `rules` lists the L rules the
+  case exercises; a patch case adds `op` (`add`, `replace`, `remove`, `move`, `copy`, `test`,
+  `test-fail`) and `location`: `item` (the path, or for `move` and `copy` the destination, is
+  `/<i>` or `/-`), `nested` (deeper) or `root` (`""`). The vocabulary is `jsonl` in `tags.json`.
+  Line ending, final newline, where blank lines are, BOM and empty text are read from the input
+  (`jsonlFacts` in `jsonl.ts`), not tagged.
+
+Tests: `jsonl.ts` loads the cases and lists the criterion 2 cells no case covers
+(`jsonl-coverage.test.ts`, run by `--coverage-only`); `jsonl-load.test.ts` tests the loader;
+`jsonl-corpus.test.ts` checks the cases against `jsonl-reference.ts` (lines, blank lines, items and
+bad lines read as spec 012 §Terms defines them), `JSON.parse` and `immutable-json-patch`: expected's
+items are the patch applied to the input's items, with the line ending, final newline and BOM kept
+and the lines of items no operation names kept in order; a nested patch on one item writes the line
+spec 002's `json` adapter writes for that item's text (L7 names that adapter); parse cases are L1's
+reading; repaired lines are compact, unrepaired lines bad and kept. 012 T2 runs criterion 1 on these
+cases against the `jsonl` adapter, 012 T3 the repair cases against `repairLines`.
+
+Readings the JSON Lines corpus takes where L1–L10 leave a detail open:
+
+1. **A refused patch's message** (L9) is the first bad line's L1 diagnostic message:
+   `Line <n> is not valid JSON.`
+2. **Copy of an item** (L6) writes the source's value bytes without the spaces and tabs around them
+   (`copy-item-value-bytes`); a moved item keeps its whole line.
+3. **A string with a line break** written by L3, L5 or L7 is one line: `JSON.stringify` escapes it
+   (`add-item-string-escapes`, `nested-add-member-stays-one-line`).
+
+Not in the corpus because the spec leaves them open; the task that implements each rule decides
+and records it: `add` at `/0` on a text with a BOM (before or after the BOM), a bad first line's
+diagnostic span on a text with a BOM, and the numbers in `unrepaired` when a collapsed run comes
+before an unrepaired line (the input's numbering or the result's; the cases list unrepaired lines
+before any run, where both agree).
+
+## JSON Lines conversion (spec 012)
+
+`convert/jsonl-to-{json,jsonc,json5}/` (J1) and `convert/{json,jsonc,json5}-to-jsonl/` (J2) follow
+the conversion corpus layout above. A case may hold `error.json` (`{"message"}`) instead of
+`expected.*` and `losses.json`: `convert` throws a `ConvertError` with that message (criterion 9:
+a JSON Lines source with a bad line, or a source to JSON Lines whose root is not an array). The
+rules are `J1` and `J2` in `tags.json`; a pair to JSON Lines also has the C rules of its source's
+pair to `json`, since J2 converts to `json` first, and needs one case per rule but no location
+cells (006's pairs cover those). `convert-apply.test.ts` lists these pairs as todo until 012 T3.
+`convert-corpus.test.ts` checks them like 006's pairs, JSON Lines read as `jsonl-reference.ts`
+reads it and treated as `json` for C1–C5, and adds J1's layout (`j1`) and J2's one compact item
+per line, ended by the source's line ending.
+
+Readings:
+
+1. **The source's line ending** (J2) is its first line ending, `\n` when it has none
+   (`json-to-jsonl/j2-one-line-source`), as L2 reads a JSON Lines text.
+2. **A loss's location** is where the lost token is in the source, as in 006; a case converting
+   to JSON Lines tags `array` when it rewrites items without a loss.
