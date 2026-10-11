@@ -1,0 +1,1 @@
+{ zero: -0, negated: [-0, -2], isMinusZero: true }

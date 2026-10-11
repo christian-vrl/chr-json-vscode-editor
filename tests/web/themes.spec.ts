@@ -3,6 +3,7 @@
 // the app-shell passes axe-core's color-contrast rule in every mode, and its colours come from
 // those variables rather than from the library's built-in light theme.
 /// <reference lib="dom" />
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from './fixtures';
 import { applyTheme, computedColor, expectContrast, loadTheme, THEMES } from './theme-helpers';
 
@@ -70,6 +71,30 @@ for (const name of THEMES) {
       await expect(page.locator(`${MODE_ROOT.tree} .jse-selected`).first()).toBeVisible();
       await expectContrast(page);
     });
+
+    // 008 T2 (spec 008 criterion 12): the large-file banner, locked and unlocked, in both of
+    // large-file mode's modes.
+    for (const mode of ['tree', 'table'] as const) {
+      for (const unlocked of [false, true]) {
+        const state = unlocked ? 'unlocked' : 'locked';
+        test(`${mode} mode with the ${state} large-file banner passes axe color-contrast`, async ({
+          page,
+        }) => {
+          await applyTheme(page, theme);
+          await page.goto(`/?mode=${mode}&largeFile=6291456${unlocked ? '&unlocked=1' : ''}`);
+          await expect(page.locator(MODE_ROOT[mode])).toContainText('COBOL');
+          const banner = page.getByRole('region', { name: 'Large file' });
+          await expect(banner).toContainText(unlocked ? 'edits may be slow.' : 'read-only');
+          await expectContrast(page);
+          const results = await new AxeBuilder({ page })
+            .include('[aria-label="Large file"]')
+            .withRules(['color-contrast'])
+            .analyze();
+          // The banner's own text and buttons were checked, not only the rest of the page.
+          expect(results.passes.flatMap((pass) => pass.nodes).length).toBeGreaterThan(0);
+        });
+      }
+    }
 
     test('the editor and toolbar take their colours from the theme', async ({ page }) => {
       await applyTheme(page, theme);

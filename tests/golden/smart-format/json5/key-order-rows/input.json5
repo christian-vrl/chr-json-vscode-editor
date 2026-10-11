@@ -1,0 +1,8 @@
+{
+  rows: [
+    {id: 1, name: 'Ann', city: 'Lisbon'},
+    {id: 2, name: 'Bob', city: 'Porto'},
+    {name: 'Cy', id: 3, city: 'Faro'},
+    {name: 'Di', id: 4, city: 'Braga'},
+  ],
+}

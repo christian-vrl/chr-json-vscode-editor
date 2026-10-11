@@ -22,6 +22,17 @@ const toWebview: ToWebviewMessage[] = [
     format: 'jsonc',
     mode: 'tree',
     settings: { indent: 2, nested: { list: [true, null, 'x'] } },
+    largeFile: null,
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'init',
+    docVersion: 1,
+    text: '[]',
+    format: 'json5',
+    mode: 'table',
+    settings: {},
+    largeFile: { bytes: 5_242_881, unlocked: false },
   },
   {
     protocol: PROTOCOL_VERSION,
@@ -118,21 +129,26 @@ const toHost: ToHostMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 4 },
   { protocol: PROTOCOL_VERSION, type: 'redo', docVersion: 5 },
   { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 3 },
+  { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 5 },
+  { protocol: PROTOCOL_VERSION, type: 'unlock', docVersion: 5 },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 5, code: 'parse', message: 'Bad' },
 ];
 
 describe('protocol round trip', () => {
-  it.each(toWebview.map((m) => [m.type, m] as const))('host → webview %s', (_type, message) => {
-    expect(decodeToWebview(JSON.parse(JSON.stringify(message)))).toEqual({ ok: true, message });
-    expect(decodeToWebview(structuredClone(message))).toEqual({ ok: true, message });
-  });
+  it.each(toWebview.map((m, i) => [`${m.type} #${i}`, m] as const))(
+    'host → webview %s',
+    (_n, message) => {
+      expect(decodeToWebview(JSON.parse(JSON.stringify(message)))).toEqual({ ok: true, message });
+      expect(decodeToWebview(structuredClone(message))).toEqual({ ok: true, message });
+    },
+  );
 
   it.each(toHost.map((m, i) => [`${m.type} #${i}`, m] as const))('webview → host %s', (_n, m) => {
     expect(decodeToHost(JSON.parse(JSON.stringify(m)))).toEqual({ ok: true, message: m });
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
       [
@@ -141,7 +157,9 @@ describe('protocol round trip', () => {
         'flush',
         'flushed',
         'init',
+        'openAsText',
         'ready',
+        'unlock',
         'redo',
         'undo',
         'setDialect',
@@ -156,7 +174,7 @@ describe('protocol round trip', () => {
   it('keeps a "__proto__" settings key as data', () => {
     const data: unknown = JSON.parse(
       `{"protocol":${PROTOCOL_VERSION},"type":"init","docVersion":0,"text":"","format":"json",` +
-        `"mode":"text","settings":{"__proto__":{"polluted":true}}}`,
+        `"mode":"text","settings":{"__proto__":{"polluted":true}},"largeFile":null}`,
     );
     const result = decodeToWebview(data);
     expect(result.ok).toBe(true);
@@ -287,6 +305,18 @@ describe('protocol rejects malformed messages', () => {
     ],
     ['a none result with a reason', validation({ kind: 'none', reason: 'r' })],
     ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
+    ['an init without largeFile (protocol 10)', { ...toWebview[0], largeFile: undefined }],
+    ['an init from protocol 10 (before large files)', { ...toWebview[0], protocol: 10 }],
+    ['a largeFile without bytes', { ...toWebview[0], largeFile: { unlocked: false } }],
+    [
+      'a largeFile with a fractional size',
+      { ...toWebview[0], largeFile: { bytes: 1.5, unlocked: false } },
+    ],
+    [
+      'a largeFile whose unlocked flag is not a boolean',
+      { ...toWebview[0], largeFile: { bytes: 6, unlocked: 1 } },
+    ],
+    ['a largeFile that is a number', { ...toWebview[0], largeFile: 6 }],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);
     expect(result.ok).toBe(false);
@@ -329,6 +359,12 @@ describe('protocol rejects malformed messages', () => {
       { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 1 },
     ],
     ['an undo from protocol 7', { protocol: 7, type: 'undo', docVersion: 1 }],
+    ['an unlock from protocol 10', { protocol: 10, type: 'unlock', docVersion: 1 }],
+    [
+      'an openAsText with a mode',
+      { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 1, mode: 'text' },
+    ],
+    ['an unlock without docVersion', { protocol: PROTOCOL_VERSION, type: 'unlock' }],
     ['an undo with a count', { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 1, steps: 2 }],
     ['a redo without docVersion', { protocol: PROTOCOL_VERSION, type: 'redo' }],
     ['a flushed without request', { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 1 }],

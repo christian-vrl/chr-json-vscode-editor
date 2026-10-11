@@ -7,6 +7,7 @@ tests/golden/jsonc/
 tests/golden/json5/
 tests/golden/convert/
 tests/golden/csv/
+tests/golden/smart-format/
 spikes/json5-cst/cases/
 # Written by the spike's run.ts; regenerated, never hand-edited.
 spikes/json5-cst/results.json
@@ -25,6 +26,11 @@ packages/core/test/fixtures/json5-tests/
 tests/e2e/fixtures/
 # Compare fixtures (007 T3) too; copies into them are compared byte for byte (spec 007 criterion 6).
 tests/compare/*/
+# Query cases (011 T2): query.js is the library's createQuery text or written as typed into the
+# Transform dialog, and expected.json5 is hand-written data. The loader and its tests are ordinary code.
+tests/query/*/
+# CSV panel fixtures (009 T3) are read as-is, and their expected outputs are written in the tests.
+tests/csv/
 
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/

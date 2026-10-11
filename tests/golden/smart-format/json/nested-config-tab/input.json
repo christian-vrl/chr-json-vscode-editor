@@ -1,0 +1,17 @@
+{
+	"name": "chr-json-editor-demo",
+	"version": "1.0.0",
+	"description": "A configuration file whose description is long enough that it never fits on one line with the other members.",
+	"server": {
+		"host": "localhost",
+		"port": 8080,
+		"tls": false
+	},
+	"database": {
+		"url": "postgres://db.example.test:5432/app",
+		"pool": {"min": 2, "max": 10},
+		"replicas": ["db-1.example.test", "db-2.example.test", "db-3.example.test", "db-4.example.test"],
+		"options": {"ssl": true, "timeoutSeconds": 30, "retry": {"count": 3, "backoff": [100, 200, 400]}}
+	},
+	"tags": []
+}

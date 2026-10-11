@@ -59,6 +59,9 @@ importers:
       typescript-eslint:
         specifier: 8.71.1
         version: 8.71.1(eslint@10.12.0)(typescript@5.9.3)
+      vanilla-jsoneditor:
+        specifier: 3.13.0
+        version: 3.13.0(@typescript-eslint/types@8.71.1)
       vite:
         specifier: 8.3.4
         version: 8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(yaml@2.9.1)

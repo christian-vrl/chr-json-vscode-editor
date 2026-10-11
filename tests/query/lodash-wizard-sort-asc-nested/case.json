@@ -1,0 +1,10 @@
+{
+  "language": "lodash",
+  "tags": ["sort"],
+  "wizard": {
+    "sort": {
+      "path": ["address", "zip"],
+      "direction": "asc"
+    }
+  }
+}

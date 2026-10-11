@@ -1,9 +1,10 @@
 // Library build of the editor UI for the VS Code webview (003 T5): `mountApp` (src/app.ts) with
-// Svelte, vanilla-jsoneditor and their CSS bundled into dist/lib/app.js and dist/lib/app.css, and
-// the compare page's `mountCompare` (src/compare.ts, 007 T4) into dist/lib/compare.js. Both pages'
-// CSS lands in the one dist/lib/app.css. The
-// extension's esbuild bundles both into its webview script and stylesheet, which the webview loads
-// from its own source with the CSP nonce (spec 003 criterion 6, UNK-029).
+// Svelte, vanilla-jsoneditor and their CSS bundled into dist/lib/app.js and dist/lib/app.css, the
+// compare page's `mountCompare` (src/compare.ts, 007 T4) into dist/lib/compare.js, and the CSV
+// panel page's `mountCsv` (src/csv.ts, 009 T3) into dist/lib/csv.js. Every page's CSS lands in the
+// one dist/lib/app.css. The extension's esbuild bundles each into its webview script and
+// stylesheet, which the webview loads from its own source with the CSP nonce (spec 003 criterion
+// 6, UNK-029).
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
@@ -20,7 +21,7 @@ export default defineConfig({
     outDir: 'dist/lib',
     emptyOutDir: true,
     lib: {
-      entry: { app: 'src/app.ts', compare: 'src/compare.ts' },
+      entry: { app: 'src/app.ts', compare: 'src/compare.ts', csv: 'src/csv.ts' },
       formats: ['es'],
       cssFileName: 'app',
     },

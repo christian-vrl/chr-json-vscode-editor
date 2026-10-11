@@ -106,6 +106,7 @@ describeHostAdapterContract('VscodeHostAdapter over DocumentSync', (text) => {
             format: 'json',
             mode: 'tree',
             settings: {},
+            largeFile: null,
           });
         } else if (message.type === 'edit') {
           void doc.sync.edit(message);

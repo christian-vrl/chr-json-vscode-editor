@@ -1,0 +1,9 @@
+{
+    "id": "order-1042",
+    "items": [
+        {"sku": "A-1",   "qty":  2, "price":  3.5 },
+        {"sku": "B-22",  "qty": 10, "price": 12   },
+        {"sku": "C-333", "qty":  1, "price":  0.25}
+    ],
+    "paid": true
+}

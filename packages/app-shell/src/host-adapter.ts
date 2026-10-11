@@ -63,4 +63,10 @@ export interface HostAdapter {
   redo(docVersion: number): void;
   /** Answers the host's `flush` event once every change the UI made is answered. Maps to `flushed`. */
   flushed(docVersion: number, request: number): void;
+  /** "Open as Text" in the large-file banner (spec 008 criterion 3): the host shows the document in
+   *  its own text editor instead. Maps to `openAsText`. */
+  openAsText(docVersion: number): void;
+  /** "Edit anyway" in the large-file banner (spec 008 criterion 4): the host accepts this UI's
+   *  changes from now on. Maps to `unlock`. */
+  unlock(docVersion: number): void;
 }

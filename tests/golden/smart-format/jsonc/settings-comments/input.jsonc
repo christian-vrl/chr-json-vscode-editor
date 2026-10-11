@@ -1,0 +1,18 @@
+// Workspace settings for the demo project.
+{
+    // Editor
+    "editor.tabSize": 4,
+    "editor.rulers": [
+        80,
+        120,
+    ],
+    "editor.formatOnSave": true, // keep the file tidy
+
+    // Files
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/dist": true,
+    },
+    "files.eol": "\n",
+}
+// end of settings

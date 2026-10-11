@@ -1,0 +1,10 @@
+﻿{
+    // Theme colors.
+    primary: '#3366ff',
+    secondary: '#ff6633',
+    sizes: [
+        12,
+        14,
+        16
+    ],
+}
