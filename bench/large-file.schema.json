@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "008 T5 benchmark records (bench/generate.mjs)",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["id", "name", "active", "score", "tags", "address", "note"],
+    "additionalProperties": false,
+    "properties": {
+      "id": { "type": "integer", "minimum": 0 },
+      "name": { "type": "string", "minLength": 1 },
+      "active": { "type": "boolean" },
+      "score": { "type": "number", "minimum": 0 },
+      "tags": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+      "address": {
+        "type": "object",
+        "required": ["street", "zip"],
+        "properties": {
+          "street": { "type": "string" },
+          "zip": { "type": "string", "pattern": "^[0-9]{5}$" }
+        }
+      },
+      "note": { "type": ["string", "null"] }
+    }
+  }
+}

@@ -69,6 +69,17 @@ describe('conversion coverage helpers', () => {
     expect(convertMissingCells([], 'json5-to-json')).toHaveLength(6 + 4 * 3);
     // json5-to-jsonc: five rules, and C1, C3 and C4 by three locations.
     expect(convertMissingCells([], 'json5-to-jsonc')).toHaveLength(5 + 3 * 3);
+    // JSON Lines pairs (spec 012): one case per rule, no location cells.
+    expect(convertMissingCells([], 'json5-to-jsonl')).toEqual([
+      'J2',
+      'C1',
+      'C2',
+      'C3',
+      'C4',
+      'C5',
+      'C6',
+    ]);
+    expect(convertMissingCells([], 'jsonl-to-json')).toEqual(['J1']);
     const one = { pair: 'jsonc-to-json', tags: { rules: ['C5', 'C6'], location: 'array' } };
     expect(convertMissingCells([one], 'jsonc-to-json')).toEqual([
       'C5 × location=root',

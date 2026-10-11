@@ -1,0 +1,11 @@
+{
+  "language": "javascript",
+  "tags": ["filter"],
+  "wizard": {
+    "filter": {
+      "path": ["address", "city"],
+      "relation": "==",
+      "value": "Porto"
+    }
+  }
+}

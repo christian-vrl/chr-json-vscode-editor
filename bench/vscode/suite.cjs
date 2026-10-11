@@ -14,6 +14,9 @@
 //   second — the same edit with another value, right after the first settles: the host then edits
 //            the text its first edit made rather than the one it parsed on open (003 T11 review).
 //            The same record, since the tree shows only the first record's fields.
+// Above 5 MiB the file opens in large-file mode (spec 008), read-only: the edit runs after "Edit
+// anyway" there (008 T5), which also puts the tab on spec 003's path. The first render is then the
+// read-only tree's.
 // Open and `host` are on the extension host's clock, so they include the messages between host and
 // webview. Results go to the JSON file named by CHR_BENCH_OUT. A failure is recorded, not thrown,
 // so a size VS Code refuses still leaves the others measured.
@@ -114,6 +117,19 @@ async function timeEdit(hooks, uri, run, which = 'first') {
   }
 }
 
+/** Since spec 008, a file above 5 MiB opens read-only in large-file mode: "Edit anyway" puts the
+ *  tab on the path this benchmark times (spec 003's), as a user who edits would. */
+async function unlock(hooks, uri) {
+  const key = uri.toString();
+  const view = hooks.webviews().find((s) => s.uri === key);
+  if (!view?.largeFile || view.largeFile.unlocked) return;
+  await withTimeout(
+    '"Edit anyway"',
+    hooks.dom(key, [{ click: '.banner button', text: 'Edit anyway' }]),
+  );
+  await waitFor('the unlock', () => view.largeFile.unlocked);
+}
+
 exports.run = async function run() {
   const out = process.env.CHR_BENCH_OUT;
   const files = JSON.parse(process.env.CHR_BENCH_FILES ?? '[]');
@@ -159,6 +175,7 @@ exports.run = async function run() {
         break;
       }
       try {
+        await unlock(hooks, uri);
         entry.edit.push(await timeEdit(hooks, uri, run));
         entry.second.push(await timeEdit(hooks, uri, run, 'second'));
       } catch (error) {

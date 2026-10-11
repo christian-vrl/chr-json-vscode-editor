@@ -151,10 +151,10 @@
           content: { text: doc.text },
           mode: mode as LibraryMode,
           readOnly: locked,
-          parser: parserFor(doc.format),
+          parser: parserFor(doc.format, doc.largeFile !== null),
           // The library hands the validator data read by this parser too; its default, JSON.parse,
           // fails on JSONC and JSON5 text in text mode and reports that as a parse error (004 T5).
-          validationParser: parserFor(doc.format),
+          validationParser: parserFor(doc.format, doc.largeFile !== null),
           validator: validatorFor(validation),
           queryLanguages: QUERY_LANGUAGES,
           queryLanguageId: QUERY_LANGUAGES[0]!.id,
@@ -297,7 +297,7 @@
   /** Whether the host's text parses in the current format. */
   function documentParses(): boolean {
     try {
-      parserFor(format ?? 'json').parse(docText);
+      parserFor(format ?? 'json', largeFile !== null).parse(docText);
       return true;
     } catch {
       return false;
@@ -332,7 +332,11 @@
    *  open, UNK-018), else the data change from what the document holds (data-change.ts). */
   function replaceRoot(json: unknown): DocumentChange[] {
     if (!documentParses()) return [{ kind: 'action', action: { name: 'repair' } }];
-    const change = dataChange('', parserFor(format ?? 'json').parse(docText), json);
+    const change = dataChange(
+      '',
+      parserFor(format ?? 'json', largeFile !== null).parse(docText),
+      json,
+    );
     return change ? [change] : [];
   }
 
@@ -343,7 +347,7 @@
   }
 
   function textSort(previous: Content, updated: string): DocumentChange | undefined {
-    const parser = parserFor(format ?? 'json');
+    const parser = parserFor(format ?? 'json', largeFile !== null);
     try {
       const before: unknown =
         typeof (previous as { text?: unknown }).text === 'string'
@@ -647,8 +651,8 @@
       case 'setFormat':
         format = event.format;
         editor?.updateProps({
-          parser: parserFor(event.format),
-          validationParser: parserFor(event.format),
+          parser: parserFor(event.format, largeFile !== null),
+          validationParser: parserFor(event.format, largeFile !== null),
         });
         // Parse the document's text again with the new format (criterion 8); bytes are unchanged.
         if (!inFlight && queued.length === 0) showText();

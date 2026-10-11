@@ -1,0 +1,866 @@
+{
+  "spike": "011-T1",
+  "vscode": "1.141.0",
+  "electron": "43.7.7",
+  "chrome": "150.0.7871.250",
+  "node": "24.21.0",
+  "platform": "linux-x64",
+  "fixtures": [
+    {
+      "id": "1mib",
+      "bytes": 1040073,
+      "items": 4800,
+      "sha256": "3c3bb42f7eddcbf578aea7c9aeff2e3c42c3fcc9ac66a838fbaf9fbcbfca8258"
+    },
+    {
+      "id": "5mib",
+      "bytes": 5200159,
+      "items": 23884,
+      "sha256": "408a93fee01bc6e1c40b4f946f87df6c6bd47aead2f68c8a479bf707a96673ba"
+    }
+  ],
+  "referenceNode": "22.22.0",
+  "loading": {
+    "wasm:a": {
+      "loaded": true,
+      "error": null,
+      "loadMs": 85.5,
+      "check": 4800,
+      "policy": "default-src 'none'; script-src 'nonce-Q2rbMizttPd2N+A46Y5gWQ==' 'wasm-unsafe-eval'; style-src 'self' https://*.vscode-cdn.net 'nonce-Q2rbMizttPd2N+A46Y5gWQ=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "criterion9Failures": [],
+      "cspViolations": [],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "wasm:b": {
+      "loaded": true,
+      "error": null,
+      "loadMs": 101.7,
+      "check": 4800,
+      "policy": "default-src 'none'; script-src 'nonce-hgF/yzzzCXyTAbaJxXs5tw==' 'wasm-unsafe-eval'; style-src 'self' https://*.vscode-cdn.net 'nonce-hgF/yzzzCXyTAbaJxXs5tw=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "criterion9Failures": [],
+      "cspViolations": [],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "wasm:c": {
+      "loaded": true,
+      "error": null,
+      "loadMs": 19.8,
+      "check": 4800,
+      "policy": "default-src 'none'; script-src 'nonce-rDwoKL/viuTljCTq7UGWXg==' 'wasm-unsafe-eval'; style-src 'self' https://*.vscode-cdn.net 'nonce-rDwoKL/viuTljCTq7UGWXg=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "criterion9Failures": [],
+      "cspViolations": [],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    },
+    "unchanged:c": {
+      "loaded": false,
+      "error": "RuntimeError: Aborted(CompileError: WebAssembly.instantiate(): Compiling or instantiating WebAssembly module violates the following Content Security policy directive because 'unsafe-eval' is not an allowed source of script in the following Content Security Policy directive: \"script-src 'nonce-fZ651qVcR5NQx/cHJIq/og=='\".). Build with -sASSERTIONS for more info.",
+      "loadMs": 29.4,
+      "check": null,
+      "policy": "default-src 'none'; script-src 'nonce-fZ651qVcR5NQx/cHJIq/og=='; style-src 'self' https://*.vscode-cdn.net 'nonce-fZ651qVcR5NQx/cHJIq/og=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      "criterion9Failures": null,
+      "cspViolations": [
+        {
+          "directive": "script-src",
+          "blockedURI": "wasm-eval",
+          "sample": ""
+        }
+      ],
+      "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+    }
+  },
+  "probes": {
+    "sealed-typeof": {
+      "ms": 56.6,
+      "value": {
+        "window": "undefined",
+        "document": "undefined",
+        "self": "undefined",
+        "globalThis.fetch": "undefined",
+        "XMLHttpRequest": "undefined",
+        "WebSocket": "undefined",
+        "importScripts": "undefined",
+        "postMessage": "undefined",
+        "acquireVsCodeApi": "undefined",
+        "require": "undefined",
+        "process": "undefined",
+        "setTimeout": "undefined",
+        "WebAssembly": "undefined",
+        "Worker": "undefined",
+        "navigator": "undefined"
+      },
+      "error": null,
+      "engineError": null,
+      "next": 4800,
+      "roundTripAfterMs": 1.6
+    },
+    "sealed-typeof-lodash": {
+      "ms": 67.7,
+      "value": {
+        "lodash": "function",
+        "window": "undefined",
+        "document": "undefined",
+        "self": "undefined",
+        "globalThis.fetch": "undefined",
+        "XMLHttpRequest": "undefined",
+        "WebSocket": "undefined",
+        "importScripts": "undefined",
+        "postMessage": "undefined",
+        "acquireVsCodeApi": "undefined",
+        "require": "undefined",
+        "process": "undefined",
+        "setTimeout": "undefined",
+        "WebAssembly": "undefined",
+        "Worker": "undefined",
+        "navigator": "undefined"
+      },
+      "error": null,
+      "engineError": null,
+      "next": 4800,
+      "roundTripAfterMs": 0.8
+    },
+    "sealed-eval-function": {
+      "ms": 26.6,
+      "value": {
+        "evalResult": 2,
+        "functionWindow": "undefined",
+        "functionGlobalKeys": "AggregateError,Array,ArrayBuffer,BigInt,BigInt64Array,BigUint64Array,Boolean,DataView,Date,Error,EvalError,FinalizationRegistry,Float16Array,Float32Array,Float64Array,Function,Infinity,Int16Array,Int32Array,Int8Array,InternalError,Iterator,JSON,Map,Math,NaN,Number,Object,Promise,Proxy,RangeError,ReferenceError,Reflect,RegExp,Set,SharedArrayBuffer,String,Symbol,SyntaxError,TypeError,URIError,Uint16Array,Uint32Array,Uint8Array,Uint8ClampedArray,WeakMap,WeakRef,WeakSet,decodeURI,decodeURIComponent,encodeURI,encodeURIComponent,escape,eval,globalThis,isFinite,isNaN,parseFloat,parseInt,undefined,unescape",
+        "indirectEvalDocument": "undefined"
+      },
+      "error": null,
+      "engineError": null,
+      "next": 4800,
+      "roundTripAfterMs": 1
+    },
+    "sealed-global-leak": {
+      "ms": 23.3,
+      "value": "number",
+      "error": null,
+      "engineError": null,
+      "next": 4800,
+      "roundTripAfterMs": 0.9
+    },
+    "sealed-global-leak-check": {
+      "ms": 25,
+      "value": "undefined",
+      "error": null,
+      "engineError": null,
+      "next": 4800,
+      "roundTripAfterMs": 1
+    },
+    "locale-compare": {
+      "ms": 27.8,
+      "value": {
+        "intl": "undefined",
+        "localeCompareSort": [
+          "Apple",
+          "Zebra",
+          "apple",
+          "b",
+          "banana",
+          "cherry",
+          "eclair",
+          "zebra",
+          "Ébano",
+          "ä"
+        ],
+        "defaultSort": [
+          "Apple",
+          "Zebra",
+          "apple",
+          "b",
+          "banana",
+          "cherry",
+          "eclair",
+          "zebra",
+          "Ébano",
+          "ä"
+        ],
+        "aVsB": 31,
+        "toLocaleUpperCase": "STRASSE",
+        "numberToLocaleString": "1234567.891",
+        "dateToLocaleDateString": "10/11/2026"
+      },
+      "error": null,
+      "engineError": null,
+      "next": 4800,
+      "roundTripAfterMs": 1
+    },
+    "loop": {
+      "ms": 5003.6,
+      "error": "The query was stopped after 5 seconds.",
+      "engineError": "InternalError: interrupted",
+      "next": 4800,
+      "roundTripAfterMs": 1.1
+    },
+    "allocate": {
+      "ms": 10762.9,
+      "error": "The query used more than 256 MiB and was stopped.",
+      "engineError": "InternalError: out of memory",
+      "next": 4800,
+      "roundTripAfterMs": 2.8
+    },
+    "allocate-objects": {
+      "ms": 5369,
+      "error": "The query used more than 256 MiB and was stopped.",
+      "engineError": "InternalError: out of memory",
+      "next": 4800,
+      "roundTripAfterMs": 1.1
+    },
+    "builtin-regex": {
+      "ms": 5003.4,
+      "error": "The query was stopped after 5 seconds.",
+      "engineError": "InternalError: interrupted",
+      "next": 4800,
+      "roundTripAfterMs": 1.4
+    },
+    "builtin-repeat": {
+      "ms": 22,
+      "error": "The query used more than 256 MiB and was stopped.",
+      "engineError": "InternalError: out of memory",
+      "next": 4800,
+      "roundTripAfterMs": 0.8
+    },
+    "builtin-join": {
+      "ms": 302.7,
+      "error": "The query used more than 256 MiB and was stopped.",
+      "engineError": "InternalError: out of memory",
+      "next": 4800,
+      "roundTripAfterMs": 0.9
+    },
+    "builtin-sort": {
+      "ms": 5055.1,
+      "error": "The query was stopped after 5 seconds.",
+      "engineError": "InternalError: interrupted",
+      "next": 4800,
+      "roundTripAfterMs": 6.2
+    },
+    "lodash-loop": {
+      "ms": 5005.1,
+      "error": "The query was stopped after 5 seconds.",
+      "engineError": "InternalError: interrupted",
+      "next": 4800,
+      "roundTripAfterMs": 1.1
+    }
+  },
+  "probesPage": {
+    "policy": "default-src 'none'; script-src 'nonce-fTR0v1DuooLYD7QXOy/tEw==' 'wasm-unsafe-eval'; style-src 'self' https://*.vscode-cdn.net 'nonce-fTR0v1DuooLYD7QXOy/tEw=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    "criterion9Failures": [],
+    "cspViolations": [],
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+  },
+  "bench": {
+    "1mib": {
+      "filter-map": {
+        "language": "javascript",
+        "totalMs": {
+          "median": 157.1,
+          "min": 92.6,
+          "max": 203.4,
+          "runs": [
+            92.6,
+            188.8,
+            157.1,
+            203.4,
+            104.2
+          ]
+        },
+        "parts": {
+          "setupMs": 1.5,
+          "lodashMs": 0,
+          "inputMs": 114.8,
+          "queryMs": 11.9,
+          "outputMs": 26.4
+        },
+        "referenceMs": {
+          "median": 0.8,
+          "min": 0.7,
+          "max": 1,
+          "runs": [
+            1,
+            0.9,
+            0.8,
+            0.7,
+            0.7
+          ]
+        },
+        "sameResultAsReference": true
+      },
+      "filter-orderBy-map": {
+        "language": "lodash",
+        "totalMs": {
+          "median": 154.5,
+          "min": 89.6,
+          "max": 248,
+          "runs": [
+            248,
+            159.7,
+            154.5,
+            97.3,
+            89.6
+          ]
+        },
+        "parts": {
+          "setupMs": 0.5,
+          "lodashMs": 25.9,
+          "inputMs": 35.8,
+          "queryMs": 86.2,
+          "outputMs": 5.9
+        },
+        "referenceMs": {
+          "median": 4.2,
+          "min": 3.6,
+          "max": 16.2,
+          "runs": [
+            16.2,
+            7.8,
+            4.2,
+            3.6,
+            3.9
+          ]
+        },
+        "sameResultAsReference": true
+      }
+    },
+    "5mib": {
+      "filter-map": {
+        "language": "javascript",
+        "totalMs": {
+          "median": 146.6,
+          "min": 137.9,
+          "max": 198.7,
+          "runs": [
+            198.7,
+            187.3,
+            146.6,
+            138.2,
+            137.9
+          ]
+        },
+        "parts": {
+          "setupMs": 0.3,
+          "lodashMs": 0,
+          "inputMs": 121.9,
+          "queryMs": 7.1,
+          "outputMs": 17.6
+        },
+        "referenceMs": {
+          "median": 3,
+          "min": 2.8,
+          "max": 6.1,
+          "runs": [
+            3.2,
+            3,
+            6.1,
+            2.8,
+            2.8
+          ]
+        },
+        "sameResultAsReference": true
+      },
+      "filter-orderBy-map": {
+        "language": "lodash",
+        "totalMs": {
+          "median": 557.2,
+          "min": 418.9,
+          "max": 750.1,
+          "runs": [
+            454.3,
+            560.9,
+            418.9,
+            557.2,
+            750.1
+          ]
+        },
+        "parts": {
+          "setupMs": 0.4,
+          "lodashMs": 18.4,
+          "inputMs": 117.4,
+          "queryMs": 318.2,
+          "outputMs": 18
+        },
+        "referenceMs": {
+          "median": 16.4,
+          "min": 16.1,
+          "max": 19.5,
+          "runs": [
+            19.5,
+            16.1,
+            16.1,
+            16.4,
+            17
+          ]
+        },
+        "sameResultAsReference": true
+      }
+    }
+  },
+  "benchPage": {
+    "policy": "default-src 'none'; script-src 'nonce-4u+yNtA9n0t5gjYq9KpCfA==' 'wasm-unsafe-eval'; style-src 'self' https://*.vscode-cdn.net 'nonce-4u+yNtA9n0t5gjYq9KpCfA=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    "criterion9Failures": [],
+    "cspViolations": [],
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+  },
+  "typing": {
+    "javascript:150": {
+      "typedCharacters": 40,
+      "typingMs": 5850.3,
+      "previewRuns": 1,
+      "runs": [
+        {
+          "at": 6151.1,
+          "ms": 207.4,
+          "queryLength": 79
+        }
+      ],
+      "longestKeyGapMs": 151.2,
+      "finalPreviewMatches": true,
+      "previewText": "Preview 11877"
+    },
+    "javascript:300": {
+      "typedCharacters": 40,
+      "typingMs": 11699.7,
+      "previewRuns": 13,
+      "runs": [
+        {
+          "at": 599.7,
+          "ms": 185.7,
+          "queryLength": 41
+        },
+        {
+          "at": 1199.7,
+          "ms": 221.7,
+          "queryLength": 43
+        },
+        {
+          "at": 2699.6,
+          "ms": 198.1,
+          "queryLength": 48
+        },
+        {
+          "at": 3300,
+          "ms": 187.9,
+          "queryLength": 50
+        },
+        {
+          "at": 3899.8,
+          "ms": 229.3,
+          "queryLength": 52
+        },
+        {
+          "at": 4500.3,
+          "ms": 288.1,
+          "queryLength": 54
+        },
+        {
+          "at": 5100.5,
+          "ms": 230,
+          "queryLength": 56
+        },
+        {
+          "at": 5999.5,
+          "ms": 194.2,
+          "queryLength": 59
+        },
+        {
+          "at": 6599.7,
+          "ms": 189.5,
+          "queryLength": 61
+        },
+        {
+          "at": 8099.6,
+          "ms": 210.2,
+          "queryLength": 66
+        },
+        {
+          "at": 8699.8,
+          "ms": 243.6,
+          "queryLength": 68
+        },
+        {
+          "at": 10199.6,
+          "ms": 224.4,
+          "queryLength": 73
+        },
+        {
+          "at": 12000.1,
+          "ms": 210.2,
+          "queryLength": 79
+        }
+      ],
+      "longestKeyGapMs": 588.9,
+      "finalPreviewMatches": true,
+      "previewText": "Preview 11877"
+    },
+    "javascript:450": {
+      "typedCharacters": 40,
+      "typingMs": 17612.6,
+      "previewRuns": 29,
+      "runs": [
+        {
+          "at": 300.6,
+          "ms": 281.4,
+          "queryLength": 40
+        },
+        {
+          "at": 892.9,
+          "ms": 217.4,
+          "queryLength": 41
+        },
+        {
+          "at": 1650.5,
+          "ms": 232.9,
+          "queryLength": 43
+        },
+        {
+          "at": 2184.2,
+          "ms": 220.8,
+          "queryLength": 44
+        },
+        {
+          "at": 3001,
+          "ms": 207.7,
+          "queryLength": 46
+        },
+        {
+          "at": 3509.6,
+          "ms": 189.4,
+          "queryLength": 47
+        },
+        {
+          "at": 3999.9,
+          "ms": 199.2,
+          "queryLength": 48
+        },
+        {
+          "at": 4800.5,
+          "ms": 249.5,
+          "queryLength": 50
+        },
+        {
+          "at": 5350.9,
+          "ms": 188.6,
+          "queryLength": 51
+        },
+        {
+          "at": 5840.2,
+          "ms": 199.3,
+          "queryLength": 52
+        },
+        {
+          "at": 6600.4,
+          "ms": 338.8,
+          "queryLength": 54
+        },
+        {
+          "at": 7500.3,
+          "ms": 238.3,
+          "queryLength": 56
+        },
+        {
+          "at": 8039.5,
+          "ms": 194.7,
+          "queryLength": 57
+        },
+        {
+          "at": 8535,
+          "ms": 213.9,
+          "queryLength": 58
+        },
+        {
+          "at": 9300.8,
+          "ms": 190.6,
+          "queryLength": 60
+        },
+        {
+          "at": 9792,
+          "ms": 266.9,
+          "queryLength": 61
+        },
+        {
+          "at": 10650.8,
+          "ms": 247.6,
+          "queryLength": 63
+        },
+        {
+          "at": 11199.2,
+          "ms": 198.4,
+          "queryLength": 64
+        },
+        {
+          "at": 11698.3,
+          "ms": 288.4,
+          "queryLength": 65
+        },
+        {
+          "at": 12449.7,
+          "ms": 241.6,
+          "queryLength": 67
+        },
+        {
+          "at": 12992.1,
+          "ms": 301,
+          "queryLength": 68
+        },
+        {
+          "at": 13800.2,
+          "ms": 228.8,
+          "queryLength": 70
+        },
+        {
+          "at": 14330,
+          "ms": 192.5,
+          "queryLength": 71
+        },
+        {
+          "at": 14823.1,
+          "ms": 289.8,
+          "queryLength": 72
+        },
+        {
+          "at": 15601.3,
+          "ms": 201,
+          "queryLength": 74
+        },
+        {
+          "at": 16116.1,
+          "ms": 201.9,
+          "queryLength": 75
+        },
+        {
+          "at": 16619.2,
+          "ms": 233.3,
+          "queryLength": 76
+        },
+        {
+          "at": 17400.5,
+          "ms": 211.8,
+          "queryLength": 78
+        },
+        {
+          "at": 17913.1,
+          "ms": 243.8,
+          "queryLength": 79
+        }
+      ],
+      "longestKeyGapMs": 639.4,
+      "finalPreviewMatches": true,
+      "previewText": "Preview 11877"
+    },
+    "lodash:150": {
+      "typedCharacters": 40,
+      "typingMs": 5850.3,
+      "previewRuns": 1,
+      "runs": [
+        {
+          "at": 6151.2,
+          "ms": 696.6,
+          "queryLength": 101
+        }
+      ],
+      "longestKeyGapMs": 151.1,
+      "finalPreviewMatches": true,
+      "previewText": "Preview [ 22740 items 0 : { id : 0 name : charlie foxtrot 0 active : false total : 102.79 tags : [ 2 items ] address : { 2 props } } 1 : { 6 props } 2 : { 6 props } 3 : { 6 props } 4 : { 6 props } 5 :"
+    },
+    "lodash:300": {
+      "typedCharacters": 40,
+      "typingMs": 11930.8,
+      "previewRuns": 9,
+      "runs": [
+        {
+          "at": 599.9,
+          "ms": 241,
+          "queryLength": 63
+        },
+        {
+          "at": 1199.8,
+          "ms": 320.5,
+          "queryLength": 65
+        },
+        {
+          "at": 2699.8,
+          "ms": 221.2,
+          "queryLength": 70
+        },
+        {
+          "at": 3300.2,
+          "ms": 249.3,
+          "queryLength": 72
+        },
+        {
+          "at": 9900,
+          "ms": 278.5,
+          "queryLength": 94
+        },
+        {
+          "at": 10501.6,
+          "ms": 283.1,
+          "queryLength": 96
+        },
+        {
+          "at": 11100,
+          "ms": 274.5,
+          "queryLength": 98
+        },
+        {
+          "at": 11701.6,
+          "ms": 228.9,
+          "queryLength": 100
+        },
+        {
+          "at": 12231.3,
+          "ms": 613.3,
+          "queryLength": 101
+        }
+      ],
+      "longestKeyGapMs": 621.1,
+      "finalPreviewMatches": true,
+      "previewText": "Preview [ 22740 items 0 : { id : 0 name : charlie foxtrot 0 active : false total : 102.79 tags : [ 2 items ] address : { 2 props } } 1 : { 6 props } 2 : { 6 props } 3 : { 6 props } 4 : { 6 props } 5 :"
+    },
+    "lodash:450": {
+      "typedCharacters": 40,
+      "typingMs": 17549.7,
+      "previewRuns": 26,
+      "runs": [
+        {
+          "at": 300.6,
+          "ms": 254.6,
+          "queryLength": 62
+        },
+        {
+          "at": 863.6,
+          "ms": 365,
+          "queryLength": 63
+        },
+        {
+          "at": 1703.8,
+          "ms": 258.7,
+          "queryLength": 65
+        },
+        {
+          "at": 2550.5,
+          "ms": 216.5,
+          "queryLength": 67
+        },
+        {
+          "at": 3067.7,
+          "ms": 219.9,
+          "queryLength": 68
+        },
+        {
+          "at": 3588.4,
+          "ms": 234.1,
+          "queryLength": 69
+        },
+        {
+          "at": 4349.9,
+          "ms": 327,
+          "queryLength": 71
+        },
+        {
+          "at": 5250.1,
+          "ms": 340.7,
+          "queryLength": 73
+        },
+        {
+          "at": 6149.7,
+          "ms": 271.2,
+          "queryLength": 75
+        },
+        {
+          "at": 6721.6,
+          "ms": 213,
+          "queryLength": 76
+        },
+        {
+          "at": 7500.5,
+          "ms": 223.9,
+          "queryLength": 78
+        },
+        {
+          "at": 8025.1,
+          "ms": 215.6,
+          "queryLength": 79
+        },
+        {
+          "at": 8541.5,
+          "ms": 229.1,
+          "queryLength": 80
+        },
+        {
+          "at": 9300.6,
+          "ms": 217.2,
+          "queryLength": 82
+        },
+        {
+          "at": 9818.5,
+          "ms": 247,
+          "queryLength": 83
+        },
+        {
+          "at": 10651.5,
+          "ms": 248.7,
+          "queryLength": 85
+        },
+        {
+          "at": 11201.1,
+          "ms": 224.1,
+          "queryLength": 86
+        },
+        {
+          "at": 12000.1,
+          "ms": 252.7,
+          "queryLength": 88
+        },
+        {
+          "at": 12553.5,
+          "ms": 224.7,
+          "queryLength": 89
+        },
+        {
+          "at": 13351.1,
+          "ms": 267.5,
+          "queryLength": 91
+        },
+        {
+          "at": 13919.3,
+          "ms": 215.6,
+          "queryLength": 92
+        },
+        {
+          "at": 14699.9,
+          "ms": 378,
+          "queryLength": 94
+        },
+        {
+          "at": 15600.1,
+          "ms": 220.9,
+          "queryLength": 96
+        },
+        {
+          "at": 16121.7,
+          "ms": 236.9,
+          "queryLength": 97
+        },
+        {
+          "at": 16950.6,
+          "ms": 320.3,
+          "queryLength": 99
+        },
+        {
+          "at": 17849.9,
+          "ms": 967.5,
+          "queryLength": 101
+        }
+      ],
+      "longestKeyGapMs": 678.7,
+      "finalPreviewMatches": true,
+      "previewText": "Preview [ 22740 items 0 : { id : 0 name : charlie foxtrot 0 active : false total : 102.79 tags : [ 2 items ] address : { 2 props } } 1 : { 6 props } 2 : { 6 props } 3 : { 6 props } 4 : { 6 props } 5 :"
+    }
+  },
+  "typingPage": {
+    "policy": "default-src 'none'; script-src 'nonce-iod2PG3mo9rvRA8HzCBxSg==' 'wasm-unsafe-eval'; style-src 'self' https://*.vscode-cdn.net 'nonce-iod2PG3mo9rvRA8HzCBxSg=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    "criterion9Failures": [],
+    "cspViolations": [],
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36"
+  }
+}

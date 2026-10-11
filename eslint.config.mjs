@@ -12,6 +12,8 @@ export default defineConfig(
   includeIgnoreFile(path.join(import.meta.dirname, '.gitignore'), '.gitignore'),
   // Vendored json5-tests fixtures (002 T5): some `.js` cases are invalid on purpose.
   globalIgnores(['packages/core/test/fixtures/json5-tests/']),
+  // Query cases (011 T2): scripts that define `query` for the engine, with Lodash's `_` in scope.
+  globalIgnores(['tests/query/*/']),
   {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [js.configs.recommended],
