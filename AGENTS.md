@@ -27,7 +27,7 @@ Understand pt-BR input; always respond in English.
   repair, query, schema validation and compare without sending data anywhere.
 - **Owner:** Chris (human; sole approver of human gates G0, G1, G2 and of every spec).
 - **Repository:** [`christian-vrl/chr-json-vscode-editor`](https://github.com/christian-vrl/chr-json-vscode-editor)
-  on GitHub, private during the beta, public after (UNK-001).
+  on GitHub, public since 2026-10-11 (UNK-001, amended).
 - **Roles:**
   - **Coordinator** — the project's channel session. Starts one Implementer thread per runnable
     task and one Reviewer thread per PR, tells the owner when a human gate is reached, and

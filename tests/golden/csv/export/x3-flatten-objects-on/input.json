@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "address": {
+      "city": "Oslo",
+      "geo": {
+        "lat": 59.9,
+        "lon": 10.7
+      }
+    }
+  },
+  {
+    "id": 2,
+    "address": {
+      "city": "Lima"
+    }
+  }
+]

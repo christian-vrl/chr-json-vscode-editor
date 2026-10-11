@@ -83,7 +83,8 @@ the array of items and whose edits follow §Line rules.
    UNK-035 (`data.json` → `data.jsonl`; from JSON Lines, the target's extension), opened in the
    editor the command ran from. A source whose root is not an array is not converted to JSON Lines:
    the message reads "JSON Lines needs an array at the root." and nothing is written. A source with
-   an `error` diagnostic (a bad line included) is not converted (006 criterion 7).
+   an `error` diagnostic (a bad line included) is not converted (006 criterion 7); for a JSON Lines
+   source the message names "Repair Lines" instead of "Repair JSON", which JSON Lines tabs do not offer.
 10. **Large files (e2e):** a JSON Lines document above the threshold opens in spec 008's large-file
     mode, in Table mode, with 008's banner, read-only and unlockable as 008 criteria 2–4 say; with a
     bad line, both banners show and "Edit anyway" does not unlock until no bad line is left.
@@ -142,7 +143,7 @@ the array of items and whose edits follow §Line rules.
   `eol`, final newline per `style` (an empty array gives `""`), and throws a `TypeError` for data
   that is not an array or holds a non-finite number; `sort` of `""` reorders whole lines (002 R13,
   blank lines keep their place), nested sorts apply to one item as L7; `compact` compacts each item
-  as 002 R12; `prettyPrint` throws a `PatchError` ("Format is not available for JSON Lines.").
+  as 002 R12 (used by J2 and L10; the UI does not offer Compact for JSON Lines, criterion 6); `prettyPrint` throws a `PatchError` ("Format is not available for JSON Lines.").
 
 ## Conversion rules (golden cases encode these)
 - **J1 JSON Lines → JSON, JSONC or JSON5:** `[` + `eol` + each item's value bytes, indented by two

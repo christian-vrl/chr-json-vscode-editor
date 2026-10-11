@@ -35,6 +35,8 @@ The owner picked the recommended options of UNK-050 (own format) and UNK-051 (re
 - `core` stays pure TypeScript with no DOM and no Node APIs; `jsonl` is exported through the same
   `Format`, `getAdapter`, `detect`, `convert` and `parseData`; `repairLines` is exported from
   `@chr-json-editor/core`. No new runtime dependency.
+- A leading BOM (L1, J1) is tested only in the core golden cases (criterion 2): VS Code strips a
+  leading BOM from the document text, so the e2e suites cannot see one.
 - Adding `'jsonl'` to `Format` must not change any existing format's behavior: every existing
   golden, convert and property suite stays green unchanged (D3).
 - Switches over `Format` (picker, convert menus, `when` clauses, stringify, actions) handle `jsonl`

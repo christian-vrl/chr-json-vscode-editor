@@ -23,6 +23,7 @@ with comments and style kept.
 4. Switching tree → text → table → tree leaves the document bytes unchanged.
 5. Each of format, compact, sort keys, search/replace, repair, and transform with JSONQuery, JMESPath and JSONPath, run on `tests/e2e/fixtures/<feature>/input.json`, produces `expected.json` byte-for-byte.
 6. The webview HTML's CSP has `default-src 'none'`, `script-src` with a nonce only, `style-src` limited to the webview source and nonce, `connect-src 'none'`, and no `unsafe-eval`; `pnpm check:offline` passes.
+   *Amended for the CHR JSON editor webview by spec 011 criterion 9 (UNK-048, owner, 2026-10-11; ADR-011): its `script-src` may also hold `'wasm-unsafe-eval'`, and nothing else changes. Other webviews keep this criterion as written.*
 7. With CSS variables from `tests/themes/{light,dark,hc}.json` (captured from VS Code's default themes by `scripts/capture-themes.ts`), the app-shell passes axe-core's `color-contrast` rule (`pnpm test:web`).
 8. A status-bar item shows the detected format; choosing another format re-parses without changing bytes.
 9. Typing in text mode updates the document within one debounce interval; invalid text shows an error marker and does not overwrite the document with repaired content.

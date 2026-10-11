@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** Write the CSV corpus in `tests/golden/csv/export/` and `tests/golden/csv/import/`:
+- [x] **T1** Write the CSV corpus in `tests/golden/csv/export/` and `tests/golden/csv/import/`:
   hand-written `expected.csv` bytes, `expected.json` data, `warnings.json` and `error.json`,
   `options.json` and `case.json` tags, plus the coverage test; add the folder to `.prettierignore`
   and to `pnpm test:golden`. Needs UNK-043 resolved. — needs: 002 T1 (golden corpus and
@@ -12,7 +12,7 @@
   PASS on X1–X7 and I1–I7 per case*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** `jsonToCsv`, `csvToJson` and `detectDelimiter` in `packages/core/src/csv/`, exported
+- [x] **T2** `jsonToCsv`, `csvToJson` and `detectDelimiter` in `packages/core/src/csv/`, exported
   from `@chr-json-editor/core`; fast-check suite for criterion 3 (seed committed, 10 000 runs);
   export and import times at 1, 10 and 50 MiB on the `bench/generate.mjs` documents (arrays of
   records) recorded in the PR body. — needs: 009 T1 — *gate: criterion 1 all cases green; criterion 3
