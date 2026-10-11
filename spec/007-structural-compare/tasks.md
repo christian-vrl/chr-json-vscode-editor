@@ -21,7 +21,7 @@
   parse-error state. — needs: 007 T2, T3 — *gate: criteria 4–9 green in `pnpm test:e2e`; `pnpm check:offline` green*
 
 ## Phase C — Limits (risk-free / additive)
-- [ ] **T5** Benchmark compare (open to first render, and `compare` alone) on the 002 bench
+- [x] **T5** Benchmark compare (open to first render, and `compare` alone) on the 002 bench
   generator at 1, 5, 10, 50 MiB with about 1% of array items changed, on the CI runner; commit
   `bench/compare.md`; resolve UNK-037 per its rule and implement criterion 10's fallback. — *gate:
   `bench/compare.md` committed; criterion 10 e2e green; UNK-037 resolved per the delegation rule*

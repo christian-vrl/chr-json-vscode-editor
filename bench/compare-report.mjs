@@ -30,7 +30,8 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-const ms = (value) => (value === undefined ? '—' : Math.round(value).toLocaleString('en-US'));
+const ms = (value) =>
+  value === undefined ? '—' : value < 0.5 ? '< 1' : Math.round(value).toLocaleString('en-US');
 const gib = (bytes) => (bytes / 2 ** 30).toFixed(1);
 const ok = (runs) => runs.length > 0 && !runs.some((r) => typeof r === 'object' && r.error);
 const values = (runs, key) => runs.map((r) => (key ? r[key] : r));
