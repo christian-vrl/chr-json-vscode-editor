@@ -34,7 +34,9 @@ produced by the code under test, and changes only with a spec change (`AGENTS.md
 - `reference.test.ts` — the reference half of criterion 1: every case without `error.json` and
   without a Q2 tag gives `expected.json5` in the reference, key order checked; every error case
   without a Q2 tag makes the reference throw, with `error.json`'s text unless the case is marked
-  `engineMessage` (below). The engine half, `runQuery` against every case, is 011 T3's.
+  `engineMessage` (below).
+- `run-query.test.ts` — the engine half of criterion 1 (011 T3): `runQuery` gives every case's
+  `expected.json5`, key order checked, or a `QueryError` whose message contains `error.json`'s text.
 
 ## `case.json`
 
