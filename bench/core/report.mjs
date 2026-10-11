@@ -1,4 +1,5 @@
-// Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7) from
+// Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
+// spec 010 criterion 11) from
 // `bench/core/run.mjs`'s raw results.
 // Every number in the report comes from that file; the text around them says what each one covers.
 //
@@ -24,6 +25,9 @@ const OPS = ['replace', 'add', 'remove', 'move'];
 const LIGHT_SHARE = 0.5;
 const LIGHT_FORMATS = ['jsonc', 'json5'];
 const LIGHT_SIZES = [10, 50];
+// Spec 010 criterion 11's hypothesis: smart format's 5 MiB median under 5 s on the CI runner.
+const SMART_LIMIT_MS = 5000;
+const SMART_JUDGED_MIB = 5;
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -48,7 +52,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  '> Spec 002 criterion 7 and spec 008 criterion 7. Written by `bench/core/report.mjs` from one benchmark run; do not edit',
+  '> Spec 002 criterion 7, spec 008 criterion 7 and spec 010 criterion 11. Written by `bench/core/report.mjs` from one benchmark run; do not edit',
   '> by hand. Re-run it (the `bench` workflow) whenever `packages/core/src/formats` changes speed.',
   '',
   '## Run',
@@ -177,6 +181,39 @@ add(
     : lightFailed
       ? 'Verdict: **criterion 7 does not hold** in this run.'
       : 'Verdict: criterion 7 holds in this run.',
+);
+
+add(
+  '',
+  '## Spec 010 criterion 11: smart format',
+  '',
+  '`smartFormat(text, format)` (FracturedJson 5.1.0 with spec 010 §Layout, 010 T2) beside',
+  "Format's `getAdapter(format).prettyPrint(text)`, on the same files at 1 MiB and at the 5 MiB",
+  'threshold above which smart format is off (criterion 10). Each call parses the text it formats.',
+  `HYPOTHESIS: the 5 MiB median is under ${ms(SMART_LIMIT_MS)} ms on the CI runner.`,
+  '',
+  '| Format | Size | smartFormat | prettyPrint | smartFormat ÷ prettyPrint | output size |',
+  '|---|---|---|---|---|---|',
+);
+let smartMissed = false;
+for (const f of results.smart ?? []) {
+  for (const s of f.sizes) {
+    const share = median(s.smartFormat) / median(s.prettyPrint);
+    if (s.mib === SMART_JUDGED_MIB && median(s.smartFormat) >= SMART_LIMIT_MS) smartMissed = true;
+    add(
+      `| ${f.format} | ${s.mib} MiB | ${cell(s.smartFormat)} | ${cell(s.prettyPrint)} | ${share.toFixed(1)}× | ${(s.smartBytes / 2 ** 20).toFixed(2)} MiB |`,
+    );
+  }
+}
+add(
+  '',
+  !results.smart
+    ? 'Verdict: not measured in this run.'
+    : !runUrl
+      ? `Verdict: not judged (not the CI runner); the 5 MiB medians are ${smartMissed ? '**not** ' : ''}under ${ms(SMART_LIMIT_MS)} ms on this machine.`
+      : smartMissed
+        ? `Verdict: **the hypothesis does not hold**: a 5 MiB median is ${ms(SMART_LIMIT_MS)} ms or more, so an UNKNOWN goes to the owner (criterion 11).`
+        : `Verdict: the hypothesis holds in this run (every 5 MiB median is under ${ms(SMART_LIMIT_MS)} ms).`,
 );
 
 add(

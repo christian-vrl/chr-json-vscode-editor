@@ -170,6 +170,9 @@ function noValue(text: string): boolean {
 /** Each format's `Doc` for a text, as its edits open it (for tests of `Doc.without`). */
 export const openDocs = new Map<'json' | 'jsonc', Open>();
 
+/** Each format's tokens of a text, from the same cached parse as `parse` (smart format, 010 T2). */
+export const parsedTokens = new Map<'json' | 'jsonc', (text: string) => Token[]>();
+
 function makeAdapter(format: 'json' | 'jsonc'): FormatAdapter {
   // Each text is parsed once, however many callers parse or edit it (cache.ts).
   const analysis = lastText((text) => analyze(text, format));
@@ -183,6 +186,7 @@ function makeAdapter(format: 'json' | 'jsonc'): FormatAdapter {
   };
   const edited: Open = (text) => open(analysis(text), text, format);
   openDocs.set(format, edited);
+  parsedTokens.set(format, (text) => analysis(text).tokens);
   return {
     format,
     parse: parsed,

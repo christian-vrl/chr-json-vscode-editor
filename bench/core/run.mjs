@@ -1,21 +1,25 @@
 // Core parse and single-edit benchmark (002 T8, spec 002 criterion 7): for each format (json,
 // jsonc, json5) and size (1, 10, 50 MiB), times `parse` and one-operation `applyPatch` calls
 // (replace, add, remove, move) on `@chr-json-editor/core` in Node, with no editor around it, and
-// `parseData` next to `parse` (008 T1, spec 008 criterion 7).
+// `parseData` next to `parse` (008 T1, spec 008 criterion 7), and `smartFormat` next to `prettyPrint`
+// at 1 and 5 MiB (010 T2, spec 010 criterion 11).
 // Writes the raw results as JSON; `bench/core/report.mjs` turns them into bench/RESULTS.md.
 // Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Each format and size
 // runs in its own Node process with `--expose-gc`, so every timed call starts from a collected heap.
 //
-//   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB)
+//   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB); smart format
+//                                                   always runs at 1 and 5 MiB
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
-import { getAdapter, parseData } from '@chr-json-editor/core';
+import { getAdapter, parseData, smartFormat } from '@chr-json-editor/core';
 import { documentText, LAST_MARKER, MIB } from '../generate.mjs';
 
 export const SIZES_MIB = [1, 10, 50];
+// Spec 010 criterion 11: 1 MiB and the 5 MiB threshold above which smart format is off.
+export const SMART_SIZES_MIB = [1, 5];
 export const FORMATS = ['json', 'jsonc', 'json5'];
 export const RUNS = 3;
 
@@ -216,6 +220,41 @@ function measure(format, mib) {
   return result;
 }
 
+/** Smart format and Format (`prettyPrint`) of one format and size, in a process of its own. Like
+ *  `measure`, calls alternate between two texts so each one parses the text it formats. */
+function measureSmart(format, mib) {
+  const bytes = mib * MIB;
+  const { text, records } = benchDocument(format, bytes);
+  const adapter = getAdapter(format);
+  const warm = benchDocument(format, MIB / 4);
+  for (let i = 0; i < 3; i++) {
+    smartFormat(warm.text, format);
+    adapter.prettyPrint(warm.text);
+  }
+  const at = text.lastIndexOf('.');
+  const texts = [text, `${text.slice(0, at)}-${text.slice(at + 1)}`];
+  let last = 0;
+  const unparsed = () => texts[(last = 1 - last)];
+  const result = { format, mib, bytes, records, smartFormat: [], prettyPrint: [] };
+  let formatted = '';
+  for (let run = 0; run < RUNS; run++) {
+    const input = unparsed();
+    const timed = time(() => smartFormat(input, format));
+    formatted = timed.result;
+    result.smartFormat.push(timed.ms);
+  }
+  for (let run = 0; run < RUNS; run++) {
+    const input = unparsed();
+    result.prettyPrint.push(time(() => adapter.prettyPrint(input)).ms);
+  }
+  // The output is the same document: it parses to the same number of records.
+  const parsed = adapter.parse(formatted);
+  if (parsed.diagnostics.some((d) => d.severity === 'error') || parsed.data.length !== records)
+    throw new Error(`${format} ${mib} MiB: smart format changed the document`);
+  result.smartBytes = Buffer.byteLength(formatted);
+  return result;
+}
+
 // Heap ceiling for the measuring processes. Node's default (about 2 GiB on the 8 GiB runner) is too
 // small for one 50 MiB parse; the default is recorded so the report can say which sizes exceed it.
 const HEAP_MIB = 6144;
@@ -224,6 +263,9 @@ const here = fileURLToPath(import.meta.url);
 if (process.argv[2] === '--child') {
   const [format, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measure(format, Number(mib))) + '\n');
+} else if (process.argv[2] === '--smart-child') {
+  const [format, mib] = process.argv.slice(3);
+  process.stdout.write(JSON.stringify(measureSmart(format, Number(mib))) + '\n');
 } else if (import.meta.url === `file://${process.argv[1]}`) {
   const [out, ...sizeArgs] = process.argv.slice(2);
   if (!out) {
@@ -261,10 +303,40 @@ if (process.argv[2] === '--child') {
       return result;
     }),
   }));
+  const smart = FORMATS.map((format) => ({
+    format,
+    sizes: SMART_SIZES_MIB.map((mib) => {
+      const stdout = execFileSync(
+        process.execPath,
+        [
+          '--expose-gc',
+          `--max-old-space-size=${HEAP_MIB}`,
+          here,
+          '--smart-child',
+          format,
+          String(mib),
+        ],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 20 },
+      );
+      const result = JSON.parse(stdout.trim().split('\n').pop());
+      const round = (runs) => runs.map(Math.round).join('/');
+      console.log(
+        `bench core: ${format} ${mib} MiB smartFormat ${round(result.smartFormat)} ms, prettyPrint ${round(result.prettyPrint)} ms`,
+      );
+      return result;
+    }),
+  }));
   writeFileSync(
     out,
     JSON.stringify(
-      { node: process.version, runs: RUNS, heapMiB: HEAP_MIB, defaultHeapLimitBytes, formats },
+      {
+        node: process.version,
+        runs: RUNS,
+        heapMiB: HEAP_MIB,
+        defaultHeapLimitBytes,
+        formats,
+        smart,
+      },
       null,
       2,
     ) + '\n',
