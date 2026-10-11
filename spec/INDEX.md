@@ -36,7 +36,7 @@ tasks run in order unless marked `parallel`.
 | 008-large-file-mode | Large-file mode: read-only tree and table above 5 MiB, lighter parse, 50 MB ceiling message | threshold 5 MiB (UNK-014); behavior per UNK-040; can run in parallel with 006 and 007 |
 | 009-csv | CSV import and export with options and preview, csv42's field-name notation | own code in `core`; replace document data via 002 R14 (UNK-042); can run in parallel with 007 and 008 |
 | 010-smart-format | Smart format: short arrays and objects on one line, tables, keeping keys, values and comments as written | FracturedJson 5.1.0 (MIT), as the site uses; key order per UNK-045, trailing commas per UNK-046, fixed options per UNK-047; off above 5 MiB; can run in parallel with 007–009 |
-| 011 | JavaScript and Lodash queries | uses ADR-010's eval location |
+| 011-js-queries | JavaScript and Lodash queries in the Transform dialog, run in a sealed engine (QuickJS) inside the page | eval location per ADR-011 / UNK-048 (amends 003 criterion 6 by `'wasm-unsafe-eval'`); above 5 MiB per UNK-049; can run in parallel with 007–010 |
 | 012 | NDJSON / JSON Lines in table mode | |
 | 013 | vscode.dev (web extension) build | |
 
