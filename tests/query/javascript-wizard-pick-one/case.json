@@ -1,0 +1,9 @@
+{
+  "language": "javascript",
+  "tags": ["pick"],
+  "wizard": {
+    "projection": {
+      "paths": [["name"]]
+    }
+  }
+}

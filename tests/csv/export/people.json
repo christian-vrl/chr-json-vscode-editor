@@ -1,0 +1,5 @@
+[
+  { "name": "Ada", "address": { "city": "London", "zip": "NW1" }, "tags": ["math", "poetry"] },
+  { "name": "Grace", "address": { "city": "New York", "zip": null }, "tags": ["navy"] },
+  { "name": "Linus, Jr.", "address": {}, "tags": [] }
+]

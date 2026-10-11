@@ -51,6 +51,42 @@
       "import": [",", ";", "\t", "|", "detect"]
     }
   },
+  "smartFormat": {
+    "layout": ["inline", "compact-array", "table", "expanded"],
+    "comments": [
+      "none",
+      "before",
+      "after",
+      "inline",
+      "standalone",
+      "multi-line-block",
+      "between-key-and-value",
+      "header",
+      "footer",
+      "with-warning"
+    ],
+    "trailingComma": ["yes", "no"],
+    "special": [
+      "none",
+      "key-order",
+      "unquoted-key",
+      "single-quote",
+      "hex",
+      "infinity-nan",
+      "plus-sign",
+      "leading-dot",
+      "line-continuation"
+    ],
+    "style": [
+      "indent-tab",
+      "indent-2",
+      "indent-4",
+      "crlf",
+      "no-final-newline",
+      "bom",
+      "one-line-input"
+    ]
+  },
   "jsonl": {
     "rules": ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"],
     "op": ["add", "replace", "remove", "move", "copy", "test", "test-fail"],

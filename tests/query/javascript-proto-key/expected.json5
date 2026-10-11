@@ -1,0 +1,5 @@
+{
+  keys: ['__proto__', 'name'],
+  copy: { '__proto__': { admin: true }, name: 'x', extra: 1 },
+  inherited: true,
+}

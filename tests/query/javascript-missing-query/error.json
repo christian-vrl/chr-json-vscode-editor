@@ -1,0 +1,3 @@
+{
+  "message": "Cannot execute query: expecting a function named 'query' but is undefined"
+}

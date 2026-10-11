@@ -11,7 +11,7 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 | Command | Runs |
 |---|---|
 | `pnpm test:golden` | every test in this folder |
-| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2) and `jsonl-coverage.test.ts` (spec 012 criterion 2) |
+| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2), `smart-format-coverage.test.ts` (spec 010 criterion 2) and `jsonl-coverage.test.ts` (spec 012 criterion 2) |
 | `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
@@ -247,6 +247,80 @@ with "Flatten nested arrays" on (UNK-058), ragged records with the header off (U
 that hits a name already used (UNK-060), a conflicting name whose flat key a nested member holds
 (UNK-061), and empty lines during delimiter detection (UNK-062). `NaN` and `Infinity` cells (X5),
 which `input.json` cannot hold, are tested there too.
+
+## Smart-format corpus (spec 010)
+
+`smart-format/<format>/<case>/` holds `input.<ext>`, `expected.<ext>` and `case.json`. A case
+passes when `smartFormat(input, format)` returns `expected` byte for byte (criterion 1, 010 T2).
+Unlike the other corpora, the expected bytes were not written by hand: the layout is FracturedJson
+5.1.0's (`fracturedjsonjs`, MIT) with spec 010 §Layout's options, so each `expected.*` was produced
+by running it on the input (plan 010, step A) and then checked by hand against L1–L8: indent unit,
+line endings, final newline and BOM (L1, L2), every comment kept (L3), blank lines kept (L4), key
+order (L5), trailing commas (L6), JSON5 tokens byte for byte (L7). Like every expected file, they
+change only with a spec change, and an upgrade of `fracturedjsonjs` is a PR that regenerates and
+re-reviews them (plan 010, constraints). The run used `FracturedJsonOptions.Recommended()` with
+`CommentPolicy.Preserve`, `PreserveBlankLines`, `AllowTrailingCommas`, `JsonEolStyle` from the
+input, and `UseTabToIndent` (tab) or `IndentSpaces` (N spaces) from the input's indent unit, with
+the readings below for L5–L7.
+
+- `case.json`: `{"layout": [...], "comments": [...], "trailingComma": "yes" | "no", "special":
+  [...], "style": [...]}` (criterion 2). `layout` lists the layouts expected uses: `inline` (a
+  container on one line), `compact-array` (several items per line over several lines), `table`
+  (rows with aligned columns), `expanded` (one member per line). `comments` lists the comments
+  the input has (`none` when it has none): `before` (a comment line above a member), `after` (at
+  the end of a member's line), `inline` (a block comment after a value, before its comma),
+  `standalone` (a comment line set apart by blank lines), `multi-line-block`, `between-key-and-value`,
+  `header` (before the root value), `footer` (after it); `with-warning` is a json input with a
+  comment. `trailingComma` says whether the input has one. `special` lists `key-order` (two
+  objects in one container that list shared keys in different orders, UNK-045) and the JSON5
+  literals the input has (`unquoted-key`, `single-quote`, `hex`, `infinity-nan`, `plus-sign`,
+  `leading-dot`, `line-continuation`), or `none`. `style` names the input's indent unit
+  (`indent-tab`, `indent-2`, `indent-4`, or `one-line-input` for a text with no line break) and
+  `crlf`, `no-final-newline` and `bom` when they apply. The vocabulary is `smartFormat` in
+  `tags.json`.
+
+Tests: `smart-format.ts` loads the cases and lists the criterion 2 cells no case covers
+(`smart-format-coverage.test.ts`, run by `--coverage-only`); `smart-format-load.test.ts` tests the
+loader; `smart-format-corpus.test.ts` checks facts that use neither core's format code nor
+FracturedJson, with a scanner of its own: expected has the input's data (json5's `parse`) and the
+input's kept tokens in order, byte for byte (criterion 3; a multi-line block comment's later lines
+may change their leading white space); a container ends with a trailing comma exactly when it had
+one and is written on several lines, never in json (L6); the BOM, line breaks and final newline
+are the input's and every line is indented in the input's unit (criterion 5); a line over 120
+characters holds at most one key and one scalar (criterion 6); and the `style`, `trailingComma`,
+`special` and some `comments` tags match the input. The Reviewer checks `layout` and the other
+`comments` tags.
+
+Readings the smart-format corpus takes where spec 010 leaves a detail open:
+
+1. **Table segments and key order** (L5, UNK-045). A run of rows FracturedJson would write as one
+   table is taken row by row: a row joins the current table unless the table's columns, measured
+   over the rows so far and that row, would write any of them (nested objects included) with its
+   keys in another order; then a new table starts at that row. A table may have one row.
+   (`json/key-order-rows`, `jsonc/key-order-rows`.)
+2. **Compact arrays and key order** (L5). A compact array whose items FracturedJson would align as
+   table rows, and whose column template would reorder one of them, is still a compact array, but
+   its items are written as they are, one after another with no column alignment
+   (`json5/key-order-rows`).
+3. **Trailing comma placement** (L6, UNK-046). The comma goes right after the last member's value,
+   before its same-line comment and any padding (`jsonc/key-order-rows`,
+   `jsonc/compact-array-trailing-comma-crlf`). Containers are matched by the order of their opening
+   brackets, which smart format does not change.
+4. **JSON5 tokens in FracturedJson** (L7). Each JSON5-only token (unquoted key, single-quoted
+   string, a string with an escape JSON lacks or a line continuation, hex, `Infinity`, `NaN`, a
+   number with a `+` or a leading or trailing `.`) goes through FracturedJson as a JSON string that
+   stands in for it, the same stand-in for the same bytes, and its width is the token's own length
+   in UTF-16 code units, line breaks included. So such a number lines up as a string, not by its
+   decimal point (`json5/number-literals`), and a string with a line continuation counts its whole
+   length on one line (`json5/line-continuation-tab`).
+5. **Tab indent width** (L1, criterion 6). With a tab indent, FracturedJson counts a tab as 4
+   columns (its default `IndentSpaces`) for line length, and criterion 6 counts it the same way.
+6. **Comma before a comment.** FracturedJson writes a member's comma after a same-line block
+   comment that follows the value (`"ports": [80, 443] /* web */,` from `[80, 443], /* web */`);
+   commas are layout tokens (spec 010 §Terms), so criterion 3 allows it (`json/comment-with-warning`).
+
+Not in the corpus: a text with no value (criterion 5 returns it unchanged), broken input
+(criterion 9) and large inputs (criteria 10, 11) are tested by 010 T2 and T3 in unit and e2e tests.
 
 ## JSON Lines corpus (spec 012)
 

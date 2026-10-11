@@ -1,0 +1,6 @@
+{
+  // Comments are not JSON, but a .json file that has them keeps them (L3).
+  "name": "demo",
+  "ports": [80, 443], /* web */
+  "debug": false
+}

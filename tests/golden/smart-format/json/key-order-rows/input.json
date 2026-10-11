@@ -1,0 +1,13 @@
+{
+  "rows": [
+    {"id": 1, "name": "Ann", "city": "Lisbon"},
+    {"id": 2, "name": "Bob", "city": "Porto"},
+    {"name": "Cy", "id": 3, "city": "Faro"},
+    {"name": "Di", "id": 4, "city": "Braga"},
+    {"id": 5, "city": "Evora", "name": "Ed"}
+  ],
+  "byCode": {
+    "pt": {"name": "Portugal", "capital": "Lisbon", "population": 10300000},
+    "br": {"capital": "Brasilia", "name": "Brazil", "population": 203000000}
+  }
+}

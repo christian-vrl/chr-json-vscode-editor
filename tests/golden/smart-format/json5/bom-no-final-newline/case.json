@@ -1,0 +1,19 @@
+{
+  "layout": [
+    "expanded",
+    "inline"
+  ],
+  "comments": [
+    "before"
+  ],
+  "trailingComma": "yes",
+  "special": [
+    "unquoted-key",
+    "single-quote"
+  ],
+  "style": [
+    "indent-4",
+    "bom",
+    "no-final-newline"
+  ]
+}
