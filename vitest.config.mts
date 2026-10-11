@@ -30,6 +30,7 @@ export default defineConfig({
             'tests/gate-review/**/*.test.ts',
             'tests/ci/**/*.test.ts',
             'tests/schema/**/*.test.ts',
+            'tests/query/**/*.test.ts',
           ],
         },
       },

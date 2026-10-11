@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { registerCommands, testCeiling } from './commands';
 import { registerCompareCommands, testCompare } from './compareCommands';
+import { COMPARE_LIMIT_BYTES } from './compareModel';
 import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
 import { OPEN_COMMAND } from './commands';
@@ -16,7 +17,7 @@ import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
 import type { HeadResult } from './gitHead';
 import { readHeadOf } from './gitHeadVscode';
-import { detect } from '@chr-json-editor/core';
+import { cachedParseTexts, detect } from '@chr-json-editor/core';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -51,6 +52,10 @@ export interface TestHooks {
    *  function is called for each question and gives its answer. Returns the questions asked since
    *  the previous call (003 T8, UNK-018). */
   confirm(answer: TestAnswer | undefined): string[];
+  /** Has the webview of `uri` post `message` to the host as it is (spec 008 plan R3). */
+  send(uri: string, message: unknown): boolean;
+  /** The texts whose full parse core keeps now (spec 008 criterion 8). */
+  cachedParses(): string[];
   /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
   selectDialect(uri: string, dialect: string): boolean;
   /** Reads `uri`'s committed bytes from Git HEAD (007 T2, UNK-038). */
@@ -97,6 +102,10 @@ export interface TestHooks {
   ): { saveAs: string[]; messages: string[] };
   /** What `csv` returns, without changing its answers. */
   csvSeen(): { saveAs: string[]; messages: string[] };
+  /** 007 T5: the compare size limit in bytes in place of UNK-037's (undefined: UNK-037's), and the
+   *  answer to the text diff offered above it (true: open it, false: dismiss it, undefined: show
+   *  the message). Returns UNK-037's limit. */
+  compareLimit(limit: number | undefined, textDiff: boolean | undefined): number;
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -147,6 +156,8 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         click: (uri, title) => provider.click(uri, title),
         formatBadge: () => formatBadge.snapshot(),
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
+        send: (uri, message) => provider.send(uri, message),
+        cachedParses: () => cachedParseTexts(),
         dom: (uri, steps) => provider.dom(uri, steps),
         readHead: (uri) => readHeadOf(vscode.Uri.parse(uri)),
         compares: () => compares.snapshots,
@@ -189,6 +200,11 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         comparePick(answer) {
           testCompare.pick = answer;
           return testCompare.messages.splice(0);
+        },
+        compareLimit(limit, textDiff) {
+          testCompare.limit = limit;
+          testCompare.textDiff = textDiff;
+          return COMPARE_LIMIT_BYTES;
         },
         convert(answer) {
           const saveAs = convertSaveAs.splice(0);

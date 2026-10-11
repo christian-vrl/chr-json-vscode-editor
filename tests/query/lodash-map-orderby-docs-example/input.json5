@@ -1,0 +1,5 @@
+[
+  { name: 'Eva', address: { city: 'Rome' } },
+  { name: 'Ian', address: { city: 'Oslo' } },
+  { name: 'Ola', address: { city: 'Lima' } },
+]

@@ -14,11 +14,20 @@
 // Undo, redo and save stay VS Code's (003 T7, spec 003 criterion 3): the webview's undo and redo
 // keys and buttons send `undo` and `redo`, which run VS Code's own commands on the document's undo
 // stack, and before VS Code saves the document the webview is asked to `flush` the typing it holds.
+//
+// Large-file mode (spec 008 T3): a tab whose document text is above 5 MiB in UTF-8 when it opens
+// is a large-file tab for its whole life (criterion 1), and starts locked: `init` says so, the host
+// answers any `edit` with the `read-only` error and ignores undo and redo from it (plan R3), and
+// the format badge, validation and `$schema` read the text with core's data-only parse
+// (largeFile.ts, criterion 8). "Edit anyway" (`unlock`) puts the tab on the normal path until it
+// closes, kept here so a reloaded webview gets it back; "Open as Text" (`openAsText`) runs
+// "Reopen as Text" on the document.
 import * as vscode from 'vscode';
 import {
   decodeToHost,
   PROTOCOL_VERSION,
   type Format,
+  type LargeFile,
   type Mode,
   type SchemaError,
   type ToHostMessage,
@@ -28,6 +37,7 @@ import {
 import { detect, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
+import { largeFileFor, READ_ONLY_MESSAGE } from './largeFile';
 import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding } from './schemaBinding';
@@ -51,12 +61,20 @@ export interface WebviewSnapshot {
   localResourceRoots: string[];
   /** The webview script sent `ready`: the nonce, `localResourceRoots` and `asWebviewUri` line up. */
   scriptLoaded: boolean;
+  /** How many times it sent `ready`: once more each time the webview reloads. */
+  readies: number;
   /** Every `validation` message the webview script decoded, as it reported it back (004 T2). */
   validationsShown: ShownValidation[];
   /** How many `edit` messages the webview sent (criterion 2: none for an external change). */
   editsReceived: number;
   /** How many `flush` requests the host posted before a save (003 T7). */
   flushRequests: number;
+  /** The tab's large-file state now, as `init` sends it (spec 008); null for the normal editor. */
+  largeFile: LargeFile | null;
+  /** `edit` messages refused because the tab is locked (spec 008 criterion 2, plan R3). */
+  readOnlyRefusals: number;
+  /** `undo` and `redo` messages ignored because the tab is locked. */
+  historyIgnored: number;
 }
 
 /** What the webview reports after decoding a `validation` message. */
@@ -80,6 +98,13 @@ interface Session {
   flushes: Map<number, () => void>;
   /** `getRowSource` requests waiting for the webview's `rowSource`, by request number (009 T4). */
   rowSources: Map<number, (path: string) => void>;
+  /** Large-file mode, chosen when the tab opened (spec 008); null for the normal editor. */
+  largeFile: LargeFile | null;
+}
+
+/** A large-file tab the user has not chosen "Edit anyway" for. */
+function isLocked(session: { largeFile: LargeFile | null }): boolean {
+  return session.largeFile !== null && !session.largeFile.unlocked;
 }
 
 /**
@@ -139,11 +164,14 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       stylesheets: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css')).toString()],
       body: '<main id="app"></main>',
     });
-    this.formatBadge.track(document, panel);
+    // Measured once: the mode stays whatever later edits do to the size (criterion 1).
+    const largeFile = largeFileFor(document.getText());
+    const locked = () => isLocked(session);
 
     const validation = new DocumentValidation({
       snapshot: () => ({ text: document.getText(), docVersion: document.version }),
       format: () => this.formatOf(document),
+      dataOnly: locked,
       post: (message) => this.post(session, message),
     });
     const schema = new SchemaBinding(
@@ -151,6 +179,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         documentUri: () => document.uri.toString(true),
         text: () => document.getText(),
         format: () => this.formatOf(document),
+        dataOnly: locked,
         settings: () => {
           const workspace = vscodeSchemaWorkspace();
           return {
@@ -168,6 +197,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       ready: false,
       flushes: new Map(),
       rowSources: new Map(),
+      largeFile,
       validation,
       schema,
       sync: new DocumentSync({
@@ -200,6 +230,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     };
     this.sessions.set(panel, session);
     this.validations.set(panel, session.validation);
+    this.formatBadge.track(document, panel, locked);
     // Before the webview is ready, so the first `validation` goes out with the `ready` answer.
     void session.schema.refresh();
 
@@ -212,9 +243,13 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         enableScripts: webview.options.enableScripts ?? false,
         localResourceRoots: (webview.options.localResourceRoots ?? []).map((u) => u.toString()),
         scriptLoaded: false,
+        readies: 0,
         validationsShown: [],
         editsReceived: 0,
         flushRequests: 0,
+        largeFile,
+        readOnlyRefusals: 0,
+        historyIgnored: 0,
       };
       this.snapshots.set(panel, snapshot);
     }
@@ -228,6 +263,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       }
       if (__CHR_TEST_HOOKS__ && snapshot && decoded.message.type === 'ready') {
         snapshot.scriptLoaded = true;
+        snapshot.readies++;
       }
       this.receive(session, decoded.message);
     });
@@ -289,13 +325,24 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           format: this.formatOf(document),
           mode: 'tree',
           settings: {},
-          // Large-file mode (spec 008) is chosen here by 008 T3; until then every tab is normal.
-          largeFile: null,
+          largeFile: session.largeFile && { ...session.largeFile },
         });
         session.validation.run();
         return;
       case 'edit':
         if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.editsReceived++;
+        if (isLocked(session)) {
+          // The webview sends none while locked; the host still applies none (plan R3).
+          if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.readOnlyRefusals++;
+          this.post(session, {
+            protocol: PROTOCOL_VERSION,
+            type: 'error',
+            docVersion: document.version,
+            code: 'read-only',
+            message: READ_ONLY_MESSAGE,
+          });
+          return;
+        }
         void session.sync.edit(message);
         return;
       case 'setDialect':
@@ -303,6 +350,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         return;
       case 'undo':
       case 'redo':
+        if (isLocked(session)) {
+          if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.historyIgnored++;
+          return;
+        }
         void session.sync.history(message.type);
         return;
       case 'flushed':
@@ -314,9 +365,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         session.rowSources.delete(message.request);
         return;
       case 'openAsText':
+        // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open.
+        void vscode.commands.executeCommand('chrJsonEditor.reopenAsText', document.uri);
+        return;
       case 'unlock':
-        // Only a large-file tab's banner sends these, and no tab opens in large-file mode before
-        // 008 T3 wires the host side.
+        // Only a large-file tab's banner sends it; the tab stays unlocked until it closes.
+        if (!session.largeFile || session.largeFile.unlocked) return;
+        session.largeFile = { ...session.largeFile, unlocked: true };
+        if (__CHR_TEST_HOOKS__) {
+          this.snapshots.get(session.panel)!.largeFile = { ...session.largeFile };
+        }
         return;
       case 'error':
         void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);
@@ -526,6 +584,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return false;
     void session.panel.webview.postMessage({ chrTest: 'select', path });
+    return true;
+  }
+
+  /** Test hook: has the webview of `uri` post `message` to the host as it is, past the UI's own
+   *  checks (spec 008 plan R3: what the host does with an `edit` from a locked tab). */
+  send(uri: string, message: unknown): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'send', message });
     return true;
   }
 

@@ -53,3 +53,30 @@ describe('parserFor', () => {
     expect(parserFor('jsonc')).not.toBe(parserFor('json'));
   });
 });
+
+// Large-file tabs (spec 008 criterion 8) read the data alone with core's `parseData`.
+describe('parserFor(format, large)', () => {
+  it.each([
+    ['json', '{"a": [1, 2]}', { a: [1, 2] }],
+    ['jsonc', '{\n  // c\n  "a": [1, 2,],\n}', { a: [1, 2] }],
+    ['json5', "{a: 'b', h: 0x10,}", { a: 'b', h: 16 }],
+  ] as const)('reads %s as the normal parser does', (format, text, data) => {
+    expect(parserFor(format, true).parse(text)).toEqual(data);
+    expect(parserFor(format, true).parse(text)).toEqual(parserFor(format).parse(text));
+  });
+
+  it.each([
+    ['json', '{"a": }'],
+    ['jsonc', '[1 2'],
+    ['json5', '{a: }'],
+    ['json5', ''],
+    ['jsonc', '  '],
+  ] as const)('throws for %s that does not parse: %j', (format, text) => {
+    expect(() => parserFor(format, true).parse(text)).toThrow(SyntaxError);
+  });
+
+  it('is its own object per format, kept until asked for another', () => {
+    expect(parserFor('jsonc', true)).toBe(parserFor('jsonc', true));
+    expect(parserFor('jsonc', true)).not.toBe(parserFor('jsonc'));
+  });
+});

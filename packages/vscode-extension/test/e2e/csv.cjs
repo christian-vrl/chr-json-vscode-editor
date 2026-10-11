@@ -3,8 +3,9 @@
 // panel (5); its buttons save, copy, create a JSON file opened in the CHR JSON Editor, or replace
 // the document's data as one undoable edit, byte for byte as tests/csv/replace/*/expected-after.*
 // (4); the row source follows table mode and tree mode's selection (7); a CSV file above the
-// threshold imports in full, one above the ceiling is not read, and a created JSON file above the
-// ceiling is written and shows 008 criterion 9's message when it opens (8). The fixtures are copied
+// threshold imports in full and the JSON file it creates opens in large-file mode, one above the
+// ceiling is not read, and a created JSON file above the ceiling is written and shows 008
+// criterion 9's message when it opens (8). The fixtures are copied
 // into run.mjs's scratch folder, so the copies never touch the repository's files.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -419,7 +420,12 @@ exports.runCsv = async function runCsv({
         label: `row number ${rows.length - 1} of the large file`,
         even: (rows.length - 1) % 2 === 0,
       });
+      // Above the threshold, the created file opens in spec 008's large-file mode.
       await expectOnly(vscode.Uri.file(created), 'custom', isCustom);
+      const view = () =>
+        hooks.webviews().find((w) => w.uri === vscode.Uri.file(created).toString());
+      await waitFor('the big.json webview', () => view() !== undefined);
+      assert.deepEqual(view().largeFile, { bytes: fs.statSync(created).size, unlocked: false });
       await closeAll();
 
       const huge = write('huge.csv', Buffer.alloc(CEILING + 1, 'a'));

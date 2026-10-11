@@ -1,0 +1,5 @@
+[
+  { id: 3, total: 3 },
+  { id: 1, total: 12 },
+  { id: 2, total: 7.5 },
+]

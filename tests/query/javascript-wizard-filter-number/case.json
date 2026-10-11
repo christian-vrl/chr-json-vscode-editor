@@ -1,0 +1,11 @@
+{
+  "language": "javascript",
+  "tags": ["filter"],
+  "wizard": {
+    "filter": {
+      "path": ["age"],
+      "relation": ">",
+      "value": "30"
+    }
+  }
+}

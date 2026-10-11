@@ -10,7 +10,9 @@ const texts = [
   ...selectGoldenCases(loadGoldenCases(), filterFromEnv()).map(
     (c) => [`${c.format}/${c.name}`, c.input, c.expected] as const,
   ),
-  ...loadConvertCases().map((c) => [`convert/${c.pair}/${c.name}`, c.input, c.expected] as const),
+  ...loadConvertCases().map(
+    (c) => [`convert/${c.pair}/${c.name}`, c.input, c.expected ?? c.input] as const,
+  ),
 ];
 
 describe.each(texts)('%s', (_, input, expected) => {

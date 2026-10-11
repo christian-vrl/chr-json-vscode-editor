@@ -59,6 +59,9 @@ importers:
       typescript-eslint:
         specifier: 8.71.1
         version: 8.71.1(eslint@10.12.0)(typescript@5.9.3)
+      vanilla-jsoneditor:
+        specifier: 3.13.0
+        version: 3.13.0(@typescript-eslint/types@8.71.1)
       vite:
         specifier: 8.3.4
         version: 8.3.4(@types/node@22.20.5)(esbuild@0.28.2)(yaml@2.9.1)
@@ -201,6 +204,33 @@ importers:
       jsonc-parser:
         specifier: 3.3.1
         version: 3.3.1
+
+  spikes/query-engine:
+    devDependencies:
+      '@jitl/quickjs-singlefile-browser-release-sync':
+        specifier: 0.32.0
+        version: 0.32.0
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      '@types/vscode':
+        specifier: 1.95.0
+        version: 1.95.0
+      '@vscode/test-electron':
+        specifier: 3.1.0
+        version: 3.1.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      lodash:
+        specifier: 4.18.1
+        version: 4.18.1
+      quickjs-emscripten-core:
+        specifier: 0.32.0
+        version: 0.32.0
+      vanilla-jsoneditor:
+        specifier: 3.13.0
+        version: 3.13.0(@typescript-eslint/types@8.71.1)
 
   spikes/repair-comments:
     devDependencies:
@@ -690,6 +720,12 @@ packages:
     peerDependenciesMeta:
       '@types/node':
         optional: true
+
+  '@jitl/quickjs-ffi-types@0.32.0':
+    resolution: {integrity: sha512-v9T+GQpmk43VDJ7d72sf0Nexhk+ArvtUihW27dy7lqAl0zBObFKtSBBIm5RBjwIhE8VwsPPm9PNuvPvNqLWUEg==}
+
+  '@jitl/quickjs-singlefile-browser-release-sync@0.32.0':
+    resolution: {integrity: sha512-Hfdl7rh8dzxNWFRiYAYNbhn0RMF1/tO6SMH2mUW0aTibqwaAtqPRbi4WkwaIDlhNz8Z4dksJi1Zjl1R54Jsc/Q==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2495,6 +2531,9 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
+  quickjs-emscripten-core@0.32.0:
+    resolution: {integrity: sha512-QFnPfjFey8EqknSrSxe1hZrf1/8z7/6s1QzGOmKo6++02r7QRRX7ZoyNaZh7JuVjWsVW87KnQrbZqnHkOAzUyg==}
+
   rc-config-loader@4.1.4:
     resolution: {integrity: sha512-3GiwEzklkbXTDp52UR5nT8iXgYAx1V9ZG/kDZT7p60u2GCv2XTwQq4NzinMoMpNtXhmt3WkhYXcj6HH8HdwCEQ==}
 
@@ -3447,6 +3486,12 @@ snapshots:
   '@inquirer/type@3.0.10(@types/node@22.20.5)':
     optionalDependencies:
       '@types/node': 22.20.5
+
+  '@jitl/quickjs-ffi-types@0.32.0': {}
+
+  '@jitl/quickjs-singlefile-browser-release-sync@0.32.0':
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.32.0
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -5244,6 +5289,10 @@ snapshots:
       side-channel: 1.1.1
 
   queue-microtask@1.2.3: {}
+
+  quickjs-emscripten-core@0.32.0:
+    dependencies:
+      '@jitl/quickjs-ffi-types': 0.32.0
 
   rc-config-loader@4.1.4:
     dependencies:

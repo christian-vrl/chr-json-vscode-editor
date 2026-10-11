@@ -16,7 +16,7 @@
   `openAsText` and `unlock` messages (protocol bump), a dev-host switch; web tests. Needs UNK-040
   resolved. `parallel` with T1 — needs: 003 T8 — *gate: criteria 2 and 3 (banner texts, read-only
   probe) and the banner part of criterion 12 green in `pnpm test:web`*
-- [ ] **T3** Host wiring in `packages/vscode-extension`: size at open and the threshold, `largeFile`
+- [x] **T3** Host wiring in `packages/vscode-extension`: size at open and the threshold, `largeFile`
   in `init`, unlock and open-as-text handlers, the host rejecting edits from a locked tab, `parseData`
   in the format badge, validation and the webview parser for large JSONC and JSON5, a test hook
   reporting core's cached parses; e2e fixtures generated at 5,242,880, 5,242,881 and 6 MiB. — needs:
@@ -39,8 +39,13 @@
   UTF-16 file) gets the ceiling message although VS Code would hand it over; opening it with "Open
   With…" still works. Counting the text first would mean reading up to the whole file in the
   command; not worth it unless someone hits it.
-- T4's e2e checks that a file at the ceiling opens in CHR JSON Editor; that it opens in large-file
-  mode follows from criterion 1 once T3 lands (T3 can add the assertion to `ceiling.cjs`).
+- T4's e2e checks that a file at the ceiling opens in CHR JSON Editor; T3 added the assertion that
+  it opens in large-file mode to `ceiling.cjs`.
+- T3: a locked tab's badge, validation and `$schema` read the text with `parseData`, so the badge
+  shows valid or error and no longer counts strict-JSON warnings there. The three reads share one
+  `parseData` result for two seconds (`largeFile.ts` `dataOf`) instead of parsing three times; T5's
+  host-busy numbers measure this. After "Edit anyway" the tab takes the normal path (full parse,
+  cached) like spec 003.
 - A threshold setting belongs to 019 (Settings). A host answer by text delta (UNK-014 idea) would
   speed unlocked edits and spec 003's normal edits alike; it is a later spec if wanted. Compare of
   large files is 007's UNK-037.

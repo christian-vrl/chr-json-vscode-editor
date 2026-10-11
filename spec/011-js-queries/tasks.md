@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Proof (risk-free / additive)
-- [ ] **T1** Spike in `spikes/query-engine/` (dev-only, like `spikes/eval-location/`): a custom editor
+- [x] **T1** Spike in `spikes/query-engine/` (dev-only, like `spikes/eval-location/`): a custom editor
   webview rendered by `renderWebviewHtml` with `'wasm-unsafe-eval'` added to `script-src`, loading
   the QuickJS single-file browser module from a nonce'd script; run the spec's sealed probes, the
   5-second loop, the allocation loop at 256 MiB, criterion 5's built-in cases and the 1 and 5 MiB
@@ -16,7 +16,7 @@
   on the report*
 
 ## Phase B — Contract (risk-free / additive)
-- [ ] **T2** Write the query corpus in `tests/query/<case>/` (`input.json5`, `case.json`, `query.js`,
+- [x] **T2** Write the query corpus in `tests/query/<case>/` (`input.json5`, `case.json`, `query.js`,
   `expected.json5` or `error.json`), wizard cases generated with the library's `createQuery`, plus the
   coverage test (criterion 2) and the reference runner (the library's `executeQuery` in Node); add
   the folder to `.prettierignore`. `parallel` with T1 — needs: 003 T8 — *gate: coverage test green;

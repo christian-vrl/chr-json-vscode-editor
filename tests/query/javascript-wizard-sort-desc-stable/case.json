@@ -1,0 +1,10 @@
+{
+  "language": "javascript",
+  "tags": ["sort"],
+  "wizard": {
+    "sort": {
+      "path": ["age"],
+      "direction": "desc"
+    }
+  }
+}

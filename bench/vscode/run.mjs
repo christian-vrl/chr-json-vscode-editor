@@ -4,6 +4,8 @@
 //
 //   node bench/vscode/run.mjs <dataDir> <out.json> [sizes...]
 //
+// CHR_BENCH_SUITE names another suite in this folder (007 T5: compare-suite.cjs); default suite.cjs.
+//
 // Where VS Code's download host is unreachable, set VSCODE_EXECUTABLE_PATH to an existing VS Code.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
@@ -53,7 +55,7 @@ try {
     vscodeExecutablePath,
     // The e2e suite's empty development extension (see its package.json).
     extensionDevelopmentPath: path.join(extensionDir, 'test/e2e/harness'),
-    extensionTestsPath: path.join(here, 'suite.cjs'),
+    extensionTestsPath: path.join(here, process.env.CHR_BENCH_SUITE || 'suite.cjs'),
     extensionTestsEnv: {
       CHR_BENCH_OUT: path.resolve(out),
       CHR_BENCH_FILES: JSON.stringify(files),

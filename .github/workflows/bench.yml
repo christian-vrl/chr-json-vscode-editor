@@ -4,6 +4,8 @@
 #   50 MiB, end to end in VS Code's custom editor webview; bench/vscode-open.md.
 # - core (002 T8, spec 002 criterion 7): core parse and one edit per format at 1, 10, 50 MiB;
 #   bench/RESULTS.md.
+# - compare (007 T5, evidence for UNK-037): structural compare at 1, 5, 10 and 50 MiB, in core and
+#   end to end in VS Code's compare panel (open, one live refresh); bench/compare.md.
 # Not part of ci.yml: they take minutes and measure, they do not gate. Run on demand and on pull
 # requests that change the benchmarks.
 name: bench
@@ -78,5 +80,33 @@ jobs:
           path: |
             bench/RESULTS.md
             bench/.results/core.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  compare:
+    name: compare at 1/5/10/50 MiB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install xvfb
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+      - run: pnpm build
+      # The e2e .vsix: the release build plus test hooks.
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      - run: xvfb-run -a pnpm --filter @chr-json-editor/bench bench:compare
+      - name: Report in the run summary and the log
+        run: |
+          cat bench/compare.md >> "$GITHUB_STEP_SUMMARY"
+          cat bench/compare.md bench/.results/compare-core.json bench/.results/compare-vscode.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-compare
+          path: |
+            bench/compare.md
+            bench/.results/compare-*.json
           include-hidden-files: true
           if-no-files-found: error
