@@ -90,8 +90,7 @@ exports.runCeiling = async function runCeiling({ hooks, waitFor, closeAll, expec
   await expectOnly(over, 'text', isText);
   console.log('over-limit.json: "Open as Text" opens the text editor; the palette refuses too');
 
-  // At the limit: the command opens CHR JSON Editor with no message. Large-file mode itself is
-  // criterion 1's (008 T3).
+  // At the limit: the command opens CHR JSON Editor with no message, in large-file mode.
   await closeAll();
   hooks.ceiling(false);
   await vscode.commands.executeCommand(OPEN_COMMAND, at);
@@ -99,6 +98,8 @@ exports.runCeiling = async function runCeiling({ hooks, waitFor, closeAll, expec
   const view = () => hooks.webviews().find((w) => w.uri === at.toString());
   await waitFor('the at-limit.json webview script to run', () => view()?.scriptLoaded, 120000);
   assert.deepEqual(hooks.ceiling(undefined), []);
+  // Criterion 9's "in large-file mode" (008 T3): locked, with the size of the text.
+  assert.deepEqual(view().largeFile, { bytes: LIMIT, unlocked: false });
   await closeAll();
-  console.log('at-limit.json: opens in CHR JSON Editor');
+  console.log('at-limit.json: opens in CHR JSON Editor, in large-file mode');
 };

@@ -15,6 +15,7 @@ import {
   type SchemaSettingsScope,
 } from '@chr-json-editor/core';
 import type { SchemaDialect } from '@chr-json-editor/app-shell/protocol';
+import { dataOrError } from './largeFile';
 import type { DocumentValidation } from './validation';
 
 /** What the binding reads about the document and its settings. */
@@ -24,6 +25,8 @@ export interface SchemaSource {
   text(): string;
   /** The format the document is parsed as now (the format badge's choice, 003 T10). */
   format(): Format;
+  /** Whether to read the data alone (a locked large-file tab, spec 008); false when absent. */
+  dataOnly?(): boolean;
   /** `json.schemas` and `json5.schemas` levels, in VS Code's order (collectSchemaScopes). */
   settings(): { jsonSchemas: SchemaSettingsScope[]; json5Schemas: SchemaSettingsScope[] };
   /** The text of a local schema file (`file:` URI, `toString(true)` spelling). */
@@ -57,7 +60,11 @@ export class SchemaBinding {
     const { jsonSchemas, json5Schemas } = this.source.settings();
     return resolveSchemaAssociation({
       documentUri: this.source.documentUri(),
-      documentSchema: topLevelSchema(this.source.text(), this.source.format()),
+      documentSchema: topLevelSchema(
+        this.source.text(),
+        this.source.format(),
+        this.source.dataOnly?.(),
+      ),
       jsonSchemas,
       json5Schemas,
     });
@@ -138,11 +145,15 @@ export class SchemaBinding {
 
 /** The value of the document's top-level `$schema` member, if the text parses to an object. Core
  *  keeps the parse of the last text, so this shares the parse that the format badge and
- *  validation make of the same text (UNK-014, 004 T5 review F3). */
-export function topLevelSchema(text: string, format: Format): unknown {
+ *  validation make of the same text (UNK-014, 004 T5 review F3). With `dataOnly` (a locked
+ *  large-file tab, spec 008) it reads core's data-only parse, shared the same way (`dataOf`). */
+export function topLevelSchema(text: string, format: Format, dataOnly = false): unknown {
   let data: unknown;
   try {
-    data = getAdapter(format).parse(text).data;
+    if (dataOnly) {
+      const read = dataOrError(format, text);
+      data = 'data' in read ? read.data : undefined;
+    } else data = getAdapter(format).parse(text).data;
   } catch {
     return undefined;
   }
