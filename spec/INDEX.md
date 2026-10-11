@@ -38,7 +38,7 @@ tasks run in order unless marked `parallel`.
 | 010 | Smart format | FracturedJson library (MIT), as the site uses |
 | 011 | JavaScript and Lodash queries | uses ADR-010's eval location |
 | 012 | NDJSON / JSON Lines in table mode | |
-| 013 | vscode.dev (web extension) build | |
+| 013-web-extension | Web extension: the same `.vsix` runs in vscode.dev and github.dev (browser entry, web e2e via `@vscode/test-web`) | ADR-013 (proposed); "Compare with HEAD" desktop-only per UNK-053; T2 needs 007 T4 and 008 T2; can run in parallel with 009–012 |
 
 ## P2 — backlog
 
