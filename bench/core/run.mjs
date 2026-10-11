@@ -1,6 +1,7 @@
 // Core parse and single-edit benchmark (002 T8, spec 002 criterion 7): for each format (json,
 // jsonc, json5) and size (1, 10, 50 MiB), times `parse` and one-operation `applyPatch` calls
-// (replace, add, remove, move) on `@chr-json-editor/core` in Node, with no editor around it.
+// (replace, add, remove, move) on `@chr-json-editor/core` in Node, with no editor around it, and
+// `parseData` next to `parse` (008 T1, spec 008 criterion 7).
 // Writes the raw results as JSON; `bench/core/report.mjs` turns them into bench/RESULTS.md.
 // Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Each format and size
 // runs in its own Node process with `--expose-gc`, so every timed call starts from a collected heap.
@@ -11,7 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
-import { getAdapter } from '@chr-json-editor/core';
+import { getAdapter, parseData } from '@chr-json-editor/core';
 import { documentText, LAST_MARKER, MIB } from '../generate.mjs';
 
 export const SIZES_MIB = [1, 10, 50];
@@ -141,6 +142,20 @@ function checkAndMeasureRetained(adapter, text, records, label) {
   return bytes;
 }
 
+/** The heap `parseData`'s result keeps alive after a full collection, checking its records. */
+function measureDataRetained(format, text, records, label) {
+  gc();
+  const before = process.memoryUsage().heapUsed;
+  const parsed = parseData(format, text);
+  gc();
+  const bytes = process.memoryUsage().heapUsed - before;
+  if (parsed.error) throw new Error(`${label} parseData: ${parsed.error.message}`);
+  if (!Array.isArray(parsed.data) || parsed.data.length !== records) {
+    throw new Error(`${label} parseData: expected ${records} records`);
+  }
+  return bytes;
+}
+
 /** One format and size, in a process of its own (see below). */
 function measure(format, mib) {
   const bytes = mib * MIB;
@@ -150,9 +165,12 @@ function measure(format, mib) {
   const warm = benchDocument(format, MIB / 4);
   for (let i = 0; i < 3; i++) {
     adapter.parse(warm.text);
+    parseData(format, warm.text);
     for (const patch of Object.values(operations(warm.records)))
       adapter.applyPatch(warm.text, patch);
   }
+  // Before any full parse of this text, so the heap it measures holds no parse cache entry of it.
+  const dataRetained = measureDataRetained(format, text, records, `${format} ${mib} MiB`);
   const retained = checkAndMeasureRetained(adapter, text, records, `${format} ${mib} MiB`);
   // Core keeps the parse of the last text it saw per format (UNK-014), so calls alternate between
   // two texts of the same size that differ in one padding character: each timed call parses.
@@ -160,11 +178,23 @@ function measure(format, mib) {
   const texts = [text, `${text.slice(0, at)}-${text.slice(at + 1)}`];
   let last = 0;
   const unparsed = () => texts[(last = 1 - last)];
-  const result = { format, mib, bytes, records, retainedHeapBytes: retained, parse: [] };
+  const result = {
+    format,
+    mib,
+    bytes,
+    records,
+    retainedHeapBytes: retained,
+    parseDataRetainedHeapBytes: dataRetained,
+    parse: [],
+    parseData: [],
+  };
   for (let run = 0; run < RUNS; run++) {
     const input = unparsed();
     result.parse.push(time(() => adapter.parse(input)).ms);
   }
+  // parseData keeps nothing, so it parses whichever text it is given.
+  for (let run = 0; run < RUNS; run++)
+    result.parseData.push(time(() => parseData(format, text)).ms);
   const edit = (name, input, patch) => {
     const { ms, result: out } = time(() => adapter.applyPatch(input, patch));
     if (typeof out !== 'string' || out === input) throw new Error(`${format} ${name}: no edit`);
@@ -223,8 +253,9 @@ if (process.argv[2] === '--child') {
       const result = JSON.parse(stdout.trim().split('\n').pop());
       const round = (runs) => runs.map(Math.round).join('/');
       console.log(
-        `bench core: ${format} ${mib} MiB parse ${round(result.parse)} ms, replace ${round(result.replace)} ms, ` +
-          `move ${round(result.move)} ms, retained heap ${Math.round(result.retainedHeapBytes / MIB)} MiB, ` +
+        `bench core: ${format} ${mib} MiB parse ${round(result.parse)} ms, parseData ${round(result.parseData)} ms, replace ${round(result.replace)} ms, ` +
+          `move ${round(result.move)} ms, retained heap ${Math.round(result.retainedHeapBytes / MIB)} MiB ` +
+          `(parseData ${Math.round(result.parseDataRetainedHeapBytes / MIB)} MiB), ` +
           `max RSS ${Math.round(result.maxRssBytes / MIB)} MiB`,
       );
       return result;
