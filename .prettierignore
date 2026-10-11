@@ -26,6 +26,8 @@ packages/core/test/fixtures/json5-tests/
 tests/e2e/fixtures/
 # Compare fixtures (007 T3) too; copies into them are compared byte for byte (spec 007 criterion 6).
 tests/compare/*/
+# CSV panel fixtures (009 T3) are read as-is, and their expected outputs are written in the tests.
+tests/csv/
 
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/

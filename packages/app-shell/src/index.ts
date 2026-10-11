@@ -1,7 +1,8 @@
 // Host-agnostic editor UI (spec 003). This entry is plain TypeScript: the HostAdapter seam, the
 // versioned message protocol (003 T1) and the standalone page's DevHostAdapter (003 T2). The Svelte
 // UI is mounted with `mountApp` from ./app.ts, which each host's page bundles. The compare page
-// (007 T3) has its own seam, CompareHostAdapter, and dev host, mounted with `mountCompare` (./compare.ts).
+// (007 T3) has its own seam, CompareHostAdapter, and dev host, mounted with `mountCompare` (./compare.ts),
+// and so does the CSV panel page (009 T3): CsvHostAdapter, DevCsvHostAdapter, `mountCsv` (./csv.ts).
 export const packageName = '@chr-json-editor/app-shell';
 export type * from './host-adapter.js';
 export * from './protocol.js';
@@ -13,3 +14,6 @@ export {
   type DevCompareDocument,
   type DevCopy,
 } from './dev-compare-host-adapter.js';
+export * from './csv-host-adapter.js';
+export { CSV_PREVIEW_ROWS, csvPreviewText, previewRows } from './csv-preview.js';
+export { DevCsvHostAdapter, type DevCsvInput, type DevCsvWrite } from './dev-csv-host-adapter.js';
