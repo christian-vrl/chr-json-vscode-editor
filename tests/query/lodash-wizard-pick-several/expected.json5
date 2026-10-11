@@ -1,0 +1,6 @@
+[
+  { name: 'Ana', zip: '1100' },
+  { name: 'Bruno', zip: '4000' },
+  { name: 'Carla', zip: '1200' },
+  { name: 'Davi', zip: '4700' },
+]
