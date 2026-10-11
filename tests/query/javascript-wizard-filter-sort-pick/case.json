@@ -1,0 +1,18 @@
+{
+  "language": "javascript",
+  "tags": ["filter", "sort", "pick"],
+  "wizard": {
+    "filter": {
+      "path": ["city"],
+      "relation": "!=",
+      "value": "Porto"
+    },
+    "sort": {
+      "path": ["name"],
+      "direction": "desc"
+    },
+    "projection": {
+      "paths": [["name"], ["age"]]
+    }
+  }
+}

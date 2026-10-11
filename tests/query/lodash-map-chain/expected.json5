@@ -1,0 +1,4 @@
+[
+  { item: 'pen', qty: 2 },
+  { item: 'book', qty: 1 },
+]

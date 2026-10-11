@@ -1,0 +1,8 @@
+{
+  shop: 'Corner',
+  orders: [
+    { id: 3, item: 'pen', qty: 2, price: 1.5 },
+    { id: 1, item: 'book', qty: 1, price: 12 },
+    { id: 2, item: 'pen', qty: 5, price: 1.5 },
+  ],
+}
