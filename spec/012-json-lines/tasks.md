@@ -8,7 +8,7 @@
   `expected.jsonl` or `error.json`, parse cases with `data.json` and `diagnostics.json`,
   `repairLines` cases) and the conversion cases in `tests/golden/convert/jsonl-to-{json,jsonc,json5}/`
   and `{json,jsonc,json5}-to-jsonl/`, with `case.json` tags and the coverage test; add the folder to
-  `.prettierignore` and to `pnpm test:golden`. Needs UNK-050 and UNK-051 resolved. — needs: 002 T1,
+  `.prettierignore` and to `pnpm test:golden`. (UNK-050 and UNK-051 resolved.) — needs: 002 T1,
   006 T1 — *gate: `pnpm test:golden -- --coverage-only` green (criterion 2); Reviewer PASS on
   L1–L10 and J1–J2 per case*
 

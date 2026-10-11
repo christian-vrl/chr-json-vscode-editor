@@ -1,6 +1,6 @@
 # SPEC 012 — JSON Lines (NDJSON)
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidSSJ1ADSxnkC8Ywoiqb5YNw, 2026-10-11)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -196,10 +196,10 @@ the array of items and whose edits follow §Line rules.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-050 | How far JSON Lines support goes | whole spec | see ledger |
-| UNK-051 | What a document with bad lines does | L1, L9, L10; criterion 8; T1, T4 | see ledger |
+| UNK-050 | How far JSON Lines support goes | whole spec | resolved (owner): own format |
+| UNK-051 | What a document with bad lines does | L1, L9, L10; criterion 8; T1, T4 | resolved (owner): read-only till fixed |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved
+- [x] Human approval recorded

@@ -72,7 +72,7 @@
 - **Consequences:** 004 T2 builds validation in the extension host, results keyed by `docVersion`. `packages/sandbox` is not used by the VS Code extension; the Chrome app (spec 020) can use it as an MV3 sandbox page. Spec 011 must isolate user query code, which in the host would otherwise have Node's file and network access.
 
 ### ADR-012 — JSON Lines as a fourth format
-- **Date:** 2026-10-11 · **Human confirmation:** pending (owner approval of spec 012)
+- **Date:** 2026-10-11 · **Human confirmation:** owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidSSJ1ADSxnkC8Ywoiqb5YNw, 2026-10-11 (spec 012 approved, which names this ADR; UNK-050 "Own format")
 - **Decision:** `jsonl` (shown as "JSON Lines"; jsonlines.org, which ndjson-spec 1.0 matches: one RFC 8259 value per LF-ended line, CRLF accepted) joins `json`, `jsonc` and `json5` as a `Format` with its own `FormatAdapter` in `packages/core`, detected from VS Code's `jsonl` language and the `.jsonl` and `.ndjson` extensions. Its data is the array of the lines' values; edits rewrite only the lines they touch. This amends ADR-005's consequence "No new format to support" for this format only.
 - **Evidence:** `spec/012-json-lines/spec.md` §Current evidence (VS Code's built-in `jsonl` language; the `json` adapter keeps one-line containers on one line; jsoneditoronline.org handles NDJSON only by repairing it into an array).
 - **Consequences:** every switch over `Format` (detection, picker, convert commands and menus, 008 `parseData`, 009 row source) handles `jsonl`; spec 012 L1–L10 and J1–J2 define its behavior. If ADR-011 (spec 011, PR #70) has not merged when this merges, the numbers stay; otherwise the next free number is taken (AGENTS rule 9).

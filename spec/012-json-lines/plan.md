@@ -29,8 +29,7 @@ Table) through the existing open message; the bad-line banner is an app-shell co
 008's large-file banner, sharing its read-only state. The webview's `parserFor('jsonl')` skips the
 `JSON.parse` fast path (a one-line JSON Lines file is valid JSON with the wrong shape).
 
-This plan assumes the recommended options of UNK-050 and UNK-051; if the owner picks otherwise, the
-spec changes first and this plan follows.
+The owner picked the recommended options of UNK-050 (own format) and UNK-051 (read-only till fixed).
 
 ## Constraints / invariants
 - `core` stays pure TypeScript with no DOM and no Node APIs; `jsonl` is exported through the same
@@ -68,4 +67,4 @@ spec changes first and this plan follows.
 | R6 Large logs with one truncated last line are common; read-only until repaired could annoy | UNK-051 asks the owner; "Repair Lines" fixes a truncated last line in one click (`jsonrepair` closes it) |
 
 ## Definition of Done
-1. Criteria 1–13 pass in CI. 2. UNK-050 and UNK-051 resolved before T1.
+1. Criteria 1–13 pass in CI. 2. UNK-050 and UNK-051 resolved (owner, 2026-10-11).
