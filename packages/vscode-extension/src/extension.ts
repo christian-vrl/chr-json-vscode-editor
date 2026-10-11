@@ -14,7 +14,7 @@ import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
 import type { HeadResult } from './gitHead';
 import { readHeadOf } from './gitHeadVscode';
-import { detect } from '@chr-json-editor/core';
+import { cachedParseTexts, detect } from '@chr-json-editor/core';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -49,6 +49,10 @@ export interface TestHooks {
    *  function is called for each question and gives its answer. Returns the questions asked since
    *  the previous call (003 T8, UNK-018). */
   confirm(answer: TestAnswer | undefined): string[];
+  /** Has the webview of `uri` post `message` to the host as it is (spec 008 plan R3). */
+  send(uri: string, message: unknown): boolean;
+  /** The texts whose full parse core keeps now (spec 008 criterion 8). */
+  cachedParses(): string[];
   /** Picks `dialect` in the toolbar's dialect switch of the webview of `uri` (004 T5). */
   selectDialect(uri: string, dialect: string): boolean;
   /** Reads `uri`'s committed bytes from Git HEAD (007 T2, UNK-038). */
@@ -120,6 +124,8 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         click: (uri, title) => provider.click(uri, title),
         formatBadge: () => formatBadge.snapshot(),
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
+        send: (uri, message) => provider.send(uri, message),
+        cachedParses: () => cachedParseTexts(),
         dom: (uri, steps) => provider.dom(uri, steps),
         readHead: (uri) => readHeadOf(vscode.Uri.parse(uri)),
         compares: () => compares.snapshots,

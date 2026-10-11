@@ -2,10 +2,10 @@
 // a re-parse as another format finds, and what the status-bar item says. The e2e suite checks the
 // same in VS Code, plus that choosing a format leaves the document's bytes unchanged.
 import { describe, expect, it } from 'vitest';
-import { detect, getAdapter } from '@chr-json-editor/core';
+import { detect, getAdapter, parseData } from '@chr-json-editor/core';
 import { badge, initialState, reparse, withFormat, type FormatCore } from '../../src/formatBadge';
 
-const core: FormatCore = { detect, getAdapter };
+const core: FormatCore = { detect, getAdapter, parseData };
 const JSONC = '{\n  // a comment\n  "a": 1,\n}\n';
 
 describe('initialState', () => {

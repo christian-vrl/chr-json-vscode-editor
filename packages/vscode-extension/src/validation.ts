@@ -21,6 +21,7 @@ import Ajv2020 from 'ajv/dist/2020';
 import draft06MetaSchema from 'ajv/dist/refs/json-schema-draft-06.json';
 import AjvDraft04 from 'ajv-draft-04';
 import addFormats from 'ajv-formats';
+import { dataOrError } from './largeFile';
 
 export type ValidationResult = ValidationMessage['result'];
 export type DialectChoice = NonNullable<ValidationMessage['dialect']>;
@@ -130,8 +131,24 @@ export function compileSchema(schema: object | boolean, override?: SchemaDialect
   };
 }
 
-/** Parses `text` as `format` and validates the data; never throws. */
-export function validateText(text: string, format: Format, validator: Validator): ValidationResult {
+/** Parses `text` as `format` and validates the data; never throws. With `dataOnly` (a locked
+ *  large-file tab, spec 008 criterion 8) the data comes from core's data-only parse. */
+export function validateText(
+  text: string,
+  format: Format,
+  validator: Validator,
+  dataOnly = false,
+): ValidationResult {
+  if (dataOnly) {
+    let read;
+    try {
+      read = dataOrError(format, text);
+    } catch (error) {
+      return { kind: 'skipped', reason: `The ${format} parser failed: ${describe(error)}` };
+    }
+    if ('error' in read) return { kind: 'skipped', reason: DOES_NOT_PARSE };
+    return { kind: 'errors', errors: validator(read.data) };
+  }
   let parsed;
   try {
     parsed = getAdapter(format).parse(text);
@@ -139,10 +156,12 @@ export function validateText(text: string, format: Format, validator: Validator)
     return { kind: 'skipped', reason: `The ${format} parser failed: ${describe(error)}` };
   }
   if (parsed.tree === undefined || parsed.diagnostics.some((d) => d.severity === 'error')) {
-    return { kind: 'skipped', reason: 'The document does not parse, so it was not validated.' };
+    return { kind: 'skipped', reason: DOES_NOT_PARSE };
   }
   return { kind: 'errors', errors: validator(parsed.data) };
 }
+
+const DOES_NOT_PARSE = 'The document does not parse, so it was not validated.';
 
 /** What `DocumentValidation` needs from the document and the webview. */
 export interface ValidationTarget {
@@ -150,6 +169,8 @@ export interface ValidationTarget {
   snapshot(): { text: string; docVersion: number };
   /** The format to parse the text as now: the format badge's choice can change it (003 T10). */
   format(): Format;
+  /** Whether to read the data alone (a locked large-file tab, spec 008); false when absent. */
+  dataOnly?(): boolean;
   post(message: ValidationMessage): void;
 }
 
@@ -208,7 +229,7 @@ export class DocumentValidation {
     if (!compiled) return;
     const { text, docVersion } = this.target.snapshot();
     const result: ValidationResult = compiled.ok
-      ? validateText(text, this.target.format(), compiled.validate)
+      ? validateText(text, this.target.format(), compiled.validate, this.target.dataOnly?.())
       : { kind: 'skipped', reason: compiled.reason };
     this.post(compiled.dialect, result, docVersion);
   }
