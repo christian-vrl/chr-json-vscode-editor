@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Proof (risk-free / additive)
-- [ ] **T1** Spike in `spikes/query-engine/` (dev-only, like `spikes/eval-location/`): a custom editor
+- [x] **T1** Spike in `spikes/query-engine/` (dev-only, like `spikes/eval-location/`): a custom editor
   webview rendered by `renderWebviewHtml` with `'wasm-unsafe-eval'` added to `script-src`, loading
   the QuickJS single-file browser module from a nonce'd script; run the spec's sealed probes, the
   5-second loop, the allocation loop at 256 MiB, criterion 5's built-in cases and the 1 and 5 MiB

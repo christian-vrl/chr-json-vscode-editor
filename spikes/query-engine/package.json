@@ -1,0 +1,41 @@
+{
+  "name": "chr-json-editor-spike-query-engine",
+  "displayName": "CHR JSON Editor query-engine spike",
+  "description": "Spike 011 T1: runs JavaScript and Lodash queries in QuickJS inside a VS Code webview under the editor's CSP plus 'wasm-unsafe-eval'. Dev-only; never packaged.",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "christian-vrl",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.136.2"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "chrJsonSpike.queryEngine",
+        "displayName": "CHR JSON query-engine spike",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          }
+        ],
+        "priority": "option"
+      }
+    ]
+  },
+  "scripts": {
+    "spike": "node run.mjs"
+  },
+  "devDependencies": {
+    "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.95.0",
+    "@vscode/test-electron": "3.1.0",
+    "esbuild": "0.28.2",
+    "lodash": "4.18.1",
+    "quickjs-emscripten-core": "0.32.0",
+    "vanilla-jsoneditor": "3.13.0"
+  }
+}
