@@ -38,8 +38,9 @@ with the fixture folder mounted on a virtual scheme.
 1. **One package, two entries:** the `.vsix` from `pnpm package` has `"main": "./dist/extension.js"`
    and `"browser": "./dist/web/extension.js"`, and both files. A unit test over the built browser
    entry finds no `require(` call other than `require("vscode")`. `package.json` declares
-   `"capabilities": { "virtualWorkspaces": true }`. Nothing else in the manifest differs between
-   desktop and web; `engines.vscode` stays `^1.136.2`.
+   `"capabilities": { "virtualWorkspaces": true }`. Those two are the only manifest fields added for
+   the web: commands, menus, `customEditors` and activation are one list for both hosts (desktop-only
+   commands are hidden by `when` clauses, criterion 8); `engines.vscode` stays `^1.136.2`.
 2. **No Node in shared host code:** an ESLint rule fails on any import of a Node built-in
    (`node:*`, `fs`, `path`, `crypto`, `child_process`, `os` and the rest of `module.builtinModules`)
    in `packages/vscode-extension/src/**` outside `src/node/**`, and a lint fixture shows it failing.
@@ -70,20 +71,28 @@ with the fixture folder mounted on a virtual scheme.
    UNK-053 sets (★: `chrJsonEditor.compareWithHead`). Each web e2e test runs its command on a
    fixture and checks the result its own spec's e2e checks on desktop.
 8. **Desktop-only commands (web e2e + desktop e2e):** per UNK-053 ★, a desktop-only command is not
-   in the command palette, editor title or explorer menus in the web host (its `when` clauses
-   require the context key `chrJsonEditor.nodeHost`, which only the Node entry sets to `true`), and
-   running it by id shows "`<command title>` is available in VS Code desktop." with no other effect.
-   On desktop the command and its menus are as spec 007 says, and the 007 e2e stays green.
+   in the command palette, editor title or explorer menus in the web host, and running it by id
+   shows "`<command title>` is available in VS Code desktop." with no other effect. Its `when`
+   clauses add `!isWeb && !chrJsonEditor.webHost`: VS Code's `isWeb` hides it in a browser workbench
+   before the extension activates, and `chrJsonEditor.webHost`, which only the browser entry sets to
+   `true` (first thing in `activate`), hides it in desktop VS Code's web host, where `isWeb` is
+   false. Nothing has to be set for the command to show on desktop, so it shows there before
+   activation too. The web e2e checks the palette right after the suite's first activation; on
+   desktop the command and its menus are as spec 007 says, and the 007 e2e stays green.
 9. **Compare With (web e2e):** "Compare With…" and "Compare Selected" on two files on the virtual
    scheme open the compare panel with the differences of `tests/compare/` fixtures, and copying one
    difference across is one undoable edit, as spec 007 criteria 4 and 6 say.
 10. **Large files (web e2e):** a document of 5,242,881 bytes opens in large-file mode with spec 008's
     banner, and one of 5,242,880 bytes does not. The largest size that opens in the web host is the
     one UNK-054 records; above it the open command shows spec 008 criterion 9's message.
-11. **No network from our code (web e2e):** every request made from the extension's web worker and
-    from its webviews during the web e2e suite goes to the test server's own origin (the extension's
-    files). A test-only probe that fetches `https://example.com` from the worker makes the check
-    fail, and one from the webview is blocked by its CSP (`connect-src 'none'`). `pnpm check:offline`
+11. **No network from our code (web e2e, CI route):** the allowed set is exactly one origin, the
+    `@vscode/test-web` server's (scheme, host and port), which serves the workbench, the extension's
+    files and the mounted folder. Every request Playwright records during the suite from the web
+    worker extension host or from a frame of one of our webviews (the custom editor and the compare
+    panel, found by their `asWebviewUri` resource paths) has that origin; requests from VS Code's own
+    workbench frames are not counted. A test-only probe that fetches `https://example.com` from the
+    worker makes the check fail, and one from the webview is blocked by its CSP (`connect-src
+    'none'`). `pnpm check:offline`
     scans `dist/web/` (it scans all of `packages/*/dist`) and stays green.
 12. **Desktop unchanged:** `pnpm test:e2e` (desktop, Node entry) and the `vscode-matrix` workflow
     stay green with no expected value changed. The `.vsix` grows only by the browser entry, whose
@@ -109,7 +118,7 @@ with the fixture folder mounted on a virtual scheme.
 
 ## Scope
 - **In:** the browser entry and its build; moving Node-only host code behind `src/node/`; the
-  `chrJsonEditor.nodeHost` context key and the desktop-only message; schema files on virtual
+  `chrJsonEditor.webHost` context key and the desktop-only message; schema files on virtual
   schemes; the web e2e harness (CI and local route), the command coverage map and the web suite;
   the no-network check in the web host; the large-file ceiling in the web host; the README section.
 - **Out:** Restricted Mode support (see above); reading Git HEAD in github.dev; publishing (spec
@@ -123,11 +132,11 @@ with the fixture folder mounted on a virtual scheme.
   `"browser"`, no `"capabilities"`; `engines.vscode` `^1.136.2` (UNK-016).
 - Build: `packages/vscode-extension/esbuild.mjs` bundles `src/extension.ts` as CommonJS for
   `platform: 'node'` with `vscode` external, and the webview as one IIFE for the browser.
-- Node imports in host code on `main` @ e2cdb98: bundling `src/extension.ts` with esbuild for
+- Node imports in host code on `main` @ 7a6fdfb: bundling `src/extension.ts` with esbuild for
   `platform: 'browser'` (`format: 'cjs'`, `vscode` external, sandbox check 2026-10-11) fails on
   exactly three imports: `node:crypto` in `src/webviewHtml.ts:5` (`randomBytes` for the CSP nonce),
   `node:path` in `src/gitHeadVscode.ts:7` (`dirname` of the file path for the Git API) and
-  `node:path` in `src/compareCommands.ts:8` (007 T4, PR #69: `path.posix.basename`, `extname`,
+  `node:path` in `src/compareCommands.ts:11` (007 T4, PR #69: `path.posix.basename`, `extname`,
   `dirname` on `uri.path`). Ajv, `ajv-formats`, `ajv-draft-04`, `jsonc-parser` and `core` bundle
   for the browser with no error. File access already goes through `vscode.workspace.fs`
   (`src/editorProvider.ts:529`, `src/convertCommand.ts:154,183,198`).
@@ -137,7 +146,7 @@ with the fixture folder mounted on a virtual scheme.
   `process` and `Buffer` are undefined; `crypto.getRandomValues` exists; `WorkerGlobalScope` exists;
   `vscode.extensions.getExtension('vscode.git')` is undefined; `vscode.env.uiKind` is 1 (Desktop),
   so VS Code's `isWeb` context key, which follows the workbench and not the extension host
-  (inferred, not checked), would not hide a command on this route; criterion 8 uses our own key.
+  (inferred, not checked), would not hide a command on this route; criterion 8 adds our own key.
 - Web host CSP: VS Code 1.141.0's
   `out/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html` sets
   `script-src 'self' 'unsafe-eval' … blob:`, so Ajv's code generation can run there (ADR-010 holds

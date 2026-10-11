@@ -9,7 +9,8 @@ One `.vsix`, two entry points (ADR-013). esbuild builds the host code twice from
 `dist/web/extension.js` (CommonJS, `platform: 'browser'`, `vscode` external, `target` the web
 host's Chromium) from `src/web/extension.ts`. Both entries call one shared `activateShared(context,
 platform)`; the Node entry passes a `platform` object with the Node-only services (today: the Git
-HEAD reader) and sets the context key `chrJsonEditor.nodeHost`; the browser entry passes none. The
+HEAD reader); the browser entry passes none and sets the context key `chrJsonEditor.webHost` first
+thing in `activate`. The
 webview bundles (`dist/webview.js`, the compare page) are already browser code and are shared as is.
 
 Node built-ins leave the shared code:
@@ -57,7 +58,7 @@ Tests (ADR-013):
 | Step | Goal | Evidence to produce | Gate |
 |---|---|---|---|
 | A | Browser entry activates; both test routes run | `dist/web/extension.js`; `test/web/run.mjs`; criterion 3 smoke on one `.json` fixture; trust state of vscode.dev and github.dev workspaces recorded in `test/web/README.md` | criteria 1, 3 (one fixture) green on both routes; criterion 13 README written |
-| B | Shared host code Node-free | `src/node/`, lint rule + fixture, `chrJsonEditor.nodeHost`, desktop-only message | criteria 2, 8 green; desktop `pnpm test:e2e` green |
+| B | Shared host code Node-free | `src/node/`, lint rule + fixture, `chrJsonEditor.webHost` with `isWeb` on desktop-only menus, desktop-only message | criteria 2, 8 green; desktop `pnpm test:e2e` green |
 | C | Schema files on virtual schemes | core association change + unit tests; `readSchemaFile` | criterion 6 green; every existing association test unchanged |
 | D | Web suite and coverage | the web suite, `coverage.json`, the unit test, the network check and its probe | criteria 3–5, 7, 9, 11 green in CI |
 | E | Large files on the web | `bench/web-ceiling.md`; UNK-054 resolved | criterion 10 green; UNK-054 resolved per its rule |
