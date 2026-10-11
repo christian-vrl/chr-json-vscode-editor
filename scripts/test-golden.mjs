@@ -2,7 +2,8 @@
 // project. Vitest ignores flags it does not know, so a gate naming a flag nothing reads would pass
 // vacuously; here every flag is either understood or an error.
 //
-//   --coverage-only       run only the coverage tests (spec 002 criterion 4, spec 006 criterion 2)
+//   --coverage-only       run only the coverage tests (spec 002 criterion 4, spec 006 criterion 2,
+//                         spec 009 criterion 2)
 //   --format a,b          only cases of these formats (json, jsonc, json5)
 //   --op a,b              only cases with these `op` tags
 //
@@ -55,7 +56,11 @@ if (coverageOnly && Object.keys(filters).length > 0) {
 
 const vitestArgs = ['exec', 'vitest', 'run', '--project', 'golden'];
 if (coverageOnly) {
-  vitestArgs.push('tests/golden/coverage.test.ts', 'tests/golden/convert-coverage.test.ts');
+  vitestArgs.push(
+    'tests/golden/coverage.test.ts',
+    'tests/golden/convert-coverage.test.ts',
+    'tests/golden/csv-coverage.test.ts',
+  );
 }
 
 const env = { ...process.env };

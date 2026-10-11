@@ -1,0 +1,2 @@
+id,address.city,address.geo.lat,tags[0],tags[1],"[""a.b""]","x[""""]","x[""q[1]""]",x.0
+1,Oslo,59.9,a,b,2,3,4,5

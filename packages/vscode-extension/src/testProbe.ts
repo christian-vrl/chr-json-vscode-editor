@@ -51,3 +51,33 @@ export type DomStep =
   | { key: string; on: string; ctrl?: boolean; shift?: boolean }
   | { waitFor: string; text?: string; gone?: boolean }
   | { read: string; text?: string; attr?: string };
+
+/** What the compare panel's `probe` reports about its page (007 T4, compareTestHooks.ts). */
+export interface ComparePageProbe {
+  /** The toolbar's counter: "3 differences", "Difference 1 of 3 differences", "No differences in
+   *  the data", or why nothing was compared. */
+  counter: string;
+  left: ComparePanelSideProbe;
+  right: ComparePanelSideProbe;
+  /** The library sets `.jse-main { min-height: 150px }`; `0px` means its stylesheet did not apply. */
+  mainMinHeight: string | null;
+  /** `securitypolicyviolation` events: directive, blocked URI, source location. */
+  violations: string[];
+  /** `<style>` elements in the page, as in RenderedProbe. */
+  styleElements: { id: string; nonce: boolean }[];
+}
+
+export interface ComparePanelSideProbe {
+  /** The title above the side's panel. */
+  name: string;
+  /** The parse error shown instead of the side's tree, or null. */
+  error: string | null;
+  /** Whether the side's tree is rendered. */
+  tree: boolean;
+  /** Per difference class, the JSON Pointer of every rendered node that has it. */
+  marks: Record<string, string[]>;
+  /** The JSON Pointers of the selected nodes. */
+  selected: string[];
+  /** Whether the "Copy to …" button for this side is enabled. */
+  canCopyInto: boolean;
+}
