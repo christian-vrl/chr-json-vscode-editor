@@ -3,6 +3,7 @@
 // One pass yields the data, a `FormatNode` tree with UTF-16 offsets, and a token stream (comments,
 // white space and line breaks included) with the same kinds as `tokens.ts`, so the edit layer and
 // `Style` detection read JSON5 the way they read JSONC.
+import { setMember } from './member.js';
 import { Kind, type Token } from './tokens.js';
 import type { Diagnostic, FormatNode } from './types.js';
 
@@ -10,6 +11,29 @@ const LINE_TERMINATOR = '\n\r\u2028\u2029';
 const WHITE_SPACE = /[\t\v\f \u00A0\uFEFF\p{Zs}]/u;
 const ID_START = /[\p{ID_Start}$_]/u;
 const ID_PART = /[\p{ID_Continue}$_\u200C\u200D]/u;
+
+// Character tests on UTF-16 code units, with the ASCII answers inline: large documents are almost
+// all ASCII, and a regular expression per character made the walk several times slower.
+const isLineTerminator = (c: number) => c === 10 || c === 13 || c === 0x2028 || c === 0x2029;
+const isWhiteSpace = (c: number) =>
+  c === 32 ||
+  c === 9 ||
+  c === 11 ||
+  c === 12 ||
+  (c >= 0xa0 && WHITE_SPACE.test(String.fromCharCode(c)));
+/** `$`, `_`, a letter, or (`part`) a digit. */
+const isAsciiIdentifier = (c: number, part: boolean) =>
+  c === 36 ||
+  c === 95 ||
+  (c >= 97 && c <= 122) ||
+  (c >= 65 && c <= 90) ||
+  (part && c >= 48 && c <= 57);
+/** Whether the code point at `at` continues an identifier. */
+const isIdPartAt = (text: string, at: number): boolean => {
+  const c = text.codePointAt(at);
+  if (c === undefined) return false;
+  return c < 128 ? isAsciiIdentifier(c, true) : ID_PART.test(String.fromCodePoint(c));
+};
 const NUMBER =
   /[+-]?(?:Infinity|NaN|0[xX][0-9a-fA-F]+|(?:(?:0|[1-9]\d*)(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)/y;
 const SINGLE_ESCAPES: Record<string, string> = {
@@ -33,19 +57,28 @@ export interface Json5Parse {
 }
 
 export function parseJson5(text: string): Json5Parse {
-  const parser = new Parser(text);
+  const parser = new Parser(text, false);
   try {
-    const { node, data } = parser.document();
-    return { data, tree: node, tokens: parser.tokens, error: undefined };
+    const data = parser.document();
+    return { data, tree: parser.node, tokens: parser.tokens, error: undefined };
   } catch (e) {
-    if (!(e instanceof Json5SyntaxError)) throw e;
-    return {
-      data: undefined,
-      tree: undefined,
-      tokens: parser.tokens,
-      error: { severity: 'error', message: e.message, offset: e.offset, length: e.length },
-    };
+    return { data: undefined, tree: undefined, tokens: parser.tokens, error: syntaxError(e) };
   }
+}
+
+/** The data alone (spec 008 criterion 6): the same grammar as `parseJson5`, with no tree and no
+ *  tokens, so it is faster and leaves only the data behind. */
+export function parseJson5Data(text: string): Pick<Json5Parse, 'data' | 'error'> {
+  try {
+    return { data: new Parser(text, true).document(), error: undefined };
+  } catch (e) {
+    return { data: undefined, error: syntaxError(e) };
+  }
+}
+
+function syntaxError(e: unknown): Diagnostic {
+  if (!(e instanceof Json5SyntaxError)) throw e;
+  return { severity: 'error', message: e.message, offset: e.offset, length: e.length };
 }
 
 class Json5SyntaxError extends SyntaxError {
@@ -58,18 +91,20 @@ class Json5SyntaxError extends SyntaxError {
   }
 }
 
-interface Parsed {
-  node: FormatNode;
-  data: unknown;
-}
-
 class Parser {
   readonly tokens: Token[] = [];
+  /** The node of the value parsed last; not set in a data-only parse. */
+  node: FormatNode | undefined;
   private pos = 0;
 
-  constructor(private readonly text: string) {}
+  /** `dataOnly`: build the data only, with no tokens and no tree (`parseJson5Data`). */
+  constructor(
+    private readonly text: string,
+    private readonly dataOnly: boolean,
+  ) {}
 
-  document(): Parsed {
+  /** The document's data; its tree is `node`. */
+  document(): unknown {
     this.trivia();
     if (this.pos >= this.text.length) this.fail('a value');
     const root = this.value();
@@ -89,6 +124,7 @@ class Parser {
   }
 
   private token(kind: number, offset: number): void {
+    if (this.dataOnly) return;
     this.tokens.push({ kind, offset, end: this.pos });
   }
 
@@ -103,17 +139,19 @@ class Parser {
     const t = this.text;
     for (;;) {
       const start = this.pos;
-      const ch = t[this.pos];
-      if (ch === undefined) return;
-      if (LINE_TERMINATOR.includes(ch)) {
-        this.pos += ch === '\r' && t[this.pos + 1] === '\n' ? 2 : 1;
+      const c = t.charCodeAt(this.pos);
+      if (Number.isNaN(c)) return;
+      if (isLineTerminator(c)) {
+        this.pos += c === 13 && t.charCodeAt(this.pos + 1) === 10 ? 2 : 1;
         this.token(Kind.LineBreak, start);
-      } else if (WHITE_SPACE.test(ch)) {
-        while (this.pos < t.length && WHITE_SPACE.test(t[this.pos]!)) this.pos++;
+      } else if (isWhiteSpace(c)) {
+        while (this.pos < t.length && isWhiteSpace(t.charCodeAt(this.pos))) this.pos++;
         this.token(Kind.Whitespace, start);
+      } else if (c !== 47) {
+        return;
       } else if (t.startsWith('//', this.pos)) {
         this.pos += 2;
-        while (this.pos < t.length && !LINE_TERMINATOR.includes(t[this.pos]!)) this.pos++;
+        while (this.pos < t.length && !isLineTerminator(t.charCodeAt(this.pos))) this.pos++;
         this.token(Kind.LineComment, start);
       } else if (t.startsWith('/*', this.pos)) {
         const close = t.indexOf('*/', this.pos + 2);
@@ -127,31 +165,47 @@ class Parser {
     }
   }
 
-  private value(): Parsed {
+  /** A value's data; its node is `this.node`. */
+  private value(): unknown {
     const ch = this.text[this.pos];
     if (ch === '{') return this.object();
     if (ch === '[') return this.array();
     const offset = this.pos;
-    const scalar = (type: FormatNode['type'], kind: number, value: unknown): Parsed => {
+    let type: FormatNode['type'];
+    let kind: number;
+    let value: unknown;
+    if (ch === '"' || ch === "'") {
+      value = this.string();
+      type = 'string';
+      kind = Kind.StringLiteral;
+    } else if (ch === 'n' && this.word('null')) {
+      value = null;
+      type = 'null';
+      kind = Kind.NullKeyword;
+    } else if ((ch === 't' && this.word('true')) || (ch === 'f' && this.word('false'))) {
+      value = ch === 't';
+      type = 'boolean';
+      kind = value ? Kind.TrueKeyword : Kind.FalseKeyword;
+    } else {
+      value = this.number();
+      type = 'number';
+      kind = Kind.NumericLiteral;
+    }
+    if (!this.dataOnly) {
       this.token(kind, offset);
-      return { node: { type, offset, length: this.pos - offset, value }, data: value };
-    };
-    if (ch === '"' || ch === "'") return scalar('string', Kind.StringLiteral, this.string());
-    if (this.word('null')) return scalar('null', Kind.NullKeyword, null);
-    if (this.word('true')) return scalar('boolean', Kind.TrueKeyword, true);
-    if (this.word('false')) return scalar('boolean', Kind.FalseKeyword, false);
-    return scalar('number', Kind.NumericLiteral, this.number());
+      this.node = { type, offset, length: this.pos - offset, value };
+    }
+    return value;
   }
 
   private word(w: string): boolean {
     if (!this.text.startsWith(w, this.pos)) return false;
-    const next = this.text.codePointAt(this.pos + w.length);
-    if (next !== undefined && ID_PART.test(String.fromCodePoint(next))) return false;
+    if (isIdPartAt(this.text, this.pos + w.length)) return false;
     this.pos += w.length;
     return true;
   }
 
-  private object(): Parsed {
+  private object(): Record<string, unknown> {
     const offset = this.pos;
     this.punctuation(Kind.OpenBrace);
     const children: FormatNode[] = [];
@@ -163,31 +217,23 @@ class Parser {
       const quoted = ch === '"' || ch === "'";
       const key = quoted ? this.string() : this.identifier();
       this.token(quoted ? Kind.StringLiteral : Kind.Unknown, keyOffset);
-      const keyNode: FormatNode = {
-        type: 'string',
-        offset: keyOffset,
-        length: this.pos - keyOffset,
-        value: key,
-      };
+      const keyLength = this.pos - keyOffset;
       this.trivia();
       if (this.text[this.pos] !== ':') this.fail(':');
       this.punctuation(Kind.Colon);
       this.trivia();
-      const { node, data: value } = this.value();
-      children.push({
-        type: 'property',
-        offset: keyOffset,
-        length: node.offset + node.length - keyOffset,
-        children: [keyNode, node],
-      });
-      // Defined, not assigned, so a `__proto__` key is a member rather than the prototype. A later
-      // duplicate replaces the value in the first one's place, as `JSON.parse` does.
-      Object.defineProperty(data, key, {
-        value,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
+      const value = this.value();
+      if (!this.dataOnly) {
+        const node = this.node!;
+        children.push({
+          type: 'property',
+          offset: keyOffset,
+          length: node.offset + node.length - keyOffset,
+          children: [{ type: 'string', offset: keyOffset, length: keyLength, value: key }, node],
+        });
+      }
+      // A later duplicate replaces the value in the first one's place, as `JSON.parse` does.
+      setMember(data, key, value);
       this.trivia();
       if (this.text[this.pos] === ',') {
         this.punctuation(Kind.Comma);
@@ -195,10 +241,11 @@ class Parser {
       } else if (this.text[this.pos] !== '}') this.fail(', or }');
     }
     this.punctuation(Kind.CloseBrace);
-    return { node: { type: 'object', offset, length: this.pos - offset, children }, data };
+    if (!this.dataOnly) this.node = { type: 'object', offset, length: this.pos - offset, children };
+    return data;
   }
 
-  private array(): Parsed {
+  private array(): unknown[] {
     const offset = this.pos;
     this.punctuation(Kind.OpenBracket);
     const children: FormatNode[] = [];
@@ -206,9 +253,8 @@ class Parser {
     this.trivia();
     while (this.text[this.pos] !== ']') {
       if (this.pos >= this.text.length) this.fail(']');
-      const item = this.value();
-      children.push(item.node);
-      data.push(item.data);
+      data.push(this.value());
+      if (!this.dataOnly) children.push(this.node!);
       this.trivia();
       if (this.text[this.pos] === ',') {
         this.punctuation(Kind.Comma);
@@ -216,12 +262,16 @@ class Parser {
       } else if (this.text[this.pos] !== ']') this.fail(', or ]');
     }
     this.punctuation(Kind.CloseBracket);
-    return { node: { type: 'array', offset, length: this.pos - offset, children }, data };
+    if (!this.dataOnly) this.node = { type: 'array', offset, length: this.pos - offset, children };
+    return data;
   }
 
   /** JSON5Identifier: an IdentifierName, `\uXXXX` escapes allowed; returns the decoded name. */
   private identifier(): string {
-    let name = '';
+    const t = this.text;
+    const start = this.pos;
+    while (isAsciiIdentifier(t.charCodeAt(this.pos), this.pos > start)) this.pos++;
+    let name = t.slice(start, this.pos);
     for (;;) {
       let c: string;
       if (this.text.startsWith('\\u', this.pos)) {
@@ -247,21 +297,23 @@ class Parser {
   private string(): string {
     const t = this.text;
     const quote = t[this.pos++];
+    const q = quote!.charCodeAt(0);
     let out = '';
+    // Characters taken as they are, from `from` to `this.pos`, are added in one slice.
+    let from = this.pos;
     for (;;) {
-      const ch = t[this.pos];
-      if (ch === undefined) this.fail(`closing ${quote}`);
-      if (ch === quote) {
-        this.pos++;
+      const c = t.charCodeAt(this.pos);
+      if (c === q) {
+        out += t.slice(from, this.pos++);
         return out;
       }
       // U+2028 and U+2029 may appear unescaped in a JSON5 string (spec §5.1); \n and \r may not.
-      if (ch === '\n' || ch === '\r') this.fail(`closing ${quote}`);
-      if (ch !== '\\') {
-        out += ch;
+      if (Number.isNaN(c) || c === 10 || c === 13) this.fail(`closing ${quote}`);
+      if (c !== 92) {
         this.pos++;
         continue;
       }
+      out += t.slice(from, this.pos);
       const e = t[this.pos + 1];
       if (e === undefined) {
         this.pos++;
@@ -271,6 +323,7 @@ class Parser {
       if (LINE_TERMINATOR.includes(e)) {
         // LineContinuation: the escaped line terminator is not part of the value.
         if (e === '\r' && t[this.pos] === '\n') this.pos++;
+        from = this.pos;
         continue;
       }
       if (e === 'x' || e === 'u') {
@@ -285,6 +338,7 @@ class Parser {
         this.pos -= 1;
         this.fail('a valid escape');
       } else out += SINGLE_ESCAPES[e] ?? e;
+      from = this.pos;
     }
   }
 
@@ -293,8 +347,7 @@ class Parser {
     NUMBER.lastIndex = this.pos;
     const m = NUMBER.exec(this.text);
     if (!m) this.fail('a value');
-    const after = this.text.codePointAt(this.pos + m[0].length);
-    if (after !== undefined && ID_PART.test(String.fromCodePoint(after))) {
+    if (isIdPartAt(this.text, this.pos + m[0].length)) {
       this.pos += m[0].length;
       this.fail('the end of the number');
     }

@@ -281,6 +281,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           format: this.formatOf(document),
           mode: 'tree',
           settings: {},
+          // Large-file mode (spec 008) is chosen here by 008 T3; until then every tab is normal.
+          largeFile: null,
         });
         session.validation.run();
         return;
@@ -298,6 +300,11 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       case 'flushed':
         session.flushes.get(message.request)?.();
         session.flushes.delete(message.request);
+        return;
+      case 'openAsText':
+      case 'unlock':
+        // Only a large-file tab's banner sends these, and no tab opens in large-file mode before
+        // 008 T3 wires the host side.
         return;
       case 'error':
         void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);

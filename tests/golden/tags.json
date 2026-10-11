@@ -32,5 +32,17 @@
     ],
     "rules": ["C1", "C2", "C3", "C4", "C5", "C6", "C7"],
     "location": ["root", "nested-object", "array"]
+  },
+  "csv": {
+    "rules": {
+      "export": ["X1", "X2", "X3", "X4", "X5", "X6", "X7"],
+      "import": ["I1", "I2", "I3", "I4", "I5", "I6", "I7"]
+    },
+    "values": ["number", "true", "false", "null", "empty", "json", "text"],
+    "features": ["one-column-null-row"],
+    "delimiters": {
+      "export": [",", ";", "\t", "|"],
+      "import": [",", ";", "\t", "|", "detect"]
+    }
   }
 }

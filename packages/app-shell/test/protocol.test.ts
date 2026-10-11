@@ -3,8 +3,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   PROTOCOL_VERSION,
+  decodeToCompareHost,
+  decodeToComparePage,
   decodeToHost,
   decodeToWebview,
+  type ToCompareHostMessage,
+  type ToComparePageMessage,
   type ToHostMessage,
   type ToWebviewMessage,
 } from '../src/protocol.js';
@@ -18,6 +22,17 @@ const toWebview: ToWebviewMessage[] = [
     format: 'jsonc',
     mode: 'tree',
     settings: { indent: 2, nested: { list: [true, null, 'x'] } },
+    largeFile: null,
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'init',
+    docVersion: 1,
+    text: '[]',
+    format: 'json5',
+    mode: 'table',
+    settings: {},
+    largeFile: { bytes: 5_242_881, unlocked: false },
   },
   {
     protocol: PROTOCOL_VERSION,
@@ -114,21 +129,26 @@ const toHost: ToHostMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 4 },
   { protocol: PROTOCOL_VERSION, type: 'redo', docVersion: 5 },
   { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 3 },
+  { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 5 },
+  { protocol: PROTOCOL_VERSION, type: 'unlock', docVersion: 5 },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 5, code: 'parse', message: 'Bad' },
 ];
 
 describe('protocol round trip', () => {
-  it.each(toWebview.map((m) => [m.type, m] as const))('host → webview %s', (_type, message) => {
-    expect(decodeToWebview(JSON.parse(JSON.stringify(message)))).toEqual({ ok: true, message });
-    expect(decodeToWebview(structuredClone(message))).toEqual({ ok: true, message });
-  });
+  it.each(toWebview.map((m, i) => [`${m.type} #${i}`, m] as const))(
+    'host → webview %s',
+    (_n, message) => {
+      expect(decodeToWebview(JSON.parse(JSON.stringify(message)))).toEqual({ ok: true, message });
+      expect(decodeToWebview(structuredClone(message))).toEqual({ ok: true, message });
+    },
+  );
 
   it.each(toHost.map((m, i) => [`${m.type} #${i}`, m] as const))('webview → host %s', (_n, m) => {
     expect(decodeToHost(JSON.parse(JSON.stringify(m)))).toEqual({ ok: true, message: m });
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
       [
@@ -137,7 +157,9 @@ describe('protocol round trip', () => {
         'flush',
         'flushed',
         'init',
+        'openAsText',
         'ready',
+        'unlock',
         'redo',
         'undo',
         'setDialect',
@@ -152,7 +174,7 @@ describe('protocol round trip', () => {
   it('keeps a "__proto__" settings key as data', () => {
     const data: unknown = JSON.parse(
       `{"protocol":${PROTOCOL_VERSION},"type":"init","docVersion":0,"text":"","format":"json",` +
-        `"mode":"text","settings":{"__proto__":{"polluted":true}}}`,
+        `"mode":"text","settings":{"__proto__":{"polluted":true}},"largeFile":null}`,
     );
     const result = decodeToWebview(data);
     expect(result.ok).toBe(true);
@@ -229,6 +251,8 @@ describe('protocol rejects malformed messages', () => {
     ['protocol 4 (before ready)', { ...update, protocol: 4 }],
     ['protocol 6 (before switchable dialects)', { ...update, protocol: 6 }],
     ['protocol 7 (before undo, redo and flush)', { ...update, protocol: 7 }],
+    ['protocol 9 (before compare)', { ...update, protocol: 9 }],
+    ['a compare message', toComparePage[0]],
     ['a flush without request', { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 1 }],
     [
       'a flush with a negative request',
@@ -281,6 +305,18 @@ describe('protocol rejects malformed messages', () => {
     ],
     ['a none result with a reason', validation({ kind: 'none', reason: 'r' })],
     ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
+    ['an init without largeFile (protocol 10)', { ...toWebview[0], largeFile: undefined }],
+    ['an init from protocol 10 (before large files)', { ...toWebview[0], protocol: 10 }],
+    ['a largeFile without bytes', { ...toWebview[0], largeFile: { unlocked: false } }],
+    [
+      'a largeFile with a fractional size',
+      { ...toWebview[0], largeFile: { bytes: 1.5, unlocked: false } },
+    ],
+    [
+      'a largeFile whose unlocked flag is not a boolean',
+      { ...toWebview[0], largeFile: { bytes: 6, unlocked: 1 } },
+    ],
+    ['a largeFile that is a number', { ...toWebview[0], largeFile: 6 }],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);
     expect(result.ok).toBe(false);
@@ -323,6 +359,12 @@ describe('protocol rejects malformed messages', () => {
       { protocol: PROTOCOL_VERSION, type: 'setDialect', docVersion: 1 },
     ],
     ['an undo from protocol 7', { protocol: 7, type: 'undo', docVersion: 1 }],
+    ['an unlock from protocol 10', { protocol: 10, type: 'unlock', docVersion: 1 }],
+    [
+      'an openAsText with a mode',
+      { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 1, mode: 'text' },
+    ],
+    ['an unlock without docVersion', { protocol: PROTOCOL_VERSION, type: 'unlock' }],
     ['an undo with a count', { protocol: PROTOCOL_VERSION, type: 'undo', docVersion: 1, steps: 2 }],
     ['a redo without docVersion', { protocol: PROTOCOL_VERSION, type: 'redo' }],
     ['a flushed without request', { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 1 }],
@@ -336,6 +378,138 @@ describe('protocol rejects malformed messages', () => {
     ],
   ])('webview → host: %s', (_why, data) => {
     const result = decodeToHost(data);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/\S/);
+  });
+});
+
+// 007 T4: the compare panel's messages travel the same way and are decoded by their own tables.
+const toComparePage: ToComparePageMessage[] = [
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'compare',
+    docVersion: 3,
+    left: {
+      name: 'data.jsonc (HEAD)',
+      format: 'jsonc',
+      content: { kind: 'text', text: '{\n  // c\n  "a": [1, 2]\n}\n' },
+      writable: false,
+    },
+    right: {
+      name: 'data.jsonc',
+      format: 'jsonc',
+      content: { kind: 'text', text: '{"a": [1, 3], "b": {}}' },
+      writable: true,
+    },
+    differences: [
+      { kind: 'changed', leftPath: '/a/1', rightPath: '/a/1' },
+      { kind: 'added', rightPath: '/b' },
+      { kind: 'removed', leftPath: '/c~1d' },
+    ],
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'compare',
+    docVersion: 0,
+    left: {
+      name: 'a.json5',
+      format: 'json5',
+      content: { kind: 'error', message: 'Unexpected end at line 1, column 2' },
+      writable: true,
+    },
+    right: { name: 'b.json', format: 'json', content: { kind: 'text', text: '' }, writable: true },
+    differences: [],
+  },
+];
+
+const toCompareHost: ToCompareHostMessage[] = [
+  { protocol: PROTOCOL_VERSION, type: 'compareReady', docVersion: 0 },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'copy',
+    docVersion: 4,
+    difference: { kind: 'changed', leftPath: '', rightPath: '' },
+    to: 'left',
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'copy',
+    docVersion: 4,
+    difference: { kind: 'removed', leftPath: '/include/1' },
+    to: 'right',
+  },
+  { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 4, code: 'c', message: 'm' },
+];
+
+describe('compare protocol (007 T4)', () => {
+  it.each(toComparePage.map((m, i) => [`#${i}`, m] as const))('host → page %s', (_n, m) => {
+    expect(decodeToComparePage(JSON.parse(JSON.stringify(m)))).toEqual({ ok: true, message: m });
+    expect(decodeToComparePage(structuredClone(m))).toEqual({ ok: true, message: m });
+  });
+
+  it.each(toCompareHost.map((m, i) => [`${m.type} #${i}`, m] as const))(
+    'page → host %s',
+    (_n, m) => {
+      expect(decodeToCompareHost(JSON.parse(JSON.stringify(m)))).toEqual({ ok: true, message: m });
+      expect(decodeToCompareHost(structuredClone(m))).toEqual({ ok: true, message: m });
+    },
+  );
+
+  const compareMessage = toComparePage[0]!;
+  const copy = (difference: unknown, to: unknown = 'left') => ({
+    protocol: PROTOCOL_VERSION,
+    type: 'copy',
+    docVersion: 1,
+    difference,
+    to,
+  });
+
+  it.each([
+    ['protocol 9 (before compare)', { ...compareMessage, protocol: 9 }],
+    [
+      'an editor message',
+      { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 1, mode: 'tree' },
+    ],
+    [
+      'a side without writable',
+      { ...compareMessage, left: { ...compareMessage.left, writable: undefined } },
+    ],
+    [
+      'a side with an unknown content kind',
+      { ...compareMessage, left: { ...compareMessage.left, content: { kind: 'data', data: 1 } } },
+    ],
+    [
+      'an added difference with a left path',
+      { ...compareMessage, differences: [{ kind: 'added', leftPath: '/a', rightPath: '/a' }] },
+    ],
+    [
+      'a changed difference without its right path',
+      { ...compareMessage, differences: [{ kind: 'changed', leftPath: '/a' }] },
+    ],
+    [
+      'a difference path that is not a pointer',
+      { ...compareMessage, differences: [{ kind: 'removed', leftPath: 'a' }] },
+    ],
+  ])('host → page: %s', (_why, data) => {
+    const result = decodeToComparePage(data);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/\S/);
+  });
+
+  it.each([
+    [
+      'a compareReady with a version',
+      { protocol: PROTOCOL_VERSION, type: 'compareReady', docVersion: 1 },
+    ],
+    ['an editor ready', { protocol: PROTOCOL_VERSION, type: 'ready', docVersion: 0 }],
+    ['a copy to a third side', copy({ kind: 'added', rightPath: '/a' }, 'middle')],
+    ['a copy of an unknown kind', copy({ kind: 'moved', leftPath: '/a', rightPath: '/b' })],
+    [
+      'a removed difference with a right path',
+      copy({ kind: 'removed', leftPath: '/a', rightPath: '/a' }),
+    ],
+  ])('page → host: %s', (_why, data) => {
+    const result = decodeToCompareHost(data);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toMatch(/\S/);
   });

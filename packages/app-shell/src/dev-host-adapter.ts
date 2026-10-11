@@ -10,6 +10,11 @@
 // `core.applyPatch` in the extension host (plan 003 §Constraints, task T5), never here. Whole-document
 // actions (003 T8) run core's own action on the text, as the extension host does, so the page
 // shows what they do; a repair that would lose comments is applied without asking.
+//
+// Large-file mode (spec 008) is a switch here (`largeFile`), as the extension host decides it by
+// the document's size: a locked document answers every change with a `read-only` error and ignores
+// undo and redo, as the extension host does; "Edit anyway" unlocks it. "Open as Text" is recorded
+// only, since the page has no other editor to open.
 import { getAdapter, repair } from '@chr-json-editor/core';
 import { immutableJSONPatch } from 'immutable-json-patch';
 import type {
@@ -27,6 +32,7 @@ import {
   type EditorSettings,
   type Format,
   type JsonPatchOperation,
+  type LargeFile,
   type Mode,
   type SchemaDialect,
   type UpdateOrigin,
@@ -44,6 +50,8 @@ export interface DevDocument {
   format: Format;
   mode: Mode;
   settings?: EditorSettings;
+  /** Opens the document in large-file mode (spec 008); the normal editor when left out. */
+  largeFile?: LargeFile | null;
 }
 
 export class DevHostAdapter implements HostAdapter {
@@ -51,6 +59,7 @@ export class DevHostAdapter implements HostAdapter {
   #format: Format;
   readonly #mode: Mode;
   readonly #settings: EditorSettings;
+  #largeFile: LargeFile | null;
   #docVersion = 1;
   #opened = false;
   /** Answers held back by `hold()`, sent by `release()`. */
@@ -64,6 +73,8 @@ export class DevHostAdapter implements HostAdapter {
   readonly dialects: SchemaDialect[] = [];
   /** Every `undo` and `redo` received, oldest first. */
   readonly history: ('undo' | 'redo')[] = [];
+  /** Every `openAsText` and `unlock` received, oldest first (spec 008's banner). */
+  readonly banner: ('openAsText' | 'unlock')[] = [];
   /** Texts to go back to (`undo`) and forward to (`redo`), newest last. */
   readonly #undoStack: string[] = [];
   readonly #redoStack: string[] = [];
@@ -76,6 +87,7 @@ export class DevHostAdapter implements HostAdapter {
     this.#format = document.format;
     this.#mode = document.mode;
     this.#settings = document.settings ?? {};
+    this.#largeFile = document.largeFile ?? null;
   }
 
   /** The document text as the host holds it now. */
@@ -95,7 +107,18 @@ export class DevHostAdapter implements HostAdapter {
       format: this.#format,
       mode: this.#mode,
       settings: this.#settings,
+      largeFile: this.#largeFile && { ...this.#largeFile },
     });
+  }
+
+  /** The large-file state as the host holds it now (unlocked after `unlock`). */
+  get largeFile(): LargeFile | null {
+    return this.#largeFile && { ...this.#largeFile };
+  }
+
+  /** Whether the document is a locked large-file document, which takes no change (spec 008). */
+  get #locked(): boolean {
+    return this.#largeFile !== null && !this.#largeFile.unlocked;
   }
 
   save(docVersion: number, change: DocumentChange): void {
@@ -120,6 +143,10 @@ export class DevHostAdapter implements HostAdapter {
   }
 
   #answer(docVersion: number, change: DocumentChange): void {
+    if (this.#locked) {
+      this.#emitError('read-only', 'This large file is read-only; choose "Edit anyway" to edit it');
+      return;
+    }
     if (docVersion !== this.#docVersion) {
       this.#emitError(
         'stale-edit',
@@ -159,11 +186,13 @@ export class DevHostAdapter implements HostAdapter {
 
   undo(): void {
     this.history.push('undo');
+    if (this.#locked) return;
     this.#step(this.#undoStack, this.#redoStack);
   }
 
   redo(): void {
     this.history.push('redo');
+    if (this.#locked) return;
     this.#step(this.#redoStack, this.#undoStack);
   }
 
@@ -180,6 +209,15 @@ export class DevHostAdapter implements HostAdapter {
   flushed(_docVersion: number, request: number): void {
     this.#flushing.get(request)?.();
     this.#flushing.delete(request);
+  }
+
+  openAsText(): void {
+    this.banner.push('openAsText');
+  }
+
+  unlock(): void {
+    this.banner.push('unlock');
+    if (this.#largeFile) this.#largeFile = { ...this.#largeFile, unlocked: true };
   }
 
   /** Plays the host before a save: sends `flush` and resolves once the UI answers `flushed`. */

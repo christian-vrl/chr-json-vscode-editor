@@ -332,9 +332,17 @@ exports.run = async function run() {
   await closeAll();
   await require('./gitHead.cjs').runGitHead({ hooks, waitFor, closeAll });
 
+  // Gate (007 T4, criteria 4–9): the compare panel and its commands (compare.cjs).
+  await closeAll();
+  await require('./compare.cjs').runCompare({ hooks, waitFor, closeAll, assertCriterion6 });
+
   // Gate (006 T3, criteria 6 and 7): the convert commands in both editors (convert.cjs).
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
+  // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
+  await closeAll();
+  await require('./ceiling.cjs').runCeiling({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse

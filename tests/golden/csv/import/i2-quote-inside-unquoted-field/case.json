@@ -1,0 +1,10 @@
+{
+  "rules": [
+    "I2",
+    "I7"
+  ],
+  "values": [
+    "text",
+    "number"
+  ]
+}

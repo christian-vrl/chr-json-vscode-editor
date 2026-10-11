@@ -14,8 +14,12 @@
  *     adds the UI → host `setDialect` message (004 T5).
  *  8: adds the UI → host `undo` and `redo` messages, and the host → UI `flush` request with its
  *     UI → host `flushed` answer (003 T7).
- *  9: `edit` can carry a whole-document action (`kind: 'action'`, 003 T8). */
-export const PROTOCOL_VERSION = 9;
+ *  9: `edit` can carry a whole-document action (`kind: 'action'`, 003 T8).
+ *  10: adds the compare panel's messages (007 T4): UI → host `compareReady` and `copy`, host → UI
+ *      `compare`.
+ *  11: `init` carries `largeFile`; adds the UI → host `openAsText` and `unlock` messages and the
+ *      `read-only` edit error (008 T2). */
+export const PROTOCOL_VERSION = 11;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -83,6 +87,18 @@ export interface InitMessage extends Envelope<'init'> {
   format: Format;
   mode: Mode;
   settings: EditorSettings;
+  /** Set when the document opened in large-file mode (spec 008), `null` for the normal editor. */
+  largeFile: LargeFile | null;
+}
+/**
+ * Large-file mode (spec 008, UNK-040): the host chose it when the tab opened, for a text of more
+ * than 5 MiB. `bytes` is the text's UTF-8 length then. A locked tab is read-only (criterion 2);
+ * `unlocked` once the user chose "Edit anyway" (criterion 4), which lasts until the tab closes, so
+ * a reloaded webview gets it again in `init`.
+ */
+export interface LargeFile {
+  bytes: number;
+  unlocked: boolean;
 }
 /**
  * The document's text at `docVersion`. `origin: 'edit'` answers the UI's oldest unanswered `edit`:
@@ -135,6 +151,17 @@ export interface FlushMessage extends Envelope<'flush'> {
 export interface FlushedMessage extends Envelope<'flushed'> {
   request: number;
 }
+/**
+ * "Open as Text" in the large-file banner (spec 008 criterion 3): the host replaces the tab with
+ * VS Code's text editor on the same document ("Reopen as Text"). No answer; the webview goes away.
+ */
+export type OpenAsTextMessage = Envelope<'openAsText'>;
+/**
+ * "Edit anyway" in the large-file banner (spec 008 criterion 4): the host lets this tab edit from
+ * now on, until it closes. No answer: the UI unlocks itself when it sends this, and every `edit`
+ * it sends after it reaches the host after it.
+ */
+export type UnlockMessage = Envelope<'unlock'>;
 /** A failure the other side should show; `code` is machine-readable, `message` is for people. */
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
@@ -147,8 +174,10 @@ export interface ErrorMessage extends Envelope<'error'> {
  * - `stale-edit`: the edit was made on an older `docVersion` than the document's.
  * - `patch-failed`: a patch operation did not apply to the text (core's `PatchError`).
  * - `edit-failed`: the editor refused the change (VS Code's `applyEdit` returned false).
+ * - `read-only`: the tab is a locked large-file tab (spec 008 criterion 2), so the host applies no
+ *   change from it. A locked tab's UI sends none; the host checks anyway (plan 008 risk R3).
  */
-export const EDIT_ERROR_CODES = ['stale-edit', 'patch-failed', 'edit-failed'] as const;
+export const EDIT_ERROR_CODES = ['stale-edit', 'patch-failed', 'edit-failed', 'read-only'] as const;
 export type EditErrorCode = (typeof EDIT_ERROR_CODES)[number];
 
 export function isEditError(message: ErrorMessage): boolean {
@@ -197,6 +226,54 @@ export interface SchemaDialectChoice {
   switchable: boolean;
 }
 
+// The compare panel (spec 007, 007 T4) speaks the same protocol with its own messages, decoded by
+// `decodeToComparePage` and `decodeToCompareHost`; `docVersion` there is the compare's version,
+// which grows with every change to either side (CompareState.version in compare-host-adapter.ts).
+
+/** Which side of a compare. */
+export type CompareSide = 'left' | 'right';
+export const COMPARE_SIDES: readonly CompareSide[] = ['left', 'right'];
+
+/** core's `Difference` (spec 007 §Acceptance criterion): `added` has only `rightPath`, `removed`
+ *  only `leftPath`, `changed` both. */
+export type CompareDifference =
+  | { kind: 'added'; rightPath: string }
+  | { kind: 'removed'; leftPath: string }
+  | { kind: 'changed'; leftPath: string; rightPath: string };
+
+/** One side of a compare as the host read it. */
+export interface CompareSideMessage {
+  /** The panel title: the file name, or `<name> (HEAD)`. */
+  name: string;
+  /** The format the side is parsed as (spec 007 criterion 8). */
+  format: Format;
+  /** The side's text, which the page parses with `format` as the editor does; or the parse error
+   *  that keeps the side from being compared. */
+  content: { kind: 'text'; text: string } | { kind: 'error'; message: string };
+  /** Whether the page offers a copy into this side; never for the HEAD side (criterion 6). */
+  writable: boolean;
+}
+
+/** Both sides and `compare(left, right)` at `docVersion`; the host sends it in answer to
+ *  `compareReady` and after every change to either side. */
+export interface CompareMessage extends Envelope<'compare'> {
+  left: CompareSideMessage;
+  right: CompareSideMessage;
+  differences: CompareDifference[];
+}
+/** The compare page is listening and asks for the compare, like `ready`. */
+export interface CompareReadyMessage extends Envelope<'compareReady'> {
+  docVersion: 0;
+}
+/** Copy `difference`, from the compare at `docVersion`, from the other side into side `to`. */
+export interface CopyMessage extends Envelope<'copy'> {
+  difference: CompareDifference;
+  to: CompareSide;
+}
+
+export type ToComparePageMessage = CompareMessage;
+export type ToCompareHostMessage = CompareReadyMessage | CopyMessage | ErrorMessage;
+
 export type ToWebviewMessage =
   | InitMessage
   | UpdateMessage
@@ -212,8 +289,11 @@ export type ToHostMessage =
   | UndoMessage
   | RedoMessage
   | FlushedMessage
+  | OpenAsTextMessage
+  | UnlockMessage
   | ErrorMessage;
-export type ProtocolMessage = ToWebviewMessage | ToHostMessage;
+export type ProtocolMessage =
+  ToWebviewMessage | ToHostMessage | ToComparePageMessage | ToCompareHostMessage;
 
 export type DecodeResult<M> = { ok: true; message: M } | { ok: false; error: string };
 
@@ -225,6 +305,16 @@ export function decodeToWebview(data: unknown): DecodeResult<ToWebviewMessage> {
 /** Validates data received from the UI; returns a fresh message or the reason it was rejected. */
 export function decodeToHost(data: unknown): DecodeResult<ToHostMessage> {
   return decode(data, TO_HOST);
+}
+
+/** Validates data received by the compare page from its host. */
+export function decodeToComparePage(data: unknown): DecodeResult<ToComparePageMessage> {
+  return decode(data, TO_COMPARE_PAGE);
+}
+
+/** Validates data received by the compare panel's host from its page. */
+export function decodeToCompareHost(data: unknown): DecodeResult<ToCompareHostMessage> {
+  return decode(data, TO_COMPARE_HOST);
 }
 
 // Decoding. A field reader returns the decoded value or throws Invalid; unknown keys are rejected
@@ -241,7 +331,13 @@ const BASE: Fields = {
 };
 
 const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
-  init: { text: str, format: oneOf(FORMATS), mode: oneOf(MODES), settings: jsonObject },
+  init: {
+    text: str,
+    format: oneOf(FORMATS),
+    mode: oneOf(MODES),
+    settings: jsonObject,
+    largeFile: largeFile,
+  },
   update: { text: str, origin: oneOf(UPDATE_ORIGINS) },
   setMode: { mode: oneOf(MODES) },
   setFormat: { format: oneOf(FORMATS) },
@@ -257,6 +353,18 @@ const TO_HOST: Record<ToHostMessage['type'], Fields> = {
   undo: {},
   redo: {},
   flushed: { request: count },
+  openAsText: {},
+  unlock: {},
+  error: { code: str, message: str },
+};
+
+const TO_COMPARE_PAGE: Record<ToComparePageMessage['type'], Fields> = {
+  compare: { left: compareSide, right: compareSide, differences: differenceList },
+};
+
+const TO_COMPARE_HOST: Record<ToCompareHostMessage['type'], Fields> = {
+  compareReady: { docVersion: zero },
+  copy: { difference, to: oneOf(COMPARE_SIDES) },
   error: { code: str, message: str },
 };
 
@@ -415,6 +523,15 @@ function patchList(v: unknown, name: string): JsonPatchOperation[] {
   return v.map((op, i) => patchOperation(op, `${name}[${i}]`));
 }
 
+function largeFile(v: unknown, name: string): LargeFile | null {
+  if (v === null) return null;
+  return readFields(
+    record(v, name),
+    { bytes: count, unlocked: bool },
+    name,
+  ) as unknown as LargeFile;
+}
+
 function schemaDialect(v: unknown, name: string): ValidationMessage['dialect'] {
   if (v === null) return null;
   const fields = { name: oneOf(SCHEMA_DIALECTS), assumed: bool, switchable: bool };
@@ -445,4 +562,44 @@ function schemaErrorList(v: unknown, name: string): SchemaError[] {
     const fields = { instancePath: pointer, keyword: str, message: str };
     return readFields(record(e, where), fields, where) as unknown as SchemaError;
   });
+}
+
+function compareSide(v: unknown, name: string): CompareSideMessage {
+  const fields = { name: str, format: oneOf(FORMATS), content: compareContent, writable: bool };
+  return readFields(record(v, name), fields, name) as unknown as CompareSideMessage;
+}
+
+function compareContent(v: unknown, name: string): CompareSideMessage['content'] {
+  const raw = record(v, name);
+  if (raw.kind === 'text') {
+    return readFields(raw, { kind: str, text: str }, name) as CompareSideMessage['content'];
+  }
+  if (raw.kind === 'error') {
+    return readFields(raw, { kind: str, message: str }, name) as CompareSideMessage['content'];
+  }
+  throw new Invalid(`${name}.kind must be text or error`);
+}
+
+const DIFFERENCE_FIELDS: Record<CompareDifference['kind'], Fields> = {
+  added: { kind: str, rightPath: pointer },
+  removed: { kind: str, leftPath: pointer },
+  changed: { kind: str, leftPath: pointer, rightPath: pointer },
+};
+
+function difference(v: unknown, name: string): CompareDifference {
+  const raw = record(v, name);
+  const kind = raw.kind;
+  if (typeof kind !== 'string' || !Object.hasOwn(DIFFERENCE_FIELDS, kind)) {
+    throw new Invalid(`${name}.kind must be one of ${Object.keys(DIFFERENCE_FIELDS).join(', ')}`);
+  }
+  return readFields(
+    raw,
+    DIFFERENCE_FIELDS[kind as CompareDifference['kind']],
+    name,
+  ) as CompareDifference;
+}
+
+function differenceList(v: unknown, name: string): CompareDifference[] {
+  if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
+  return v.map((d, i) => difference(d, `${name}[${i}]`));
 }

@@ -1,0 +1,13 @@
+{
+  "rules": [
+    "X5",
+    "X7"
+  ],
+  "values": [
+    "number",
+    "null"
+  ],
+  "features": [
+    "one-column-null-row"
+  ]
+}

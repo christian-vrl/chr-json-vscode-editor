@@ -72,7 +72,7 @@ Tests (ADR-013):
 | R4 Later specs add Node-only code or commands without web cases | The lint rule (criterion 2) and the coverage map (criterion 7) fail their PRs; the web e2e job runs on every PR |
 | R5 vscode.dev or github.dev start workspaces in Restricted Mode, where the extension is off | T1 records it; an owner UNKNOWN before T5 if so (spec §Where we differ) |
 | R6 Spec 011's QuickJS WebAssembly in a vscode.dev webview (served through the webview service worker) | covered by criterion 7 once 011 is on `main`: its query command gets a web e2e test |
-| R7 Open PRs #66 and #69 touch `extension.ts` and add host code | T2 needs 007 T4 and 008 T2 merged, so it ports their code once |
+| R7 Later host PRs (008 T3, 009–012 tasks) touch `extension.ts` while T2 moves code | T2 updates from `main` before merge; the lint rule catches new Node imports |
 
 ## Definition of Done
 1. Criteria 1–14 green (13 on the local route in a sandbox, the rest in CI).

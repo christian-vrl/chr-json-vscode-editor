@@ -1,6 +1,6 @@
 # SPEC 013 — Web extension (vscode.dev and github.dev)
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidQbVdJVVfHtwPqHyhUJuvE4, 2026-10-11)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -123,14 +123,14 @@ with the fixture folder mounted on a virtual scheme.
   `"browser"`, no `"capabilities"`; `engines.vscode` `^1.136.2` (UNK-016).
 - Build: `packages/vscode-extension/esbuild.mjs` bundles `src/extension.ts` as CommonJS for
   `platform: 'node'` with `vscode` external, and the webview as one IIFE for the browser.
-- Node imports in host code on `main` @ 86036e5: bundling `src/extension.ts` with esbuild for
+- Node imports in host code on `main` @ e2cdb98: bundling `src/extension.ts` with esbuild for
   `platform: 'browser'` (`format: 'cjs'`, `vscode` external, sandbox check 2026-10-11) fails on
-  exactly two imports: `node:crypto` in `src/webviewHtml.ts:5` (`randomBytes` for the CSP nonce) and
-  `node:path` in `src/gitHeadVscode.ts:7` (`dirname` of the file path for the Git API). Open PR #69
-  (007 T4) adds `node:path` (`path.posix.basename`, `extname`, `dirname` on `uri.path`) in
-  `src/compareCommands.ts`. Ajv, `ajv-formats`, `ajv-draft-04`, `jsonc-parser` and `core` bundle
+  exactly three imports: `node:crypto` in `src/webviewHtml.ts:5` (`randomBytes` for the CSP nonce),
+  `node:path` in `src/gitHeadVscode.ts:7` (`dirname` of the file path for the Git API) and
+  `node:path` in `src/compareCommands.ts:8` (007 T4, PR #69: `path.posix.basename`, `extname`,
+  `dirname` on `uri.path`). Ajv, `ajv-formats`, `ajv-draft-04`, `jsonc-parser` and `core` bundle
   for the browser with no error. File access already goes through `vscode.workspace.fs`
-  (`src/editorProvider.ts:522`, `src/convertCommand.ts:154,183,198`).
+  (`src/editorProvider.ts:529`, `src/convertCommand.ts:154,183,198`).
 - Web host behavior (sandbox check 2026-10-11, VS Code 1.141.0 `.deb` from packages.microsoft.com,
   a probe extension with only a `browser` entry, started with `--extensionDevelopmentKind=web`):
   `new Function('return 40+2')()` returns 42; `require('fs')` throws "Cannot load module 'fs'";
@@ -147,7 +147,7 @@ with the fixture folder mounted on a virtual scheme.
   "not in a repository" for a non-`file` URI.
 - Schema association: `packages/core/src/schema/association.ts:96` returns no schema for a relative
   `$schema` when the document is not `file:`, and `:180` treats every non-`file:` settings URL as
-  remote; `src/editorProvider.ts:516-526` (`readSchemaFile`) reads only `file:` URIs.
+  remote; `src/editorProvider.ts:523-533` (`readSchemaFile`) reads only `file:` URIs.
 - Test harness: npm `@vscode/test-web@0.0.81` (MIT, 2026-06-23) runs a VS Code web build in
   Playwright Chromium with `extensionDevelopmentPath`, `extensionTestsPath`, `folderPath` (mounted on
   `vscode-test-web://mount/`) and `quality: 'stable'`; it downloads the web build from
@@ -172,4 +172,4 @@ with the fixture folder mounted on a virtual scheme.
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
 - [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Human approval recorded

@@ -21,6 +21,13 @@ new file beside it (`data.json5` becomes `data.json`), keeping its layout and ev
 target can hold. Going to JSON removes comments, and `NaN` and `Infinity` become `null` in JSON and
 JSONC; the command asks first when that happens. The original file is never changed.
 
+"Compare With…", "Compare Selected" (two files in the explorer) and "Compare with HEAD" show two
+documents side by side as trees with every data difference marked, ignoring key order, comments and
+formatting; unsaved changes are included, and edits made anywhere show up in the compare. "Next" and
+"Previous" step through the differences, and "Copy to left" or "Copy to right" copies one across as a
+normal, undoable edit that keeps the target's comments. The HEAD side is read from the local Git
+repository and is never changed.
+
 Files open in the text editor by default. To open a file type in CHR JSON Editor every time, use
 "Reopen Editor With..." > "Configure default editor", or set VS Code's `workbench.editorAssociations`
 setting, for example `{ "*.json5": "chrJsonEditor.editor" }`.

@@ -1,0 +1,11 @@
+{
+  "rules": [
+    "X2",
+    "X3",
+    "X4"
+  ],
+  "values": [
+    "text",
+    "number"
+  ]
+}

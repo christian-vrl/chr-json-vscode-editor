@@ -1,0 +1,4 @@
+[
+  { "difference": 0, "to": "left", "expected": "expected-after-copy.left.jsonc" },
+  { "difference": 2, "to": "right", "expected": "expected-after-copy.right.jsonc" }
+]
