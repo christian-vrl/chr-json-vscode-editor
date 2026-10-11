@@ -1,0 +1,9 @@
+{
+  "language": "lodash",
+  "tags": ["pick"],
+  "wizard": {
+    "projection": {
+      "paths": [["name"]]
+    }
+  }
+}
