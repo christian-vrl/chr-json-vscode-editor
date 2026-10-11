@@ -17,6 +17,7 @@
 import { decodeToWebview } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { DomStep, RenderedProbe } from '../testProbe';
+import { runSteps } from './domSteps';
 
 const MODE_ROOTS = [
   ['tree', '.jse-tree-mode'],
@@ -86,58 +87,6 @@ export function installTestHooks(
     await new Promise((resolve) => setTimeout(resolve, 50));
     for (const character of text) document.execCommand('insertText', false, character);
     return Date.now();
-  }
-
-  /** The first element matching `selector` (and `text`, when given), or null. */
-  function find(selector: string, text?: string): HTMLElement | null {
-    for (const element of document.querySelectorAll<HTMLElement>(selector)) {
-      if (text === undefined || element.textContent?.trim() === text) return element;
-    }
-    return null;
-  }
-
-  /** Waits for `find(selector, text)` (or, with `gone`, for no match) for up to five seconds. */
-  async function waitFor(selector: string, text?: string, gone = false): Promise<HTMLElement> {
-    const deadline = Date.now() + 5000;
-    for (;;) {
-      const element = find(selector, text);
-      if (gone ? !element : element) return element!;
-      if (Date.now() > deadline) {
-        const what = text === undefined ? selector : `${selector} "${text}"`;
-        throw new Error(gone ? `${what} is still shown` : `nothing matches ${what}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
-  }
-
-  async function runSteps(steps: DomStep[]): Promise<(string | null)[]> {
-    const reads: (string | null)[] = [];
-    for (const step of steps) {
-      if ('click' in step) (await waitFor(step.click, step.text)).click();
-      else if ('fill' in step) {
-        const field = (await waitFor(step.fill)) as HTMLInputElement | HTMLTextAreaElement;
-        field.focus();
-        field.value = step.value;
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-      } else if ('key' in step) {
-        const element = await waitFor(step.on);
-        element.focus();
-        element.dispatchEvent(
-          new KeyboardEvent('keydown', {
-            key: step.key,
-            ctrlKey: step.ctrl ?? false,
-            shiftKey: step.shift ?? false,
-            bubbles: true,
-            cancelable: true,
-          }),
-        );
-      } else if ('waitFor' in step) await waitFor(step.waitFor, step.text, step.gone);
-      else {
-        const element = await waitFor(step.read, step.text);
-        reads.push(step.attr ? element.getAttribute(step.attr) : (element.textContent ?? ''));
-      }
-    }
-    return reads;
   }
 
   /** The toolbar's schema status as a person reads it: the chosen option, then any reason. */

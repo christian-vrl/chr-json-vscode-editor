@@ -3,14 +3,17 @@
 // contributed custom editor and commands (spec 003 T3).
 import * as vscode from 'vscode';
 import { registerCommands } from './commands';
+import { registerCompareCommands, testCompare } from './compareCommands';
+import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
-import type { DomStep, RenderedProbe } from './testProbe';
+import type { ComparePageProbe, DomStep, RenderedProbe } from './testProbe';
 import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
 import type { HeadResult } from './gitHead';
 import { readHeadOf } from './gitHeadVscode';
+import { detect } from '@chr-json-editor/core';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -57,6 +60,16 @@ export interface TestHooks {
     messages: string[];
     context: Record<string, string | undefined>;
   };
+  /** 007 T4: every compare panel opened so far, closed ones included. */
+  compares(): CompareSnapshot[];
+  /** What the open compare panel titled `title` renders. */
+  probeCompare(title: string): Promise<ComparePageProbe>;
+  /** Runs `steps` on the page of the open compare panel titled `title`. */
+  domCompare(title: string, steps: DomStep[]): Promise<(string | null)[]>;
+  /** Answers every later "Compare With…" file pick with `answer`'s result for the listed URIs
+   *  (undefined: show the pick). Returns the messages the compare commands showed since the
+   *  previous call. */
+  comparePick(answer: ((listed: string[]) => string | undefined) | undefined): string[];
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -65,14 +78,23 @@ const convertSaveAs: string[] = [];
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
   const formatBadge = new FormatBadgeController(formatCore);
   const { provider, disposable } = JsonEditorProvider.register(context, formatBadge);
+  const compares = new ComparePanels(
+    context.extensionUri,
+    (document) =>
+      formatBadge.format(document) ??
+      detect(document.uri.path, document.languageId, document.getText()).format,
+  );
   context.subscriptions.push(
+    compares,
     formatBadge,
     disposable,
-    formatBadge.onDidChangeFormat(({ document, format }) =>
-      provider.formatChanged(document, format),
-    ),
+    formatBadge.onDidChangeFormat(({ document, format }) => {
+      provider.formatChanged(document, format);
+      compares.formatChanged(document);
+    }),
     ...registerCommands(),
     ...registerConvertCommands(formatBadge),
+    ...registerCompareCommands(compares, formatBadge),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -92,6 +114,19 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         selectDialect: (uri, dialect) => provider.selectDialect(uri, dialect),
         dom: (uri, steps) => provider.dom(uri, steps),
         readHead: (uri) => readHeadOf(vscode.Uri.parse(uri)),
+        compares: () => compares.snapshots,
+        probeCompare(title) {
+          const panel = compares.find(title);
+          return panel ? panel.probe() : Promise.reject(new Error(`no compare panel ${title}`));
+        },
+        domCompare(title, steps) {
+          const panel = compares.find(title);
+          return panel ? panel.dom(steps) : Promise.reject(new Error(`no compare panel ${title}`));
+        },
+        comparePick(answer) {
+          testCompare.pick = answer;
+          return testCompare.messages.splice(0);
+        },
         convert(answer) {
           const saveAs = convertSaveAs.splice(0);
           testConvert.saveAs = answer
