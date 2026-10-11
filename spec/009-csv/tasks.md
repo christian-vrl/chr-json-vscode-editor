@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** Write the CSV corpus in `tests/golden/csv/export/` and `tests/golden/csv/import/`:
+- [x] **T1** Write the CSV corpus in `tests/golden/csv/export/` and `tests/golden/csv/import/`:
   hand-written `expected.csv` bytes, `expected.json` data, `warnings.json` and `error.json`,
   `options.json` and `case.json` tags, plus the coverage test; add the folder to `.prettierignore`
   and to `pnpm test:golden`. Needs UNK-043 resolved. — needs: 002 T1 (golden corpus and

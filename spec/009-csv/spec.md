@@ -202,5 +202,5 @@ a message and, for import, a 1-based line number. Options and defaults are in §
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
+- [x] Result-affecting UNKNOWNS resolved
 - [x] Human approval recorded
