@@ -143,7 +143,14 @@ async function timeRefresh(hooks, right, title, differences) {
     (p) => p.counter === `${differences + 1} differences`,
   );
   const ms = performance.now() - start;
-  await replace(document, 0, '"name": "ALPHA-0"', '"name": "alpha-0"');
+  // Undo the edit. In bench run 38163897100 the 50 MiB document no longer held the edit by then
+  // (cause not established: VS Code may drop an edited document that has no editor and read the
+  // file again), so undo it only if it is there; either way the panel must show the starting
+  // count again before the next run.
+  const now = await vscode.workspace.openTextDocument(right);
+  if (now.getText().includes('"name": "ALPHA-0"')) {
+    await replace(now, 0, '"name": "ALPHA-0"', '"name": "alpha-0"');
+  }
   await probeUntil(
     hooks,
     title,
