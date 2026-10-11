@@ -1,0 +1,15 @@
+[
+  {
+    "kind": "added",
+    "rightPath": "/formats/2"
+  },
+  {
+    "kind": "changed",
+    "leftPath": "/version",
+    "rightPath": "/version"
+  },
+  {
+    "kind": "added",
+    "rightPath": "/ratio"
+  }
+]
