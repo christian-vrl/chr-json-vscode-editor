@@ -12,7 +12,7 @@
   PASS on X1–X7 and I1–I7 per case*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** `jsonToCsv`, `csvToJson` and `detectDelimiter` in `packages/core/src/csv/`, exported
+- [x] **T2** `jsonToCsv`, `csvToJson` and `detectDelimiter` in `packages/core/src/csv/`, exported
   from `@chr-json-editor/core`; fast-check suite for criterion 3 (seed committed, 10 000 runs);
   export and import times at 1, 10 and 50 MiB on the `bench/generate.mjs` documents (arrays of
   records) recorded in the PR body. — needs: 009 T1 — *gate: criterion 1 all cases green; criterion 3
