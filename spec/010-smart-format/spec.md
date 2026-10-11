@@ -34,7 +34,8 @@ text has a parse `error` diagnostic. Its layout is FracturedJson 5.1.0's with th
    a coverage test asserts, per format, at least one case for each `layout` ∈ {inline, compact-array,
    table, expanded}, each `style` ∈ {indent-tab, indent-2, indent-4, crlf, no-final-newline,
    bom, one-line-input}, and `special` = key-order (rows of one array whose keys come in different
-   orders, UNK-045); for jsonc and json5, each `comments` ∈ {before, after, inline, standalone,
+   orders, UNK-045); for json, `comments` = with-warning (a `.json` input with a comment, kept per L3);
+   for jsonc and json5, each `comments` ∈ {before, after, inline, standalone,
    multi-line-block, between-key-and-value, header, footer} and `trailingComma` ∈ {yes, no}; for json5,
    each `special` ∈ {unquoted-key, single-quote, hex, infinity-nan, plus-sign, leading-dot,
    line-continuation}.
@@ -63,10 +64,12 @@ text has a parse `error` diagnostic. Its layout is FracturedJson 5.1.0's with th
    previous text exactly. When the text is already smart-formatted, no edit is made.
 9. **Broken source (e2e):** on a document whose parse has an `error` diagnostic, nothing changes and
    a message says "Smart Format needs valid `<format>`. Fix the errors or run Repair JSON first."
-10. **Large files (e2e):** for a document above the threshold the command, from either editor,
+10. **Large files (e2e):** "Size" is the UTF-8 byte length of the document's text when the command
+    runs, whatever mode the tab opened in. Above the threshold the command, from either editor,
     changes nothing and says "Smart Format is off for documents above 5 MiB because it can take a
-    long time. Use Format instead." (A large-file tab has no text mode, spec 008 criteria 2 and 4, so
-    the menu item never shows there.)
+    long time. Use Format instead."; at or below it, it runs as criterion 8 says, so a large-file tab
+    unlocked and edited down to 5 MiB or less can be smart-formatted. (A large-file tab has no text
+    mode, spec 008 criteria 2 and 4, so the menu item never shows there.)
 11. **Speed (bench):** `bench/RESULTS.md`, regenerated in one run, gives `smartFormat`'s median time
     for json, jsonc and json5 at 1 and 5 MiB beside `prettyPrint`'s. HYPOTHESIS: the 5 MiB median is
     under 5 s on the CI runner (FracturedJson alone took 2.3 s on a 4.8 MiB array of records in this

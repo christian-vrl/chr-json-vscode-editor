@@ -63,8 +63,8 @@ threshold first (criterion 10). The dev host's action switch gets `smartFormat` 
 |---|---|---|---|
 | A | Golden corpus + coverage test | cases with `case.json` tags | criterion 2; Reviewer checks every case against L1–L8 |
 | B | `smartFormat` in core | `smart-format.ts`, property suite, bench column | criteria 1, 3–6, 11, 12 (license) |
-| C | Webview and command | menu item, action, command, messages, web and e2e tests, README credit | criteria 7–9, 12 |
-| D | Large-file guard | command message above the threshold, e2e | criterion 10 |
+| C | Webview and command | menu item, action, command with its size guard, messages, web and e2e tests, README credit | criteria 7–9, 10 (text editor), 12 |
+| D | Large-file tabs | e2e of the guard in large-file tabs | criterion 10 (large-file tab) |
 
 ## Risks and mitigations
 | Risk | Mitigation |
