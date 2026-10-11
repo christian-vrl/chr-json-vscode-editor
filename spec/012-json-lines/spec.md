@@ -64,7 +64,8 @@ the array of items and whose edits follow §Line rules.
    `.ndjson` files. The tab opens in Table mode; the mode buttons offer Table and Tree only; the
    format badge reads "JSON Lines" and the "Change Format" picker lists it (choosing it, or leaving
    it, re-parses without changing bytes, as 003 criterion 8). Sort, transform, search, copy and
-   "Export to CSV…" are offered; text mode, format, compact and smart format (spec 010) are not.
+   "Export to CSV…" are offered; text mode, format, compact, smart format (spec 010) and "Repair JSON"
+   are not.
 7. **Edit (e2e):** for the first 10 golden cases of criterion 1 in sorted path order, opening
    `input.jsonl` and applying `patch.json` through the webview leaves the document text byte-equal to
    `expected.jsonl`; the document is dirty, save writes those bytes, and one undo restores the

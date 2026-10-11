@@ -73,6 +73,35 @@ describe('loadConvertCases', () => {
     );
   });
 
+  it('reads an error case (spec 012), which holds error.json instead of expected and losses', () => {
+    const errorCase = {
+      'json-to-jsonl/e/input.json': '{}',
+      'json-to-jsonl/e/error.json': '{"message": "no"}',
+      'json-to-jsonl/e/case.json': '{"rules": ["J2"], "location": "root"}',
+    };
+    expect(loadConvertCases(corpus(errorCase))).toEqual([
+      {
+        pair: 'json-to-jsonl',
+        from: 'json',
+        to: 'jsonl',
+        name: 'e',
+        input: '{}',
+        error: { message: 'no' },
+        tags: { rules: ['J2'], location: 'root' },
+      },
+    ]);
+    rmSync(root!, { recursive: true });
+    expect(() =>
+      loadConvertCases(corpus({ ...errorCase, 'json-to-jsonl/e/losses.json': '[]' })),
+    ).toThrow(
+      'conversion case json-to-jsonl/e: holds error.json and expected.jsonl or losses.json',
+    );
+    rmSync(root!, { recursive: true });
+    expect(() =>
+      loadConvertCases(corpus({ ...errorCase, 'json-to-jsonl/e/error.json': '{"line": 1}' })),
+    ).toThrow('conversion case json-to-jsonl/e: error.json must be {"message": "..."}');
+  });
+
   it('rejects a folder that is not a pair, such as a misspelled one', () => {
     const files = { ...validCase, 'jsonc-to-jsn/b/input.jsonc': '1' };
     expect(() => loadConvertCases(corpus(files))).toThrow(

@@ -1,0 +1,5 @@
+[
+  {"severity":"error","message":"Line 2 is not valid JSON.","offset":8,"length":6},
+  {"severity":"error","message":"Line 3 is not valid JSON.","offset":15,"length":7},
+  {"severity":"error","message":"Line 5 is not valid JSON.","offset":31,"length":15}
+]
