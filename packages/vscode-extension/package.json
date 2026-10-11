@@ -73,6 +73,21 @@
         "command": "chrJsonEditor.convertToJson5",
         "title": "Convert to JSON5",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.compareWith",
+        "title": "Compare With…",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.compareSelected",
+        "title": "Compare Selected",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.compareWithHead",
+        "title": "Compare with HEAD",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -104,6 +119,18 @@
         {
           "command": "chrJsonEditor.convertToJson5",
           "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)"
+        },
+        {
+          "command": "chrJsonEditor.compareWith",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ || activeCustomEditorId == chrJsonEditor.editor || editorLangId =~ /^(json|jsonc|json5)$/"
+        },
+        {
+          "command": "chrJsonEditor.compareSelected",
+          "when": "false"
+        },
+        {
+          "command": "chrJsonEditor.compareWithHead",
+          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
         }
       ],
       "editor/title": [
@@ -133,11 +160,38 @@
           "group": "1_convert@3"
         }
       ],
+      "editor/title/context": [
+        {
+          "command": "chrJsonEditor.compareWith",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/",
+          "group": "3_compare@20"
+        },
+        {
+          "command": "chrJsonEditor.compareWithHead",
+          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
+          "group": "3_compare@21"
+        }
+      ],
       "explorer/context": [
         {
           "command": "chrJsonEditor.openInEditor",
           "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder",
           "group": "navigation@20"
+        },
+        {
+          "command": "chrJsonEditor.compareWith",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
+          "group": "3_compare@20"
+        },
+        {
+          "command": "chrJsonEditor.compareSelected",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && listDoubleSelection",
+          "group": "3_compare@21"
+        },
+        {
+          "command": "chrJsonEditor.compareWithHead",
+          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
+          "group": "3_compare@22"
         }
       ]
     }

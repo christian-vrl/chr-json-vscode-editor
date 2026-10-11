@@ -39,8 +39,8 @@ a new UNKNOWN, since it changes what the user sees.
    256 MiB message, anything else to its own message. Free the context and runtime in `finally`.
 
 The engine module (`quickjs-emscripten-core` + the single-file browser release-sync variant, whose
-WebAssembly is base64 inside the JS) is imported dynamically, so Vite puts it in its own chunk loaded
-by the same nonce'd script mechanism; it is compiled the first time Transform opens (criterion 10).
+WebAssembly is base64 inside the JS) is loaded by the route T1 picks under the nonce-only CSP (R7: a dynamic import, a
+second nonce'd script, or the main bundle); it is compiled the first time Transform opens (criterion 10).
 `App.svelte` adds `{ ...javascriptQueryLanguage, executeQuery }` and `{ ...lodashQueryLanguage,
 executeQuery }` to `QUERY_LANGUAGES`, so the wizard's `createQuery` and the dialog are the library's.
 Write-back needs no new code: the library hands Transform's result to the paths that already exist
@@ -80,7 +80,7 @@ variant that allows exactly that one source.
 | R7 The plan's separate engine chunk cannot load: `script-src` is a nonce only, and the editor webview is one classic esbuild script, so a dynamic `import()` of another file is not covered by the nonce and may be refused | T1 loads the engine the way the product will (the real `renderWebviewHtml`, the real bundle format) and records which of these works with no CSP violation: (a) a dynamic `import()`, (b) a second nonce'd `<script>` added by the page, (c) the engine inside the main bundle, compiled on first Transform. T4 uses the first that works; (c) always works and only costs bundle size, so criterion 10 holds in every case |
 | R3 A memory bomb takes longer than the deadline to stop (8.4 s in the sandbox check: the interrupt is not polled inside one large native allocation) | criterion 5 allows 15 s for the memory case; T1 measures in the webview; T3 may lower the limit if that keeps every bench query passing |
 | R4 Results differ from the library's (engine differences: `Intl`, locale sorting, regex flags) | criterion 1 runs every case against the reference; a difference becomes a case tagged with its cause, documented in §Where we differ, with the spec changed first |
-| R5 Bundle size (+~0.7 MB) slows opening | separate chunk, compiled on first Transform (criterion 10); T5 records the `.vsix` size change in its PR |
+| R5 Bundle size (+~0.7 MB) slows opening | the engine is compiled only on the first Transform (criterion 10), and loaded by the route T1 picks (R7); T5 records the `.vsix` size change in its PR |
 | R6 A QuickJS or Lodash bug lets code out of the engine | the engine has no host objects to reach; criterion 4 probes the obvious routes on every CI run; exact pins, upgrades reviewed |
 
 ## Definition of Done

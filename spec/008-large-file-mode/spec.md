@@ -21,9 +21,11 @@ extensions get a clear message instead of a failed open.
 
 ## Acceptance criterion (falsifiable)
 "Size" is the UTF-8 byte length of the document's text when the tab opens. "Threshold" is
-5 MiB = 5,242,880 bytes (UNK-014). "Ceiling" is VS Code's sync limit for extensions (HYPOTHESIS:
-50 × 2^20 = 52,428,800 bytes is the largest size that opens, per run 37874204494; T4 confirms the
-exact value). Criterion 9 uses the file's size on disk
+5 MiB = 5,242,880 bytes (UNK-014). "Ceiling" is VS Code's sync limit for extensions: 50 × 2^20 =
+52,428,800 (measured by T4 on VS Code 1.141.0: VS Code hands a document to extensions when its text
+is at most 52,428,800 UTF-16 code units, `TextModel._MODEL_SYNC_LIMIT`; a file of 52,428,800 ASCII
+bytes opens, 52,428,801 does not, and a UTF-8 BOM in front of 52,428,800 opens because VS Code
+leaves the BOM out of the text). Criterion 9 uses the file's size on disk
 (a UTF-8 BOM included), because the command runs before VS Code loads the document; every other
 criterion uses the text size.
 

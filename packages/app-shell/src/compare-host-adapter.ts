@@ -5,9 +5,9 @@
 // copy, which the host applies to the target document (ADR-003; in VS Code a `WorkspaceEdit` made
 // with `applyPatch`, 007 T4). Implemented by DevCompareHostAdapter for the standalone page and
 // `pnpm test:web`, and by the extension's compare panel (007 T4).
-import type { CompareSide, Difference } from '@chr-json-editor/core';
+import type { Difference } from '@chr-json-editor/core';
 import type { Disposable } from './host-adapter.js';
-import type { Format } from './protocol.js';
+import type { CompareSide, Format } from './protocol.js';
 
 export type { CompareSide, Difference };
 

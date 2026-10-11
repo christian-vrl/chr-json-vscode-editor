@@ -1,0 +1,14 @@
+[
+  {
+    "message": "Text after a closing quote is kept as part of the field",
+    "line": 3
+  },
+  {
+    "message": "Text after a closing quote is kept as part of the field",
+    "line": 4
+  },
+  {
+    "message": "Text after a closing quote is kept as part of the field",
+    "line": 4
+  }
+]

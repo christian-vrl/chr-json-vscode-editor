@@ -1,0 +1,19 @@
+[
+  {
+    "a": "x,y",
+    "b": "line1\r\nline2"
+  },
+  {
+    "a": "say \"hi\"",
+    "b": "plain"
+  },
+  {
+    "a": "two\nlines",
+    "b": "three\rparts"
+  },
+  {
+    "a": "p",
+    "b": "q",
+    "Field 2": "r"
+  }
+]
