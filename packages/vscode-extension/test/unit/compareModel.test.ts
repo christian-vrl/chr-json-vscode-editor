@@ -12,7 +12,11 @@ import {
   compareMessage,
   compareTitle,
   copyInto,
+  COMPARE_LIMIT_BYTES,
+  oversizedMessage,
+  oversizedSide,
   parseSide,
+  utf8Length,
   type CompareSideInput,
 } from '../../src/compareModel';
 
@@ -101,5 +105,46 @@ describe('compare model', () => {
 
   it('titles the panel with both names', () => {
     expect(compareTitle('data.jsonc (HEAD)', 'data.jsonc')).toBe('data.jsonc (HEAD) ↔ data.jsonc');
+  });
+});
+
+// Criterion 10 (007 T5): the size limit, per side, in UTF-8 bytes; the larger side counts.
+describe('compare size limit', () => {
+  it('counts UTF-8 bytes as TextEncoder does, lone surrogates as U+FFFD', () => {
+    for (const text of ['', 'abc', 'é', '€', '😀', 'a\ud800b', '\udc00', 'x😀é€\n']) {
+      expect(utf8Length(text)).toBe(new TextEncoder().encode(text).length);
+    }
+  });
+
+  it('lets sides up to the limit through and reports the larger side above it', () => {
+    const side = (name: string, text: string) => ({ name, text });
+    expect(oversizedSide([side('a', 'x'.repeat(10)), side('b', 'é'.repeat(5))], 10)).toBe(
+      undefined,
+    );
+    // 10 UTF-16 code units, 11 UTF-8 bytes.
+    expect(oversizedSide([side('a', 'é' + 'x'.repeat(9)), side('b', 'x')], 10)).toEqual({
+      name: 'a',
+      bytes: 11,
+    });
+    expect(oversizedSide([side('a', 'x'.repeat(11)), side('b', 'x'.repeat(12))], 10)).toEqual({
+      name: 'b',
+      bytes: 12,
+    });
+  });
+
+  it('defaults to UNK-037’s limit', () => {
+    const name = 'big.json';
+    expect(oversizedSide([{ name, text: 'x'.repeat(COMPARE_LIMIT_BYTES) }])).toBe(undefined);
+    expect(oversizedSide([{ name, text: 'x'.repeat(COMPARE_LIMIT_BYTES + 1) }])).toEqual({
+      name,
+      bytes: COMPARE_LIMIT_BYTES + 1,
+    });
+  });
+
+  it('offers the text diff in its message', () => {
+    expect(oversizedMessage({ name: 'big.json', bytes: 12.34 * 2 ** 20 }, 2 ** 20)).toBe(
+      "big.json is too large to compare by data (12.3 MiB; the limit is 1 MiB). Open VS Code's " +
+        'text diff of the two documents instead?',
+    );
   });
 });

@@ -2,7 +2,12 @@
 // per size, exactly <size> MiB (2^20 bytes, the unit VS Code's own file-size limits use), ASCII
 // only so bytes equal UTF-16 code units. Deterministic, so every run measures the same bytes.
 //
-//   node bench/generate.mjs [outDir] [sizes...]   default: bench/.data 1 5 10 50
+// With `--changed` it also writes, per size, the right side of 007 T5's compare benchmark: the same
+// document with about 1% of the records changed (every 100th record's name in capitals: same
+// length, so the same bytes count and the same records, and `compare` reports one `changed`
+// difference per changed record).
+//
+//   node bench/generate.mjs [--changed] [outDir] [sizes...]   default: bench/.data 1 5 10 50
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -27,6 +32,21 @@ function record(i) {
   };
 }
 
+/** 007 T5: which records the changed copy changes (record i where i % CHANGED_EVERY is this). */
+export const CHANGED_EVERY = 100;
+const CHANGED_AT = 50;
+
+/** Record `i` as the changed copy holds it: every CHANGED_EVERY-th record's name in capitals. */
+function changedRecord(i) {
+  const r = record(i);
+  return i % CHANGED_EVERY === CHANGED_AT ? { ...r, name: r.name.toUpperCase() } : r;
+}
+
+/** How many records of a document of `records` records the changed copy changes. */
+export function changedCount(records) {
+  return Math.floor((records - 1 - CHANGED_AT) / CHANGED_EVERY) + 1;
+}
+
 const INDENT = '  ';
 
 /** One array element as JSON.stringify(record, null, 2) would print it inside the array. */
@@ -39,12 +59,15 @@ function element(value) {
   );
 }
 
-/** The document text of exactly `bytes` bytes: `[\n<records>\n]\n`, padded inside the last note. */
-export function documentText(bytes) {
+/** The document text of exactly `bytes` bytes: `[\n<records>\n]\n`, padded inside the last note.
+ *  With `changed`, the 007 T5 changed copy (same length, see changedRecord). */
+export function documentText(bytes, changed = false) {
+  const recordAt = changed ? changedRecord : record;
+  const lastRecord = (i, pad) => ({ ...recordAt(i), note: LAST_MARKER + '.'.repeat(pad) });
   const parts = [];
   let length = '[\n'.length + '\n]\n'.length;
   for (let i = 0; ; i++) {
-    const next = element(record(i));
+    const next = element(recordAt(i));
     const added = (parts.length ? ',\n'.length : 0) + next.length;
     // Leave room for the last record, written below with its padding.
     if (length + added + element(lastRecord(i + 1, 0)).length + 2 > bytes) break;
@@ -61,21 +84,21 @@ export function documentText(bytes) {
   return text;
 }
 
-function lastRecord(i, pad) {
-  return { ...record(i), note: LAST_MARKER + '.'.repeat(pad) };
-}
-
-export function fileName(mib) {
-  return `${mib}mib.json`;
+export function fileName(mib, changed = false) {
+  return changed ? `${mib}mib-changed.json` : `${mib}mib.json`;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [outDir = 'bench/.data', ...sizeArgs] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  const withChanged = args[0] === '--changed';
+  const [outDir = 'bench/.data', ...sizeArgs] = withChanged ? args.slice(1) : args;
   const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
   mkdirSync(outDir, { recursive: true });
   for (const mib of sizes) {
-    const file = path.join(outDir, fileName(mib));
-    writeFileSync(file, documentText(mib * MIB));
-    console.log(`bench: wrote ${file} (${mib * MIB} bytes)`);
+    for (const changed of withChanged ? [false, true] : [false]) {
+      const file = path.join(outDir, fileName(mib, changed));
+      writeFileSync(file, documentText(mib * MIB, changed));
+      console.log(`bench: wrote ${file} (${mib * MIB} bytes)`);
+    }
   }
 }

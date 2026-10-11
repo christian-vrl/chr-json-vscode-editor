@@ -4,7 +4,8 @@
 // a copy from the page lands as one undoable edit, byte for byte as tests/compare/comments/
 // expected-after-copy.*, in a background tab when the file was not open, never into HEAD (6); an
 // edit to either document shows in the panel within 1 s (7); JSONC against JSON5 and a side that
-// does not parse (8); the panel's CSP and a page with no CSP violation (9). The fixtures are copied
+// does not parse (8); the panel's CSP and a page with no CSP violation (9); above the size limit,
+// no panel and VS Code's text diff offered instead, a HEAD side included (10, 007 T5). The fixtures are copied
 // into run.mjs's scratch folder, so the copies never touch the repository's files.
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
@@ -303,4 +304,125 @@ exports.runCompare = async function runCompare({ hooks, waitFor, closeAll, asser
     // As in gitHead.cjs: run.mjs deletes the scratch folder once VS Code has exited.
     await vscode.commands.executeCommand('git.close', vscode.Uri.file(repo));
   }
+
+  await runSizeLimit({ hooks, waitFor, closeAll, dir, scratch, opened, snapshot });
 };
+
+/** A JSON document of exactly `bytes` UTF-8 bytes; with `accent`, one "é" (2 bytes, 1 UTF-16 code
+ *  unit) in it, so its UTF-16 length is one less than its size. */
+function jsonOfBytes(bytes, accent = false) {
+  const frame = '{"pad": ""}\n'.length;
+  const body = accent ? 'é' + 'a'.repeat(bytes - frame - 2) : 'a'.repeat(bytes - frame);
+  const text = `{"pad": "${body}"}\n`;
+  assert.equal(Buffer.byteLength(text), bytes);
+  return text;
+}
+
+function textDiffTabs() {
+  return vscode.window.tabGroups.all
+    .flatMap((group) => group.tabs)
+    .filter((tab) => tab.input instanceof vscode.TabInputTextDiff);
+}
+
+/** Criterion 10 (007 T5): up to UNK-037's limit the panel opens; above it (the UTF-8 size of the
+ *  larger side, as currently edited) no panel opens and the message offers VS Code's text diff of
+ *  the same two documents, HEAD side included. */
+async function runSizeLimit({ hooks, waitFor, closeAll, dir, scratch, opened, snapshot }) {
+  const limit = hooks.compareLimit(undefined, true);
+  hooks.comparePick(undefined);
+  const write = (name, text) => {
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, text);
+    return vscode.Uri.file(file);
+  };
+  const small = write('small.json', '{"pad": "a"}\n');
+  const atLimit = write('at-limit.json', jsonOfBytes(limit));
+  // One UTF-16 code unit short of the limit, one byte above it in UTF-8: too large.
+  const above = write('above.json', jsonOfBytes(limit + 1, true));
+
+  await closeAll();
+  await vscode.commands.executeCommand(COMPARE_SELECTED, atLimit, [atLimit, small]);
+  const atTitle = 'at-limit.json ↔ small.json';
+  assert.deepEqual((await opened(atTitle)).differences, [
+    { kind: 'changed', leftPath: '/pad', rightPath: '/pad' },
+  ]);
+  assert.deepEqual(hooks.comparePick(undefined), [], 'at the limit: no message');
+  console.log(`compare: a side of exactly ${limit} bytes opens the compare panel`);
+  await closeAll();
+
+  const mib = (bytes) => `${(bytes / 2 ** 20).toFixed(1).replace(/\.0$/, '')} MiB`;
+  const offer = (name, bytes) =>
+    `${name} is too large to compare by data (${mib(bytes)}; the limit is ${mib(limit)}). ` +
+    "Open VS Code's text diff of the two documents instead?";
+
+  // Dismissed: nothing opens.
+  hooks.compareLimit(undefined, false);
+  let count = hooks.compares().length;
+  await vscode.commands.executeCommand(COMPARE_SELECTED, small, [small, above]);
+  assert.deepEqual(hooks.comparePick(undefined), [offer('above.json', limit + 1)]);
+  assert.equal(hooks.compares().length, count, 'above the limit: no compare panel');
+  assert.equal(textDiffTabs().length, 0, 'dismissed: no text diff');
+
+  // Accepted: VS Code's text diff of the same two documents, left as original.
+  hooks.compareLimit(undefined, true);
+  await vscode.commands.executeCommand(COMPARE_SELECTED, small, [small, above]);
+  assert.deepEqual(hooks.comparePick(undefined), [offer('above.json', limit + 1)]);
+  assert.equal(hooks.compares().length, count, 'above the limit: no compare panel');
+  await waitFor('the text diff', () => textDiffTabs().length === 1);
+  let [tab] = textDiffTabs();
+  assert.equal(tab.input.original.toString(), small.toString());
+  assert.equal(tab.input.modified.toString(), above.toString());
+  assert.equal(tab.label, 'small.json ↔ above.json');
+  console.log(`compare: above the limit "${offer('above.json', limit + 1)}" opens the text diff`);
+  await closeAll();
+
+  // Sizes are the documents as currently edited: an unsaved edit that takes the at-limit side
+  // above the limit falls back too.
+  const atDocument = await vscode.workspace.openTextDocument(atLimit);
+  await vscode.window.showTextDocument(atDocument);
+  const grow = new vscode.WorkspaceEdit();
+  grow.insert(atLimit, atDocument.positionAt('{"pad": "'.length), 'b');
+  assert.equal(await vscode.workspace.applyEdit(grow), true);
+  await waitFor('the unsaved edit', () => atDocument.isDirty);
+  count = hooks.compares().length;
+  await vscode.commands.executeCommand(COMPARE_SELECTED, atLimit, [atLimit, small]);
+  assert.deepEqual(hooks.comparePick(undefined), [offer('at-limit.json', limit + 1)]);
+  assert.equal(hooks.compares().length, count, 'an unsaved edit above the limit: no panel');
+  await waitFor('the text diff of the edited document', () => textDiffTabs().length === 1);
+  await vscode.window.showTextDocument(atDocument);
+  await vscode.commands.executeCommand('workbench.action.files.revert');
+  await waitFor('the edit to revert', () => !atDocument.isDirty);
+  await closeAll();
+
+  // HEAD: the committed text is served to the text diff, as committed.
+  const repo = fs.mkdtempSync(path.join(scratch, 'compare-limit-git-'));
+  try {
+    git(repo, 'init', '-q');
+    const committed = path.join(repo, 'large.json');
+    const committedText = jsonOfBytes(limit + 1);
+    fs.writeFileSync(committed, committedText);
+    git(repo, 'add', 'large.json');
+    git(repo, 'commit', '-q', '-m', 'fixture');
+    const uri = vscode.Uri.file(committed);
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document);
+    count = hooks.compares().length;
+    await vscode.commands.executeCommand(COMPARE_WITH_HEAD);
+    assert.deepEqual(hooks.comparePick(undefined), [offer('large.json (HEAD)', limit + 1)]);
+    assert.equal(hooks.compares().length, count, 'HEAD above the limit: no compare panel');
+    await waitFor('the HEAD text diff', () => textDiffTabs().length === 1);
+    [tab] = textDiffTabs();
+    assert.equal(tab.input.original.scheme, 'chr-json-head');
+    assert.equal(tab.input.modified.toString(), uri.toString());
+    assert.equal(tab.label, 'large.json (HEAD) ↔ large.json');
+    const head = await vscode.workspace.openTextDocument(tab.input.original);
+    assert.equal(head.getText(), committedText, 'the HEAD side shows the committed text');
+    console.log('compare: Compare with HEAD above the limit opens the text diff with HEAD');
+    await closeAll();
+  } finally {
+    hooks.compareLimit(undefined, undefined);
+    await vscode.commands.executeCommand('git.close', vscode.Uri.file(repo));
+  }
+  // The compare panels opened above stay listed; none is open.
+  assert.equal(snapshot('at-limit.json ↔ small.json'), undefined);
+}

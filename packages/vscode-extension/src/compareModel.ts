@@ -152,3 +152,65 @@ function sameDifference(a: Difference, b: Difference): boolean {
 export function compareTitle(left: string, right: string): string {
   return `${left} ↔ ${right}`;
 }
+
+/**
+ * The largest text a compare side may hold, in UTF-8 bytes (spec 007 criterion 10, UNK-037): the
+ * largest size in `bench/compare.md` where the compare panel opens in under 3 s and shows an edit
+ * in under 1 s on the CI runner. Above it the panel does not open and VS Code's text diff is
+ * offered instead.
+ */
+export const COMPARE_LIMIT_BYTES = 5 * 1024 * 1024;
+
+/** A side that is too large to compare: its name and size. */
+export interface OversizedSide {
+  name: string;
+  bytes: number;
+}
+
+/** The larger of the sides whose text is above `limit` UTF-8 bytes, or undefined when both fit
+ *  (UNK-037: the size is per side, the larger side counts). */
+export function oversizedSide(
+  sides: { name: string; text: string }[],
+  limit: number = COMPARE_LIMIT_BYTES,
+): OversizedSide | undefined {
+  let largest: OversizedSide | undefined;
+  for (const side of sides) {
+    // A UTF-16 code unit takes at most 3 UTF-8 bytes, so a text this short is within the limit.
+    if (side.text.length * 3 <= limit) continue;
+    const bytes = utf8Length(side.text);
+    if (bytes > limit && (!largest || bytes > largest.bytes)) largest = { name: side.name, bytes };
+  }
+  return largest;
+}
+
+/** The UTF-8 length of `text`, counted without encoding it (no copy of a large text). */
+export function utf8Length(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const unit = text.charCodeAt(i);
+    if (unit < 0x80) bytes += 1;
+    else if (unit < 0x800) bytes += 2;
+    else if (unit >= 0xd800 && unit <= 0xdbff && isLowSurrogate(text.charCodeAt(i + 1))) {
+      bytes += 4;
+      i++;
+    } else bytes += 3;
+  }
+  return bytes;
+}
+
+function isLowSurrogate(unit: number): boolean {
+  return unit >= 0xdc00 && unit <= 0xdfff;
+}
+
+/** "12.3 MiB" (one decimal, MiB as VS Code's own file limits count). */
+function mib(bytes: number): string {
+  return `${(bytes / 2 ** 20).toFixed(1).replace(/\.0$/, '')} MiB`;
+}
+
+/** The message shown instead of the compare panel when a side is too large (criterion 10). */
+export function oversizedMessage(side: OversizedSide, limit: number = COMPARE_LIMIT_BYTES): string {
+  return (
+    `${side.name} is too large to compare by data (${mib(side.bytes)}; the limit is ` +
+    `${mib(limit)}). Open VS Code's text diff of the two documents instead?`
+  );
+}
