@@ -15,6 +15,7 @@ import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './f
 import type { HeadResult } from './gitHead';
 import { readHeadOf } from './gitHeadVscode';
 import { cachedParseTexts, detect } from '@chr-json-editor/core';
+import { testValidationLimit, VALIDATION_LIMIT_BYTES } from './largeFile';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -82,6 +83,18 @@ export interface TestHooks {
    *  answer to the text diff offered above it (true: open it, false: dismiss it, undefined: show
    *  the message). Returns UNK-037's limit. */
   compareLimit(limit: number | undefined, textDiff: boolean | undefined): number;
+  /** 008 T5: the size above which a large-file tab's validation is paused, in place of UNK-041's
+   *  (undefined: UNK-041's). Returns UNK-041's limit. */
+  validationLimit(bytes: number | undefined): number;
+  /** 008 T5: the paused-validation status-bar item for the active tab, or null when hidden. */
+  pausedValidation(): { text: string; command: string } | null;
+  /** 008 T5 benchmark: validates the tab of `uri` once from its text alone (UNK-041's measure),
+   *  returning the milliseconds to the result posted. */
+  timeValidation(uri: string): number;
+  /** 008 T5 benchmark: the extension host's `process.memoryUsage()`. */
+  hostMemory(): NodeJS.MemoryUsage;
+  /** 008 T5 benchmark: the webview's JavaScript heap in bytes, or null if Chromium hides it. */
+  webviewHeap(uri: string): Promise<number | null>;
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -161,6 +174,14 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
             context: { ...testConvert.context },
           };
         },
+        validationLimit(bytes) {
+          testValidationLimit.bytes = bytes;
+          return VALIDATION_LIMIT_BYTES;
+        },
+        pausedValidation: () => provider.pausedItem.snapshot(),
+        timeValidation: (uri) => provider.timeValidation(uri),
+        hostMemory: () => process.memoryUsage(),
+        webviewHeap: (uri) => provider.webviewHeap(uri),
         ceiling(answer) {
           testCeiling.answer = answer;
           return testCeiling.messages.splice(0);

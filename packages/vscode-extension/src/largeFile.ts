@@ -9,6 +9,24 @@ import { parseData, type Format, type ParseDataResult } from '@chr-json-editor/c
 /** 5 MiB (UNK-014): a text of more bytes than this opens in large-file mode. */
 export const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
 
+/**
+ * UNK-041 (spec 008 criterion 10): the largest large-file text, in UTF-8 bytes, whose schema
+ * validation still runs on open and on change. Above it validation is paused and runs once per
+ * click on the status-bar item (pausedValidation.ts). Set from `bench/large-file.md` (008 T5).
+ */
+export const VALIDATION_LIMIT_BYTES = LARGE_FILE_THRESHOLD;
+
+/** Test hooks (008 T5 e2e): a limit to use in place of UNK-041's; undefined uses UNK-041's. */
+export const testValidationLimit: { bytes: number | undefined } = { bytes: undefined };
+
+/** Whether validation of a tab in `largeFile` state is paused (criterion 10): a large-file tab,
+ *  locked or not, above UNK-041's limit. */
+export function validationPaused(largeFile: LargeFile | null): boolean {
+  return (
+    largeFile !== null && largeFile.bytes > (testValidationLimit.bytes ?? VALIDATION_LIMIT_BYTES)
+  );
+}
+
 /** The message a locked tab's `edit` gets back (the `read-only` edit error, criterion 2). */
 export const READ_ONLY_MESSAGE =
   'This large file is read-only. Choose "Edit anyway" to edit it, or "Open as Text".';
@@ -58,6 +76,13 @@ export function dataOf(format: Format, text: string): ParseDataResult {
   clearTimeout(timer);
   timer = setTimeout(() => (last = undefined), KEEP_MS);
   return last.result;
+}
+
+/** Drops `dataOf`'s kept result at once: at 50 MiB its data holds about a gigabyte (008 T3
+ *  review), which nothing needs once the tab that read it closed. */
+export function releaseData(): void {
+  clearTimeout(timer);
+  last = undefined;
 }
 
 /** The data of `text`, or why it has none: its first parse error, or no value at all. */

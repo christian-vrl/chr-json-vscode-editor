@@ -21,7 +21,8 @@
 // the format badge, validation and `$schema` read the text with core's data-only parse
 // (largeFile.ts, criterion 8). "Edit anyway" (`unlock`) puts the tab on the normal path until it
 // closes, kept here so a reloaded webview gets it back; "Open as Text" (`openAsText`) runs
-// "Reopen as Text" on the document.
+// "Reopen as Text" on the document. Above UNK-041's size a large-file tab's validation is paused:
+// it runs once per click on a status-bar item (spec 008 criterion 10, pausedValidation.ts).
 import * as vscode from 'vscode';
 import {
   decodeToHost,
@@ -37,7 +38,8 @@ import {
 import { detect, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
-import { largeFileFor, READ_ONLY_MESSAGE } from './largeFile';
+import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
+import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding } from './schemaBinding';
@@ -75,6 +77,10 @@ export interface WebviewSnapshot {
   readOnlyRefusals: number;
   /** `undo` and `redo` messages ignored because the tab is locked. */
   historyIgnored: number;
+  /** Milliseconds the extension host spent on this tab's format badge and on its schema
+   *  validation (the `$schema` lookup, compiling, parsing and validating, posting the result),
+   *  since it opened (008 T5 benchmark, spec 008 criterion 11). */
+  hostBusy: { badgeMs: number; validationMs: number };
 }
 
 /** What the webview reports after decoding a `validation` message. */
@@ -125,11 +131,23 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   private nextProbe = 1;
   /** Test hooks: `whenShown` and `whenSettled` calls waiting for the webview's answer, by id. */
   private readonly shownWaiters = new Map<number, (ms: number | undefined) => void>();
+  /** "Schema validation paused: large file" for the active tab (spec 008 criterion 10). */
+  readonly pausedItem: PausedValidationItem;
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly formatBadge: FormatBadgeController,
-  ) {}
+  ) {
+    this.pausedItem = new PausedValidationItem(() => {
+      const session = this.activeSession();
+      return (
+        session && {
+          paused: () => session.validation.paused,
+          validateOnce: () => session.validation.runOnce(),
+        }
+      );
+    });
+  }
 
   static register(
     context: vscode.ExtensionContext,
@@ -141,7 +159,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const provider = new JsonEditorProvider(context.extensionUri, formatBadge);
     return {
       provider,
-      disposable: vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider),
+      disposable: vscode.Disposable.from(
+        vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider),
+        provider.pausedItem,
+      ),
     };
   }
 
@@ -166,7 +187,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       snapshot: () => ({ text: document.getText(), docVersion: document.version }),
       format: () => this.formatOf(document),
       dataOnly: locked,
+      paused: () => validationPaused(session.largeFile),
       post: (message) => this.post(session, message),
+      schemaChanged: () => this.pausedItem.refresh(),
     });
     const schema = new SchemaBinding(
       {
@@ -221,12 +244,6 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         confirmRepair,
       }),
     };
-    this.sessions.set(panel, session);
-    this.validations.set(panel, session.validation);
-    this.formatBadge.track(document, panel, locked);
-    // Before the webview is ready, so the first `validation` goes out with the `ready` answer.
-    void session.schema.refresh();
-
     let snapshot: WebviewSnapshot | undefined;
     if (__CHR_TEST_HOOKS__) {
       snapshot = {
@@ -243,9 +260,22 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         largeFile,
         readOnlyRefusals: 0,
         historyIgnored: 0,
+        hostBusy: { badgeMs: 0, validationMs: 0 },
       };
+      const busy = snapshot.hostBusy;
+      timeCalls(validation, ['setSchema', 'setUnavailable', 'run', 'runOnce'], (ms) => {
+        busy.validationMs += ms;
+      });
+      timeCalls(schema, ['associate'], (ms) => (busy.validationMs += ms));
       this.snapshots.set(panel, snapshot);
     }
+    this.sessions.set(panel, session);
+    this.validations.set(panel, session.validation);
+    const badgeStart = performance.now();
+    this.formatBadge.track(document, panel, locked);
+    if (snapshot) snapshot.hostBusy.badgeMs += performance.now() - badgeStart;
+    // Before the webview is ready, so the first `validation` goes out with the `ready` answer.
+    void session.schema.refresh();
 
     const received = webview.onDidReceiveMessage((data: unknown) => {
       if (__CHR_TEST_HOOKS__ && snapshot && this.receiveTestMessage(snapshot, data)) return;
@@ -287,19 +317,24 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         void session.schema.refresh();
       }
     });
+    const viewState = panel.onDidChangeViewState(() => this.pausedItem.refresh());
     panel.onDidDispose(() => {
       received.dispose();
       changes.dispose();
       saving.dispose();
       settings.dispose();
+      viewState.dispose();
       for (const resolve of session.flushes.values()) resolve();
       session.schema.dispose();
       session.validation.dispose();
       this.sessions.delete(panel);
       this.validations.delete(panel);
       this.snapshots.delete(panel);
-      // The host's cached parse of this text (core, UNK-014) can hold gigabytes for a big file.
+      // The host's cached parse of this text (core, UNK-014) can hold gigabytes for a big file,
+      // and the data-only read a large-file tab shares for a moment about one (largeFile.ts).
       this.releaseParses(document);
+      releaseData();
+      this.pausedItem.refresh();
     });
   }
 
@@ -320,6 +355,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           largeFile: session.largeFile && { ...session.largeFile },
         });
         session.validation.run();
+        this.pausedItem.refresh();
         return;
       case 'edit':
         if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.editsReceived++;
@@ -360,6 +396,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         // Only a large-file tab's banner sends it; the tab stays unlocked until it closes.
         if (!session.largeFile || session.largeFile.unlocked) return;
         session.largeFile = { ...session.largeFile, unlocked: true };
+        // The badge read the data alone so far; it counts warnings again (008 T3 review).
+        this.formatBadge.reparseLater(document);
         if (__CHR_TEST_HOOKS__) {
           this.snapshots.get(session.panel)!.largeFile = { ...session.largeFile };
         }
@@ -456,6 +494,29 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const release = parseToRelease(document, this.sessions.size);
     if (release === 'all') releaseParse();
     else if (release) releaseParse(release.text);
+  }
+
+  private activeSession(): Session | undefined {
+    return [...this.sessions.values()].find((s) => s.panel.active);
+  }
+
+  /** Test hook (008 T5 benchmark, UNK-041): validates the tab of `uri` once as the status-bar
+   *  item's click does, from the text alone (nothing kept from an earlier read), and returns the
+   *  milliseconds from start to the result posted. */
+  timeValidation(uri: string): number {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) throw new Error(`no CHR JSON Editor shows ${uri}`);
+    releaseData();
+    const start = performance.now();
+    session.validation.runOnce();
+    return performance.now() - start;
+  }
+
+  /** Test hook (008 T5 benchmark, plan R6): the webview's JavaScript heap in bytes, if Chromium
+   *  reports it. */
+  webviewHeap(uri: string): Promise<number | null> {
+    return this.ask<number | null>(uri, { chrTest: 'heap' });
   }
 
   private sessionFor(uri: string): Session | undefined {
@@ -584,6 +645,27 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       mode,
     });
     return true;
+  }
+}
+
+/** Test hooks (008 T5 benchmark): adds the time each call of `target[name]` takes to `add`. A
+ *  call made inside another timed call is counted once, by the outer one. */
+let timing = 0;
+function timeCalls<T extends object>(target: T, names: string[], add: (ms: number) => void): void {
+  const methods = target as unknown as Record<string, (...args: unknown[]) => unknown>;
+  for (const name of names) {
+    const original = methods[name]!.bind(target);
+    methods[name] = (...args) => {
+      if (timing > 0) return original(...args);
+      timing++;
+      const start = performance.now();
+      try {
+        return original(...args);
+      } finally {
+        timing--;
+        add(performance.now() - start);
+      }
+    };
   }
 }
 

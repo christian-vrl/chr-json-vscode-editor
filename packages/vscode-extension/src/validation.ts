@@ -171,7 +171,12 @@ export interface ValidationTarget {
   format(): Format;
   /** Whether to read the data alone (a locked large-file tab, spec 008); false when absent. */
   dataOnly?(): boolean;
+  /** Whether validation is paused (a large-file tab above UNK-041's size, spec 008 criterion 10):
+   *  it then runs only on `runOnce`. False when absent. */
+  paused?(): boolean;
   post(message: ValidationMessage): void;
+  /** Called after the schema was set, changed or removed. */
+  schemaChanged?(): void;
 }
 
 /**
@@ -199,16 +204,19 @@ export class DocumentValidation {
       this.compiled = undefined;
       this.dispose();
       if (had) this.post(null, { kind: 'none' });
+      if (had) this.target.schemaChanged?.();
       return;
     }
     this.compiled = compileSchema(schema, dialect);
     this.run();
+    this.target.schemaChanged?.();
   }
 
   /** A schema applies but cannot be used (unreadable, not JSON, remote): every run says why. */
   setUnavailable(reason: string): void {
     this.compiled = { ok: false, dialect: null, reason };
     this.run();
+    this.target.schemaChanged?.();
   }
 
   get hasSchema(): boolean {
@@ -216,20 +224,40 @@ export class DocumentValidation {
   }
 
   schedule(): void {
-    if (!this.hasSchema) return;
+    if (!this.hasSchema || this.paused) return;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.run(), this.delayMs);
   }
 
-  /** Validates the current text now and posts the result. Without a schema, posts nothing. */
+  /** Whether a usable schema applies but validation is paused (spec 008 criterion 10). */
+  get paused(): boolean {
+    return this.compiled?.ok === true && this.target.paused?.() === true;
+  }
+
+  /**
+   * Validates the current text now and posts the result. Without a schema, posts nothing; while
+   * paused, posts only why a schema cannot be used, which needs no parse.
+   */
   run(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
+    if (this.paused) return;
+    this.validate(this.target.dataOnly?.());
+  }
+
+  /** Validates once although paused, reading the data alone (spec 008 criterion 10's click). */
+  runOnce(): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    this.validate(true);
+  }
+
+  private validate(dataOnly: boolean | undefined): void {
     const compiled = this.compiled;
     if (!compiled) return;
     const { text, docVersion } = this.target.snapshot();
     const result: ValidationResult = compiled.ok
-      ? validateText(text, this.target.format(), compiled.validate, this.target.dataOnly?.())
+      ? validateText(text, this.target.format(), compiled.validate, dataOnly)
       : { kind: 'skipped', reason: compiled.reason };
     this.post(compiled.dialect, result, docVersion);
   }
