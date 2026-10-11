@@ -1,0 +1,4 @@
+{
+  "messages": ["This message is long enough that two of them do not fit on one line of one hundred and twenty characters.", "So each one stays on a line of its own, and that line may run past the limit (criterion 6)."],
+  "short": ["a", "b"]
+}

@@ -1,0 +1,18 @@
+{
+  "layout": [
+    "expanded",
+    "compact-array"
+  ],
+  "comments": [
+    "none"
+  ],
+  "trailingComma": "yes",
+  "special": [
+    "unquoted-key",
+    "single-quote",
+    "key-order"
+  ],
+  "style": [
+    "indent-2"
+  ]
+}

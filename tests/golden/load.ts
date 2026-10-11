@@ -30,8 +30,9 @@ export interface GoldenCase {
 export const goldenRoot = import.meta.dirname;
 
 /** Folders under the golden root that hold another corpus, with its own loader: `convert/` is the
- *  conversion corpus of spec 006 (`convert.ts`), `csv/` the CSV corpus of spec 009 (`csv.ts`). */
-export const otherCorpora: readonly string[] = ['convert', 'csv'];
+ *  conversion corpus of spec 006 (`convert.ts`), `csv/` the CSV corpus of spec 009 (`csv.ts`),
+ *  `smart-format/` the smart-format corpus of spec 010 (`smart-format.ts`). */
+export const otherCorpora: readonly string[] = ['convert', 'csv', 'smart-format'];
 
 /** `op` tags of whole-document actions (spec 002 R12–R14, criterion 8). Their patch.json holds one
  *  action, not an RFC 6902 patch: `{"op": "compact", "path": ""}`, `{"op": "sort", "path",

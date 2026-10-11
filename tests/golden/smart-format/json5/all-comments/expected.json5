@@ -1,0 +1,15 @@
+// Build settings (JSON5).
+{
+  // Output folder.
+  out    :                        'dist',  // relative to the project
+  target : /* oldest supported */ 'es2022',
+  minify :                        true /* in production only */,
+
+  // Entry points follow.
+
+  /* Each entry is
+        a file and
+     its name. */
+  entries:                        [ {file: 'src/main.ts', name: 'main'}, {file: 'src/worker.ts', name: 'worker'} ],
+}
+/* end */

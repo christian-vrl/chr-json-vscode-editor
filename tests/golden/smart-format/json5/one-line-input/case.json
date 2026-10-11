@@ -1,0 +1,19 @@
+{
+  "layout": [
+    "expanded",
+    "inline"
+  ],
+  "comments": [
+    "none"
+  ],
+  "trailingComma": "no",
+  "special": [
+    "unquoted-key",
+    "single-quote",
+    "hex",
+    "infinity-nan"
+  ],
+  "style": [
+    "one-line-input"
+  ]
+}
