@@ -69,6 +69,8 @@ exports.runLargeFile = async function runLargeFile({
   const scratch = process.env.CHR_E2E_SCRATCH;
   assert.ok(scratch, 'CHR_E2E_SCRATCH is not set');
   const dir = fs.mkdtempSync(path.join(scratch, 'large-file-'));
+  // Validation runs on every tab here, whatever UNK-041's limit (criterion 10: validationPaused.cjs).
+  hooks.validationLimit(Number.MAX_SAFE_INTEGER);
   const write = (name, text) => {
     const file = path.join(dir, name);
     fs.writeFileSync(file, text);
@@ -301,4 +303,7 @@ exports.runLargeFile = async function runLargeFile({
   assert.equal(textDocument.isDirty, false);
   console.log('criterion 3: "Open as Text" opens the text editor on the same bytes');
   await closeAll();
+  hooks.validationLimit(undefined);
 };
+
+exports.documentText = documentText;

@@ -2,13 +2,14 @@
   "name": "@chr-json-editor/bench",
   "version": "0.0.0",
   "private": true,
-  "description": "Benchmarks, not shipped: 003 T11 (UNK-014: open, first render and one edit at 1, 5, 10 and 50 MiB in VS Code's webview), 002 T8 (core parse and one edit per format at 1, 10, 50 MiB) and 007 T5 (UNK-037: structural compare in core and in the compare panel at 1, 5, 10 and 50 MiB).",
+  "description": "Benchmarks, not shipped: 003 T11 (UNK-014: open, first render and one edit at 1, 5, 10 and 50 MiB in VS Code's webview), 002 T8 (core parse and one edit per format at 1, 10, 50 MiB), 007 T5 (UNK-037: structural compare in core and in the compare panel at 1, 5, 10 and 50 MiB) and 008 T5 (large-file mode: open, host busy time, validation for UNK-041 and one unlocked edit, JSON, JSONC and JSON5 at 6, 10 and 50 MiB).",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "bench": "node run.mjs",
     "bench:core": "node core/run.mjs .results/core.json && node core/report.mjs .results/core.json RESULTS.md",
-    "bench:compare": "node compare.mjs"
+    "bench:compare": "node compare.mjs",
+    "bench:large-file": "node large-file.mjs"
   },
   "devDependencies": {
     "@chr-json-editor/core": "workspace:*",

@@ -8,7 +8,11 @@ import {
   dataOrError,
   LARGE_FILE_THRESHOLD,
   largeFileFor,
+  releaseData,
+  testValidationLimit,
   utf8Length,
+  VALIDATION_LIMIT_BYTES,
+  validationPaused,
 } from '../../src/largeFile';
 import { topLevelSchema } from '../../src/schemaBinding';
 import { compileSchema, validateText } from '../../src/validation';
@@ -66,6 +70,14 @@ describe('dataOf', () => {
     expect(dataOf('json5', text)).toEqual({ data: { a: [1, 2] } });
   });
 
+  it('drops the kept result on releaseData', () => {
+    const text = '[1, 2]';
+    const first = dataOf('json', text);
+    expect(dataOf('json', text)).toBe(first);
+    releaseData();
+    expect(dataOf('json', text)).not.toBe(first);
+  });
+
   it('says why a text has no data', () => {
     expect(dataOrError('json', '{"a": }')).toEqual({ error: 'ValueExpected' });
     expect(dataOrError('json5', '')).toHaveProperty('error');
@@ -102,5 +114,22 @@ describe('data-only reads (criterion 8)', () => {
     expect(cachedParseTexts()).toEqual([]);
     expect(validateText(text, 'json', compiled.validate)).toEqual(dataOnly);
     expect(topLevelSchema(text, 'jsonc')).toBe('./s.json');
+  });
+});
+
+describe("validationPaused (criterion 10: above UNK-041's size)", () => {
+  afterEach(() => {
+    testValidationLimit.bytes = undefined;
+  });
+
+  it('pauses large-file tabs above the limit, locked or not, and never the normal editor', () => {
+    const at = VALIDATION_LIMIT_BYTES;
+    expect(VALIDATION_LIMIT_BYTES).toBeGreaterThanOrEqual(LARGE_FILE_THRESHOLD);
+    expect(validationPaused(null)).toBe(false);
+    expect(validationPaused({ bytes: at, unlocked: false })).toBe(false);
+    expect(validationPaused({ bytes: at + 1, unlocked: false })).toBe(true);
+    expect(validationPaused({ bytes: at + 1, unlocked: true })).toBe(true);
+    testValidationLimit.bytes = at + 1;
+    expect(validationPaused({ bytes: at + 1, unlocked: false })).toBe(false);
   });
 });
