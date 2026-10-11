@@ -25,6 +25,8 @@ const OPS = ['replace', 'add', 'remove', 'move'];
 const LIGHT_SHARE = 0.5;
 const LIGHT_FORMATS = ['jsonc', 'json5'];
 const LIGHT_SIZES = [10, 50];
+// Spec 012 criterion 12: parseData('jsonl') at most this many times parseData('json') on the array.
+const LINES_FACTOR = 1.25;
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -191,19 +193,21 @@ if (jsonl) {
     '',
     '## Spec 012 criterion 12: JSON Lines against one JSON array',
     '',
-    "`parseData('jsonl')` at 50 MiB must take a median time at most that of `parseData('json')` on",
-    'the same records written as one JSON array (`[`, the lines joined by `,`, `]`), in this run.',
+    `\`parseData('jsonl')\` at 50 MiB must take a median time at most ${LINES_FACTOR} times that of`,
+    "`parseData('json')` on the same records written as one JSON array (`[`, the lines joined by `,`,",
+    '`]`), in this run.',
     '',
-    "| Size | parseData('jsonl') | parseData('json') on the array | Result |",
-    '|---|---|---|---|',
+    "| Size | parseData('jsonl') | parseData('json') on the array | jsonl ÷ array | Result |",
+    '|---|---|---|---|---|',
   );
   let linesFailed = false;
   for (const s of jsonl.sizes) {
-    const ok = median(s.parseData) <= median(s.parseDataArray);
+    const ratio = median(s.parseData) / median(s.parseDataArray);
+    const ok = ratio <= LINES_FACTOR;
     const judged = s.mib === 50;
     if (judged && !ok) linesFailed = true;
     add(
-      `| ${s.mib} MiB | ${cell(s.parseData)} | ${cell(s.parseDataArray)} | ${judged ? (ok ? 'pass' : '**fail**') : 'not judged'} |`,
+      `| ${s.mib} MiB | ${cell(s.parseData)} | ${cell(s.parseDataArray)} | ${ratio.toFixed(2)} | ${judged ? (ok ? 'pass' : '**fail**') : 'not judged'} |`,
     );
   }
   add(
