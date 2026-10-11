@@ -1,0 +1,7 @@
+[
+  {
+    "address.city": "Oslo",
+    "tags[0]": "a",
+    "[\"a.b\"]": 1
+  }
+]

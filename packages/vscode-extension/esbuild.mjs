@@ -37,9 +37,11 @@ await build({
 // included) under a VscodeHostAdapter. One classic script, so the page loads it with the nonce like
 // any other; the CSS it imports (the editor's, with the library's moved out of JavaScript by
 // UNK-029's Vite plugin) goes to dist/webview.css, loaded from the webview source.
+// The compare panel's script (007 T4, src/webview/compareMain.ts) is built the same way into
+// dist/compare.js and dist/compare.css.
 await build({
-  entryPoints: ['src/webview/main.ts'],
-  outfile: 'dist/webview.js',
+  entryPoints: { webview: 'src/webview/main.ts', compare: 'src/webview/compareMain.ts' },
+  outdir: 'dist',
   bundle: true,
   format: 'iife',
   platform: 'browser',

@@ -1,4 +1,5 @@
-// Writes bench/RESULTS.md (002 T8, spec 002 criterion 7) from `bench/core/run.mjs`'s raw results.
+// Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7) from
+// `bench/core/run.mjs`'s raw results.
 // Every number in the report comes from that file; the text around them says what each one covers.
 //
 //   node bench/core/report.mjs <core.json> <out.md>
@@ -18,6 +19,11 @@ const results = JSON.parse(readFileSync(resultsFile, 'utf8'));
 // UNK-014's evidence rule for one edit; applyPatch is only the host's share of it.
 const EDIT_LIMIT_MS = 500;
 const OPS = ['replace', 'add', 'remove', 'move'];
+// Spec 008 criterion 7: parseData's median time and retained heap at most this share of parse's,
+// for these formats and sizes.
+const LIGHT_SHARE = 0.5;
+const LIGHT_FORMATS = ['jsonc', 'json5'];
+const LIGHT_SIZES = [10, 50];
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -42,7 +48,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  '> Spec 002 criterion 7. Written by `bench/core/report.mjs` from one benchmark run; do not edit',
+  '> Spec 002 criterion 7 and spec 008 criterion 7. Written by `bench/core/report.mjs` from one benchmark run; do not edit',
   '> by hand. Re-run it (the `bench` workflow) whenever `packages/core/src/formats` changes speed.',
   '',
   '## Run',
@@ -78,7 +84,8 @@ add(
   '',
   '## Results',
   '',
-  '`parse` is `getAdapter(format).parse(text)` (data, tree, style, diagnostics). Each edit is one',
+  '`parse` is `getAdapter(format).parse(text)` (data, tree, style, diagnostics); `parseData` is',
+  '`parseData(format, text)` (the data alone, nothing cached; 008 T1). Each edit is one',
   '`applyPatch(text, [op])` on the middle record `m`, returning the whole new text, on a text core',
   'has not parsed yet (core keeps the parse of the last text per format, so this is the first edit',
   "of a text nothing else parsed). The second table is the extension host's usual case: the text",
@@ -95,11 +102,13 @@ for (const f of results.formats) {
     '',
     `### ${f.format}`,
     '',
-    `| Size | parse | ${OPS.join(' | ')} |`,
-    `|---|---|${OPS.map(() => '---|').join('')}`,
+    `| Size | parse | parseData | ${OPS.join(' | ')} |`,
+    `|---|---|---|${OPS.map(() => '---|').join('')}`,
   );
   for (const s of f.sizes) {
-    add(`| ${s.mib} MiB | ${cell(s.parse)} | ${OPS.map((op) => cell(s[op])).join(' | ')} |`);
+    add(
+      `| ${s.mib} MiB | ${cell(s.parse)} | ${cell(s.parseData)} | ${OPS.map((op) => cell(s[op])).join(' | ')} |`,
+    );
   }
   add(
     '',
@@ -118,20 +127,57 @@ add(
   '## Memory',
   '',
   '**Retained heap** is what one parse result (data, tree, tokens, style, diagnostics) keeps alive',
-  'after a full collection, so what a host holding the parsed document pays. **Max RSS** is the',
+  'after a full collection, so what a host holding the parsed document pays; **parseData heap** is',
+  "the same for `parseData`'s result (the data alone), measured first. **Max RSS** is the",
   'peak resident memory of the measuring process over the whole cell (source text, every parse and',
   "edit), in MiB. The heap ceiling is raised because with the GitHub runner's default (about 2 GiB)",
   'the first run of this benchmark ran out of heap in the json 50 MiB cell',
   '([run 37852960823](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37852960823)).',
   '',
-  `| Size | ${results.formats.map((f) => `${f.format} retained heap | ${f.format} max RSS`).join(' | ')} |`,
-  `|---|${results.formats.map(() => '---|---|').join('')}`,
+  `| Size | ${results.formats.map((f) => `${f.format} retained heap | ${f.format} parseData heap | ${f.format} max RSS`).join(' | ')} |`,
+  `|---|${results.formats.map(() => '---|---|---|').join('')}`,
 );
 for (const [i, s] of results.formats[0].sizes.entries()) {
   add(
-    `| ${s.mib} MiB | ${results.formats.map((f) => `${mib(f.sizes[i].retainedHeapBytes)} | ${mib(f.sizes[i].maxRssBytes)}`).join(' | ')} |`,
+    `| ${s.mib} MiB | ${results.formats.map((f) => `${mib(f.sizes[i].retainedHeapBytes)} | ${mib(f.sizes[i].parseDataRetainedHeapBytes)} | ${mib(f.sizes[i].maxRssBytes)}`).join(' | ')} |`,
   );
 }
+
+add(
+  '',
+  '## Spec 008 criterion 7: parseData against parse',
+  '',
+  `For jsonc and json5 at 10 and 50 MiB, \`parseData\`'s median time and its retained heap must each be`,
+  `at most ${LIGHT_SHARE * 100}% of \`parse\`'s, in this run. json takes \`JSON.parse\`, so it is shown but not judged.`,
+  '',
+  '| Format | Size | time parseData ÷ parse | heap parseData ÷ parse | Result |',
+  '|---|---|---|---|---|',
+);
+const pct = (share) => `${Math.round(share * 100)}%`;
+let lightFailed = false;
+for (const f of results.formats) {
+  for (const s of f.sizes) {
+    const time = median(s.parseData) / median(s.parse);
+    const heap = s.parseDataRetainedHeapBytes / s.retainedHeapBytes;
+    const judged = LIGHT_FORMATS.includes(f.format) && LIGHT_SIZES.includes(s.mib);
+    const ok = time <= LIGHT_SHARE && heap <= LIGHT_SHARE;
+    if (judged && !ok) lightFailed = true;
+    add(
+      `| ${f.format} | ${s.mib} MiB | ${pct(time)} (${ms(median(s.parseData))} ÷ ${ms(median(s.parse))} ms) | ${pct(heap)} (${mib(s.parseDataRetainedHeapBytes)} ÷ ${mib(s.retainedHeapBytes)} MiB) | ${judged ? (ok ? 'pass' : '**fail**') : 'not judged'} |`,
+    );
+  }
+}
+const judgedCells = results.formats.some(
+  (f) => LIGHT_FORMATS.includes(f.format) && f.sizes.some((s) => LIGHT_SIZES.includes(s.mib)),
+);
+add(
+  '',
+  !judgedCells
+    ? 'Verdict: not judged (this run has none of the judged cells).'
+    : lightFailed
+      ? 'Verdict: **criterion 7 does not hold** in this run.'
+      : 'Verdict: criterion 7 holds in this run.',
+);
 
 add(
   '',

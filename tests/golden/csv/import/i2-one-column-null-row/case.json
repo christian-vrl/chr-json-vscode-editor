@@ -1,0 +1,13 @@
+{
+  "rules": [
+    "I2",
+    "I7"
+  ],
+  "values": [
+    "number",
+    "empty"
+  ],
+  "features": [
+    "one-column-null-row"
+  ]
+}
