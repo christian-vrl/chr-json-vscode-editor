@@ -7,3 +7,4 @@ export { compare, copyDifference, type CompareSide, type Difference } from './co
 export { repair, type RepairResult } from './repair/repair.js';
 export { detect, strictJsonDiagnostics } from './detect.js';
 export type { Detection, DetectionSource, StrictJsonDiagnostic } from './detect.js';
+export * from './csv/index.js';
