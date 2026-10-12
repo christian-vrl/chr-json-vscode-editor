@@ -60,7 +60,10 @@ host, while files with no such number open as fast as today.
 - **B3 Equality and order:** numbers compare by exact value (Terms), mixed `number` and
   `LosslessNumber` alike, in `diff` (and so compare, 002 R14 data-level actions and the webview's
   `dataChange`), the JSON Patch `test` op, `sort` (002 R13 and the order the webview sends), the
-  library's sort dialog and table header sort, and compare's differences.
+  library's sort dialog and table header sort, and compare's differences. Equal exact values give
+  equal keys: a big number whose exact value is exactly a float's (`100000000000000000000` is
+  exactly `1e20`) keys as that float does; any other big number keys by its normalized exact value,
+  which no float's key can equal.
 - **B4 Editor page:** the webview's parser gives the data core would (B1) and its `stringify`
   writes big numbers per B2. So the tree and table show a big number's decimal text, search finds
   it by its digits, a value typed or pasted with more digits than a float holds becomes a big
@@ -122,7 +125,8 @@ host, while files with no such number open as fast as today.
    `expected-edit.*`; "Copy" on a big number puts its exact digits on the clipboard; search finds
    `12345678901234567890`; sorting the `ids` array ascending, by dialog and by table header, gives
    `expected-sort.*` byte for byte. Switching tree → text → table → tree leaves the bytes unchanged
-   (spec 003 criterion 4).
+   (spec 003 criterion 4). The `.jsonl` fixture runs once the JSON Lines editor (012 T5) is on
+   `main`, in T6; the other three in T4.
 5. **Messages (unit):** the protocol's encoder and decoder round-trip any patch whose values hold
    big numbers, plain numbers, `-0` and an object `{"isLosslessNumber": true, "value": "1"}`, each
    arriving as it left; a receiver built against the previous version rejects the new messages
@@ -142,7 +146,9 @@ host, while files with no such number open as fast as today.
    property holds over the big-number generator of criterion 2 (big numbers come back exact);
    corpus cases show `data.filter(d => d.id > 5)`, `_.sortBy(data, 'id')` and
    `data.map(d => d.id)` keeping big ids exact, `d.id + 1n` on a big integer written as its digits,
-   and `d.big + 1` on `1e400` a `QueryError` with lossless-json's overflow message.
+   `d.big + 1` on `1e400` a `QueryError` with lossless-json's overflow message (its `valueOf`
+   throws), and `d.id + 1` on a big integer a `QueryError` with the engine's `TypeError` for mixing a
+   `BigInt` and a number (JavaScript's own rule; the message is the engine's).
 10. **CSV (golden):** `tests/golden/csv/` gains an export case (big numbers written as their digits,
     unquoted) and an import case per UNK-067; export then import of a document of big numbers gives
     the same data (009's round-trip property extended to big numbers).
@@ -151,7 +157,7 @@ host, while files with no such number open as fast as today.
     document without big numbers takes at most 2× `JSON.parse` of the same text, and on the 5 MiB
     big-id document at most 5×; spec 008 criteria 7 and 11 still pass; `parse` of each format at
     10 MiB is at most 1.1× of its time in the same run on the base commit (the bench job builds
-    both).
+    both; each side is the bench's median of 3 runs, as `bench/RESULTS.md` reports cells).
 12. **Large files (per UNK-068):** in a locked large-file tab, a big number shows its digits, if
     UNK-068's evidence allows (★); otherwise the banner adds "Numbers longer than 15 digits are
     shown rounded." and the tab shows nearest numbers. Either way the file's bytes never change.
@@ -243,7 +249,7 @@ host, while files with no such number open as fast as today.
   criteria 6, 7, 11; 009 X5, I7 ("numbers beyond double precision on export (spec 015)" out of
   009); 010 (tokens kept); 011 Q2 (BigInt result is an error), criterion 3, Out ("lossless big
   numbers (015)"); 012 ("numbers beyond double precision read as in 002's `json` adapter");
-  013 (ADR-013: one package, web e2e); 014 (PR #89, approved, not merged: json-p3 runs on the
+  013 (ADR-013: one package, web e2e); 014 (merged as #89: json-p3 runs on the
   webview's data; Out "lossless big numbers (015)").
 
 ## Changes to approved specs (AGENTS rule 7; approved with this spec on the approval card, which named each)
@@ -258,6 +264,10 @@ host, while files with no such number open as fast as today.
 - **011 Q2** (UNK-066 ★, owner, 2026-10-12): "a `BigInt` … is a `QueryError` ("The result has a BigInt,
   which JSON can't hold.")" → "a `BigInt` is written as its digits"; criterion 2's
   `bigint-result` cases expect digits instead of that error.
+- **Sort order** (follows from B3, named here so nobody infers it): 002's `sort` action (R13) and
+  the webview's sort order numbers by exact value, so the golden `sort` reference
+  (`tests/golden/sort-reference.ts`, vanilla-jsoneditor's order) gains B3's comparator for big
+  numbers; plain-number order is unchanged.
 
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |

@@ -84,7 +84,7 @@ convert and CSV already call core.
 | R2 The library mishandles a `LosslessNumber` somewhere (inline editor, table cell, enum or color detection) | T1 spike checks each view before T4; findings become T4 cases or a library-hook workaround |
 | R3 B7's restore marks a coincidental computed value exact (a `sum` that equals a big id's nearest number) | That number is the big id's nearest number, so writing the id's digits is closer than JavaScript's; recorded in the corpus as `big-aggregate` |
 | R4 Big ids colliding on one nearest number make B7 refuse a Transform | The message says so; JavaScript and Lodash (B8) keep digits without restoring, so the user has a way |
-| R5 `diff` keying by exact value slows data-level actions | Keys are built only for big numbers; plain numbers key as today |
+| R5 `diff` keying by exact value slows data-level actions | Plain numbers key as today. A big number keys as the float it equals when its exact value is exactly a float's (`100000000000000000000` → the key of `1e20`; checked by comparing its decimal text with the exact expansion of `Number(text)`), else by its normalized exact value (sign, digits without leading or trailing zeros, exponent), which no float key can equal. So plain `1e20` equals big `100000000000000000000`, and plain `9007199254740992.0` equals plain `9007199254740992` as today |
 | R6 PRs #83 (protocol 12) and 012 T4 bump the protocol | T4 takes the next free version when it merges |
 
 ## Definition of Done
