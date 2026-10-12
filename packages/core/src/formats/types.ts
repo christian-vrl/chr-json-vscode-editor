@@ -3,7 +3,7 @@
 // kept (spec 002 §Goal). Format detection is the separate `detect(path, languageId?, text?)` of 002
 // T2, since it picks the adapter.
 
-export type Format = 'json' | 'jsonc' | 'json5';
+export type Format = 'json' | 'jsonc' | 'json5' | 'jsonl';
 
 /** How a document is written (AGENTS.md §Glossary). Edits follow it for the bytes they add. */
 export interface Style {

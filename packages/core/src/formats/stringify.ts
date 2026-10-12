@@ -14,6 +14,9 @@
 // - `json5`: strings use `style.quote`; keys are unquoted when `unquotedKeys` and the key is an ASCII
 //   identifier name; `Infinity`, `-Infinity` and `NaN` are written as JSON5 literals; U+2028 and
 //   U+2029 in strings are escaped.
+// - `jsonl` (spec 012): data must be an array; each item is written on its own line as `json` with
+//   `indent: 0` (so like `JSON.stringify`, `-0` aside), each line ended by `style.eol`, the last one
+//   only when `finalNewline`; an empty array is `""`. Only `eol` and `finalNewline` are read.
 // Numbers are written as `JSON.stringify` would, except `-0`, written `-0` so it reads back as -0.
 // A value the format cannot hold (a non-finite number in JSON or JSONC, `undefined`, a function, a
 // symbol or a bigint) throws a `TypeError` rather than being dropped or changed.
@@ -26,6 +29,7 @@ const identifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const escapeLineSeparator = (c: string): string => `\\u${c.charCodeAt(0).toString(16)}`;
 
 export function stringify(data: unknown, format: Format, style: Style): string {
+  if (format === 'jsonl') return stringifyLines(data, style);
   const json5 = format === 'json5';
   const quote = json5 ? style.quote : '"';
   const unquotedKeys = json5 && style.unquotedKeys;
@@ -94,4 +98,13 @@ export function stringify(data: unknown, format: Format, style: Style): string {
   };
 
   return value(data, '') + (style.finalNewline ? eol : '');
+}
+
+/** JSON Lines (spec 012 §Other `FormatAdapter` actions). */
+function stringifyLines(data: unknown, style: Style): string {
+  if (!Array.isArray(data)) throw new TypeError('JSON Lines data must be an array of items');
+  if (data.length === 0) return '';
+  const line: Style = { ...style, indent: 0, finalNewline: false };
+  const lines = Array.from(data, (item: unknown) => stringify(item, 'json', line));
+  return lines.join(style.eol) + (style.finalNewline ? style.eol : '');
 }

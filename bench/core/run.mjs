@@ -1,7 +1,8 @@
 // Core parse and single-edit benchmark (002 T8, spec 002 criterion 7): for each format (json,
-// jsonc, json5) and size (1, 10, 50 MiB), times `parse` and one-operation `applyPatch` calls
+// jsonc, json5, jsonl) and size (1, 10, 50 MiB), times `parse` and one-operation `applyPatch` calls
 // (replace, add, remove, move) on `@chr-json-editor/core` in Node, with no editor around it, and
-// `parseData` next to `parse` (008 T1, spec 008 criterion 7).
+// `parseData` next to `parse` (008 T1, spec 008 criterion 7). For jsonl it also times
+// `parseData('json')` on the same records written as one JSON array (spec 012 criterion 12).
 // Writes the raw results as JSON; `bench/core/report.mjs` turns them into bench/RESULTS.md.
 // Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Each format and size
 // runs in its own Node process with `--expose-gc`, so every timed call starts from a collected heap.
@@ -13,10 +14,10 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 import { getAdapter, parseData } from '@chr-json-editor/core';
-import { documentText, LAST_MARKER, MIB } from '../generate.mjs';
+import { documentText, LAST_MARKER, linesText, MIB } from '../generate.mjs';
 
 export const SIZES_MIB = [1, 10, 50];
-export const FORMATS = ['json', 'jsonc', 'json5'];
+export const FORMATS = ['json', 'jsonc', 'json5', 'jsonl'];
 export const RUNS = 3;
 
 const WORDS = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
@@ -103,6 +104,7 @@ export function benchDocument(format, bytes) {
     // Every record of generate.mjs's file starts with `"id"` on its own line.
     return { text, records: text.split('\n    "id": ').length - 1 };
   }
+  if (format === 'jsonl') return linesText(bytes);
   return commentedText(bytes, format === 'jsonc' ? jsoncElement : json5Element);
 }
 
@@ -195,6 +197,14 @@ function measure(format, mib) {
   // parseData keeps nothing, so it parses whichever text it is given.
   for (let run = 0; run < RUNS; run++)
     result.parseData.push(time(() => parseData(format, text)).ms);
+  if (format === 'jsonl') {
+    // Spec 012 criterion 12: the same records as one JSON array, parsed in the same process.
+    const array = `[\n${text.trimEnd().split('\n').join(',\n')}\n]\n`;
+    if (parseData('json', array).data?.length !== records) throw new Error('jsonl: array form');
+    result.parseDataArray = [];
+    for (let run = 0; run < RUNS; run++)
+      result.parseDataArray.push(time(() => parseData('json', array)).ms);
+  }
   const edit = (name, input, patch) => {
     const { ms, result: out } = time(() => adapter.applyPatch(input, patch));
     if (typeof out !== 'string' || out === input) throw new Error(`${format} ${name}: no edit`);
