@@ -6,6 +6,7 @@
 import { printParseErrorCode } from 'jsonc-parser';
 import { parseJson5Data } from './json5-parser.js';
 import { visitData } from './jsonc-adapter.js';
+import { parseLinesData } from './jsonl-adapter.js';
 import type { Format } from './types.js';
 
 export type ParseDataResult = { data: unknown } | { error: { message: string; offset: number } };
@@ -16,6 +17,9 @@ export type ParseDataResult = { data: unknown } | { error: { message: string; of
  * diagnostic with the lowest offset). Never adds an entry to core's parse cache.
  */
 export function parseData(format: Format, text: string): ParseDataResult {
+  // JSON Lines reads line by line (spec 012 L1): a one-line text is valid JSON whose data is the
+  // item, not the array of items, so it never takes the whole-text path below.
+  if (format === 'jsonl') return parseLinesData(text);
   // Strict JSON is valid in every format and parses to the same data: `JSON.parse` defines
   // members as own properties (`__proto__` too), keeps `-0` and lets a duplicate key's last value
   // win in the first one's place, as both parsers do. Anything else takes the format's own walk.

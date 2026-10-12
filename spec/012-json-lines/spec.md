@@ -97,7 +97,10 @@ the array of items and whose edits follow §Line rules.
 12. **Speed (core bench):** `bench/RESULTS.md`, regenerated in one run, adds `jsonl` rows for
     `parse`, `parseData` and one item-level edit at 1, 10 and 50 MiB on documents from
     `bench/generate.mjs` (one record per line). `parseData('jsonl')` at 50 MiB has a median time at
-    most that of `parseData('json')` on the same records written as one JSON array in the same run.
+    most 1.25 times that of `parseData('json')` on the same records written as one JSON array in the
+    same run (amended in 012 T2, Keep/Revert card cmsg_01Wz9SKzwQD2da69nuNGPcid1ZuknxEYDNVa2xTF6N4MrG:
+    one `JSON.parse` per line costs a fixed overhead per line, 594 ms against 523 ms on the CI runner,
+    and no exact block reading was faster; see plan R4).
 13. **CSP, offline, theme:** the webview CSP is unchanged (003 criterion 6); `pnpm check:offline`
     passes with no new URL; no new runtime dependency; the bad-line banner passes axe-core's
     `color-contrast` rule with `tests/themes/{light,dark,hc}.json`.

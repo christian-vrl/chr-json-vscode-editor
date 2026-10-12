@@ -19,7 +19,10 @@ export interface Detection {
   diagnostics: StrictJsonDiagnostic[];
 }
 
-const FORMATS: readonly string[] = ['json', 'jsonc', 'json5'];
+const FORMATS: readonly string[] = ['json', 'jsonc', 'json5', 'jsonl'];
+
+/** Extensions that name a format other than their own text (spec 012 criterion 4). */
+const EXTENSION_FORMATS: Readonly<Record<string, Format>> = { ndjson: 'jsonl' };
 
 // VS Code's JSONC file names (R11). They end in `.json`, so they are checked before the extension
 // step; otherwise `.json` would always win and this step could never apply (UNK-019).
@@ -39,8 +42,8 @@ const JSONC = { disallowComments: false, allowTrailingComma: true, allowEmptyCon
 
 /**
  * Detects the format of a document per spec 002 R11: explicit `languageId` → VS Code JSONC file
- * names → extension → content (empty or whitespace only → json, else strict JSON → json, else
- * JSONC → jsonc, else json5).
+ * names → extension (`.ndjson` is `jsonl`, spec 012 criterion 4) → content (empty or whitespace
+ * only → json, else strict JSON → json, else JSONC → jsonc, else json5; never `jsonl`).
  * `path` may be a POSIX path, a Windows path or a URI; only its last segment is used.
  */
 export function detect(path: string, languageId?: string, text?: string): Detection {
@@ -52,6 +55,8 @@ export function detect(path: string, languageId?: string, text?: string): Detect
 
   const extension = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : '';
   if (FORMATS.includes(extension)) return withDiagnostics(extension as Format, 'extension', text);
+  if (Object.hasOwn(EXTENSION_FORMATS, extension))
+    return withDiagnostics(EXTENSION_FORMATS[extension]!, 'extension', text);
 
   if (text === undefined) return { format: 'json', source: 'default', diagnostics: [] };
   const body = stripBom(text);

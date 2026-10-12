@@ -17,7 +17,7 @@ import {
   type CompareDifference,
   type ToCompareHostMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import type { Format } from '@chr-json-editor/core';
+import type { Format } from '@chr-json-editor/app-shell/protocol';
 import {
   buildCompare,
   compareMessage,
