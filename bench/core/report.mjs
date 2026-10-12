@@ -1,5 +1,5 @@
 // Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
-// spec 010 criterion 11) from
+// spec 010 criterion 11; 012 T2, spec 012 criterion 12) from
 // `bench/core/run.mjs`'s raw results.
 // Every number in the report comes from that file; the text around them says what each one covers.
 //
@@ -28,6 +28,8 @@ const LIGHT_SIZES = [10, 50];
 // Spec 010 criterion 11's hypothesis: smart format's 5 MiB median under 5 s on the CI runner.
 const SMART_LIMIT_MS = 5000;
 const SMART_JUDGED_MIB = 5;
+// Spec 012 criterion 12: parseData('jsonl') at most this many times parseData('json') on the array.
+const LINES_FACTOR = 1.25;
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -52,7 +54,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  '> Spec 002 criterion 7, spec 008 criterion 7 and spec 010 criterion 11. Written by `bench/core/report.mjs` from one benchmark run; do not edit',
+  '> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11 and spec 012 criterion 12. Written by `bench/core/report.mjs` from one benchmark run; do not edit',
   '> by hand. Re-run it (the `bench` workflow) whenever `packages/core/src/formats` changes speed.',
   '',
   '## Run',
@@ -72,6 +74,8 @@ add(
   '  trailing comma in each nested object and after the last record.',
   '- **json5:** as jsonc, plus unquoted keys, single-quoted strings, a hex field and trailing commas',
   '  after every last member.',
+  '- **jsonl:** `bench/generate.mjs` `linesText`, the same records as JSON Lines: one',
+  '  `JSON.stringify(record)` per line, each ended by `\\n`.',
   '',
   'Records per file:',
   '',
@@ -100,6 +104,9 @@ add(
   '- **remove:** `{ op: "remove", path: "/m" }`, a whole record with its comments.',
   '- **move:** `{ op: "move", from: "/m", path: "/-" }`, the record to the end; between its remove',
   '  and its add, `move` shifts the tree and tokens it has rather than parsing again (UNK-014).',
+  '',
+  'In jsonl, replace and add edit the one line of record `m` (L7), remove and move are whole-line',
+  'edits (L4, L6).',
 );
 for (const f of results.formats) {
   add(
@@ -182,6 +189,39 @@ add(
       ? 'Verdict: **criterion 7 does not hold** in this run.'
       : 'Verdict: criterion 7 holds in this run.',
 );
+
+const jsonl = results.formats.find((f) => f.format === 'jsonl');
+if (jsonl) {
+  add(
+    '',
+    '## Spec 012 criterion 12: JSON Lines against one JSON array',
+    '',
+    `\`parseData('jsonl')\` at 50 MiB must take a median time at most ${LINES_FACTOR} times that of`,
+    "`parseData('json')` on the same records written as one JSON array (`[`, the lines joined by `,`,",
+    '`]`), in this run.',
+    '',
+    "| Size | parseData('jsonl') | parseData('json') on the array | jsonl ÷ array | Result |",
+    '|---|---|---|---|---|',
+  );
+  let linesFailed = false;
+  for (const s of jsonl.sizes) {
+    const ratio = median(s.parseData) / median(s.parseDataArray);
+    const ok = ratio <= LINES_FACTOR;
+    const judged = s.mib === 50;
+    if (judged && !ok) linesFailed = true;
+    add(
+      `| ${s.mib} MiB | ${cell(s.parseData)} | ${cell(s.parseDataArray)} | ${ratio.toFixed(2)} | ${judged ? (ok ? 'pass' : '**fail**') : 'not judged'} |`,
+    );
+  }
+  add(
+    '',
+    !jsonl.sizes.some((s) => s.mib === 50)
+      ? 'Verdict: not judged (this run has no 50 MiB cell).'
+      : linesFailed
+        ? 'Verdict: **criterion 12 does not hold** in this run.'
+        : 'Verdict: criterion 12 holds in this run.',
+  );
+}
 
 add(
   '',

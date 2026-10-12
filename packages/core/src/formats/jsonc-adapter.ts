@@ -167,6 +167,11 @@ function noValue(text: string): boolean {
   return parseTree(`${text}\nnull`, errors, parseOptions)?.type === 'null' && errors.length === 0;
 }
 
+/** A strict JSON text as a `Doc` to edit, parsed afresh and kept nowhere: the JSON Lines adapter
+ *  edits one line's value with it (spec 012 L7) without evicting the `json` adapter's cached
+ *  document (cache.ts). */
+export const openJson: Open = (text) => open(analyze(text, 'json'), text, 'json');
+
 /** Each format's `Doc` for a text, as its edits open it (for tests of `Doc.without`). */
 export const openDocs = new Map<'json' | 'jsonc', Open>();
 

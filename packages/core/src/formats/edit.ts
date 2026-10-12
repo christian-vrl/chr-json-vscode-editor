@@ -576,7 +576,7 @@ export function dataOf(node: FormatNode): unknown {
 
 /** RFC 6902 §4.6 equality: same type; numbers by value; arrays item by item; objects with the same
  *  members, in any order. */
-function equal(a: unknown, b: unknown): boolean {
+export function equal(a: unknown, b: unknown): boolean {
   if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return a === b;
   if (Array.isArray(a) || Array.isArray(b)) {
     return (

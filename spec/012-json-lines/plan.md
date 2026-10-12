@@ -18,7 +18,7 @@ Item-level operations are line splices (L3–L6); nested operations hand the ite
 `json` adapter's `applyPatch` and splice the result back (L7), which keeps one-line containers on
 one line (002 R3, checked in §Current evidence); root replacement goes through `diff` (L8). Because
 an item is a line, an edit never re-reads the other lines, so item edits stay cheap at any size.
-`parseData('jsonl')` is `JSON.parse` per line, which should beat a whole-array parse (criterion 12).
+`parseData('jsonl')` is `JSON.parse` per line, within 1.25 times a whole-array parse (criterion 12).
 
 Conversion extends `convert` with two pairs families: J1 writes the item bytes into an array; J2
 reuses 006's conversion to `json` and 002 R12's compaction per item, so 006's loss modal and
@@ -64,7 +64,7 @@ The owner picked the recommended options of UNK-050 (own format) and UNK-051 (re
 | R1 A fourth format reaches code that assumes three (`FORMATS` arrays, regexes in `when` clauses, convert menus) | T2 adds `jsonl` to the union first and fixes every compile error; e2e for menus in T5 |
 | R2 The webview's `JSON.parse` fast path reads a one-line file as the item instead of `[item]` | `parserFor('jsonl')` skips it; a web test opens a one-line file (§Current evidence) |
 | R3 A nested edit writes a line break into a line (a value the `json` adapter would lay out on several lines) | L7 golden cases add containers to one-line items; the property suite of criterion 3 checks the line count; if it fails, the adapter compacts the written value (002 R12) before splicing and the spec records it |
-| R4 Many small lines make parse slower than one big array (a parse per line) | criterion 12 compares with the array form in the same run; if it fails, T2's PR records the numbers and parses blocks of lines in one `JSON.parse` |
+| R4 Many small lines make parse slower than one big array (a parse per line) | criterion 12 compares with the array form in the same run. 012 T2 measured 1.14 times on the CI runner and tried blocks: one `JSON.parse` of the lines joined by commas cannot tell a bad line (`[1` then `2]` merge, `1,2` splits), and the exact forms (a marker between lines) rewrite the text first and were slower than one parse per line, so criterion 12 allows 1.25 times |
 | R5 Repair of a run of bad lines guesses wrong (a pretty-printed record vs separate broken lines) | L10 tries the whole run as one value first, then line by line; nothing it cannot repair is changed, and the edit is one undo |
 | R6 Large logs with one truncated last line are common; read-only until repaired could annoy | UNK-051 asks the owner; "Repair Lines" fixes a truncated last line in one click (`jsonrepair` closes it) |
 

@@ -13,13 +13,13 @@ describe.each(
 )('%s', (_, c) => {
   if (c.error) {
     it('convert throws the ConvertError of error.json', () => {
-      const run = () => convert(c.input, c.from as never, c.to as never);
+      const run = () => convert(c.input, c.from, c.to);
       expect(run).toThrow(ConvertError);
       expect(run).toThrow(c.error!.message);
     });
   } else {
     it('convert is byte-equal to expected, with the losses of losses.json', () => {
-      const result = convert(c.input, c.from as never, c.to as never);
+      const result = convert(c.input, c.from, c.to);
       expect(JSON.stringify(result.text)).toBe(JSON.stringify(c.expected));
       expect(result.losses).toEqual(c.losses);
     });
