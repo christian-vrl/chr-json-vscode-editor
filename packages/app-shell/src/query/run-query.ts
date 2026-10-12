@@ -2,19 +2,14 @@
 // to WebAssembly, one fresh runtime and context per run, a 5-second deadline and a 256 MiB memory
 // limit. `runQuery` is synchronous, as the library's `QueryLanguage.executeQuery` is; the engine's
 // WebAssembly is compiled once, by `loadQueryEngine`, before the first run (criterion 10, 011 T4).
+// The WebAssembly and Lodash's source live in ./engine.ts, which the host loads lazily and passes
+// in, so this module adds only QuickJS's small JavaScript wrapper types to the page's bundle.
 //
 // APIs used, from quickjs-emscripten-core@0.32.0 dist/index.d.ts: newQuickJSWASMModuleFromVariant
 // (:1830), RuntimeOptionsBase.interruptHandler / memoryLimitBytes (:494-497),
 // QuickJSWASMModule.newRuntime (:1707), QuickJSRuntime.newContext (:260), QuickJSContext.evalCode,
 // callFunction (:1495), newString (:1117), getString (:1330), getProp (:1392), dump.
-import {
-  newQuickJSWASMModuleFromVariant,
-  type QuickJSContext,
-  type QuickJSHandle,
-  type QuickJSWASMModule,
-} from 'quickjs-emscripten-core';
-import variant from '@jitl/quickjs-singlefile-browser-release-sync';
-import lodashSource from 'lodash/lodash.min.js?raw';
+import type { QuickJSContext, QuickJSHandle, QuickJSWASMModule } from 'quickjs-emscripten-core';
 import { decodeResult, encodeData } from './bridge.js';
 import { BIGINT_SENTINEL, CYCLE_SENTINEL, ENGINE_HELPERS, wrapQuery } from './engine-source.js';
 
@@ -35,6 +30,12 @@ export const MEMORY_MESSAGE = 'The query used more than 256 MiB and was stopped.
 export const BIGINT_MESSAGE = "The result has a BigInt, which JSON can't hold.";
 export const CYCLE_MESSAGE = 'The result refers to itself.';
 export const NOT_LOADED_MESSAGE = 'The query engine is not loaded yet.';
+/** A run after the engine failed outside JavaScript, while a fresh one compiles (011 T4). */
+export const RESTARTING_MESSAGE = 'The query engine is restarting. Try the query again.';
+/** The engine's own stack limit was hit (`InternalError: stack overflow`, 011 T3 review). */
+export const STACK_MESSAGE = 'The query recursed too deeply and was stopped.';
+/** The data is nested deeper than the page can copy it into the engine (011 T3 review). */
+export const DEPTH_MESSAGE = 'The data is nested too deeply to pass to the query.';
 /** The library's own messages (vanilla-jsoneditor 3.13.0 lodashQueryLanguage / javascriptQueryLanguage). */
 export const CHAIN_MESSAGE = 'Cannot execute query: Lodash _.chain(...) must end with .value()';
 
@@ -50,20 +51,43 @@ export class QueryError extends Error {
   }
 }
 
-let engine: QuickJSWASMModule | undefined;
-let loading: Promise<void> | undefined;
+/** What ./engine.ts exports; the host imports it lazily and hands it to `loadQueryEngine`. */
+export interface QueryEngineModule {
+  createEngine(): Promise<QuickJSWASMModule>;
+  lodashSource: string;
+}
 
-/** Compiles the engine's WebAssembly; later calls return the same promise. */
-export function loadQueryEngine(): Promise<void> {
-  loading ??= newQuickJSWASMModuleFromVariant(variant).then(
-    (module) => {
-      engine = module;
-    },
-    (error: unknown) => {
+/** How a host gets ./engine.ts: `() => import(…)` of its chunk or its webview URI. */
+export type QueryEngineLoader = () => Promise<QueryEngineModule>;
+
+let engine: QuickJSWASMModule | undefined;
+let lodashSource = '';
+let loading: Promise<void> | undefined;
+/** The loader of the last `loadQueryEngine`, for compiling a fresh engine after a host failure. */
+let lastLoader: QueryEngineLoader | undefined;
+/** A fresh engine is compiling because the last one failed outside JavaScript. */
+let restarting = false;
+
+/**
+ * Loads ./engine.ts with `load` and compiles the engine's WebAssembly; later calls return the same
+ * promise. Marks `chr:query-engine-compiled` on the page's performance timeline (criterion 10's
+ * test hook).
+ */
+export function loadQueryEngine(load: QueryEngineLoader): Promise<void> {
+  lastLoader = load;
+  loading ??= load()
+    .then(async (module) => {
+      const compiled = await module.createEngine();
+      lodashSource = module.lodashSource;
+      engine = compiled;
+      restarting = false;
+      globalThis.performance?.mark?.('chr:query-engine-compiled');
+    })
+    .catch((error: unknown) => {
       loading = undefined;
+      restarting = false;
       throw error;
-    },
-  );
+    });
   return loading;
 }
 
@@ -83,7 +107,7 @@ function checkLodashChain(query: string): void {
  * REPORT §4).
  */
 export function runQuery(language: QueryLanguageId, data: unknown, queryText: string): unknown {
-  if (!engine) throw new QueryError(NOT_LOADED_MESSAGE);
+  if (!engine) throw new QueryError(restarting ? RESTARTING_MESSAGE : NOT_LOADED_MESSAGE);
   if (language === 'lodash') checkLodashChain(queryText);
 
   const deadline = Date.now() + TIME_LIMIT_MS;
@@ -125,6 +149,8 @@ export function runQuery(language: QueryLanguageId, data: unknown, queryText: st
     try {
       encoded = encodeData(data);
     } catch (error) {
+      // The page's own stack ran out walking the data (about 1000+ levels; spec 011 needs 64).
+      if (error instanceof RangeError) throw new QueryError(DEPTH_MESSAGE, String(error));
       throw new QueryError(`The data can't be passed to the query: ${String(error)}`);
     }
     const dataHandle = unwrap(
@@ -155,19 +181,26 @@ export function runQuery(language: QueryLanguageId, data: unknown, queryText: st
       hostFailed = true;
     }
     // A module that failed this way may hold broken state, so the next run gets a fresh one. Until
-    // it is compiled, runQuery says the engine is not loaded.
+    // it is compiled, runQuery says the engine is restarting (the dialog's preview shows it, and
+    // the next edit of the query or Transform runs again).
     if (hostFailed) {
       engine = undefined;
       loading = undefined;
-      loadQueryEngine().catch(() => {});
+      if (lastLoader) {
+        restarting = true;
+        loadQueryEngine(lastLoader).catch(() => {});
+      }
     }
   }
 }
 
-/** The spec's message for a run stopped by a limit, if it was. */
+/** The spec's message for a run stopped by a limit, if it was, or the plain stack message. */
 function limitMessage(raw: string, interrupted: boolean): string | undefined {
   if (interrupted) return TIME_MESSAGE;
   if (/^(InternalError: )?out of memory$/i.test(raw)) return MEMORY_MESSAGE;
+  if (/^(InternalError: )?stack overflow$|^RangeError: Maximum call stack/i.test(raw)) {
+    return STACK_MESSAGE;
+  }
   return undefined;
 }
 

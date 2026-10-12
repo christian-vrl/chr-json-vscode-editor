@@ -23,6 +23,15 @@ describe('contentSecurityPolicy', () => {
         "base-uri 'none'; form-action 'none'",
     );
   });
+
+  it("with wasm, adds only 'wasm-unsafe-eval' to script-src (spec 011 criterion 9)", () => {
+    expect(contentSecurityPolicy(CSP_SOURCE, 'abc=', { wasm: true })).toBe(
+      contentSecurityPolicy(CSP_SOURCE, 'abc=').replace(
+        "script-src 'nonce-abc='",
+        "script-src 'nonce-abc=' 'wasm-unsafe-eval'",
+      ),
+    );
+  });
 });
 
 describe('renderWebviewHtml', () => {

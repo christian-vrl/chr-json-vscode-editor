@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { decodeResult, encodeData } from '../src/query/bridge.js';
 import {
   BIGINT_MESSAGE,
+  DEPTH_MESSAGE,
   CHAIN_MESSAGE,
   isQueryEngineLoaded,
   loadQueryEngine,
@@ -11,10 +12,12 @@ import {
   NOT_LOADED_MESSAGE,
   QueryError,
   runQuery,
+  STACK_MESSAGE,
   TIME_MESSAGE,
   type QueryLanguageId,
 } from '../src/query/run-query.js';
 
+const loadEngine = () => import('../src/query/engine.js');
 const languages: QueryLanguageId[] = ['javascript', 'lodash'];
 const query = (body: string) => `function query (data) {\n  ${body}\n}`;
 
@@ -48,8 +51,8 @@ describe('runQuery before the engine is loaded', () => {
   });
 
   it('loads once', async () => {
-    const first = loadQueryEngine();
-    expect(loadQueryEngine()).toBe(first);
+    const first = loadQueryEngine(loadEngine);
+    expect(loadQueryEngine(loadEngine)).toBe(first);
     await first;
     expect(isQueryEngineLoaded()).toBe(true);
   });
@@ -57,7 +60,7 @@ describe('runQuery before the engine is loaded', () => {
 
 describe('runQuery (spec 011)', () => {
   it.each(languages)('Q1: %s gets a copy; changing it leaves the input alone', async (language) => {
-    await loadQueryEngine();
+    await loadQueryEngine(loadEngine);
     const data = { items: [{ n: 1 }, { n: 2 }] };
     const result = runQuery(
       language,
@@ -226,10 +229,19 @@ describe('runQuery (spec 011)', () => {
     expect(runQuery('javascript', [1, 2], query('return data.length'))).toBe(2);
   });
 
-  it('deep recursion fails with the engine message and the next query runs', () => {
-    expect(
-      failure('javascript', 1, query('const f = n => f(n + 1) + 1; return f(0)')).message,
-    ).toBe('InternalError: stack overflow');
+  it('deep recursion fails with a plain message and the next query runs', () => {
+    const error = failure('javascript', 1, query('const f = n => f(n + 1) + 1; return f(0)'));
+    expect(error.message).toBe(STACK_MESSAGE);
+    expect(error.engineError).toBe('InternalError: stack overflow');
+    expect(runQuery('javascript', [1, 2], query('return data.length'))).toBe(2);
+  });
+
+  it('data nested past what the page can copy fails with a plain message', () => {
+    let data: unknown = 1;
+    for (let i = 0; i < 100_000; i++) data = [data];
+    const error = failure('javascript', data, query('return 1'));
+    expect(error.message).toBe(DEPTH_MESSAGE);
+    expect(error.engineError).toMatch(/^RangeError/);
     expect(runQuery('javascript', [1, 2], query('return data.length'))).toBe(2);
   });
 });

@@ -30,7 +30,7 @@
   `pnpm check:licenses` green*
 
 ## Phase D — Editor (risk-free / additive)
-- [ ] **T4** JavaScript and Lodash in `QUERY_LANGUAGES` with our `executeQuery`; lazy engine chunk
+- [x] **T4** JavaScript and Lodash in `QUERY_LANGUAGES` with our `executeQuery`; lazy engine chunk
   compiled on the first Transform; the dev host's CSP mirrors the editor's; web tests for criteria
   4, 5, 6, 8 and 10 with fixtures in `tests/query/sealed/`. — needs: 011 T3 — *gate: criteria 4, 5,
   6, 8, 10 green in `pnpm test:web`*
