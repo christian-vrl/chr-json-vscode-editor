@@ -71,10 +71,11 @@ that folder is a frozen pre-repo copy.
 TypeScript 5 (strict) · Node 22 LTS · pnpm workspaces · esbuild (extension host) · Vite (webview,
 Chrome) · `vanilla-jsoneditor` 3.x (ISC) · `jsonc-parser` 3.x (MIT) · `json5` 2.x (MIT) ·
 `immutable-json-patch` (ISC, reference JSON Patch) · Ajv 8 (`Ajv`, `Ajv2019`, `Ajv2020`) + `ajv-formats` (MIT) ·
-Vitest · fast-check · `@vscode/test-electron` · Playwright (Chromium) · `@vscode/vsce` · `ovsx` · GitHub Actions.
+Vitest · fast-check · `@vscode/test-electron` · `@vscode/test-web` + Mocha (web e2e, spec 013) · Playwright (Chromium) · `@vscode/vsce` · `ovsx` · GitHub Actions.
 
 **Standard scripts (gates name these):** `pnpm build` · `pnpm lint` · `pnpm test:unit` ·
-`pnpm test:golden` · `pnpm test:e2e` (VS Code, xvfb) · `pnpm test:web` (Playwright) ·
+`pnpm test:golden` · `pnpm test:e2e` (VS Code, xvfb) · `pnpm test:e2e:web` (VS Code's web worker host, spec 013) ·
+`pnpm test:web` (Playwright) ·
 `pnpm check:licenses` · `pnpm check:offline` · `pnpm check:readme` (from spec 005) · `pnpm package`.
 
 ## Critical paths / resources
