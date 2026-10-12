@@ -2,7 +2,7 @@
 // writes the bench texts, runs the Node bench, then runs suite.cjs inside VS Code with the spike
 // extension loaded from this folder in a fresh profile. Results land in results/.
 //
-// Needs a display (xvfb-run on Linux) and core built (`pnpm --filter @chr-json-editor/core build`).
+// Needs a display (xvfb-run on Linux); core is bundled from its sources.
 // VS Code comes from VSCODE_EXECUTABLE_PATH, or is downloaded by @vscode/test-electron (dev-time
 // only). SPIKE_SKIP_NODE=1 skips the Node bench;
 // SPIKE_PROBES_ONLY=1 skips the webview bench.

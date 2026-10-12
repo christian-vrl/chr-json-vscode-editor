@@ -77,9 +77,9 @@ Nothing in it ships.
 | `tables.mjs` | Prints section 3's tables from `results/` |
 | `results/vscode-1.141.0.json`, `results/node.json` | The raw results of the run this report reads |
 
-Run: `pnpm --filter @chr-json-editor/core build`, then
-`VSCODE_EXECUTABLE_PATH=<code> xvfb-run -a pnpm --filter chr-json-editor-spike-lossless-numbers spike`
-(sandbox, 2026-10-12, base `72e706d`). Bench texts (sha256): plain 5 MiB `045b61bc…`, big-id 5 MiB
+Run: `VSCODE_EXECUTABLE_PATH=<code> xvfb-run -a pnpm --filter chr-json-editor-spike-lossless-numbers spike`
+(sandbox, 2026-10-12, base `72e706d`; that run bundled core from its built `dist`, which the spike
+now bundles from `packages/core/src` so lint needs no build first). Bench texts (sha256): plain 5 MiB `045b61bc…`, big-id 5 MiB
 `7115ae7a…` (20,496 big ids), plain 50 MiB `7ba53f05…`, big-id 50 MiB `82987b2a…` (204,170 big ids).
 
 ## 3. R1: parser costs

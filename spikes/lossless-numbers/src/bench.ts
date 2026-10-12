@@ -1,7 +1,7 @@
 // Parser costs (plan 015 R1), run the same way in Node and in the VS Code webview: each method on
 // each text, median of `runs`. Every method's result is checked once against the expected count
 // of big numbers, so a fast method that reads the text wrongly cannot look good.
-import { getAdapter, parseData } from '@chr-json-editor/core';
+import { getAdapter, parseData } from '../../../packages/core/src/index';
 import {
   LosslessNumber,
   PLAN_SCAN,
