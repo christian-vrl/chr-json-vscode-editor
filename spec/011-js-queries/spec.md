@@ -116,6 +116,7 @@ result is written back like any other transform, keeping comments.
   `JSON.stringify` (a `Date` becomes its ISO string; a function, symbol or `undefined` member is
   dropped; one in an array becomes `null`), except that a `BigInt` or a cycle is a `QueryError`
   ("The result has a BigInt, which JSON can't hold." / "The result refers to itself.").
+  *Amended by spec 015 B8 per UNK-066 ★ "Like the site" (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): a big number enters the engine as a number-like object and returns with its digits, and a `BigInt` in the result is written as its digits instead of the BigInt `QueryError`; criterion 2's `bigint-result` cases expect digits. A cycle is still a `QueryError`.*
 - **Q3 Scope:** the engine's global object has the ECMAScript built-ins and, for Lodash, `_`; nothing
   else. `Date.now()` and `Math.random()` work; there are no timers, no `console`, no modules.
 - **Q4 Isolation of runs:** every preview and every Transform is its own run; nothing a query stores
