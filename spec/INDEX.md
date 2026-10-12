@@ -40,9 +40,13 @@ tasks run in order unless marked `parallel`.
 | 012-json-lines | JSON Lines (NDJSON): open `.jsonl`/`.ndjson` in table mode, line-by-line edits, convert to and from JSON | `jsonl` as a fourth format (ADR-012); T2 needs 008 T1; T6 needs 008 T3 and 009 T4; UNK-050, UNK-051 |
 | 013-web-extension | Web extension: the same `.vsix` runs in vscode.dev and github.dev (browser entry, web e2e via `@vscode/test-web`) | ADR-013; "Compare with HEAD" desktop-only per UNK-053; T2 needs 007 T4 and 008 T2; can run in parallel with 009–012 |
 
-## P2 — backlog
+## P2 — an Architect thread writes each spec when it is reached; owner approves; then it runs like v1
 
-014 RFC 9535 JSONPath · 015 Lossless big numbers · 016 Generate JSON Schema · 017 YAML/TOML/XML import ·
+| Spec | Title | Notes |
+|---|---|---|
+| 014-jsonpath-rfc9535 | JSONPath (RFC 9535) in the Transform dialog beside JSONPath (Goessner) | json-p3 2.3.2 (MIT), 706/706 of the compliance test suite; one more `QueryLanguage` in 011's list; above 5 MiB per UNK-065; T1 needs 011 T2, T4 needs 008 T3 |
+
+Backlog: 015 Lossless big numbers · 016 Generate JSON Schema · 017 YAML/TOML/XML import ·
 018 Copy path / reveal node · 019 Settings · 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
 
 ## How an agent picks work
