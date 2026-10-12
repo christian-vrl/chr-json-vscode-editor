@@ -8,6 +8,10 @@
 // - criterion 5: every input token C1–C6 do not name is in the output, byte for byte and in the same
 //   order; to JSONC and JSON5 every comment is, and every white-space token and line break is, as
 //   written or as C6 rewrites it.
+// Spec 012 criterion 5 (012 T3): over criterion 3's JSON Lines texts, converting to JSON, JSONC or
+// JSON5 keeps the items' data with no loss (J1); over the documents above with an array at the
+// root, converting to JSON Lines keeps the data except at each value loss's path, which holds
+// `null` (J2, UNK-034).
 // Which tokens C1–C4 name is restated here from the spec, not taken from `convert.ts`.
 import { isDeepStrictEqual } from 'node:util';
 import fc from 'fast-check';
@@ -22,6 +26,7 @@ import {
 import { parseJson5 } from '../src/formats/json5-parser.js';
 import { isComment, Kind, tokenize, type Token } from '../src/formats/tokens.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
+import { jsonlText } from './jsonl-arbitraries.js';
 import { printDocument } from './print-document.js';
 
 const RUNS = 10_000;
@@ -200,6 +205,47 @@ describe('convert property suite (spec 006 criteria 3–5)', () => {
         fc.property(dataArbitrary(from), styleArbitrary, fc.gen(), (data, style, g) => {
           check(sourceDocument(from, data, style, g), from, to);
         }),
+        { seed: SEED, numRuns: RUNS },
+      );
+    }, 300_000);
+  }
+});
+
+describe('convert with JSON Lines (spec 012 criterion 5)', () => {
+  const targets: Format[] = ['json', 'jsonc', 'json5'];
+  for (const to of targets) {
+    it(`jsonl to ${to}: ${RUNS} runs, seed ${SEED}`, () => {
+      fc.assert(
+        fc.property(jsonlText, (input) => {
+          const { text: out, losses } = convert(input, 'jsonl', to);
+          expect(losses).toEqual([]);
+          const parsed = getAdapter(to).parse(out);
+          expect(parsed.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+          expect(isDeepStrictEqual(parsed.data, getAdapter('jsonl').parse(input).data)).toBe(true);
+        }),
+        { seed: SEED, numRuns: RUNS },
+      );
+    }, 300_000);
+  }
+  for (const from of targets) {
+    it(`${from} to jsonl: ${RUNS} runs, seed ${SEED}`, () => {
+      fc.assert(
+        fc.property(
+          dataArbitrary(from).filter(Array.isArray),
+          styleArbitrary,
+          fc.gen(),
+          (data, style, g) => {
+            const input = sourceDocument(from, data, style, g);
+            const { text: out, losses } = convert(input, from, 'jsonl');
+            const parsed = getAdapter('jsonl').parse(out);
+            expect(parsed.diagnostics).toEqual([]);
+            let want = getAdapter(from).parse(input).data;
+            for (const loss of losses) {
+              if (loss.kind === 'value') want = setAt(want, loss.path!, null);
+            }
+            expect(isDeepStrictEqual(parsed.data, want)).toBe(true);
+          },
+        ),
         { seed: SEED, numRuns: RUNS },
       );
     }, 300_000);
