@@ -111,6 +111,7 @@ a message and, for import, a 1-based line number. Options and defaults are in §
 - **X5 Cells:** a string as written; a finite number as `JSON.stringify` writes it; `NaN`,
   `Infinity` and `-Infinity` as those words; `true`, `false`; `null` and a missing value as an empty
   cell.
+  *Amended by spec 015 B9 (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): a big number is written as its decimal text, unquoted.*
 - **X6 Quoting (RFC 4180):** a cell is quoted, with each `"` doubled, when it contains the delimiter,
   `"`, CR or LF, starts or ends with white space, is an empty string, or is a string that I7 would
   read as a number, `true`, `false` or `null` (`"7"`, `"true"`, `"null"`), so it imports back as text.
@@ -156,6 +157,7 @@ a message and, for import, a 1-based line number. Options and defaults are in §
   `007`, `1.50`, `1e3` and `12345678901234567890` stay strings); `true`, `false` or `null` for those
   words; `null` when empty; the value of its JSON text when it starts with `{` or `[` and parses;
   otherwise the string as written.
+  *Amended by spec 015 B9 per UNK-067 ★ "Exact number" (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): an unquoted cell that is an RFC 8259 number and a big number (spec 015 Terms) becomes that big number, its text kept, so `12345678901234567890` no longer stays a string; `007`, `1.50` and `1e3` still do.*
 
 ## Scope
 - **In:** `jsonToCsv` and `csvToJson` in `core` (our own code, csv42's notation), the golden

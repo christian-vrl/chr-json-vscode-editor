@@ -174,7 +174,7 @@ validates it from then on.
   matches any trailing part of the URI, a leading `/` is dropped), `:139-162` (workspace-folder
   scope), `:188-200` (`settingUrl`: a `url` starting with `.` resolves against the folder); `json.schemas` comes before
   `json5.schemas` (004 criterion 1), so one `json.schemas` entry serves `.json5` files too.
-- Big numbers: spec 015 B6 (approved in PR #91, not merged): Ajv sees each big number's nearest
+- Big numbers: spec 015 B6 (approved, on `main` since #91): Ajv sees each big number's nearest
   number, so G1 types it the same way and criterion 3 holds for big numbers.
 - Commands and menus: `packages/vscode-extension/package.json` `contributes.commands`,
   `menus.commandPalette`, `menus.editor/title` (the convert commands' `when` clauses with
