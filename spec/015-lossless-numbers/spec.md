@@ -1,6 +1,6 @@
 # SPEC 015 — Lossless big numbers
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -246,27 +246,27 @@ host, while files with no such number open as fast as today.
   013 (ADR-013: one package, web e2e); 014 (PR #89, approved, not merged: json-p3 runs on the
   webview's data; Out "lossless big numbers (015)").
 
-## Changes to approved specs (AGENTS rule 7; the approval card names each)
+## Changes to approved specs (AGENTS rule 7; approved with this spec on the approval card, which named each)
 - **002 R8** "new numbers and strings are written as `JSON.stringify` would, except R4's quote
   character in JSON5" → adds "; a big number (spec 015) is written as its decimal text, and a
   `BigInt` as its digits".
 - **007 criterion 1** equality "`isDeepStrictEqual`: key order ignored, `NaN` equals `NaN`, `-0`
   differs from `0`" → adds "numbers equal by exact value (spec 015 Terms)".
 - **009 X5** "a finite number as `JSON.stringify` writes it" → adds "; a big number as its decimal
-  text". **009 I7** (only if UNK-067 is ★): "`12345678901234567890` stay strings" → "an unquoted
+  text". **009 I7** (UNK-067 ★, owner, 2026-10-12): "`12345678901234567890` stay strings" → "an unquoted
   big number becomes that big number; `007`, `1.50` and `1e3` stay strings".
-- **011 Q2** (only if UNK-066 is ★): "a `BigInt` … is a `QueryError` ("The result has a BigInt,
+- **011 Q2** (UNK-066 ★, owner, 2026-10-12): "a `BigInt` … is a `QueryError` ("The result has a BigInt,
   which JSON can't hold.")" → "a `BigInt` is written as its digits"; criterion 2's
   `bigint-result` cases expect digits instead of that error.
 
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-066 | What JavaScript and Lodash queries see for a big number | B8, criterion 9; T5 | ★ Like the site: a number-like object, digits kept through filter, sort and map · A plain rounded number, digits restored as B7 does |
-| UNK-067 | What CSV import does with `12345678901234567890` | B9, criterion 10; T3 | ★ Exact number · Text, as today (009 I7) |
+| UNK-066 | What JavaScript and Lodash queries see for a big number | B8, criterion 9; T5 | resolved (owner): ★ Like the site |
+| UNK-067 | What CSV import does with `12345678901234567890` | B9, criterion 10; T3 | resolved (owner): ★ Exact number |
 | UNK-068 | Big numbers in large-file mode | criterion 12; T6 | delegated (T6 bench evidence) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
 - [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Human approval recorded

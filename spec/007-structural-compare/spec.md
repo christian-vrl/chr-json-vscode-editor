@@ -25,6 +25,7 @@ as JSON Pointers: `added` exists only on the right, `removed` only on the left, 
    `-0` differs from `0`); reordering any object's keys in `b` leaves the result unchanged; every
    `leftPath` resolves in `a` and every `rightPath` in `b`; where `b` only inserts or only removes items
    of an array of `a`, those items are `added` or `removed` and nothing else in that array is reported.
+   *Amended by spec 015 B3 (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): numbers are equal by exact value (spec 015 Terms), so `12345678901234567890` and `12345678901234567891` differ and `1e20` equals `100000000000000000000`; `-0` and `NaN` stay as written above.*
 2. **Copy (core, same suite):** `copyDifference(source, target, d)` returns a JSON Patch for the
    target. Applied to the target, it leaves the target deep-equal to before except at `d`'s location,
    which now holds the source's value there (or no member, for a difference that is absent on the
