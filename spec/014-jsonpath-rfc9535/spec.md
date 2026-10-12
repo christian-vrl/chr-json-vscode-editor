@@ -1,6 +1,6 @@
 # SPEC 014 — JSONPath (RFC 9535)
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidSHoaiJt1vfe14AjQED6oy9, 2026-10-12)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -183,9 +183,9 @@ the dialog's preview.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-065 | Whether JSONPath (RFC 9535) is offered above 5 MiB | criterion 8; T4 | ★ Not above 5 MiB, as JavaScript and Lodash (UNK-049) · Offered at any size |
+| UNK-065 | Whether JSONPath (RFC 9535) is offered above 5 MiB | criterion 8; T4 | resolved (owner): not above 5 MiB |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved
+- [x] Human approval recorded
