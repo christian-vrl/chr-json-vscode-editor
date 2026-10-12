@@ -1,0 +1,40 @@
+{
+  "name": "chr-json-editor-spike-lossless-numbers",
+  "displayName": "CHR JSON Editor lossless-numbers spike",
+  "description": "Spike 015 T1: vanilla-jsoneditor with a lossless-json parser in a VS Code webview, and the webview parser's costs. Dev-only; never packaged.",
+  "version": "0.0.0",
+  "private": true,
+  "publisher": "christian-vrl",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.136.2"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "chrJsonSpike.losslessNumbers",
+        "displayName": "CHR JSON lossless-numbers spike",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          }
+        ],
+        "priority": "option"
+      }
+    ]
+  },
+  "scripts": {
+    "spike": "node run.mjs"
+  },
+  "devDependencies": {
+    "@chr-json-editor/core": "workspace:*",
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.95.0",
+    "@vscode/test-electron": "3.1.0",
+    "esbuild": "0.28.2",
+    "lossless-json": "4.3.1",
+    "vanilla-jsoneditor": "3.13.0"
+  }
+}
