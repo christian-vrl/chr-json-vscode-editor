@@ -132,6 +132,12 @@ result is written back like any other transform, keeping comments.
   the same query text and results (criterion 1), about 3–4 times slower (criterion 12), with time and
   memory limits the site does not have (criterion 5).
 - The site's queries can use browser objects (`window`, `fetch`); ours cannot (criterion 4).
+- QuickJS has no `Intl`, so locale-aware string methods ignore the locale: `localeCompare` orders by
+  UTF-16 code unit, the order of a plain `sort()` (`Apple, Zebra, apple, Ébano`, where the site in an
+  English browser gives `apple, Apple, Ébano, Zebra`), and `toLocaleString` adds no digit grouping.
+  The wizard's sort and Lodash's `orderBy` and `sortBy` compare with `<` and `>`, so they order the
+  same as the site; only hand-written queries that call these methods differ (011 T1 REPORT §3,
+  plan R4).
 - Above 5 MiB we offer only the native languages (UNK-049 ★).
 
 ## Scope
