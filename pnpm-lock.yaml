@@ -86,9 +86,18 @@ importers:
       '@chr-json-editor/core':
         specifier: workspace:*
         version: link:../core
+      '@jitl/quickjs-singlefile-browser-release-sync':
+        specifier: 0.32.0
+        version: 0.32.0
       immutable-json-patch:
         specifier: 6.0.3
         version: 6.0.3
+      lodash:
+        specifier: 4.18.1
+        version: 4.18.1
+      quickjs-emscripten-core:
+        specifier: 0.32.0
+        version: 0.32.0
       svelte:
         specifier: 5.57.2
         version: 5.57.2(@typescript-eslint/types@8.71.1)

@@ -42,7 +42,10 @@
   },
   "dependencies": {
     "@chr-json-editor/core": "workspace:*",
+    "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
     "immutable-json-patch": "6.0.3",
+    "lodash": "4.18.1",
+    "quickjs-emscripten-core": "0.32.0",
     "svelte": "5.57.2",
     "vanilla-jsoneditor": "3.13.0"
   }
