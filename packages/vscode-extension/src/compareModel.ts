@@ -9,14 +9,9 @@ import {
   type CompareMessage,
   type CompareSide,
   type CompareSideMessage,
-} from '@chr-json-editor/app-shell/protocol';
-import {
-  compare,
-  copyDifference,
-  getAdapter,
-  type Difference,
   type Format,
-} from '@chr-json-editor/core';
+} from '@chr-json-editor/app-shell/protocol';
+import { compare, copyDifference, getAdapter, type Difference } from '@chr-json-editor/core';
 
 /** One side as the panel read it. */
 export interface CompareSideInput {

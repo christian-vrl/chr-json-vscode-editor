@@ -13,7 +13,7 @@
   L1–L10 and J1–J2 per case*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** (Large) `'jsonl'` in `Format`; the `jsonl` adapter in
+- [x] **T2** (Large) `'jsonl'` in `Format`; the `jsonl` adapter in
   `packages/core/src/formats/jsonl-adapter.ts` (parse, `applyPatch`, `stringify`, `sort`, `compact`,
   `prettyPrint`); `detect` entries for languageId `jsonl` and `.jsonl`/`.ndjson`; `parseData` for
   `jsonl`; fast-check suite for criterion 3 (seed committed, 10 000 runs); `jsonl` rows in

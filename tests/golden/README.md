@@ -367,11 +367,33 @@ Readings the JSON Lines corpus takes where L1–L10 leave a detail open:
 3. **A string with a line break** written by L3, L5 or L7 is one line: `JSON.stringify` escapes it
    (`add-item-string-escapes`, `nested-add-member-stays-one-line`).
 
-Not in the corpus because the spec leaves them open; the task that implements each rule decides
-and records it: `add` at `/0` on a text with a BOM (before or after the BOM), a bad first line's
-diagnostic span on a text with a BOM, and the numbers in `unrepaired` when a collapsed run comes
-before an unrepaired line (the input's numbering or the result's; the cases list unrepaired lines
-before any run, where both agree).
+4. **`add` at `/0` on a text with a BOM** (L3) writes the new line after the BOM: the BOM is the
+   file's encoding mark and stays first, as every edit keeps it (L9, R10;
+   `add-item-first-after-bom`). The same holds for `move` and `copy` to `/0`, and L4 removing the
+   first item keeps the BOM.
+5. **A bad first line's diagnostic on a text with a BOM** (L1) starts at offset 0 and spans the BOM
+   too: §Terms says the BOM belongs to the first line, and L1 spans the line without its ending
+   (`parse-bad-first-line-bom`).
+6. **`unrepaired` after a collapsed run** (L10, 012 T3) counts lines in the result, the text
+   "Repair Lines" leaves: the message naming them is read after the edit, beside the banner, whose
+   "Line `<n>`" reads the new text too.
+7. **A moved or copied last line with no line ending** (L4, L6): `move` removes it as L4 does (the
+   line ending before it goes) and inserts it as L3 does (`move-last-item-no-final-newline`); `copy`
+   of it to `/-` gives the old last line an ending and the new one none (R10,
+   `copy-last-item-no-final-newline`).
+8. **`stringify`** writes `-0` as `-0`, as 002's `stringify` does, so it reads back as `-0`
+   (criterion 3); otherwise each line is what `JSON.stringify` writes.
+9. **L4 when the line before a last line with no ending is an empty blank line**: removing that
+   ending leaves the empty line at the end of the text with no ending, which is no line (§Terms),
+   so it goes too and the text now ends with a line ending (`'{"a":1}\n\n2'` without `/1` is
+   `'{"a":1}\n'`). No other text has those items with that blank line, so the final newline cannot
+   stay; `packages/core/test/jsonl.test.ts` tests it, and the corpus has no such case because
+   `jsonl-corpus.test.ts` checks that every patch keeps the final newline.
+10. **The line ending a patch writes** (L3) is the one the text had before the patch's first
+    operation, so a `move` that takes away the text's only line ending writes it back (R10).
+
+012 T2 added the cases of readings 4, 5 and 7 and checks every patch and parse case against the
+`jsonl` adapter (`jsonl-apply.test.ts`).
 
 ## JSON Lines conversion (spec 012)
 

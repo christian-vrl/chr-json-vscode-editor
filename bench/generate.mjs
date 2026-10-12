@@ -98,6 +98,28 @@ export function documentText(bytes, changed = false, format = 'json') {
   return text;
 }
 
+/** The same records as JSON Lines (spec 012 criterion 12), one `JSON.stringify(record)` per line,
+ *  each ended by `\n`, exactly `bytes` bytes, padded inside the last note. */
+export function linesText(bytes) {
+  const lastLine = (i, pad) =>
+    JSON.stringify({ ...record(i), note: LAST_MARKER + '.'.repeat(pad) });
+  const lines = [];
+  let length = 0;
+  for (let i = 0; ; i++) {
+    const next = JSON.stringify(record(i));
+    // At least one padding dot, so a benchmark can vary the text by that character.
+    if (length + next.length + 1 + lastLine(i + 1, 1).length + 1 > bytes) break;
+    lines.push(next);
+    length += next.length + 1;
+  }
+  const pad = bytes - length - lastLine(lines.length, 0).length - 1;
+  if (pad < 1) throw new Error(`size ${bytes} is too small`);
+  lines.push(lastLine(lines.length, pad));
+  const text = lines.join('\n') + '\n';
+  if (text.length !== bytes) throw new Error(`wrote ${text.length} bytes, wanted ${bytes}`);
+  return { text, records: lines.length };
+}
+
 export function fileName(mib, changed = false, format = 'json') {
   return changed ? `${mib}mib-changed.json` : `${mib}mib.${format}`;
 }

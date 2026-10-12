@@ -1,5 +1,6 @@
 import { json5Adapter } from './json5-adapter.js';
 import { jsonAdapter, jsoncAdapter } from './jsonc-adapter.js';
+import { jsonlAdapter } from './jsonl-adapter.js';
 import type { Format, FormatAdapter } from './types.js';
 
 /** The adapter for a format. */
@@ -11,5 +12,7 @@ export function getAdapter(format: Format): FormatAdapter {
       return jsoncAdapter;
     case 'json5':
       return json5Adapter;
+    case 'jsonl':
+      return jsonlAdapter;
   }
 }
