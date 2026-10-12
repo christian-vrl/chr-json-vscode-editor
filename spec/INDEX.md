@@ -45,8 +45,9 @@ tasks run in order unless marked `parallel`.
 | Spec | Title | Notes |
 |---|---|---|
 | 014-jsonpath-rfc9535 | JSONPath (RFC 9535) in the Transform dialog beside JSONPath (Goessner) | json-p3 2.3.2 (MIT), 706/706 of the compliance test suite; one more `QueryLanguage` in 011's list; above 5 MiB per UNK-065; T1 needs 011 T2, T4 needs 008 T3 |
+| 016-generate-schema | Generate JSON Schema: one command writes a schema the document passes, beside it, and links it in one click | our own generator in `core` (keys and types only); dialect per UNK-069, link per UNK-070; amends 004 criterion 2 (`ownProperties: true`); T4 needs 012 T5, T5 needs 013 T4 |
 
-Backlog: 015 Lossless big numbers · 016 Generate JSON Schema · 017 YAML/TOML/XML import ·
+Backlog: 015 Lossless big numbers · 017 YAML/TOML/XML import ·
 018 Copy path / reveal node · 019 Settings · 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
 
 ## How an agent picks work
