@@ -23,6 +23,12 @@ const EMPTY = 'The CSV file is empty';
 const OPEN_QUOTE = 'A quoted field is not closed';
 const AFTER_QUOTE = 'Text after a closing quote is kept as part of the field';
 
+/** I5, UNK-063: the highest array index a field name may give. */
+export const CSV_MAX_INDEX = 100_000;
+/** I5, UNK-063: the most `null` items an import may add for missing array indices, in all. */
+export const CSV_MAX_FILLED = 1_000_000;
+const TOO_MANY_FILLED = `Missing array indices would add more than ${CSV_MAX_FILLED} null items; the CSV is not imported`;
+
 const QUOTE = 0x22;
 const CR = 0x0d;
 const LF = 0x0a;
@@ -232,7 +238,16 @@ export function csvToJson(text: string, options: CsvToJsonOptions = {}): CsvToJs
       const name = unique(raw, false);
       if (name !== raw) repeated(raw, name, record.line, column, 1);
       used.add(name);
-      const path = nested ? parseFieldName(name) : undefined;
+      let path = nested ? parseFieldName(name) : undefined;
+      if (path?.some((segment) => typeof segment === 'number' && segment > CSV_MAX_INDEX)) {
+        warn({
+          message: `Field name "${name}" has an array index above ${CSV_MAX_INDEX}; it is kept as a flat key`,
+          line: record.line,
+          column,
+          rank: 2,
+        });
+        path = undefined;
+      }
       if (path) {
         const earlier = conflictOf(root, path);
         if (earlier === undefined) {
@@ -273,6 +288,8 @@ export function csvToJson(text: string, options: CsvToJsonOptions = {}): CsvToJs
   }
 
   const data: Record<string, unknown>[] = [];
+  const budget = { filled: 0 };
+  let tooMany: CsvImportMessage | undefined;
   const error = readRecords(
     body,
     delimiter,
@@ -302,12 +319,18 @@ export function csvToJson(text: string, options: CsvToJsonOptions = {}): CsvToJs
           rank: 0,
         });
       }
-      data.push(rowOf(record, columns));
+      const row = rowOf(record, columns, budget);
+      if (!row) {
+        tooMany = { message: TOO_MANY_FILLED, line: record.line };
+        return false;
+      }
+      data.push(row);
       return true;
     },
     warn,
   );
   if (error) return { error };
+  if (tooMany) return { error: tooMany };
   if (records === 0) return { error: { message: EMPTY, line: 1 } };
   pending.sort((a, b) => a.line - b.line || a.column - b.column || a.rank - b.rank);
   return { data, warnings: pending.map(({ message, line }) => ({ message, line })) };
@@ -340,8 +363,15 @@ function insertPath(root: PathNode, path: Segment[], name: string): void {
   });
 }
 
-/** I6: one row, members in column order; fields past the record's end are left out. */
-function rowOf(record: CsvRecord, columns: Column[]): Record<string, unknown> {
+/**
+ * I6: one row, members in column order; fields past the record's end are left out. `undefined` when
+ * the `null` items for missing indices would take `budget.filled` past CSV_MAX_FILLED (I5, UNK-063).
+ */
+function rowOf(
+  record: CsvRecord,
+  columns: Column[],
+  budget: { filled: number },
+): Record<string, unknown> | undefined {
   const row: Record<string, unknown> = {};
   let arrays: unknown[][] | undefined;
   const { fields, quoted } = record;
@@ -370,10 +400,14 @@ function rowOf(record: CsvRecord, columns: Column[]): Record<string, unknown> {
     }
     put(container, path[path.length - 1]!, value);
   }
-  // I5: indices missing below the highest one given are null.
+  // I5: indices missing below the highest one given are null, up to CSV_MAX_FILLED in all.
   if (arrays) {
     for (const array of arrays) {
-      for (let i = 0; i < array.length; i++) if (!(i in array)) array[i] = null;
+      for (let i = 0; i < array.length; i++) {
+        if (i in array) continue;
+        if (++budget.filled > CSV_MAX_FILLED) return undefined;
+        array[i] = null;
+      }
     }
   }
   return row;

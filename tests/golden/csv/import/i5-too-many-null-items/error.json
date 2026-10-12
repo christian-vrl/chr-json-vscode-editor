@@ -1,0 +1,4 @@
+{
+  "message": "Missing array indices would add more than 1000000 null items; the CSV is not imported",
+  "line": 12
+}

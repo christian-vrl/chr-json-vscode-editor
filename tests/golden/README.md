@@ -206,12 +206,15 @@ an array or object; import data is an array of objects; message lines exist in t
 Readings the CSV corpus takes where X1–X7 and I1–I7 leave a detail open:
 
 1. **Messages.** The corpus fixes the texts. Export: `CSV export needs an array or an object`
-   (X1). Import errors: `The CSV file is empty` (line 1) and `A quoted field is not closed` (the
-   line of the opening quote). Import warnings: `Text after a closing quote is kept as part of the
-   field` (I2, once per such field), `Field name "<name>" is repeated; this column is named
-   "<new name>"` (I4), `Field name "<name>" conflicts with "<earlier name>"; it is kept as a flat
-   key` (I5), `The record has more fields than there are field names; extra fields are kept as
-   "Field 3", "Field 4"` (I6, once per record, naming each extra field).
+   (X1). Import errors: `The CSV file is empty` (line 1), `A quoted field is not closed` (the line
+   of the opening quote) and `Missing array indices would add more than 1000000 null items; the CSV
+   is not imported` (I5, UNK-063; the line of the record that goes past the limit). Import
+   warnings: `Text after a closing quote is kept as part of the field` (I2, once per such field),
+   `Field name "<name>" is repeated; this column is named "<new name>"` (I4), `Field name
+   "<name>" conflicts with "<earlier name>"; it is kept as a flat key` (I5), `Field name "<name>"
+   has an array index above 100000; it is kept as a flat key` (I5, UNK-063), `The record has more
+   fields than there are field names; extra fields are kept as "Field 3", "Field 4"` (I6, once per
+   record, naming each extra field).
 2. **Lines** are physical lines of the input: CR LF, LF and CR each end one, inside quoted fields
    too. A record's line is the line it starts on. Field-name warnings (I4, I5) are on line 1.
    Warnings are listed by line, and within a line in column order, I4's before I5's.
