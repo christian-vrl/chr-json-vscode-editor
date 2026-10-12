@@ -306,14 +306,15 @@ test.describe('criterion 5: limits', () => {
       within: 6_000,
     },
     {
-      // Large blocks (16 MiB each), so the memory limit, not the deadline, ends it: small objects
-      // can end on either limit (011 T1 REPORT §3), and 1e6-element `fill` blocks took 8.4 s in
-      // Node and up to 17 s here on a loaded 4-core machine, as QuickJS's collector rescans the
-      // growing heap (recorded in the 011 T4 PR).
+      // Large blocks (64 MiB each), so the memory limit, not the deadline, ends it, in few steps.
+      // A page's first big run grows the engine's WebAssembly memory step by step, and Chromium
+      // copies it each time: 16 MiB blocks took 12.6 s on that first run, 64 MiB blocks 2.5 s, and
+      // either about 0.2 s once the memory had grown. Small objects can end on either limit (011 T1
+      // REPORT §3); 1e6-element `fill` blocks took up to 17 s (UNK-074).
       name: 'a query that keeps allocating',
       language: 'JavaScript',
       query:
-        'function query (data) {\n  const kept = []\n  while (true) kept.push(new Float64Array(1 << 21))\n}',
+        'function query (data) {\n  const kept = []\n  while (true) kept.push(new Uint8Array(1 << 26))\n}',
       messages: [MEMORY_MESSAGE],
       within: 15_000,
     },
