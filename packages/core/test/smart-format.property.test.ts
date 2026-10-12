@@ -20,7 +20,13 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { detectStyle, getAdapter, smartFormat, type Format, type Style } from '../src/index.js';
+import {
+  detectStyle,
+  getAdapter,
+  smartFormat,
+  type SmartFormatFormat as Format,
+  type Style,
+} from '../src/index.js';
 import { parseJson5 } from '../src/formats/json5-parser.js';
 import { isComment, Kind, tokenize, type Token } from '../src/formats/tokens.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';

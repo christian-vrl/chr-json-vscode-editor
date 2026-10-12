@@ -29,7 +29,10 @@ import { PatchError, type Format } from './types.js';
  * diagnostic (criterion 9); a text with no value (empty, white space or comments only) comes back
  * unchanged (criterion 5).
  */
-export function smartFormat(text: string, format: Format): string {
+/** The formats smart format lays out (spec 010 §Scope): not JSON Lines. */
+export type SmartFormatFormat = Exclude<Format, 'jsonl'>;
+
+export function smartFormat(text: string, format: SmartFormatFormat): string {
   const bom = text.startsWith('\uFEFF') ? '\uFEFF' : '';
   const body = text.slice(bom.length);
   const adapter = getAdapter(format);
@@ -70,7 +73,7 @@ export function smartFormat(text: string, format: Format): string {
 
 /** Whether a text with no parse tree is only white space and complete comments: a value on a line
  *  after it parses. */
-function hasNoValue(text: string, format: Format): boolean {
+function hasNoValue(text: string, format: SmartFormatFormat): boolean {
   const withValue = `${text}\nnull`;
   if (format === 'json5') {
     const result = parseJson5(withValue);
@@ -135,7 +138,7 @@ interface Bridged {
  * than `\n` and `\r\n` a `\n` (FracturedJson writes its own layout and line ends anyway). `m` is a private-use character the text does
  * not hold, nor the next two, so nothing in the document can look like a stand-in.
  */
-function bridge(text: string, tokens: readonly Token[], format: Format): Bridged {
+function bridge(text: string, tokens: readonly Token[], format: SmartFormatFormat): Bridged {
   let code = 0xe000;
   while ([0, 1, 2].some((k) => text.includes(String.fromCharCode(code + k)))) code += 3;
   const [marker, close, filler] = [0, 1, 2].map((k) => String.fromCharCode(code + k)) as [

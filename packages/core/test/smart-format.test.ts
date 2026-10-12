@@ -1,7 +1,12 @@
 // `smartFormat` (010 T2) on cases the golden corpus leaves out (README "Not in the corpus") and on
 // the FracturedJson 5.1.0 behaviour its passes work around.
 import { describe, expect, it } from 'vitest';
-import { detectStyle, PatchError, smartFormat, type Format } from '../src/index.js';
+import {
+  detectStyle,
+  PatchError,
+  smartFormat,
+  type SmartFormatFormat as Format,
+} from '../src/index.js';
 
 describe('smartFormat', () => {
   it('returns a text with no value unchanged (criterion 5)', () => {
