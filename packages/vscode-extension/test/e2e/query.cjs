@@ -1,11 +1,11 @@
-// Gate for 011 T5 (spec 011 criterion 7), run by suite.cjs inside VS Code: Transform with
-// JavaScript and with Lodash, driven through the library's own dialog with the `dom` test hook, on
-// each case in tests/e2e/fixtures/query/<case>/ (`input.<ext>`, `expected.<ext>`, `case.json`
-// with `language`, `mode`, `query` and, for a query on a selected node, the `node` key to select
-// in tree mode). After Transform the document's text is byte-equal to `expected.<ext>`, it is dirty
-// and not saved, and one `undo` restores `input.<ext>` exactly. Every run also loads and compiles
-// the query engine under the editor's CSP with no violation (criterion 9). Each case works on a
-// copy in a temporary folder.
+// Gate for 011 T5 (spec 011 criterion 7) and 014 T4 (spec 014 criterion 7), run by suite.cjs inside
+// VS Code: Transform with JavaScript, with Lodash and with JSONPath (RFC 9535), driven through the
+// library's own dialog with the `dom` test hook, on each case in tests/e2e/fixtures/query/<case>/
+// (`input.<ext>`, `expected.<ext>`, `case.json` with `language`, `mode`, `query` and, for a query
+// on a selected node, the `node` key to select in tree mode). After Transform the document's text
+// is byte-equal to `expected.<ext>`, it is dirty and not saved, and one `undo` restores
+// `input.<ext>` exactly. Every run also loads and compiles the query engine under the editor's CSP
+// with no violation (011 criterion 9). Each case works on a copy in a temporary folder.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -14,6 +14,8 @@ const vscode = require('vscode');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const CASES = path.resolve(__dirname, '../../../../tests/e2e/fixtures/query');
+/** Each language needs a case in tree, text and table mode and on a selected node. */
+const LANGUAGES = ['JavaScript', 'Lodash', 'JSONPath (RFC 9535)'];
 
 /** The case folders, each with its input, expected text and case.json. */
 function loadCases() {
@@ -28,7 +30,7 @@ function loadCases() {
       const ext = path.extname(input);
       assert.deepEqual(files, ['case.json', `expected${ext}`, input].sort(), `${name}: files`);
       const meta = JSON.parse(fs.readFileSync(path.join(dir, 'case.json'), 'utf8'));
-      assert.ok(['JavaScript', 'Lodash'].includes(meta.language), `${name}: language`);
+      assert.ok(LANGUAGES.includes(meta.language), `${name}: language`);
       assert.ok(['tree', 'text', 'table'].includes(meta.mode), `${name}: mode`);
       assert.ok(meta.node === undefined || meta.mode === 'tree', `${name}: a node needs tree mode`);
       return {
@@ -89,7 +91,7 @@ exports.runQuery = async function runQuery({ hooks, waitFor, closeAll, expectOnl
   const covered = new Set(
     cases.map((c) => `${c.meta.language} ${c.meta.node ? 'node' : c.meta.mode}`),
   );
-  for (const language of ['JavaScript', 'Lodash']) {
+  for (const language of LANGUAGES) {
     for (const where of ['tree', 'text', 'table', 'node']) {
       assert.ok(covered.has(`${language} ${where}`), `no ${language} case in ${where}`);
     }

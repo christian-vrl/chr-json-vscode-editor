@@ -1,0 +1,5 @@
+// Cities
+[
+  { "name": "London", "people": 9 }, // capital
+  { "name": "Lyon", "people": 0.5 } // by the Rhône
+]
