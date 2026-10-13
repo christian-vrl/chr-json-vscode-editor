@@ -31,7 +31,7 @@
   004 validation, convert, repair, compare (criterion 9), every other command on `main`;
   `test/web/coverage.json` and its unit test; the network check and its probe fixture (criterion
   11); criterion 8's palette check through the same browser page (T2 checks the menu entries in a
-  unit test and the message in the web e2e: the extension API cannot read the palette). — needs: 013 T2, T3 — *gate: criteria 3–5, 7, 9, 11 green in CI*
+  unit test and the message in the web e2e: the extension API cannot read the palette). — needs: 013 T2, T3 — *gate: criteria 3–5, 7, 8 (palette), 9, 11 green in CI*
 
 ## Phase D — Limits and docs (risk-free / additive)
 - [ ] **T5** Large files in the web host (starts last: 008 T3 is still open): on the CI route,

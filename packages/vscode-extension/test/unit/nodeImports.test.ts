@@ -45,7 +45,7 @@ const nodeFolderImport = "import { readHeadOf } from './node/gitHeadVscode';\nvo
 
 describe('no Node built-ins in shared host code (spec 013 criterion 2)', () => {
   it('fails on every marked import in shared host code', async () => {
-    expect(markedLines).toHaveLength(7);
+    expect(markedLines).toHaveLength(8);
     expect(await errorLines(fixture, 'packages/vscode-extension/src/fixture.ts')).toEqual(
       markedLines,
     );
@@ -63,6 +63,13 @@ describe('no Node built-ins in shared host code (spec 013 criterion 2)', () => {
 
   it('lets src/node/ import Node built-ins', async () => {
     expect(await errorLines(fixture, 'packages/vscode-extension/src/node/fixture.ts')).toEqual([]);
+  });
+
+  it('lets only the Node entry import src/node/, by import(), require() or import', async () => {
+    const calls =
+      "export const a = import('./node/gitHeadVscode');\nexport const b: unknown = require('../node/x');\n";
+    expect(await errorLines(calls, 'packages/vscode-extension/src/activate.ts')).toEqual([1, 2]);
+    expect(await errorLines(calls, 'packages/vscode-extension/src/extension.ts')).toEqual([]);
   });
 
   it('lets only the Node entry import src/node/', async () => {

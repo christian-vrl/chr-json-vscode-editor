@@ -29,10 +29,29 @@ const NODE_FOLDER_PATTERN = {
 const builtinNames = builtinModules.filter(
   (name) => !name.includes('/') && !name.startsWith('node:'),
 );
-const dynamicNodeImport = {
-  selector: `ImportExpression > Literal[value=/^(node:|(${builtinNames.join('|')})(\\/|$))/]`,
-  message: NODE_BUILTIN_MESSAGE,
-};
+// `import()` and CommonJS `require()` of the same names, which the import rule does not see.
+const BUILTIN_SOURCE = `/^(node:|(${builtinNames.join('|')})(\\/|$))/`;
+const NODE_FOLDER_SOURCE = '/(^|\\/)node\\//';
+const nodeBuiltinCalls = [
+  {
+    selector: `ImportExpression > Literal[value=${BUILTIN_SOURCE}]`,
+    message: NODE_BUILTIN_MESSAGE,
+  },
+  {
+    selector: `CallExpression[callee.name='require'] > Literal[value=${BUILTIN_SOURCE}]`,
+    message: NODE_BUILTIN_MESSAGE,
+  },
+];
+const nodeFolderCalls = [
+  {
+    selector: `ImportExpression > Literal[value=${NODE_FOLDER_SOURCE}]`,
+    message: NODE_FOLDER_PATTERN.message,
+  },
+  {
+    selector: `CallExpression[callee.name='require'] > Literal[value=${NODE_FOLDER_SOURCE}]`,
+    message: NODE_FOLDER_PATTERN.message,
+  },
+];
 /** The blocks for the host code; `nodeImports.test.ts` lints its fixture with these. */
 export const sharedHostCode = [
   {
@@ -44,13 +63,16 @@ export const sharedHostCode = [
         'error',
         { ...nodeBuiltins, patterns: [...nodeBuiltins.patterns, NODE_FOLDER_PATTERN] },
       ],
-      'no-restricted-syntax': ['error', dynamicNodeImport],
+      'no-restricted-syntax': ['error', ...nodeBuiltinCalls, ...nodeFolderCalls],
     },
   },
   {
     name: 'chr/node-entry',
     files: ['packages/vscode-extension/src/extension.ts'],
-    rules: { '@typescript-eslint/no-restricted-imports': ['error', nodeBuiltins] },
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', nodeBuiltins],
+      'no-restricted-syntax': ['error', ...nodeBuiltinCalls],
+    },
   },
 ];
 
@@ -60,6 +82,8 @@ export default defineConfig(
   globalIgnores(['packages/core/test/fixtures/json5-tests/']),
   // Query cases (011 T2): scripts that define `query` for the engine, with Lodash's `_` in scope.
   globalIgnores(['tests/query/*/']),
+  // Spec 013 criterion 2's fixture (013 T2): imports Node on purpose; nodeImports.test.ts lints it.
+  globalIgnores(['tests/fixtures/node-import/']),
   {
     files: ['**/*.{js,mjs,cjs}'],
     extends: [js.configs.recommended],

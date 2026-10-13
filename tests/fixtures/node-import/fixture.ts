@@ -11,5 +11,6 @@ export { fileURLToPath } from 'node:url'; // error
 export async function uses(stats: Stats): Promise<unknown[]> {
   const os = await import('os'); // error
   const process = await import('node:process'); // error
-  return [randomBytes, path, readFile, stats, os, process];
+  const childProcess: unknown = require('child_process'); // error
+  return [randomBytes, path, readFile, stats, os, process, childProcess];
 }
