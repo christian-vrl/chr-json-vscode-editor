@@ -33,10 +33,10 @@ const BOM = '﻿';
 /** L8's message for a root that would not be an array. */
 const NOT_AN_ARRAY = 'A JSON Lines document holds an array of items.';
 
-type Ending = '' | '\n' | '\r\n';
+export type Ending = '' | '\n' | '\r\n';
 
 /** A line (§Terms): its text without its ending, and what it holds. */
-interface Line {
+export interface Line {
   /** On the first line, without the leading BOM. */
   readonly text: string;
   readonly ending: Ending;
@@ -48,7 +48,7 @@ interface Line {
 const UNREAD = Symbol('unread');
 
 /** A text as lines; `bom` is the leading BOM, or `''`. */
-interface Lines {
+export interface Lines {
   readonly bom: string;
   readonly lines: readonly Line[];
 }
@@ -67,7 +67,7 @@ function itemData(text: string, mayHold = true): unknown {
 
 /** What a line holds. `JSON.parse` reads exactly one RFC 8259 value and allows white space around
  *  it; a line has no LF, and a CR in it (a lone CR) makes it bad (§Terms). */
-function classify(text: string, mayHold: boolean): Pick<Line, 'kind' | 'data'> {
+export function classify(text: string, mayHold = true): Pick<Line, 'kind' | 'data'> {
   if (/^[ \t]*$/.test(text)) return { kind: 'blank' };
   if (text.includes('\r')) return { kind: 'bad' };
   try {
@@ -77,7 +77,7 @@ function classify(text: string, mayHold: boolean): Pick<Line, 'kind' | 'data'> {
   }
 }
 
-function split(text: string): Lines {
+export function split(text: string): Lines {
   const mayHold = mayHoldBigNumber(text);
   const bom = text.startsWith(BOM) ? BOM : '';
   const lines: Line[] = [];
@@ -86,7 +86,11 @@ function split(text: string): Lines {
     const lf = text.indexOf('\n', start);
     const crlf = lf > start && text.charCodeAt(lf - 1) === 13;
     const content = text.slice(start, lf < 0 ? text.length : crlf ? lf - 1 : lf);
-    lines.push({ text: content, ending: lf < 0 ? '' : crlf ? '\r\n' : '\n', ...classify(content, mayHold) });
+    lines.push({
+      text: content,
+      ending: lf < 0 ? '' : crlf ? '\r\n' : '\n',
+      ...classify(content, mayHold),
+    });
     start = lf < 0 ? text.length : lf + 1;
   }
   return { bom, lines };

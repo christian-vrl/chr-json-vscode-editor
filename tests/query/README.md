@@ -1,4 +1,4 @@
-# Query corpus (spec 011)
+# Query corpus (spec 011, spec 014)
 
 One folder per case: `tests/query/<case>/` with `input.json5`, `case.json`, `query.js`, and either
 `expected.json5` or `error.json`. A case passes when `runQuery(language, data, query)` (011 T3) gives
@@ -14,6 +14,10 @@ produced by the code under test, and changes only with a spec change (`AGENTS.md
 `sealed/` is not a case: it holds criterion 4's queries (011 T4), which `tests/web/query.spec.ts` runs
 in the standalone page's Transform dialog in both languages; every value of their result must be
 `"undefined"`. The loader skips it.
+`jsonpath-cts/` is not a case either: it holds the vendored JSONPath Compliance Test Suite (below).
+
+JSONPath (RFC 9535) cases (spec 014) are described in their own section below; the rest of this
+file up to there is about the JavaScript and Lodash cases.
 
 ## Commands
 
@@ -33,6 +37,12 @@ in the standalone page's Transform dialog in both languages; every value of thei
   wizard case's `query.js` is byte-equal to the library's `createQuery(data, wizard)` plus a final
   newline; `expected.json5` holds what its Q2 tag names (a `NaN`, an `±Infinity`, a `-0`, an own
   `__proto__` key, an ISO date string), and a `proto-key` input has an own `__proto__` key.
+- `jsonpath-cts.test.ts` — spec 014 (014 T1): `jsonpath-cts/cts.json` is the pinned suite (its
+  SHA-256 and commit in `SOURCE`, 706 tests, each well formed) and its licence is recorded.
+- `jsonpath-rfc9535.test.ts` — spec 014 criteria 1 and 2 (014 T2): `jsonpathRfc9535QueryLanguage`
+  gives every compliance test's result (or one of its results), key order checked, and throws for
+  every invalid selector; it gives every RFC 9535 case's `expected.json5` or an error containing
+  `error.json`'s text, and its `createQuery` throws the refused wizard cases' message.
 - `reference.test.ts` — the reference half of criterion 1: every case without `error.json` and
   without a Q2 tag gives `expected.json5` in the reference, key order checked; every error case
   without a Q2 tag makes the reference throw, with `error.json`'s text unless the case is marked
@@ -104,3 +114,75 @@ unit: `['b', 'a', 'B', 'é', 'e']` sorts to `B, a, b, e, é` there and to `a, b,
 items lack (the reference keeps the `undefined` member that Q2 drops), and a result that is itself a
 function (Q2 names members only). Q3 (scope) and Q4 (isolation of runs) are not cases: the reference
 runs with Node's globals, and criterion 4 (011 T4) and 011 T3's unit tests check them.
+
+## JSONPath (RFC 9535) cases (spec 014)
+
+Folders `tests/query/jsonpath-rfc9535-<case>/` hold `input.json5`, `case.json`, `query.jsonpath` and
+either `expected.json5` or `error.json`. Criterion 2: `jsonpathRfc9535QueryLanguage.executeQuery`
+(014 T2) gives data equal to `expected.json5` with key order checked, or throws an error whose
+message contains `error.json`'s `message`. Every `expected.json5` and `error.json` was written by
+hand from P1–P7 of `spec/014-jsonpath-rfc9535/spec.md`, never produced by the code under test.
+
+- **`query.jsonpath`** ends with one newline, which the loader takes off: RFC 9535 allows no
+  whitespace after a query (the suite's `basic, no trailing whitespace` test), and the editors add a
+  final newline. Any other trailing whitespace is a loader error.
+- **`case.json`**: `language` is `jsonpath-rfc9535`; `tags` come from `tags.json`'s `rfc9535` list,
+  each of which needs a case (criterion 3); `path` and `wizard` work as above. `engineMessage` is not
+  used: there is no reference engine to word an error differently.
+- **Wizard (P7):** `filter` and a `projection` of one path give `filter` and `pick`, and the query is
+  the library's `jsonpathQueryLanguage.createQuery` text. A `sort` gives `sort-refused` and a
+  `projection` of two or more paths `multi-pick-refused`: `createQuery` throws, so the case has no
+  `query.jsonpath`, and `error.json` is that message exactly.
+
+The coverage test also checks that a `bracket-name` query has a bracketed name selector, that a
+`deep` input nests more than 50 levels (the engine's default limit) and less than 1,000 (P6), and
+that a `too-deep` input nests more than 1,000. `reference.test.ts` runs no RFC 9535 engine
+(`jsonpath-rfc9535.test.ts` does, below); it checks that each wizard case gives the same data in the library's JSONPath
+(Goessner), as P7 says, and that Goessner accepts each `goessner-only` query.
+
+### RFC 9535 tags
+
+| Tag | Meaning |
+|---|---|
+| `filter`, `pick` | a wizard output (P7) |
+| `sort-refused`, `multi-pick-refused` | a wizard sort, or two or more pick fields: the library's JSONPath message |
+| `child`, `wildcard`, `descendant`, `index`, `slice`, `union` | that selector or segment |
+| `function-length`, `-count`, `-match`, `-search`, `-value` | that RFC 9535 function in a filter |
+| `nested-root` | a query on a selected node (`path`, P3) |
+| `empty-result` | nothing matches: `[]` (P2) |
+| `syntax-error`, `type-error`, `unknown-function` | the engine refuses the query (criterion 6) |
+| `bracket-name` | a member name that needs bracket notation |
+| `proto-key`, `minus-zero`, `nan`, `infinity` | P2 and P4: that value is kept and compared as the rules say |
+| `deep` | a descendant query on data deeper than the engine's default limit of 50 |
+| `too-deep` | data deeper than P6's 1,000 levels: P6's message |
+| `goessner-only` | a query jsonpath-plus accepts and RFC 9535 rejects |
+
+The error tags are `syntax-error`, `type-error`, `unknown-function`, `too-deep`, `goessner-only`,
+`sort-refused` and `multi-pick-refused`; an error case has exactly one.
+
+### Readings the corpus takes where P1–P7 leave a detail open
+
+1. **Engine wording.** `syntax-error`, `type-error`, `unknown-function` and `goessner-only` cases
+   hold json-p3 2.3.2's own text, as the spec's evidence quotes it (`unbalanced brackets
+   ('$[?@.a':1)`, `length() argument 0 must be of ValueType`, `no such function 'foo'`) or, for
+   `goessner-only`, the start of it (`unexpected token '('`). The type error's position text is left
+   out: it quotes a window of the query, not a place a reader can use.
+2. **Descendant order.** RFC 9535 lets `..` visit nodes depth first or breadth first, as long as
+   each node comes before its descendants. The corpus avoids queries where the two orders differ
+   (`$..author` matches only items of one array); P1 fixes object member order only.
+3. **`NaN` with `!=`.** RFC 9535 defines `!=` as the negation of `==`, so with P4 (`NaN` equals
+   nothing) `$[?@.n != @.n]` selects exactly the items whose `n` is `NaN` (`jsonpath-rfc9535-nan`).
+4. **Names on arrays and inherited names.** A name selector selects only an object's own member
+   (P2): `$.store.book.length` and `$.constructor` give `[]`.
+5. **Depths.** `deep` uses 61 levels (60 objects around the leaf) and `too-deep` 100,001 (plan R5's
+   60 and 100,000, plus the leaf object), both far from P6's 1,000.
+
+## JSONPath Compliance Test Suite (`jsonpath-cts/`)
+
+`cts.json` and `LICENSE` are copied unchanged from
+`https://github.com/jsonpath-standard/jsonpath-compliance-test-suite` at commit
+`9d1a415a53f5dfb291bc874823892e49174e38eb` (BSD-2-Clause); `SOURCE` records the URL, the commit,
+the file's SHA-256 and its 706 tests. It is test data, never fetched by a test and never shipped, so
+`pnpm check:licenses` (shipped dependencies) and `pnpm check:offline` (build output) do not see it.
+`.gitattributes` marks it `-text` so its bytes keep their hash. Criterion 1 (every test against the
+engine) is `jsonpath-rfc9535.test.ts` (014 T2); updating the suite is its own PR with an engine check (plan R1).

@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Harness and entry (risk-free / additive)
-- [ ] **T1** Browser entry and both test routes: `src/web/extension.ts` and the second esbuild
+- [x] **T1** Browser entry and both test routes: `src/web/extension.ts` and the second esbuild
   build to `dist/web/extension.js`; `"browser"` and `"capabilities": { "virtualWorkspaces": true }`
   in the manifest; Web Crypto nonce; `@vscode/test-web` (exact version, dev-only), `test/web/run.mjs`
   (CI route and `VSCODE_EXECUTABLE_PATH` local route), the bundled Mocha suite with one smoke test

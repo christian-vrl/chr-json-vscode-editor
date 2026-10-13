@@ -19,6 +19,7 @@ import {
   type Style,
 } from '../src/index.js';
 import { dataArbitrary, SEED } from './arbitraries.js';
+import { jsonlLine, jsonlText, jsonlValue as value, pad, usable } from './jsonl-arbitraries.js';
 import { readBack } from './read-back.js';
 
 const RUNS = 10_000;
@@ -29,43 +30,6 @@ type Gen = fc.GeneratorValue;
 function pick<T>(g: Gen, items: readonly T[]): T {
   return items[g(fc.integer, { min: 0, max: items.length - 1 })]!;
 }
-
-/** Keys `immutable-json-patch` 6.0.3 mishandles (see patch.property.test.ts): left out. */
-const usable = (key: string) => !(key in Object.prototype) && key !== '-';
-
-function plain(data: unknown): unknown {
-  if (Array.isArray(data)) return data.map(plain);
-  if (data !== null && typeof data === 'object') {
-    const object: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(data)) if (usable(k)) object[k] = plain(v);
-    return object;
-  }
-  return data;
-}
-
-/** JSON values as a JSON Lines line holds them: what `JSON.parse(JSON.stringify(v))` gives. */
-const value = dataArbitrary('json').map((v) => JSON.parse(JSON.stringify(plain(v))) as unknown);
-
-// --- Texts -------------------------------------------------------------------------------------
-
-const pad = fc.constantFrom('', '', ' ', '\t', '  ', ' \t');
-
-/** A JSON Lines text: items written as `JSON.stringify` writes them with spaces and tabs around,
- *  blank lines before, between and after, one line ending, a final newline or not. */
-/** An item line: a value as `JSON.stringify` writes it, with spaces and tabs around. */
-const jsonlLine = fc.tuple(pad, value, pad).map(([a, v, b]) => a + JSON.stringify(v) + b);
-
-const jsonlText = fc
-  .record({
-    lines: fc.array(fc.oneof({ weight: 3, arbitrary: jsonlLine }, { weight: 1, arbitrary: pad }), {
-      maxLength: 8,
-    }),
-    eol: fc.constantFrom('\n', '\r\n'),
-    finalNewline: fc.boolean(),
-  })
-  .map(({ lines, eol, finalNewline }) =>
-    lines.length === 0 ? '' : lines.join(eol) + (finalNewline ? eol : ''),
-  );
 
 // --- Patches -----------------------------------------------------------------------------------
 

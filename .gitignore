@@ -14,6 +14,9 @@ out/
 # Test output
 coverage/
 .vscode-test/
+# The web e2e (013 T1): VS Code's web build that @vscode/test-web downloads, and the bundled suite.
+.vscode-test-web/
+dist-test/
 test-results/
 playwright-report/
 blob-report/

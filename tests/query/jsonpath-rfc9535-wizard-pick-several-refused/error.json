@@ -1,0 +1,3 @@
+{
+  "message": "Picking multiple fields is not supported by JSONPath. Please select only one field"
+}

@@ -382,7 +382,8 @@ Readings the JSON Lines corpus takes where L1–L10 leave a detail open:
    (`parse-bad-first-line-bom`).
 6. **`unrepaired` after a collapsed run** (L10, 012 T3) counts lines in the result, the text
    "Repair Lines" leaves: the message naming them is read after the edit, beside the banner, whose
-   "Line `<n>`" reads the new text too.
+   "Line `<n>`" reads the new text too (`repair-unrepaired-after-collapsed-run`: three lines
+   collapse into one, so input line 5 is result line 3).
 7. **A moved or copied last line with no line ending** (L4, L6): `move` removes it as L4 does (the
    line ending before it goes) and inserts it as L3 does (`move-last-item-no-final-newline`); `copy`
    of it to `/-` gives the old last line an ending and the new one none (R10,
@@ -409,7 +410,7 @@ the conversion corpus layout above. A case may hold `error.json` (`{"message"}`)
 a JSON Lines source with a bad line, or a source to JSON Lines whose root is not an array). The
 rules are `J1` and `J2` in `tags.json`; a pair to JSON Lines also has the C rules of its source's
 pair to `json`, since J2 converts to `json` first, and needs one case per rule but no location
-cells (006's pairs cover those). `convert-apply.test.ts` lists these pairs as todo until 012 T3.
+cells (006's pairs cover those). `convert-apply.test.ts` runs them against `convert` (012 T3).
 `convert-corpus.test.ts` checks them like 006's pairs, JSON Lines read as `jsonl-reference.ts`
 reads it and treated as `json` for C1–C5, and adds J1's layout (`j1`) and J2's one compact item
 per line, ended by the source's line ending.
@@ -420,3 +421,7 @@ Readings:
    (`json-to-jsonl/j2-one-line-source`), as L2 reads a JSON Lines text.
 2. **A loss's location** is where the lost token is in the source, as in 006; a case converting
    to JSON Lines tags `array` when it rewrites items without a loss.
+3. **A leading BOM on the source** (J2, 012 T3) is not written: J2 converts to `json` first, where
+   C6 makes it a space (reading 4 above), and J2 writes no white space outside the items
+   (`json5-to-jsonl/j2-c6-byte-order-mark`). Only a JSON5 source can hold one: JSON and JSONC read
+   a BOM as an error, so they do not convert. J1, by its own words, keeps a BOM.
