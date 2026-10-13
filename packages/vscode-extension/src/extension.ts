@@ -12,7 +12,6 @@ import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
 import type { ComparePageProbe, DomStep, RenderedProbe } from './testProbe';
 import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
-import { webviewFormat } from './formatBadge';
 import type { HeadResult } from './gitHead';
 import { readHeadOf } from './gitHeadVscode';
 import { cachedParseTexts, detect } from '@chr-json-editor/core';
@@ -104,18 +103,18 @@ const convertSaveAs: string[] = [];
 export function activate(context: vscode.ExtensionContext): { testHooks: TestHooks } | undefined {
   const formatBadge = new FormatBadgeController(formatCore);
   const { provider, disposable } = JsonEditorProvider.register(context, formatBadge);
-  const compares = new ComparePanels(context.extensionUri, (document) =>
-    webviewFormat(
+  const compares = new ComparePanels(
+    context.extensionUri,
+    (document) =>
       formatBadge.format(document) ??
-        detect(document.uri.path, document.languageId, document.getText()).format,
-    ),
+      detect(document.uri.path, document.languageId, document.getText()).format,
   );
   context.subscriptions.push(
     compares,
     formatBadge,
     disposable,
     formatBadge.onDidChangeFormat(({ document, format }) => {
-      provider.formatChanged(document, webviewFormat(format));
+      provider.formatChanged(document, format);
       compares.formatChanged(document);
     }),
     ...registerCommands(),

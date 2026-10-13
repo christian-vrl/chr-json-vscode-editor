@@ -18,12 +18,14 @@
  *  10: adds the compare panel's messages (007 T4): UI → host `compareReady` and `copy`, host → UI
  *      `compare`.
  *  11: `init` carries `largeFile`; adds the UI → host `openAsText` and `unlock` messages and the
- *      `read-only` edit error (008 T2). */
-export const PROTOCOL_VERSION = 11;
+ *      `read-only` edit error (008 T2).
+ *  12: `init`, `setFormat` and the compare sides take the `jsonl` format; `edit` can carry the
+ *      `repairLines` action (012 T4). */
+export const PROTOCOL_VERSION = 12;
 
-/** AGENTS.md §Glossary "Format". */
-export type Format = 'json' | 'jsonc' | 'json5';
-export const FORMATS: readonly Format[] = ['json', 'jsonc', 'json5'];
+/** AGENTS.md §Glossary "Format", and JSON Lines (spec 012). */
+export type Format = 'json' | 'jsonc' | 'json5' | 'jsonl';
+export const FORMATS: readonly Format[] = ['json', 'jsonc', 'json5', 'jsonl'];
 
 /** Editor modes (spec 003 §Goal). */
 export type Mode = 'tree' | 'text' | 'table';
@@ -56,11 +58,14 @@ export type DocumentChange =
  * UNK-018), so comments and style are kept: `format` (core `prettyPrint`), `compact`, `repair`, and
  * `sort`, which puts the members of the container at `path` in `order` (their indices before the
  * sort), the order the editor's sort chose. Data-level changes (transform) are a `patch` made by
- * core's `diff` (002 R14).
+ * core's `diff` (002 R14). `repairLines` is "Repair Lines" in a JSON Lines document's bad-line
+ * banner (spec 012 criterion 8, L10: core `repairLines`); it is the one change such a document's
+ * UI sends while a bad line is left.
  */
 export type DocumentAction =
-  { name: 'format' | 'compact' | 'repair' } | { name: 'sort'; path: string; order: number[] };
-export const ACTION_NAMES = ['format', 'compact', 'repair', 'sort'] as const;
+  | { name: 'format' | 'compact' | 'repair' | 'repairLines' }
+  | { name: 'sort'; path: string; order: number[] };
+export const ACTION_NAMES = ['format', 'compact', 'repair', 'repairLines', 'sort'] as const;
 
 interface Envelope<T extends string> {
   protocol: typeof PROTOCOL_VERSION;
