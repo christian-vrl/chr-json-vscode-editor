@@ -13,6 +13,9 @@
     "chrJsonEditor.repairJson": {
       "test": "Repair JSON repairs in the text editor, asking before removing a comment"
     },
+    "chrJsonEditor.smartFormat": {
+      "test": "runs \"Smart Format\" on smart-format/input.json in the text editor"
+    },
     "chrJsonEditor.convertToJson": {
       "test": "Convert to JSON, JSONC and JSON5 write a new file beside the document, asking before losses"
     },

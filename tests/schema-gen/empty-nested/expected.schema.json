@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "list": {
+      "type": "array"
+    },
+    "lists": {
+      "type": "array",
+      "items": {
+        "type": "array"
+      }
+    },
+    "o": {
+      "type": "object"
+    },
+    "os": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "list",
+    "lists",
+    "o",
+    "os"
+  ]
+}

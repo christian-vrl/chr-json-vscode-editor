@@ -1,6 +1,7 @@
 // Web e2e, spec 013 criterion 3 (013 T1 smoke, 013 T4 all three formats): the extension activates
 // in the web worker extension host with no error, and "Open With → CHR JSON Editor" on spec 003's
-// `.json`, `.jsonc` and `.json5` fixtures shows the document's data in the webview.
+// `.json`, `.jsonc` and `.json5` fixtures shows the document's data in the webview. Also "Smart
+// Format" (010 T3, spec 010 criterion 8).
 /// <reference types="mocha" />
 import * as vscode from 'vscode';
 import {
@@ -13,6 +14,8 @@ import {
   FORMATS,
   openCustom,
   probeUntil,
+  readText,
+  waitFor,
 } from './util';
 
 const LABELS = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
@@ -51,4 +54,20 @@ describe('web host smoke (spec 013 criterion 3)', () => {
       await closeAll();
     });
   }
+
+  // Spec 010 criterion 8 in the web host (010 T3): the command has no Node-only code.
+  it('runs "Smart Format" on smart-format/input.json in the text editor', async () => {
+    await activateHooks();
+    const dir = fixture('fixtures', 'smart-format');
+    const expected = await readText(vscode.Uri.joinPath(dir, 'expected.json'));
+    const document = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(dir, 'input.json'),
+    );
+    await vscode.window.showTextDocument(document);
+    await vscode.commands.executeCommand('chrJsonEditor.smartFormat');
+    await waitFor('the smart-formatted text', () => document.getText() === expected);
+    equal(document.isDirty, true, 'dirty');
+    await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+    await closeAll();
+  });
 });

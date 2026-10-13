@@ -79,6 +79,7 @@
   import { dataChange, isContainer } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
   import { parserFor } from './parser.js';
+  import { jsonpathRfc9535QueryLanguage } from './query/jsonpath-rfc9535.js';
   import {
     isQueryEngineLoaded,
     loadQueryEngine,
@@ -117,14 +118,16 @@
     json5: 'JSON5',
     jsonl: 'JSON Lines',
   };
-  /** Transform's query languages (spec 003 criterion 5, spec 011 criterion 8), in this order. The
-   *  library's JSONPath is jsonpath-plus, Goessner's JSONPath, not RFC 9535. JSONQuery's description
+  /** Transform's query languages (spec 003 criterion 5, spec 011 criterion 8 as amended by spec 014
+   *  criterion 5), in this order. The library's JSONPath is jsonpath-plus, Goessner's JSONPath;
+   *  JSONPath (RFC 9535) is json-p3 (query/jsonpath-rfc9535.ts). JSONQuery's description
    *  links to jsonquerylang.org (004 T1 review). JavaScript and Lodash only with the host's engine
    *  loader, read once at mount. */
   // svelte-ignore state_referenced_locally: the library takes the list once, when it mounts
   const QUERY_LANGUAGES: QueryLanguage[] = [
     jsonQueryLanguage,
     jmespathQueryLanguage,
+    jsonpathRfc9535QueryLanguage,
     { ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' },
     ...(queryEngineLoader
       ? [
@@ -205,8 +208,29 @@
       });
   }
 
-  /** The library's buttons for whole-document actions (003 T8), hidden on a locked large file. */
-  const ACTION_BUTTONS = ['jse-format', 'jse-compact', 'jse-sort', 'jse-transform'];
+  /** Text mode's "Smart format" button (spec 010 criterion 7), added next to the library's Format. */
+  const SMART_FORMAT_CLASS = 'chr-smart-format';
+  /** Its icon: rows of short items lined up in columns, in Font Awesome's shape (the library draws
+   *  menu icons from these). */
+  const SMART_FORMAT_ICON = {
+    prefix: 'fas',
+    iconName: 'table-cells',
+    icon: [
+      448,
+      512,
+      [],
+      '',
+      'M0 96h192v64H0zM256 96h192v64H256zM64 224h128v64H64zM256 224h192v64H256zM64 352h128v64H64zM256 352h192v64H256z',
+    ],
+  } as unknown as NonNullable<Extract<MenuItem, { type: 'button' }>['icon']>;
+  /** The buttons for whole-document actions (003 T8), hidden on a locked large file. */
+  const ACTION_BUTTONS = [
+    'jse-format',
+    SMART_FORMAT_CLASS,
+    'jse-compact',
+    'jse-sort',
+    'jse-transform',
+  ];
   /** The modes large-file mode offers (spec 008 criterion 2). */
   const LARGE_FILE_MODES: readonly Mode[] = ['tree', 'table'];
   /** The modes JSON Lines offers, Table first (spec 012 criterion 6). */
@@ -323,7 +347,8 @@
     };
   });
 
-  /** Runs a whole-document action in the host (003 T8): format, compact or repair. */
+  /** Runs a whole-document action in the host (003 T8): format, smart format (spec 010), compact or
+   *  repair. */
   export function runAction(name: Exclude<DocumentAction['name'], 'sort'>): void {
     if (!editor) return;
     flushText();
@@ -350,11 +375,26 @@
     }
     if (locked && !context.modal) return routed.filter((item) => !isActionButton(item));
     if (context.modal || context.readOnly) return routed;
-    return routed.map((item) => {
+    return routed.flatMap((item): MenuItem | MenuItem[] => {
       if (item.type !== 'button') return item;
       switch (item.className) {
-        case 'jse-format':
-          return { ...item, onClick: () => runAction('format') };
+        case 'jse-format': {
+          const formatItem = { ...item, onClick: () => runAction('format') };
+          // Spec 010 criterion 7: "Smart format" between Format and Compact, in text mode only,
+          // and not for JSON Lines (spec 010 §Scope).
+          if (context.mode !== 'text' || format === 'jsonl') return formatItem;
+          return [
+            formatItem,
+            {
+              type: 'button',
+              icon: SMART_FORMAT_ICON,
+              title: 'Smart format: keep short arrays and objects on one line',
+              className: SMART_FORMAT_CLASS,
+              onClick: () => runAction('smartFormat'),
+              disabled: item.disabled,
+            },
+          ];
+        }
         case 'jse-compact':
           return { ...item, onClick: () => runAction('compact') };
         case 'jse-sort':

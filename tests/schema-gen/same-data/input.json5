@@ -1,0 +1,6 @@
+{
+  id: 0x7,
+  name: 'n',
+  tags: ['a', "b"],
+  meta: { ok: true, score: +1.50, },
+}

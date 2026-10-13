@@ -19,7 +19,7 @@
 // A JSON Lines document (spec 012) takes patches through core's `jsonl` adapter, which writes one
 // line per item and refuses any patch while a bad line is left (L9), as the extension host does;
 // "Repair Lines" runs core's `repairLines`.
-import { getAdapter, repair, repairLines } from '@chr-json-editor/core';
+import { getAdapter, repair, repairLines, smartFormat } from '@chr-json-editor/core';
 import { immutableJSONPatch } from 'immutable-json-patch';
 import type {
   Disposable,
@@ -340,6 +340,11 @@ function runAction(text: string, format: Format, action: DocumentAction): string
   switch (action.name) {
     case 'format':
       return adapter.prettyPrint(text);
+    case 'smartFormat':
+      // Not for JSON Lines (spec 010 §Scope), as in the extension host.
+      if (format === 'jsonl')
+        throw new Error('Smart Format does not lay out JSON Lines documents.');
+      return smartFormat(text, format);
     case 'compact':
       return adapter.compact(text);
     case 'repair':

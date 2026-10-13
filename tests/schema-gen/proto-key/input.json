@@ -1,0 +1,4 @@
+[
+  { "__proto__": { "x": 1 }, "constructor": "c", "toString": null },
+  { "constructor": "d", "hasOwnProperty": true }
+]
