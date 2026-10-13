@@ -1,0 +1,10 @@
+{
+  "rules": [
+    "XM6",
+    "XM3"
+  ],
+  "tags": [
+    "big-integer",
+    "big-decimal"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "__proto__": {
+    "polluted": true
+  },
+  "constructor": "value",
+  "nested": {
+    "__proto__": [
+      1,
+      2
+    ]
+  }
+}

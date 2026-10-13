@@ -11,7 +11,7 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 | Command | Runs |
 |---|---|
 | `pnpm test:golden` | every test in this folder |
-| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2), `smart-format-coverage.test.ts` (spec 010 criterion 2) and `jsonl-coverage.test.ts` (spec 012 criterion 2) |
+| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2), `smart-format-coverage.test.ts` (spec 010 criterion 2) `jsonl-coverage.test.ts` (spec 012 criterion 2) and `import-coverage.test.ts` (spec 017 criterion 2) |
 | `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
@@ -431,3 +431,11 @@ Readings:
    C6 makes it a space (reading 4 above), and J2 writes no white space outside the items
    (`json5-to-jsonl/j2-c6-byte-order-mark`). Only a JSON5 source can hold one: JSON and JSONC read
    a BOM as an error, so they do not convert. J1, by its own words, keeps a BOM.
+
+## Import corpus (spec 017)
+
+`import/<kind>/<case>/` (`yaml`, `toml`, `xml`) holds `input.<kind>`, `case.json` and either
+`expected.json` with `warnings.json`, or `error.json`, written by hand from rules A1–A6, Y1–Y8,
+TM1–TM5 and XM1–XM8 of `spec/017-yaml-toml-xml-import/spec.md`. `import/README.md` gives the
+layout, the tests (`import.ts`, `import-coverage.test.ts` under `--coverage-only`,
+`import-load.test.ts`, `import-corpus.test.ts`) and the readings the corpus takes.

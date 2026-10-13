@@ -9,6 +9,7 @@ tests/golden/convert/
 tests/golden/csv/
 tests/golden/jsonl/
 tests/golden/smart-format/
+tests/golden/import/
 spikes/json5-cst/cases/
 # Written by the spike's run.ts; regenerated, never hand-edited.
 spikes/json5-cst/results.json

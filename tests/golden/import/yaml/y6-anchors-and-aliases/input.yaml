@@ -1,0 +1,6 @@
+base: &base
+  name: shared
+  list: [1, 2]
+copy: *base
+scalar: &s hello
+again: *s

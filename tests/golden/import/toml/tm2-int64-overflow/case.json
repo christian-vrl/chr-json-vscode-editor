@@ -1,0 +1,8 @@
+{
+  "rules": [
+    "TM2"
+  ],
+  "tags": [
+    "toml-int64-overflow"
+  ]
+}

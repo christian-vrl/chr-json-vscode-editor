@@ -1,0 +1,13 @@
+%YAML 1.1
+---
+# YAML 1.1: on/off/yes/no/y/n are booleans, 0777 is octal; keys keep their text (Y4).
+on: yes
+off: no
+y: Y
+flags: [on, Off, YES, no, y, N, true, FALSE]
+octal: 0777
+binary: 0b1010
+hex: 0xFF
+grouped: 1_000
+when: 2001-12-14t21:59:43.10-05:00
+date: 2002-12-14

@@ -1,0 +1,26 @@
+[
+  {
+    "message": "/values/0: .inf has no JSON form; written as null",
+    "line": 2
+  },
+  {
+    "message": "/values/1: -.Inf has no JSON form; written as null",
+    "line": 3
+  },
+  {
+    "message": "/values/2: +.INF has no JSON form; written as null",
+    "line": 4
+  },
+  {
+    "message": "/values/3: .nan has no JSON form; written as null",
+    "line": 5
+  },
+  {
+    "message": "/values/4: .NaN has no JSON form; written as null",
+    "line": 6
+  },
+  {
+    "message": "/limits/max: .inf has no JSON form; written as null",
+    "line": 8
+  }
+]

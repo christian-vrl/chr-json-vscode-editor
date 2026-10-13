@@ -1,0 +1,6 @@
+# Three documents become one array.
+name: first
+---
+name: second
+--- 3
+...

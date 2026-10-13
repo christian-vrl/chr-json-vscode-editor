@@ -1,0 +1,10 @@
+[
+  {
+    "message": "Key [\"a\",\"b\"] is a sequence or mapping; it became its JSON text",
+    "line": 6
+  },
+  {
+    "message": "Key {\"x\":1} is a sequence or mapping; it became its JSON text",
+    "line": 8
+  }
+]
