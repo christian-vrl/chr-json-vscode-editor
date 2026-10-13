@@ -43,10 +43,11 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
   files can be converted").
 - **A2 Numbers:** an integer keeps its exact value: its decimal digits (hexadecimal, octal and
   binary forms written in decimal, a leading `+` dropped, TOML's `_` separators removed) give a
-  JavaScript `number` when it is not a big number, else its big number value (015 B1). A YAML or
-  XML non-integer is read the same way from its decimal text (`.5` → `0.5`, `5.` → `5`, a leading
-  `+` dropped), so `0.1000000000000000000001` and `1e400` keep their digits. TOML floats are IEEE
-  754 binary64 values, as TOML 1.0.0 defines them (TM3).
+  JavaScript `number` when it is not a big number, else its big number value (015 B1). A YAML
+  non-integer is read the same way from its decimal text (`.5` → `0.5`, `5.` → `5`, a leading `+`
+  dropped), so `0.1000000000000000000001` and `1e400` keep their digits. XML text is a number only
+  when XM6 says so, and then its text already is its decimal text (`.5`, `5.` and `+1` stay
+  strings there). TOML floats are IEEE 754 binary64 values, as TOML 1.0.0 defines them (TM3).
 - **A3 Non-finite numbers:** YAML's `.inf`, `-.inf`, `.nan` (any case form YAML allows) and TOML's
   `inf`, `+inf`, `-inf`, `nan`, plus any TOML float that overflows binary64, become `null`, each
   with a warning naming its path and line ("`<path>`: `<value>` has no JSON form; written as

@@ -46,10 +46,10 @@ tasks run in order unless marked `parallel`.
 |---|---|---|
 | 014-jsonpath-rfc9535 | JSONPath (RFC 9535) in the Transform dialog beside JSONPath (Goessner) | json-p3 2.3.2 (MIT), 706/706 of the compliance test suite; one more `QueryLanguage` in 011's list; above 5 MiB per UNK-065; T1 needs 011 T2, T4 needs 008 T3 |
 | 015-lossless-numbers | Lossless big numbers: numbers with more digits than JavaScript holds keep them through view, edit, compare, sort, query, CSV and save | `lossless-json` 4.3.1 (MIT) in `core` (ADR-014); only big numbers wrapped; JavaScript and Lodash queries per UNK-066, CSV import per UNK-067, large files per UNK-068; T4 needs T1 and T3, T5 needs 011 T4, T6 needs 013 T4 and 012 T5 |
+| 016-generate-schema | Generate JSON Schema: one command writes a schema the document passes, beside it, and links it in one click | our own generator in `core` (keys and types only); dialect per UNK-069, link per UNK-070; amends 004 criterion 2 (`ownProperties: true`); T4 needs 012 T5, T5 needs 013 T4 |
 | 017-yaml-toml-xml-import | YAML, TOML and XML import: "Convert YAML/TOML/XML to JSON" writes a `.json` file beside the source; "Import YAML, TOML or XML…" replaces the open document's data | `yaml` 2.9.1, `smol-toml` 1.9.0, `saxes` 6.0.0 in `core` (ADR-015); XML shape per UNK-075, import only per UNK-076, YAML size limit per UNK-077; T2 needs 015 T2, T3 needs 009 T4, T4 needs 012 T5, T5 needs 013 T4 |
 
-Backlog: 016 Generate JSON Schema ·
-018 Copy path / reveal node · 019 Settings · 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
+Backlog: 018 Copy path / reveal node · 019 Settings · 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
 
 ## How an agent picks work
 

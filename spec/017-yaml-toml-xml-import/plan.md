@@ -26,7 +26,10 @@ output into our data is ours, because that is where the spec's rules live:
   turn its "undefined entity" error events into XM7's warning while every other error event ends
   the conversion with XM8's error.
 
-Every walk uses an explicit stack and `Object.defineProperty` for keys (A4, A5). Numbers go through
+Every walk uses an explicit stack and `Object.defineProperty` for keys (A4, A5). `yaml` and
+`smol-toml` recurse while they parse, so very deep input can overflow the stack inside the library
+before our walk sees it: `importData` catches that `RangeError` and returns A5's error (criterion 4's
+100,000-level cases test it). Numbers go through
 one helper, `numberFromDecimalText`, that spec 015 T2's `isSafeNumber` check backs, so the three
 kinds and spec 015 agree on what a big number is.
 

@@ -47,5 +47,12 @@
   its verdict is read on its own head SHA.
 - README (spec 005): one line per command; say that comments are not carried and that the source
   file is never changed.
-- Export to YAML, TOML or XML is a later spec if UNK-076 keeps ★; the importer's walk has no
-  writer half to keep in step.
+- Export to YAML, TOML or XML is not in 017 (UNK-076: import only); a later backlog item may add
+  it, and the importer's walk has no writer half to keep in step.
+- Notes from the spec review (017-T1 on PR #99), for the tasks named:
+  - T2: also run criterion 3's generator on `-0` and on keys `__proto__` and `constructor` (A4),
+    as extra unit cases beside the property suite.
+  - T3: the browser-entry check of spec 013 criterion 1 (no `require(` but `require("vscode")`)
+    covers the three libraries once they are bundled; confirm it passes with them.
+  - T4: criterion 10's numbers are sandbox HYPOTHESES; the committed `bench/RESULTS.md` run is the
+    evidence, and a miss of the 2 s TOML/XML bound is recorded as an UNK, not met by lowering it.
