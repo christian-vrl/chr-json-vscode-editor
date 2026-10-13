@@ -49,5 +49,5 @@
   constructor; 014 T2 review). Unreachable here, since `jsonpath-rfc9535.ts` passes neither option;
   recheck it on a json-p3 upgrade or before passing either.
 - Follow-up (014 T3, not filed): in Chromium, tree mode cannot show data nested deeper than about
-  130 levels, and the Transform dialog cannot open on it in any mode (a stack overflow in the
+  130 levels of arrays (165 to 180 of objects, per the 014 T3 review), and the Transform dialog cannot open on it in any mode (a stack overflow in the
   library's Svelte tree). Criterion 6's too-deep case is therefore proven in the unit corpus only.

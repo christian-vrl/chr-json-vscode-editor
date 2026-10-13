@@ -76,7 +76,8 @@ the dialog's preview.
    function (`$[?foo(@)]`) each show their message in the preview, with the engine's position
    text; Transform is disabled; the document is unchanged. P6's too-deep message is proven by the
    unit corpus's `too-deep` case (criterion 2) only: in Chromium the library's Transform dialog
-   cannot open on data deeper than about 130 levels (a stack overflow in its tree), so data past
+   cannot open on data deeper than about 130 levels of arrays (165 to 180 of objects; a stack
+   overflow in its tree), so data past
    P6's 1,000-level limit never reaches the dialog (amended in 014 T3, owner: Chris, thread
    decision card cmsg_01Wz9SKzwQD2da69nuNGPcidQmzaokVg5YHK7y2A6YBWuw, 2026-10-13).
 7. **Write-back (e2e):** Transform with JSONPath (RFC 9535) on
