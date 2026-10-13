@@ -73,7 +73,8 @@ function makeWorkspace(workspace) {
       .sort()
       .filter((name) => {
         const tags = JSON.parse(readFileSync(path.join(from, name, 'case.json'), 'utf8'));
-        return !WHOLE_DOCUMENT_OPS.includes(tags.op);
+        // As in sync.cjs: big-number patches (spec 015) are read with JSON.parse and would round.
+        return !WHOLE_DOCUMENT_OPS.includes(tags.op) && tags.special !== 'big-number';
       })
       .slice(0, GOLDEN_CASES_PER_FORMAT);
     for (const name of golden[format]) {
