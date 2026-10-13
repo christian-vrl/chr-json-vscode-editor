@@ -67,6 +67,7 @@ add(
   `- Machine: ${process.env.RUNNER_OS ?? os.type()} ${os.arch()} (\`${process.env.ImageOS ?? os.release()}\`), ${cpus.length} × ${cpus[0]?.model ?? 'unknown CPU'}, ${Math.round(os.totalmem() / 2 ** 30)} GiB RAM.`,
   `- VS Code ${vscode.vscodeVersion} (stable at run time, \`--disable-gpu\`, under xvfb), the e2e .vsix (release build plus test hooks).`,
   `- ${vscode.runs} runs per size; each cell is **median** (run 1, run 2, run 3), in milliseconds (the edit on the webview's clock, the rest on the extension host's). The editor is closed between runs, so every run opens the file again in the same VS Code window; the edit runs right after each open.`,
+  '- Above 5 MiB the file opens in large-file mode (spec 008, read-only): the run chooses "Edit anyway" before the edit, as a user who edits would; the first render is the read-only tree\'s. Results committed before 008 T3 predate large-file mode.',
   "- Files: `node bench/generate.mjs`, one pretty-printed JSON array of 7-field records per size, exactly N × 2^20 bytes (MiB, the unit of VS Code's own file limits), ASCII only.",
   `- 100 MiB is not measured: VS Code does not hand files above 50 MB to extensions ("Files above 50MB cannot be synchronized with extensions"), so the custom editor never opens it ([run 37844893412](${LIMIT_RUN})).`,
   '',

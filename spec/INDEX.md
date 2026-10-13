@@ -38,11 +38,16 @@ tasks run in order unless marked `parallel`.
 | 010-smart-format | Smart format: short arrays and objects on one line, tables, keeping keys, values and comments as written | FracturedJson 5.1.0 (MIT), as the site uses; key order per UNK-045, trailing commas per UNK-046, fixed options per UNK-047; off above 5 MiB; can run in parallel with 007–009 |
 | 011-js-queries | JavaScript and Lodash queries in the Transform dialog, run in a sealed engine (QuickJS) inside the page | eval location per ADR-011 / UNK-048 (amends 003 criterion 6 by `'wasm-unsafe-eval'`); above 5 MiB per UNK-049; can run in parallel with 007–010 |
 | 012-json-lines | JSON Lines (NDJSON): open `.jsonl`/`.ndjson` in table mode, line-by-line edits, convert to and from JSON | `jsonl` as a fourth format (ADR-012); T2 needs 008 T1; T6 needs 008 T3 and 009 T4; UNK-050, UNK-051 |
-| 013 | vscode.dev (web extension) build | |
+| 013-web-extension | Web extension: the same `.vsix` runs in vscode.dev and github.dev (browser entry, web e2e via `@vscode/test-web`) | ADR-013; "Compare with HEAD" desktop-only per UNK-053; T2 needs 007 T4 and 008 T2; can run in parallel with 009–012 |
 
-## P2 — backlog
+## P2 — an Architect thread writes each spec when it is reached; owner approves; then it runs like v1
 
-014 RFC 9535 JSONPath · 015 Lossless big numbers · 016 Generate JSON Schema · 017 YAML/TOML/XML import ·
+| Spec | Title | Notes |
+|---|---|---|
+| 014-jsonpath-rfc9535 | JSONPath (RFC 9535) in the Transform dialog beside JSONPath (Goessner) | json-p3 2.3.2 (MIT), 706/706 of the compliance test suite; one more `QueryLanguage` in 011's list; above 5 MiB per UNK-065; T1 needs 011 T2, T4 needs 008 T3 |
+| 015-lossless-numbers | Lossless big numbers: numbers with more digits than JavaScript holds keep them through view, edit, compare, sort, query, CSV and save | `lossless-json` 4.3.1 (MIT) in `core` (ADR-014); only big numbers wrapped; JavaScript and Lodash queries per UNK-066, CSV import per UNK-067, large files per UNK-068; T4 needs T1 and T3, T5 needs 011 T4, T6 needs 013 T4 and 012 T5 |
+
+Backlog: 016 Generate JSON Schema · 017 YAML/TOML/XML import ·
 018 Copy path / reveal node · 019 Settings · 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
 
 ## How an agent picks work

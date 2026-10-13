@@ -1,0 +1,5 @@
+{
+  "language": "jsonpath-rfc9535",
+  "tags": ["nested-root"],
+  "path": "/store"
+}

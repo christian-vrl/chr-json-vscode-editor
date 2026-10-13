@@ -169,6 +169,12 @@ export function installTestHooks(
       whenSettled(message.id);
       return true;
     }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'heap') {
+      // Chromium's non-standard `performance.memory` (008 T5 benchmark, spec 008 plan R6).
+      const memory = (performance as { memory?: { usedJSHeapSize?: number } }).memory;
+      api.postMessage({ chrTest: 'probe', id: message.id, result: memory?.usedJSHeapSize ?? null });
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'probe') {
       api.postMessage({ chrTest: 'probe', id: message.id, result: probe() });
       return true;

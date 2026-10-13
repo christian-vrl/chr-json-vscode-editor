@@ -184,10 +184,9 @@ describe.each(repairCases.map((c) => [c.name, c] as const))('repair %s', (_, c) 
   });
 
   it('keeps each unrepaired line, which was bad, and leaves no other bad line', () => {
-    for (const n of c.unrepaired) {
-      expect(isBad(inputLines[n - 1]!)).toBe(true);
-      expect(outputLines[n - 1]!.content).toBe(inputLines[n - 1]!.content);
-    }
+    // `unrepaired` numbers lines in the result (README JSON Lines reading 6).
+    const badInput = inputLines.filter(isBad).map((l) => l.content);
+    for (const n of c.unrepaired) expect(badInput).toContain(outputLines[n - 1]!.content);
     expect(readJsonl(c.expected).bad).toEqual(c.unrepaired);
   });
 

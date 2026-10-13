@@ -76,24 +76,28 @@ export class FormatBadgeController implements vscode.Disposable {
       ),
       // Re-parse after changes, so the badge's error state follows the text. A burst of changes
       // (typing, a webview edit) is parsed once, when it settles.
-      vscode.workspace.onDidChangeTextDocument(({ document }) => {
-        const key = document.uri.toString();
-        if (!this.states.has(key)) return;
-        clearTimeout(this.pending.get(key));
-        this.pending.set(
+      vscode.workspace.onDidChangeTextDocument(({ document }) => this.reparseLater(document)),
+    );
+  }
+
+  /** Parses `document` again once a burst of calls settles: after a text change, and after "Edit
+   *  anyway" unlocks a large-file tab, whose badge read the data alone until then (spec 008). */
+  reparseLater(document: vscode.TextDocument): void {
+    const key = document.uri.toString();
+    if (!this.states.has(key)) return;
+    clearTimeout(this.pending.get(key));
+    this.pending.set(
+      key,
+      setTimeout(() => {
+        this.pending.delete(key);
+        const state = this.states.get(key);
+        if (!state) return;
+        this.states.set(
           key,
-          setTimeout(() => {
-            this.pending.delete(key);
-            const state = this.states.get(key);
-            if (!state) return;
-            this.states.set(
-              key,
-              withFormat(this.core, state, document.getText(), state.format, this.dataOnly(key)),
-            );
-            this.refresh();
-          }, this.reparseDelayMs),
+          withFormat(this.core, state, document.getText(), state.format, this.dataOnly(key)),
         );
-      }),
+        this.refresh();
+      }, this.reparseDelayMs),
     );
   }
 

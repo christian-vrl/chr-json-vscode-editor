@@ -69,6 +69,14 @@ export function parseJson5(text: string): Json5Parse {
 /** The data alone (spec 008 criterion 6): the same grammar as `parseJson5`, with no tree and no
  *  tokens, so it is faster and leaves only the data behind. */
 export function parseJson5Data(text: string): Pick<Json5Parse, 'data' | 'error'> {
+  // The fast walk first (UNK-064). It gives up on anything it does not read, every syntax error
+  // included, and the full grammar below then gives the data or the error and its offset.
+  try {
+    return { data: new DataParser(text).document(), error: undefined };
+  } catch (e) {
+    // A stack overflow too: `Parser` decides what a document nested that deep gives.
+    if (e !== GIVE_UP && !(e instanceof RangeError)) throw e;
+  }
   try {
     return { data: new Parser(text, true).document(), error: undefined };
   } catch (e) {
@@ -358,3 +366,232 @@ class Parser {
     return sign * Number(/^[+-]/.test(m[0]) ? m[0].slice(1) : m[0]);
   }
 }
+
+/** Thrown by `DataParser` where it stops reading: one object, so a throw builds no stack. */
+const GIVE_UP = new Error('give up');
+
+/**
+ * A data-only walk for large documents (spec 008 criterion 7, UNK-064): the grammar of `Parser`
+ * on character codes, with no tokens, no tree and no error messages. It reads only what it is sure
+ * `Parser` reads to the same data, and throws `GIVE_UP` everywhere else (a syntax error, a
+ * non-ASCII or escaped identifier, an unusual number), so `parseJson5Data` then runs `Parser`.
+ */
+class DataParser {
+  private pos = 0;
+
+  constructor(private readonly text: string) {}
+
+  document(): unknown {
+    this.trivia();
+    if (this.pos >= this.text.length) throw GIVE_UP;
+    const root = this.value();
+    this.trivia();
+    if (this.pos < this.text.length) throw GIVE_UP;
+    return root;
+  }
+
+  private trivia(): void {
+    const t = this.text;
+    let pos = this.pos;
+    for (;;) {
+      const c = t.charCodeAt(pos);
+      if (c === 32 || c === 10 || c === 13 || c === 9 || c === 11 || c === 12) pos++;
+      else if (c === 47) {
+        const next = t.charCodeAt(pos + 1);
+        if (next === 47) {
+          pos += 2;
+          for (;;) {
+            const d = t.charCodeAt(pos);
+            if (Number.isNaN(d) || isLineTerminator(d)) break;
+            pos++;
+          }
+        } else if (next === 42) {
+          const close = t.indexOf('*/', pos + 2);
+          if (close < 0) throw GIVE_UP;
+          pos = close + 2;
+        } else break;
+      } else if (c >= 0x80 && (isLineTerminator(c) || isWhiteSpace(c))) pos++;
+      else break;
+    }
+    this.pos = pos;
+  }
+
+  private value(): unknown {
+    const t = this.text;
+    const c = t.charCodeAt(this.pos);
+    if (c === 123) return this.object();
+    if (c === 91) return this.array();
+    if (c === 34 || c === 39) return this.string(c);
+    if (c === 110) return this.word('null', null);
+    if (c === 116) return this.word('true', true);
+    if (c === 102) return this.word('false', false);
+    return this.number();
+  }
+
+  private word(w: string, value: null | boolean): null | boolean {
+    if (!this.text.startsWith(w, this.pos)) throw GIVE_UP;
+    this.pos += w.length;
+    this.end();
+    return value;
+  }
+
+  /** Gives up when an identifier character follows a literal (`Parser` fails there). */
+  private end(): void {
+    const c = this.text.charCodeAt(this.pos);
+    if (c < 128 ? isAsciiIdentifier(c, true) : isIdPartAt(this.text, this.pos)) throw GIVE_UP;
+  }
+
+  private object(): Record<string, unknown> {
+    const t = this.text;
+    this.pos++;
+    const data: Record<string, unknown> = {};
+    this.trivia();
+    for (;;) {
+      let c = t.charCodeAt(this.pos);
+      if (c === 125) break;
+      let key: string;
+      if (c === 34 || c === 39) key = this.string(c);
+      else {
+        // An ASCII identifier; anything else (an escape, a non-ASCII character) goes to `Parser`.
+        const start = this.pos;
+        let pos = start;
+        if (!isAsciiIdentifier(c, false)) throw GIVE_UP;
+        do c = t.charCodeAt(++pos);
+        while (isAsciiIdentifier(c, true));
+        if (c === 92 || c >= 128) throw GIVE_UP;
+        key = t.slice(start, pos);
+        this.pos = pos;
+      }
+      this.trivia();
+      if (t.charCodeAt(this.pos) !== 58) throw GIVE_UP;
+      this.pos++;
+      this.trivia();
+      setMember(data, key, this.value());
+      this.trivia();
+      c = t.charCodeAt(this.pos);
+      if (c === 44) {
+        this.pos++;
+        this.trivia();
+      } else if (c !== 125) throw GIVE_UP;
+    }
+    this.pos++;
+    return data;
+  }
+
+  private array(): unknown[] {
+    const t = this.text;
+    this.pos++;
+    const data: unknown[] = [];
+    this.trivia();
+    for (;;) {
+      let c = t.charCodeAt(this.pos);
+      if (c === 93) break;
+      if (Number.isNaN(c)) throw GIVE_UP;
+      data.push(this.value());
+      this.trivia();
+      c = t.charCodeAt(this.pos);
+      if (c === 44) {
+        this.pos++;
+        this.trivia();
+      } else if (c !== 93) throw GIVE_UP;
+    }
+    this.pos++;
+    return data;
+  }
+
+  /** As `Parser.string`; gives up on what it would fail on. */
+  private string(q: number): string {
+    const t = this.text;
+    let pos = this.pos + 1;
+    let out = '';
+    let from = pos;
+    for (;;) {
+      const c = t.charCodeAt(pos);
+      if (c === q) {
+        this.pos = pos + 1;
+        return out + t.slice(from, pos);
+      }
+      if (c === 92) {
+        out += t.slice(from, pos);
+        const e = t[pos + 1];
+        if (e === undefined) throw GIVE_UP;
+        pos += 2;
+        if (LINE_TERMINATOR.includes(e)) {
+          if (e === '\r' && t.charCodeAt(pos) === 10) pos++;
+        } else if (e === 'x' || e === 'u') {
+          const len = e === 'x' ? 2 : 4;
+          const hex = t.slice(pos, pos + len);
+          if (!(len === 2 ? HEX2 : HEX4).test(hex)) throw GIVE_UP;
+          out += String.fromCharCode(parseInt(hex, 16));
+          pos += len;
+        } else if (e >= '0' && e <= '9') {
+          // `\0` not followed by a digit is NUL; `\1`–`\9` and `\0` before a digit fail.
+          const d = t.charCodeAt(pos);
+          if (e !== '0' || (d >= 48 && d <= 57)) throw GIVE_UP;
+          out += '\0';
+        } else out += SINGLE_ESCAPES[e] ?? e;
+        from = pos;
+      } else if (Number.isNaN(c) || c === 10 || c === 13) throw GIVE_UP;
+      else pos++;
+    }
+  }
+
+  /** A decimal or hex JSON5Number with an optional sign; Infinity and NaN go through `NUMBER`. */
+  private number(): number {
+    const t = this.text;
+    const start = this.pos;
+    let pos = start;
+    let c = t.charCodeAt(pos);
+    let sign = 1;
+    if (c === 45 || c === 43) {
+      if (c === 45) sign = -1;
+      c = t.charCodeAt(++pos);
+    }
+    const digits = pos;
+    let value: number;
+    if (c === 48 && (t.charCodeAt(pos + 1) | 0x20) === 120 && isHex(t.charCodeAt(pos + 2))) {
+      pos += 3;
+      while (isHex(t.charCodeAt(pos))) pos++;
+      value = Number(t.slice(digits, pos));
+    } else if ((c >= 48 && c <= 57) || c === 46) {
+      let integer = c !== 46;
+      if (c === 48) c = t.charCodeAt(++pos);
+      else
+        while (c >= 48 && c <= 57) {
+          c = t.charCodeAt(++pos);
+        }
+      if (c === 46) {
+        const dot = pos;
+        c = t.charCodeAt(++pos);
+        while (c >= 48 && c <= 57) c = t.charCodeAt(++pos);
+        // A dot needs a digit on one side.
+        if (pos === dot + 1 && dot === digits) throw GIVE_UP;
+        integer = false;
+      }
+      if (c === 101 || c === 69) {
+        c = t.charCodeAt(++pos);
+        if (c === 45 || c === 43) c = t.charCodeAt(++pos);
+        if (!(c >= 48 && c <= 57)) throw GIVE_UP;
+        while (c >= 48 && c <= 57) c = t.charCodeAt(++pos);
+        integer = false;
+      }
+      if (integer && pos - digits < 16) {
+        value = 0;
+        for (let i = digits; i < pos; i++) value = value * 10 + t.charCodeAt(i) - 48;
+      } else value = Number(t.slice(digits, pos));
+    } else {
+      NUMBER.lastIndex = start;
+      const m = NUMBER.exec(t);
+      if (!m) throw GIVE_UP;
+      pos = start + m[0].length;
+      value = Number(t.slice(digits, pos));
+    }
+    this.pos = pos;
+    this.end();
+    return sign * value;
+  }
+}
+
+const HEX2 = /^[0-9a-fA-F]{2}$/;
+const HEX4 = /^[0-9a-fA-F]{4}$/;
+const isHex = (c: number) => (c >= 48 && c <= 57) || (c >= 97 && c <= 102) || (c >= 65 && c <= 70);

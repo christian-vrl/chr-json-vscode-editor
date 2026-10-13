@@ -54,13 +54,22 @@ export function prettyPrint(text: string, open: Open): string {
   /** Line breaks since the last token that was not white space. */
   let breaks = 0;
   let previous: Token | undefined;
+  /** The last piece added to `out` (ending `out`). Reading the end of `out` itself would flatten
+   *  the string V8 builds by `+=`, a copy of all of it for every same-line comment. */
+  let last = '';
+
+  const append = (s: string) => {
+    if (s === '') return;
+    out += s;
+    last = s;
+  };
 
   const write = (s: string) => {
-    if (pendingBreak && out !== '') out += (blankLine ? eol : '') + eol + unit.repeat(depth);
-    else if (pendingSpace) out += ' ';
+    if (pendingBreak && out !== '') append((blankLine ? eol : '') + eol + unit.repeat(depth));
+    else if (pendingSpace) append(' ');
     pendingBreak = false;
     pendingSpace = false;
-    out += s;
+    append(s);
   };
 
   /** A block comment at `i` is followed on its line by a token that is not a comment: when a line
@@ -91,8 +100,8 @@ export function prettyPrint(text: string, open: Open): string {
       if (previous === undefined || breaks > 0 || (pendingBreak && leadsLine(i))) write(raw);
       else {
         // Shares the line with the token before it, even when a line break is pending after it.
-        if (!out.endsWith(' ')) out += ' ';
-        out += raw;
+        if (!last.endsWith(' ')) append(' ');
+        append(raw);
       }
       if (t.kind === Kind.LineComment) pendingBreak = true;
       else pendingSpace = !pendingBreak;
@@ -106,7 +115,7 @@ export function prettyPrint(text: string, open: Open): string {
           const next = tokens[j];
           if (next && (next.kind === Kind.CloseBrace || next.kind === Kind.CloseBracket)) {
             // Empty: the closing bracket follows at once.
-            out += text.slice(next.offset, next.end);
+            append(text.slice(next.offset, next.end));
             i = j;
           } else {
             depth++;
@@ -123,7 +132,7 @@ export function prettyPrint(text: string, open: Open): string {
         case Kind.Comma:
           // After a `//` comment the comma starts the next line, so it still follows its member.
           if (pendingBreak) write(raw);
-          else out += raw;
+          else append(raw);
           pendingSpace = false;
           pendingBreak = true;
           break;
@@ -180,6 +189,22 @@ export function sort(text: string, open: Open, options: SortOptions = {}): strin
     // Array.prototype.sort is stable, as in the library, so equal members keep their order.
     return keyed.sort((a, b) => direction * compare(a.key, b.key)).map((k) => k.index);
   }
+}
+
+/** The order `sort` puts array items with data `values` in (R13): `options.order` checked, or
+ *  sorted by `options.property` and `options.direction`. For containers that are not one text
+ *  node, such as the lines of a JSON Lines document (012 T2). */
+export function itemOrder(
+  values: readonly unknown[],
+  options: SortOptions = {},
+): readonly number[] {
+  if (options.order) return checkedOrder(options.order, values.length);
+  const direction = options.direction === 'desc' ? -1 : 1;
+  const property = parsePointer(options.property ?? '');
+  return values
+    .map((value, index) => ({ index, key: getIn(value, property) }))
+    .sort((a, b) => direction * compareValues(a.key, b.key))
+    .map((k) => k.index);
 }
 
 /** `order` when it is a permutation of the `length` members' indices. */

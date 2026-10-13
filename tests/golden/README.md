@@ -206,12 +206,15 @@ an array or object; import data is an array of objects; message lines exist in t
 Readings the CSV corpus takes where X1–X7 and I1–I7 leave a detail open:
 
 1. **Messages.** The corpus fixes the texts. Export: `CSV export needs an array or an object`
-   (X1). Import errors: `The CSV file is empty` (line 1) and `A quoted field is not closed` (the
-   line of the opening quote). Import warnings: `Text after a closing quote is kept as part of the
-   field` (I2, once per such field), `Field name "<name>" is repeated; this column is named
-   "<new name>"` (I4), `Field name "<name>" conflicts with "<earlier name>"; it is kept as a flat
-   key` (I5), `The record has more fields than there are field names; extra fields are kept as
-   "Field 3", "Field 4"` (I6, once per record, naming each extra field).
+   (X1). Import errors: `The CSV file is empty` (line 1), `A quoted field is not closed` (the line
+   of the opening quote) and `Missing array indices would add more than 1000000 null items; the CSV
+   is not imported` (I5, UNK-063; the line of the record that goes past the limit). Import
+   warnings: `Text after a closing quote is kept as part of the field` (I2, once per such field),
+   `Field name "<name>" is repeated; this column is named "<new name>"` (I4), `Field name
+   "<name>" conflicts with "<earlier name>"; it is kept as a flat key` (I5), `Field name "<name>"
+   has an array index above 100000; it is kept as a flat key` (I5, UNK-063), `The record has more
+   fields than there are field names; extra fields are kept as "Field 3", "Field 4"` (I6, once per
+   record, naming each extra field).
 2. **Lines** are physical lines of the input: CR LF, LF and CR each end one, inside quoted fields
    too. A record's line is the line it starts on. Field-name warnings (I4, I5) are on line 1.
    Warnings are listed by line, and within a line in column order, I4's before I5's.
@@ -364,11 +367,34 @@ Readings the JSON Lines corpus takes where L1–L10 leave a detail open:
 3. **A string with a line break** written by L3, L5 or L7 is one line: `JSON.stringify` escapes it
    (`add-item-string-escapes`, `nested-add-member-stays-one-line`).
 
-Not in the corpus because the spec leaves them open; the task that implements each rule decides
-and records it: `add` at `/0` on a text with a BOM (before or after the BOM), a bad first line's
-diagnostic span on a text with a BOM, and the numbers in `unrepaired` when a collapsed run comes
-before an unrepaired line (the input's numbering or the result's; the cases list unrepaired lines
-before any run, where both agree).
+4. **`add` at `/0` on a text with a BOM** (L3) writes the new line after the BOM: the BOM is the
+   file's encoding mark and stays first, as every edit keeps it (L9, R10;
+   `add-item-first-after-bom`). The same holds for `move` and `copy` to `/0`, and L4 removing the
+   first item keeps the BOM.
+5. **A bad first line's diagnostic on a text with a BOM** (L1) starts at offset 0 and spans the BOM
+   too: §Terms says the BOM belongs to the first line, and L1 spans the line without its ending
+   (`parse-bad-first-line-bom`).
+6. **`unrepaired` after a collapsed run** (L10, 012 T3) counts lines in the result, the text
+   "Repair Lines" leaves: the message naming them is read after the edit, beside the banner, whose
+   "Line `<n>`" reads the new text too (`repair-unrepaired-after-collapsed-run`: three lines
+   collapse into one, so input line 5 is result line 3).
+7. **A moved or copied last line with no line ending** (L4, L6): `move` removes it as L4 does (the
+   line ending before it goes) and inserts it as L3 does (`move-last-item-no-final-newline`); `copy`
+   of it to `/-` gives the old last line an ending and the new one none (R10,
+   `copy-last-item-no-final-newline`).
+8. **`stringify`** writes `-0` as `-0`, as 002's `stringify` does, so it reads back as `-0`
+   (criterion 3); otherwise each line is what `JSON.stringify` writes.
+9. **L4 when the line before a last line with no ending is an empty blank line**: removing that
+   ending leaves the empty line at the end of the text with no ending, which is no line (§Terms),
+   so it goes too and the text now ends with a line ending (`'{"a":1}\n\n2'` without `/1` is
+   `'{"a":1}\n'`). No other text has those items with that blank line, so the final newline cannot
+   stay; `packages/core/test/jsonl.test.ts` tests it, and the corpus has no such case because
+   `jsonl-corpus.test.ts` checks that every patch keeps the final newline.
+10. **The line ending a patch writes** (L3) is the one the text had before the patch's first
+    operation, so a `move` that takes away the text's only line ending writes it back (R10).
+
+012 T2 added the cases of readings 4, 5 and 7 and checks every patch and parse case against the
+`jsonl` adapter (`jsonl-apply.test.ts`).
 
 ## JSON Lines conversion (spec 012)
 
@@ -378,7 +404,7 @@ the conversion corpus layout above. A case may hold `error.json` (`{"message"}`)
 a JSON Lines source with a bad line, or a source to JSON Lines whose root is not an array). The
 rules are `J1` and `J2` in `tags.json`; a pair to JSON Lines also has the C rules of its source's
 pair to `json`, since J2 converts to `json` first, and needs one case per rule but no location
-cells (006's pairs cover those). `convert-apply.test.ts` lists these pairs as todo until 012 T3.
+cells (006's pairs cover those). `convert-apply.test.ts` runs them against `convert` (012 T3).
 `convert-corpus.test.ts` checks them like 006's pairs, JSON Lines read as `jsonl-reference.ts`
 reads it and treated as `json` for C1–C5, and adds J1's layout (`j1`) and J2's one compact item
 per line, ended by the source's line ending.
@@ -389,3 +415,7 @@ Readings:
    (`json-to-jsonl/j2-one-line-source`), as L2 reads a JSON Lines text.
 2. **A loss's location** is where the lost token is in the source, as in 006; a case converting
    to JSON Lines tags `array` when it rewrites items without a loss.
+3. **A leading BOM on the source** (J2, 012 T3) is not written: J2 converts to `json` first, where
+   C6 makes it a space (reading 4 above), and J2 writes no white space outside the items
+   (`json5-to-jsonl/j2-c6-byte-order-mark`). Only a JSON5 source can hold one: JSON and JSONC read
+   a BOM as an error, so they do not convert. J1, by its own words, keeps a BOM.

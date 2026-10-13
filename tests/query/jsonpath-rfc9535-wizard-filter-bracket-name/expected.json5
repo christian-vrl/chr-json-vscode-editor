@@ -1,0 +1,4 @@
+[
+  { name: 'Ana', age: 34, 'home town': 'Lisbon', address: { city: 'Lisbon', zip: '1100' } },
+  { name: 'Carla', age: 41, 'home town': 'Lisbon', address: { city: 'Lisbon', zip: '1200' } },
+]

@@ -60,9 +60,9 @@ export function parseFieldName(name: string): Segment[] | undefined {
         if (end < 0) return undefined;
         const digits = name.slice(i + 1, end);
         if (!INDEX.test(digits)) return undefined;
-        const index = Number(digits);
-        if (!Number.isSafeInteger(index)) return undefined;
-        path.push(index);
+        // Any digit run is an index here, however large (`Infinity` past double range): csvToJson
+        // keeps a name with an index above its cap as a flat key, with a warning (I5, UNK-063).
+        path.push(Number(digits));
         i = end + 1;
       }
     } else if (ch === '.') {

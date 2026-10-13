@@ -13,13 +13,13 @@
   L1–L10 and J1–J2 per case*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** (Large) `'jsonl'` in `Format`; the `jsonl` adapter in
+- [x] **T2** (Large) `'jsonl'` in `Format`; the `jsonl` adapter in
   `packages/core/src/formats/jsonl-adapter.ts` (parse, `applyPatch`, `stringify`, `sort`, `compact`,
   `prettyPrint`); `detect` entries for languageId `jsonl` and `.jsonl`/`.ndjson`; `parseData` for
   `jsonl`; fast-check suite for criterion 3 (seed committed, 10 000 runs); `jsonl` rows in
   `bench/RESULTS.md` (criterion 12). — needs: 012 T1, 008 T1 — *gate: criteria 1, 3, 4, 12 green;
   every existing golden and property suite unchanged and green*
-- [ ] **T3** `convert` for the `jsonl` pairs (J1, J2) and `repairLines` (L10) in core; property suite
+- [x] **T3** `convert` for the `jsonl` pairs (J1, J2) and `repairLines` (L10) in core; property suite
   for criterion 5. — needs: 012 T2, 006 T2 — *gate:
   criterion 5 and the L10 golden cases green*
 

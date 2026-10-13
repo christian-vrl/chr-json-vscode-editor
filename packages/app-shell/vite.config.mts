@@ -18,6 +18,10 @@ export default defineConfig({
   build: {
     outDir: 'dist/web',
     emptyOutDir: true,
+    // No `<link rel="modulepreload">` for the query engine's chunks (011 T4): the page runs under the
+    // editor webview's nonce-only CSP, which refuses links without the nonce, while `import()`
+    // itself inherits the importing script's nonce (011 T1 REPORT §3).
+    modulePreload: false,
     // Three pages: the editor (index.html), the compare page (compare.html, 007 T3) and the CSV
     // panel page (csv.html, 009 T3).
     rolldownOptions: {

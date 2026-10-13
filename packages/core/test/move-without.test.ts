@@ -14,9 +14,11 @@ import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
 import { printDocument } from './print-document.js';
 
 const GOLDEN = path.resolve(import.meta.dirname, '../../../tests/golden');
-const FORMATS: Format[] = ['json', 'jsonc', 'json5'];
+/** The formats whose edits run on the edit layer's `Doc` (JSON Lines edits lines, spec 012). */
+type DocFormat = Exclude<Format, 'jsonl'>;
+const FORMATS: DocFormat[] = ['json', 'jsonc', 'json5'];
 
-const openDoc = (format: Format, text: string): Doc =>
+const openDoc = (format: DocFormat, text: string): Doc =>
   format === 'json5' ? openJson5(text) : openDocs.get(format)!(text);
 
 /** The fields the edit layer reads, so parser-only fields (jsonc-parser's `parent`) do not count. */
@@ -47,7 +49,7 @@ function memberPaths(node: FormatNode, prefix = ''): string[] {
 }
 
 /** Checks `without` against a fresh open for each member; returns how many were shifted. */
-function check(format: Format, text: string): number {
+function check(format: DocFormat, text: string): number {
   const doc = openDoc(format, text);
   if (!doc.root) return 0;
   let shifted = 0;

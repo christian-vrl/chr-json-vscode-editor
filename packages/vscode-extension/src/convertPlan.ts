@@ -13,6 +13,7 @@ export const FORMAT_LABELS: Readonly<Record<Format, string>> = {
   json: 'JSON',
   jsonc: 'JSONC',
   json5: 'JSON5',
+  jsonl: 'JSON Lines',
 };
 
 const BOM = '﻿';

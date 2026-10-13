@@ -4,7 +4,8 @@
 //
 //   node bench/vscode/run.mjs <dataDir> <out.json> [sizes...]
 //
-// CHR_BENCH_SUITE names another suite in this folder (007 T5: compare-suite.cjs); default suite.cjs.
+// CHR_BENCH_SUITE names another suite in this folder (007 T5: compare-suite.cjs, 008 T5:
+// large-file-suite.cjs); default suite.cjs.
 //
 // Where VS Code's download host is unreachable, set VSCODE_EXECUTABLE_PATH to an existing VS Code.
 import { spawnSync } from 'node:child_process';
@@ -25,7 +26,15 @@ const extensionDir = path.resolve(here, '../../packages/vscode-extension');
 const [dataDir = 'bench/.data', out = 'bench/.results/vscode.json', ...sizeArgs] =
   process.argv.slice(2);
 const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
-const files = sizes.map((mib) => ({ mib, path: path.resolve(dataDir, fileName(mib)) }));
+// CHR_BENCH_FORMATS (008 T5): each size in these formats, from `generate.mjs --formats`.
+const formats = (process.env.CHR_BENCH_FORMATS || 'json').split(',');
+const files = sizes.flatMap((mib) =>
+  formats.map((format) => ({
+    mib,
+    format,
+    path: path.resolve(dataDir, fileName(mib, false, format)),
+  })),
+);
 
 const vsixFiles = readdirSync(extensionDir).filter((f) => f.endsWith('.vsix'));
 if (vsixFiles.length !== 1) {
@@ -59,6 +68,8 @@ try {
     extensionTestsEnv: {
       CHR_BENCH_OUT: path.resolve(out),
       CHR_BENCH_FILES: JSON.stringify(files),
+      // 008 T5 writes `json.schemas`/`json5.schemas` here, as a user would.
+      CHR_BENCH_USER_SETTINGS: path.join(profile, 'user-data', 'User', 'settings.json'),
     },
     launchArgs: [...profileArgs, '--disable-gpu', '--disable-workspace-trust'],
   });

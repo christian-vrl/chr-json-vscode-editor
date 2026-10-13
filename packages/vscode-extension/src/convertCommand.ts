@@ -17,7 +17,8 @@ import type { FormatBadgeController } from './formatBadgeVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
-export const CONVERT_COMMANDS: Readonly<Record<Format, string>> = {
+/** "Convert to JSON Lines" comes with 012 T5. */
+export const CONVERT_COMMANDS: Readonly<Record<Exclude<Format, 'jsonl'>, string>> = {
   json: 'chrJsonEditor.convertToJson',
   jsonc: 'chrJsonEditor.convertToJsonc',
   json5: 'chrJsonEditor.convertToJson5',
