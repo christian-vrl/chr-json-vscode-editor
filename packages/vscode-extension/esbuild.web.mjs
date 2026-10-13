@@ -21,8 +21,6 @@ export function browserEntryOptions({ testHooks, outfile = 'dist/web/extension.j
     external: ['vscode'],
     // As in esbuild.mjs, jsonc-parser's ESM build; `browser` first, as for any browser bundle.
     mainFields: ['browser', 'module', 'main'],
-    // 013 T2 removes this: the shared code's `path.posix` names on `uri.path` (src/web/nodePath.ts).
-    alias: { 'node:path': './src/web/nodePath.ts' },
     define: { __CHR_TEST_HOOKS__: JSON.stringify(testHooks) },
     sourcemap: true,
     sourcesContent: false,

@@ -20,7 +20,10 @@ The local route runs the same suite in the same kind of extension host (a web wo
 but inside desktop VS Code. Only the CI route covers:
 
 - **The browser workbench:** VS Code's `isWeb` context key is false on the local route (spec 013
-  criterion 8), and webviews are served through Electron, not a browser.
+  criterion 8), and webviews are served through Electron, not a browser. So on the local route a
+  desktop-only command ("Compare with HEAD") shows in the palette and menus until the browser entry
+  activates and sets `chrJsonEditor.webHost`; in a browser `isWeb` hides it from the start. Run by
+  id, it shows the desktop-only message on both routes (`suite/desktopOnly.ts`).
 - **The webview service worker:** in a browser, VS Code serves webview resources through a service
   worker; desktop serves them from `vscode-file:`/`vscode-resource:`.
 - **The virtual scheme:** the local route's workspace is `file:`, so scheme-specific code (spec 013
@@ -45,3 +48,14 @@ but inside desktop VS Code. Only the CI route covers:
   whether vscode.dev and github.dev pass `enableWorkspaceTrust`. That needs the real sites in a
   browser, which neither a cloud sandbox nor CI can open (spec 013 §Where we differ: if either starts
   in Restricted Mode, an owner UNKNOWN is raised before T5).
+
+## Known exposures (013 T2)
+
+- **VS Code stable is downloaded at run time.** The CI route asks `@vscode/test-web` for
+  `quality: 'stable'` (spec 013's "VS Code stable"), and the `ci.yml` cache key is the stable
+  version read live from update.code.visualstudio.com, so a new stable release can turn the job red
+  with no change here. The desktop `test:e2e` job has the same exposure. When the job turns red with
+  no code change, compare the version in its cache key with the last green run's first.
+- **Restricted Mode fails the suite.** If a later `@vscode/test-web` starts the workspace untrusted,
+  the extension is off and the smoke test fails with "the test workspace starts in Restricted Mode";
+  it never skips.
