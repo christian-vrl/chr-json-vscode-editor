@@ -12,7 +12,7 @@
   (criterion 2); Reviewer PASS on L1–L8 per case*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** (Large) `smartFormat(text, format)` in `packages/core/src/formats/smart-format.ts`,
+- [x] **T2** (Large) `smartFormat(text, format)` in `packages/core/src/formats/smart-format.ts`,
   exported from `@chr-json-editor/core`, on `fracturedjsonjs` pinned to exactly 5.1.0: the JSON5
   bridge, the key-order override (or vendored copy), the trailing-comma pass, style handling;
   fast-check suite for criteria 3–6 (seed committed, 10 000 runs per format, plus every 002 and 006

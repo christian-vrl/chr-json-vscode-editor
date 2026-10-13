@@ -1,0 +1,6 @@
+{
+  // a list with a line continuation
+  lines: ['one', 'two \
+and a half', 'three'],
+  b    : 1,
+}

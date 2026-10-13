@@ -103,15 +103,28 @@ function parseCsp(html) {
 
 const NONCE_SOURCE = /^'nonce-([A-Za-z0-9+/]+={0,2})'$/;
 
-function assertCriterion6(snapshot) {
+const WASM_SOURCE = "'wasm-unsafe-eval'";
+
+/**
+ * Criterion 6 (003 T4) on a webview's HTML; returns its nonce. `wasm` is spec 011 criterion 9's
+ * variant for the CHR JSON editor: `script-src` is the nonce plus `'wasm-unsafe-eval'` and nothing
+ * else changes. Without it (the panels), `'wasm-unsafe-eval'` fails the check like any other source.
+ */
+function assertCriterion6(snapshot, { wasm = false } = {}) {
   const { policy, directives } = parseCsp(snapshot.html);
   const name = path.basename(vscode.Uri.parse(snapshot.uri).fsPath);
   assert.deepEqual(directives.get('default-src'), ["'none'"], `${name}: default-src`);
 
   const scriptSrc = directives.get('script-src') ?? [];
-  assert.equal(scriptSrc.length, 1, `${name}: script-src must be a nonce only, got ${scriptSrc}`);
+  const what = wasm ? `a nonce and ${WASM_SOURCE}` : 'a nonce only';
+  assert.equal(
+    scriptSrc.length,
+    wasm ? 2 : 1,
+    `${name}: script-src must be ${what}, got ${scriptSrc}`,
+  );
+  if (wasm) assert.equal(scriptSrc[1], WASM_SOURCE, `${name}: script-src must be ${what}`);
   const match = NONCE_SOURCE.exec(scriptSrc[0]);
-  assert.ok(match, `${name}: script-src must be a nonce only, got ${scriptSrc}`);
+  assert.ok(match, `${name}: script-src must be ${what}, got ${scriptSrc}`);
   const nonce = match[1];
   assert.ok(Buffer.from(nonce, 'base64').length >= 16, `${name}: nonce shorter than 128 bits`);
 
@@ -126,7 +139,9 @@ function assertCriterion6(snapshot) {
     `${name}: style-src must be the webview source and the nonce`,
   );
   assert.deepEqual(directives.get('connect-src'), ["'none'"], `${name}: connect-src`);
-  assert.ok(!/unsafe-eval/i.test(policy), `${name}: CSP allows unsafe-eval`);
+  // 'wasm-unsafe-eval' allows compiling WebAssembly only (spec 011 criterion 9); 'unsafe-eval'
+  // stays out of every page.
+  assert.ok(!/(?<!wasm-)unsafe-eval/i.test(policy), `${name}: CSP allows unsafe-eval`);
   assert.ok(!/unsafe-inline|unsafe-hashes/i.test(policy), `${name}: CSP allows inline code`);
   // Any other fetch directive may only name the webview source or the nonce, so nothing loads
   // from the network (offline invariant, AGENTS.md rule 3).
@@ -134,7 +149,9 @@ function assertCriterion6(snapshot) {
     if (!directive.endsWith('-src')) continue;
     for (const source of sources) {
       assert.ok(
-        source === "'none'" || allowed.includes(source),
+        source === "'none'" ||
+          allowed.includes(source) ||
+          (wasm && directive === 'script-src' && source === WASM_SOURCE),
         `${name}: ${directive} allows ${source}`,
       );
     }
@@ -211,7 +228,7 @@ exports.run = async function run() {
     await expectOnly(uri, 'custom', isCustom);
     const snapshot = () => hooks.webviews().find((w) => w.uri === uri.toString());
     await waitFor(`the sample.${format} webview`, () => snapshot() !== undefined);
-    nonces.add(assertCriterion6(snapshot()));
+    nonces.add(assertCriterion6(snapshot(), { wasm: true }));
     // The script ran and sent `ready`: the nonce, localResourceRoots and asWebviewUri line up.
     await waitFor(`the sample.${format} webview script to run`, () => snapshot().scriptLoaded);
     console.log(`sample.${format}: CSP meets criterion 6 and the nonce script ran`);
@@ -280,6 +297,11 @@ exports.run = async function run() {
   await closeAll();
   await require('./actions.cjs').runActions({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (011 T5, spec 011 criterion 7): Transform with JavaScript and Lodash writes back
+  // (query.cjs).
+  await closeAll();
+  await require('./query.cjs').runQuery({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (004 T2, ADR-010): Ajv runs in the extension host and the webview receives the errors
   // keyed by docVersion. The webview's test hook decodes each message with app-shell's protocol
   // decoder and reports what it got; the CSP checked above has no unsafe-eval.
@@ -293,7 +315,7 @@ exports.run = async function run() {
   await expectOnly(personUri, 'custom', isCustom);
   const personView = () => hooks.webviews().find((w) => w.uri === personUri.toString());
   await waitFor('the person.jsonc webview script to run', () => personView()?.scriptLoaded);
-  assertCriterion6(personView());
+  assertCriterion6(personView(), { wasm: true });
   assert.equal(hooks.setSchema(personUri.toString(), schema), true, 'no editor for person.jsonc');
   const shown = () => personView().validationsShown;
   await waitFor('validation errors in the webview', () => shown().length === 1);
@@ -340,6 +362,17 @@ exports.run = async function run() {
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (009 T4, criteria 4, 5, 7, 8 and 9's CSP): the CSV panel and its commands (csv.cjs).
+  await closeAll();
+  await require('./csv.cjs').runCsv({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+    assertCriterion6,
+  });
+
   // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
   await closeAll();
   await require('./ceiling.cjs').runCeiling({ hooks, waitFor, closeAll, expectOnly, isCustom });
@@ -347,6 +380,16 @@ exports.run = async function run() {
   // Gate (008 T3, criteria 1–5 and 8): large-file mode in the host (largeFile.cjs).
   await closeAll();
   await require('./largeFile.cjs').runLargeFile({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
+  // Gate (009 T5, criterion 10): CSV in a tab locked in large-file mode (csvLargeFile.cjs).
+  await closeAll();
+  await require('./csvLargeFile.cjs').runCsvLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
 
   // Gate (008 T5, criterion 10): validation paused above UNK-041's size (validationPaused.cjs).
   await closeAll();

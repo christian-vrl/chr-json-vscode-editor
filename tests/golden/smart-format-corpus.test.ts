@@ -7,19 +7,21 @@
 //   block comment's later lines; json output parses with `JSON.parse` when the input did.
 // - L6 (UNK-046): a container in expected ends with a trailing comma exactly when the same
 //   container (by order of its opening bracket) had one in the input and is written on several
-//   lines; never in json.
+//   lines, its closing bracket starting a line (README reading 7); never in json.
 // - Criterion 5 and L1, L2: a BOM exactly when the input has one; every line break is the input's;
 //   a final line break exactly when the input has one; every line's indentation is made of the
 //   input's indent unit (2 spaces for a one-line input), then only the spaces that right-align a
 //   number at the start of a compact-array row.
 // - Criterion 6: a line longer than 120 characters (a tab counted as the indent width, 4 for tab
 //   indents) holds at most one key and one scalar value, plus comments.
-// - Tags: `style`, `trailingComma`, `special` (json5's literal kinds and key-order) and the
+// - Tags: `style`, `trailingComma`, `special` (json5's literal kinds, key-order and big numbers,
+//   spec 015 criterion 1) and the
 //   comment tags `none`, `with-warning`, `header`, `footer` and `multi-line-block` match the input.
 //   The other comment tags and `layout` are checked by the Reviewer against expected.
 import { isDeepStrictEqual } from 'node:util';
 import JSON5 from 'json5';
 import { describe, expect, it } from 'vitest';
+import { hasBigNumber } from './facts.js';
 import { loadSmartFormatCases, type SmartFormatCase } from './smart-format.js';
 
 const cases = loadSmartFormatCases();
@@ -90,24 +92,27 @@ const kept = (tokens: Token[]) =>
     );
 
 /** Per container, in order of its opening bracket: whether it ends with a trailing comma, and
- *  whether it spans more than one line. */
+ *  whether it is written on several lines: its closing bracket starts a line (README reading 7). */
 function containers(tokens: Token[]): { trailing: boolean; multiLine: boolean }[] {
-  const found: { trailing: boolean; multiLine: boolean; line: number }[] = [];
+  const found: { trailing: boolean; multiLine: boolean }[] = [];
   const open: number[] = [];
   let previous: Token | undefined;
+  let lineStart = true;
   for (const t of tokens) {
-    if (isTrivia(t)) continue;
+    if (t.kind === 'eol') lineStart = true;
+    if (t.kind === 'space' || t.kind === 'eol') continue;
     if (t.text === '{' || t.text === '[') {
       open.push(found.length);
-      found.push({ trailing: false, multiLine: false, line: t.line });
+      found.push({ trailing: false, multiLine: false });
     } else if (t.text === '}' || t.text === ']') {
       const c = found[open.pop()!]!;
       c.trailing = previous?.text === ',';
-      c.multiLine = t.line !== c.line;
+      c.multiLine = lineStart;
     }
-    previous = t;
+    lineStart = false;
+    if (!isComment(t)) previous = t;
   }
-  return found.map(({ trailing, multiLine }) => ({ trailing, multiLine }));
+  return found;
 }
 
 /** Lines of `text` (BOM left out) with the token kinds that start on each. */
@@ -230,6 +235,7 @@ describe.each(cases)('smart-format case $format/$name', (c) => {
     const strings = significant.filter((t) => t.kind === 'string').map((t) => t.text);
     const specials: [string, boolean][] = [
       ['key-order', hasKeyOrderRows(JSON5.parse(withoutBom(c.input)))],
+      ['big-number', words.some(hasBigNumber)],
       [
         'unquoted-key',
         significant.some((t, i) => t.kind === 'word' && significant[i + 1]?.text === ':'),

@@ -1,0 +1,6 @@
+// People
+[
+  // the first one
+  { "name": "Ada", "age": 36 }, // a mathematician
+  { "name": "Grace", "age": 45 } // an admiral
+]

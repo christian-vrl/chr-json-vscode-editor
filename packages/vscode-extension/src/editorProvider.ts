@@ -48,7 +48,7 @@ import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
 import { DocumentValidation } from './validation';
-import { createNonce, renderWebviewHtml } from './webviewHtml';
+import { createNonce, escapeHtml, renderWebviewHtml } from './webviewHtml';
 
 export const VIEW_TYPE = 'chrJsonEditor.editor';
 
@@ -103,6 +103,8 @@ interface Session {
   ready: boolean;
   /** `flush` requests waiting for the webview's `flushed`, by request number (003 T7). */
   flushes: Map<number, () => void>;
+  /** `getRowSource` requests waiting for the webview's `rowSource`, by request number (009 T4). */
+  rowSources: Map<number, (path: string) => void>;
   /** Large-file mode, chosen when the tab opened (spec 008); null for the normal editor. */
   largeFile: LargeFile | null;
 }
@@ -121,6 +123,10 @@ function isLocked(session: { largeFile: LargeFile | null }): boolean {
 const FLUSH_TIMEOUT_MS = 1500;
 let nextFlush = 1;
 
+/** How long "Export to CSV…" waits for the webview to name its row source (spec 009 criterion 7)
+ *  before it exports the document's data instead. */
+const ROW_SOURCE_TIMEOUT_MS = 1000;
+
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Filled only when `__CHR_TEST_HOOKS__` is true. */
   readonly snapshots = new Map<vscode.WebviewPanel, WebviewSnapshot>();
@@ -134,6 +140,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   private readonly shownWaiters = new Map<number, (ms: number | undefined) => void>();
   /** "Schema validation paused: large file" for the active tab (spec 008 criterion 10). */
   readonly pausedItem: PausedValidationItem;
+  private readonly lockChanges = new vscode.EventEmitter<vscode.Uri>();
+  /** Fires with a document's URI when a tab of it opens, closes or is unlocked: whether the
+   *  document is locked (`isLocked`) may have changed (spec 009 criterion 10). */
+  readonly onDidChangeLocks = this.lockChanges.event;
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
@@ -163,6 +173,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       disposable: vscode.Disposable.from(
         vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider),
         provider.pausedItem,
+        provider.lockChanges,
       ),
     };
   }
@@ -178,7 +189,13 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       title: name,
       scripts: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js')).toString()],
       stylesheets: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css')).toString()],
-      body: '<main id="app"></main>',
+      // The query engine's entry, loaded by the page only when Transform first opens; its
+      // WebAssembly needs 'wasm-unsafe-eval', which only this editor's page gets (spec 011 T5,
+      // criterion 9; the panels keep 003's policy).
+      body: `<main id="app" data-query-engine="${escapeHtml(
+        webview.asWebviewUri(vscode.Uri.joinPath(dist, 'engine', 'engine.js')).toString(),
+      )}"></main>`,
+      wasm: true,
     });
     // Measured once: the mode stays whatever later edits do to the size (criterion 1).
     const largeFile = largeFileFor(document.getText());
@@ -214,6 +231,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       panel,
       ready: false,
       flushes: new Map(),
+      rowSources: new Map(),
       largeFile,
       validation,
       schema,
@@ -271,6 +289,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.snapshots.set(panel, snapshot);
     }
     this.sessions.set(panel, session);
+    // First of the panel's dispose listeners: the badge's own (`track`, below) fires events whose
+    // listeners ask for the active session, and a disposed panel throws on `active`.
+    panel.onDidDispose(() => this.sessions.delete(panel));
+    if (largeFile) this.lockChanges.fire(document.uri);
     this.validations.set(panel, session.validation);
     const badgeStart = performance.now();
     this.formatBadge.track(document, panel, locked);
@@ -326,6 +348,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       settings.dispose();
       viewState.dispose();
       for (const resolve of session.flushes.values()) resolve();
+      for (const resolve of session.rowSources.values()) resolve('');
       session.schema.dispose();
       session.validation.dispose();
       this.sessions.delete(panel);
@@ -336,6 +359,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.releaseParses(document);
       releaseData();
       this.pausedItem.refresh();
+      if (session.largeFile) this.lockChanges.fire(document.uri);
     });
   }
 
@@ -389,6 +413,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         session.flushes.get(message.request)?.();
         session.flushes.delete(message.request);
         return;
+      case 'rowSource':
+        session.rowSources.get(message.request)?.(message.path);
+        session.rowSources.delete(message.request);
+        return;
       case 'openAsText':
         // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open.
         void vscode.commands.executeCommand('chrJsonEditor.reopenAsText', document.uri);
@@ -402,6 +430,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         if (__CHR_TEST_HOOKS__) {
           this.snapshots.get(session.panel)!.largeFile = { ...session.largeFile };
         }
+        this.lockChanges.fire(document.uri);
         return;
       case 'error':
         void vscode.window.showErrorMessage(`CHR JSON Editor: ${message.message}`);
@@ -428,6 +457,36 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         protocol: PROTOCOL_VERSION,
         type: 'flush',
         docVersion: session.document.version,
+        request,
+      });
+    });
+  }
+
+  /**
+   * What "Export to CSV…" exports from `document`'s CHR JSON Editor tab (spec 009 criterion 7): the
+   * JSON Pointer its webview names (the array table mode shows, the one value tree mode has
+   * selected), or `''` for the document's data. Asks the active tab showing the document, else a
+   * visible one; with none, or no answer in ROW_SOURCE_TIMEOUT_MS, the answer is `''`.
+   */
+  rowSource(document: vscode.TextDocument): Promise<string> {
+    const shown = [...this.sessions.values()].filter(
+      (s) => s.document === document && s.ready && s.panel.visible,
+    );
+    const session = shown.find((s) => s.panel.active) ?? shown[0];
+    if (!session) return Promise.resolve('');
+    const request = nextFlush++;
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => done(''), ROW_SOURCE_TIMEOUT_MS);
+      function done(path: string) {
+        clearTimeout(timer);
+        session!.rowSources.delete(request);
+        resolve(path);
+      }
+      session.rowSources.set(request, done);
+      this.post(session, {
+        protocol: PROTOCOL_VERSION,
+        type: 'getRowSource',
+        docVersion: document.version,
         request,
       });
     });
@@ -495,6 +554,24 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const release = parseToRelease(document, this.sessions.size);
     if (release === 'all') releaseParse();
     else if (release) releaseParse(release.text);
+  }
+
+  /**
+   * Whether a CHR JSON Editor tab shows the document of `uri` locked in large-file mode (spec 008
+   * UNK-040): then "Import CSV…" and "Replace Document Data" are not offered for it (spec 009
+   * criterion 10), as the format badge reads such a document's data alone (formatBadgeVscode.ts).
+   */
+  isLocked(uri: vscode.Uri): boolean {
+    const key = uri.toString();
+    return [...this.sessions.values()].some(
+      (s) => s.document.uri.toString() === key && isLocked(s),
+    );
+  }
+
+  /** Whether the active tab is a CHR JSON Editor tab locked in large-file mode. */
+  activeLocked(): boolean {
+    const session = this.activeSession();
+    return session !== undefined && isLocked(session);
   }
 
   private activeSession(): Session | undefined {
@@ -594,6 +671,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return false;
     void session.panel.webview.postMessage({ chrTest: 'patch', patch });
+    return true;
+  }
+
+  /** Test hook: selects the node at JSON Pointer `path` in the tree of `uri`'s webview, as a click
+   *  on its row would (009 T4). */
+  select(uri: string, path: string): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'select', path });
     return true;
   }
 

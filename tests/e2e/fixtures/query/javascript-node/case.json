@@ -1,0 +1,6 @@
+{
+  "language": "JavaScript",
+  "mode": "tree",
+  "node": "items",
+  "query": "function query (data) {\n  return data.filter(item => item.value > 5)\n}"
+}

@@ -69,6 +69,7 @@
     "special": [
       "none",
       "key-order",
+      "big-number",
       "unquoted-key",
       "single-quote",
       "hex",

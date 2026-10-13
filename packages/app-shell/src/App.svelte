@@ -49,7 +49,11 @@
     jsonQueryLanguage,
     lodashQueryLanguage,
     type Content,
+    createMultiSelection,
     isMenuButton,
+    isMultiSelection,
+    isValueSelection,
+    type JSONEditorSelection,
     type JsonEditor,
     type MenuItem,
     type Mode as LibraryMode,
@@ -60,7 +64,7 @@
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { getIn, parseJSONPointer } from 'immutable-json-patch';
+  import { compileJSONPointer, getIn, parseJSONPointer } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
@@ -171,6 +175,8 @@
   let validation = $state<ValidationMessage | undefined>();
   let target: HTMLDivElement;
   let editor: JsonEditor | undefined;
+  /** What tree or table mode has selected (the library's `onSelect`), for "Export to CSV…". */
+  let selection: JSONEditorSelection | undefined;
 
   // Sync (003 T5). The host owns the document: the UI sends each change as an `edit` made on
   // `docVersion` and the host answers every edit, in order, with an `update` (origin `edit`) or an
@@ -235,6 +241,7 @@
           onRenderContextMenu: renderContextMenu,
           onChange,
           onChangeMode,
+          onSelect: (next: JSONEditorSelection | undefined) => (selection = next),
         },
       });
       // Criterion 10's test hook: the editor shows the document (the engine is not loaded yet).
@@ -481,6 +488,32 @@
     }
     queued.push({ change: { kind: 'patch', patch: operations }, shown });
     sendNext();
+  }
+
+  /** Selects the node at JSON Pointer `path` in tree mode, as a click on its row does (e2e test
+   *  hooks, 009 T4). The library does not report its own `select` to `onSelect`, so the selection
+   *  is kept here too. */
+  export function select(path: string): void {
+    const at = parseJSONPointer(path);
+    selection = createMultiSelection(at, at);
+    editor?.select(selection);
+  }
+
+  /**
+   * What "Export to CSV…" exports (spec 009 criterion 7), as a JSON Pointer: in table mode, the
+   * array the table shows, which is always the document's root (the library's table mode shows
+   * the root array, and opens a nested one in a dialog of its own); in tree mode, the one value
+   * selected (a value, or a row selected alone); otherwise `''`, the document's data. The host
+   * checks that the value there is an array or an object.
+   */
+  function rowSourcePath(): string {
+    if (mode !== 'tree' || !selection) return '';
+    if (isValueSelection(selection)) return compileJSONPointer(selection.path);
+    if (isMultiSelection(selection)) {
+      const anchor = compileJSONPointer(selection.anchorPath);
+      if (anchor === compileJSONPointer(selection.focusPath)) return anchor;
+    }
+    return '';
   }
 
   /** What the editor holds now, for tests. */
@@ -770,6 +803,9 @@
       case 'flush':
         flushes.push(event.request);
         void reportTyping().then(answerFlushes);
+        return;
+      case 'getRowSource':
+        host.rowSource(docVersion, event.request, rowSourcePath());
         return;
     }
   }
