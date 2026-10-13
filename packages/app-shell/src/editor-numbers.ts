@@ -55,6 +55,11 @@ export function editorNumbers(data: unknown): unknown {
 function copyOf(record: Record<string, unknown>): Record<string, unknown> {
   const copy: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(record))
-    Object.defineProperty(copy, key, { value, writable: true, enumerable: true, configurable: true });
+    Object.defineProperty(copy, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
   return copy;
 }

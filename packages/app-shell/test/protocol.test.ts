@@ -708,11 +708,14 @@ describe('patch values (spec 015 criterion 5)', () => {
       docVersion: 3,
       change: encodeChange(change, valueText),
     } as const;
-    return [JSON.parse(JSON.stringify(message)) as unknown, structuredClone(message)].map((data) => {
-      const decoded = decodeToHost(data);
-      if (!decoded.ok || decoded.message.type !== 'edit') throw new Error(JSON.stringify(decoded));
-      return decodeChange(decoded.message.change, read);
-    });
+    return [JSON.parse(JSON.stringify(message)) as unknown, structuredClone(message)].map(
+      (data) => {
+        const decoded = decodeToHost(data);
+        if (!decoded.ok || decoded.message.type !== 'edit')
+          throw new Error(JSON.stringify(decoded));
+        return decodeChange(decoded.message.change, read);
+      },
+    );
   };
   const big = (digits: string) => new LosslessNumber(digits);
   const lookAlike = JSON.parse('{"isLosslessNumber": true, "value": "1"}') as object;
@@ -761,7 +764,8 @@ describe('patch values (spec 015 criterion 5)', () => {
       { kind: 'text', text: '{"a": 12345678901234567890}' },
       { kind: 'action', action: { name: 'sort', path: '/ids', order: [1, 0] } },
     ];
-    for (const change of changes) for (const decoded of trip(change)) expect(decoded).toEqual(change);
+    for (const change of changes)
+      for (const decoded of trip(change)) expect(decoded).toEqual(change);
   });
 
   it('writes a value JSON has no text for so that the reader refuses it', () => {

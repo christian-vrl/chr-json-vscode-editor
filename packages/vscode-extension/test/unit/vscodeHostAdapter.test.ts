@@ -109,7 +109,7 @@ describe('VscodeHostAdapter', () => {
   // Spec 015 B5: patch values go as JSON text, big numbers as their digits, `-0` with its sign.
   it('posts patch values as JSON text', () => {
     const { adapter, posted } = fakeWebview();
-    const value = { id: new LosslessNumber('12345678901234567890'), zero: -0, list: [1e400] };
+    const value = { id: new LosslessNumber('12345678901234567890'), zero: -0, list: [Infinity] };
     adapter.save(3, {
       kind: 'patch',
       patch: [

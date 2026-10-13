@@ -75,12 +75,7 @@
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
   import { getAdapter } from '@chr-json-editor/core';
-  import {
-    compileJSONPointer,
-    getIn,
-    parseJSONPointer,
-    type JSONPath,
-  } from 'immutable-json-patch';
+  import { compileJSONPointer, getIn, parseJSONPointer, type JSONPath } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer, reordering } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
@@ -730,11 +725,16 @@
    * leaves them as they are. Undefined when no sort was asked for there, or `after` is not a
    * reordering of the array `before` (an edit made after a sort in a nested dialog).
    */
-  function exactSort(path: string, before: unknown, after: unknown): DocumentChange | null | undefined {
+  function exactSort(
+    path: string,
+    before: unknown,
+    after: unknown,
+  ): DocumentChange | null | undefined {
     const request = sortRequests.get(path);
     if (!request) return undefined;
     sortRequests.delete(path);
-    if (request.nested && !target.querySelector('dialog.jse-jsoneditor-modal[open]')) return undefined;
+    if (request.nested && !target.querySelector('dialog.jse-jsoneditor-modal[open]'))
+      return undefined;
     if (!Array.isArray(before)) return undefined;
     const libraryOrder = reordering(before, after);
     if (!libraryOrder) return undefined;
@@ -753,9 +753,7 @@
   export function patch(given: JsonPatchOperation[] | string): void {
     if (!editor) throw new Error('The editor is not mounted yet');
     const operations =
-      typeof given === 'string'
-        ? (parserFor('json').parse(given) as JsonPatchOperation[])
-        : given;
+      typeof given === 'string' ? (parserFor('json').parse(given) as JsonPatchOperation[]) : given;
     // A locked large file sends no edit (spec 008 criterion 2), nor JSON Lines with a bad line
     // (spec 012 criterion 8), and the library's `readOnly` data stays as it is.
     if (readOnly) return;

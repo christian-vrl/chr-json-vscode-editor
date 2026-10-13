@@ -64,8 +64,7 @@ export type WirePatchOperation =
 
 /** A `DocumentChange` as an `edit` carries it: a patch's operations as `WirePatchOperation`s. */
 export type WireDocumentChange =
-  | { kind: 'patch'; patch: WirePatchOperation[] }
-  | Exclude<DocumentChange, { kind: 'patch' }>;
+  { kind: 'patch'; patch: WirePatchOperation[] } | Exclude<DocumentChange, { kind: 'patch' }>;
 
 /** `change` as an `edit` carries it, each patch value written with `write` (core's `valueText`). */
 export function encodeChange(

@@ -43,7 +43,7 @@ export function exactOrder(
   const { direction } = request;
   const rank = new Array<number>(items.length);
   libraryOrder.forEach((from, to) => (rank[from] = to));
-  const values = items.map((item) => getIn(item, itemPath) as unknown);
+  const values: unknown[] = items.map((item): unknown => getIn(item, itemPath));
   return items
     .map((_item, i) => i)
     .sort((i, j) => {

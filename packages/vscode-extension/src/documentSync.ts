@@ -224,7 +224,9 @@ function splits(text: string, at: number): boolean {
 function readValue(text: string): unknown {
   const result = parseData('json', text);
   if ('error' in result) {
-    throw new PatchError(`A patch value is not JSON: ${result.error.message} in ${text.slice(0, 40)}`);
+    throw new PatchError(
+      `A patch value is not JSON: ${result.error.message} in ${text.slice(0, 40)}`,
+    );
   }
   return result.data;
 }

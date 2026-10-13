@@ -17,8 +17,8 @@ function librarySort(items: unknown[], itemPath: JSONPath, direction: 1 | -1): u
   const kinds: Record<string, number> = { boolean: 0, number: 1, string: 2, undefined: 4 };
   const lower = (v: unknown) => (typeof v === 'string' ? v.toLowerCase() : v);
   return items.slice().sort((a, b) => {
-    const va = getIn(a, itemPath) as unknown;
-    const vb = getIn(b, itemPath) as unknown;
+    const va: unknown = getIn(a, itemPath);
+    const vb: unknown = getIn(b, itemPath);
     if (typeof va !== typeof vb) {
       const ka = kinds[typeof va] ?? 3;
       const kb = kinds[typeof vb] ?? 3;
@@ -95,7 +95,8 @@ describe('exactOrder', () => {
           itemPath: () => [],
           direction,
         });
-        const scaled = (d: { digits: bigint; scale: number }) => d.digits * 10n ** BigInt(25 - d.scale);
+        const scaled = (d: { digits: bigint; scale: number }) =>
+          d.digits * 10n ** BigInt(25 - d.scale);
         const expected = values
           .map((d, i) => ({ v: scaled(d), i }))
           .sort((a, b) => (a.v === b.v ? a.i - b.i : (a.v < b.v ? -1 : 1) * direction))
@@ -118,9 +119,7 @@ describe('the property a sort asks for', () => {
     expect(columnPath('address.city', [], parseJSONPath)).toEqual(['address', 'city']);
     expect(columnPath('["a.b"][2]', [], parseJSONPath)).toEqual(['a.b', '2']);
     expect(columnPath('values', [1, new EditorNumber('1e400')], parseJSONPath)).toEqual([]);
-    expect(columnPath('values', [{ values: 1 }, { values: 2 }], parseJSONPath)).toEqual([
-      'values',
-    ]);
+    expect(columnPath('values', [{ values: 1 }, { values: 2 }], parseJSONPath)).toEqual(['values']);
   });
 
   it("takes the dialog's only choice when it shows no property select", () => {

@@ -143,7 +143,10 @@ describe('parserFor', () => {
     for (const format of ['json', 'jsonc', 'json5'] as const) {
       const text = '{"a": 12345678901234567890, "b": [1e400, 0.1000000000000000000001]}';
       const parser = validationParserFor(format);
-      expect(parser.parse(text), format).toStrictEqual({ a: 12345678901234567000, b: [Infinity, 0.1] });
+      expect(parser.parse(text), format).toStrictEqual({
+        a: 12345678901234567000,
+        b: [Infinity, 0.1],
+      });
       expect(parser).not.toBe(parserFor(format));
       expect(validationParserFor(format)).toBe(parser);
       // What the library does: the editor's data written by `parser`, read by `validationParser`.

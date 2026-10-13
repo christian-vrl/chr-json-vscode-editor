@@ -57,6 +57,22 @@ describe('validateText', () => {
       { instancePath: '/age', keyword: 'type' },
     ]);
   });
+
+  // Spec 015 criterion 7 (B6): Ajv validates big numbers as their nearest numbers, so an integer
+  // schema accepts a big integer and an overflowing number neither throws nor passes `maximum`.
+  it('validates big numbers as their nearest numbers, in every format', () => {
+    const integer = validatorFor({ type: 'integer' });
+    for (const format of ['json', 'jsonc', 'json5'] as const) {
+      expect(validateText('12345678901234567890', format, integer)).toEqual({
+        kind: 'errors',
+        errors: [],
+      });
+    }
+    const bounded = validatorFor({ type: 'array', items: { type: 'number', maximum: 5 } });
+    expect(
+      keys(validateText('[1e400, 1E-400, 0.1000000000000000000001]', 'json', bounded)),
+    ).toEqual([{ instancePath: '/0', keyword: 'maximum' }]);
+  });
 });
 
 describe('compileSchema', () => {
