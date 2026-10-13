@@ -149,7 +149,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
         },
         {
           "command": "chrJsonEditor.exportCsv",
@@ -214,7 +214,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
           "group": "3_compare@21"
         }
       ],
@@ -236,7 +236,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
           "group": "3_compare@22"
         },
         {

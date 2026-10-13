@@ -11,7 +11,6 @@
 // offered: the `chrJsonEditor.customEditorLocked` context key hides it from the palette and the
 // editor title, and run anyway (a keybinding) it says why. "Export to CSV…" stays, reading the
 // data with core's data-only `parseData`, so core's cache keeps no parse of the document.
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { detect, parseData } from '@chr-json-editor/core';
 import { textFormat } from './convertCommand';
@@ -20,6 +19,7 @@ import type { CsvPanels } from './csvPanel';
 import type { JsonEditorProvider } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SYNC_LIMIT } from './sizeCeiling';
+import { basename } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -72,7 +72,7 @@ export function registerCsvCommands(
 }
 
 function nameOf(uri: vscode.Uri, untitled = false): string {
-  return untitled ? 'Untitled' : path.posix.basename(uri.path);
+  return untitled ? 'Untitled' : basename(uri.path);
 }
 
 /** A tab of the CHR JSON Editor shows `uri`. */

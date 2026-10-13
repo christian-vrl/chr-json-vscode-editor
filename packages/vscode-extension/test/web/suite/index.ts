@@ -8,6 +8,7 @@ import 'mocha/mocha';
 export async function run(): Promise<void> {
   mocha.setup({ ui: 'bdd', reporter: undefined, timeout: 60_000 });
   await import('./smoke');
+  await import('./desktopOnly');
   await new Promise<void>((resolve, reject) => {
     mocha.run((failures) =>
       failures ? reject(new Error(`${failures} web e2e test(s) failed`)) : resolve(),
