@@ -322,6 +322,25 @@ describe('virtual schemes (spec 013 criterion 6)', () => {
     });
   });
 
+  // 013 T4: an absolute path names a file on the document's own scheme and authority, as VS Code's
+  // JSON service resolves it; on `file:` it stays `file:` (the rows above, unchanged).
+  it.each([
+    ['/s.json', VFS_DOC, 'vscode-vfs://github/s.json'],
+    ['/schemas/../s.json#/x', VFS_DOC, 'vscode-vfs://github/s.json'],
+    ['\\schemas\\s.json', VFS_DOC, 'vscode-vfs://github/schemas/s.json'],
+    [
+      '/fixtures/s.json',
+      'vscode-test-web://mount/work/a.json',
+      'vscode-test-web://mount/fixtures/s.json',
+    ],
+    ['/s.json', 'memfs:/work/a.json', 'memfs:/s.json'],
+    ['/s.json', 'file:///work/a.json', 'file:///s.json'],
+    ['/s.json', 'file://server/share/a.json', 'file:///s.json'],
+    ['/s.json', 'untitled:/work/a.json', 'file:///s.json'],
+  ])('absolute $schema %s on %s → %s', (value, documentUri, expected) => {
+    expect(localSchemaPath(value, documentUri)).toBe(expected);
+  });
+
   it("keeps the test harness's scheme and authority", () => {
     expect(localSchemaPath('./s.json', 'vscode-test-web://mount/validation/person.json')).toBe(
       'vscode-test-web://mount/validation/s.json',

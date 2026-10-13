@@ -27,7 +27,7 @@
   association and validation test unchanged*
 
 ## Phase C — Web suite (risk-free / additive)
-- [ ] **T4** The web e2e suite: spec 003 open/edit/save/undo/live cases on the three formats, spec
+- [x] **T4** The web e2e suite: spec 003 open/edit/save/undo/live cases on the three formats, spec
   004 validation, convert, repair, compare (criterion 9), every other command on `main`;
   `test/web/coverage.json` and its unit test; the network check and its probe fixture (criterion
   11); criterion 8's palette check through the same browser page (T2 checks the menu entries in a
