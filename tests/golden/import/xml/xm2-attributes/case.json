@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "XM2",
+    "XM6"
+  ],
+  "tags": [
+    "xml-attributes"
+  ]
+}

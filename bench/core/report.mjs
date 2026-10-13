@@ -1,25 +1,31 @@
 // Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
-// spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12) from
-// `bench/core/run.mjs`'s raw results and, when given, `bench/query/run.mjs`'s.
+// spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 015 T2,
+// spec 015 criterion 11's core part; 014 T4, spec 014 criterion 10) from `bench/core/run.mjs`'s raw
+// results and, when given, `bench/query/run.mjs`'s and the base commit's (`<base.json>`, the same
+// runner measuring the base commit's core build in the same job).
 // Every number in the report comes from that file; the text around them says what each one covers.
 //
-//   node bench/core/report.mjs <core.json> <out.md> [query.json]
+//   node bench/core/report.mjs <core.json> <out.md> [query.json [base.json]]
 //
 // The commit is BENCH_COMMIT (the workflow sets it to the pull request's head), else GITHUB_SHA,
 // which on a pull_request run is GitHub's merge ref rather than the commit pushed.
 import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 
-const [resultsFile, out, queryFile] = process.argv.slice(2);
+const [resultsFile, out, queryFile, baseFile] = process.argv.slice(2);
 if (!out) {
-  console.error('usage: node bench/core/report.mjs <core.json> <out.md> [query.json]');
+  console.error('usage: node bench/core/report.mjs <core.json> <out.md> [query.json [base.json]]');
   process.exit(2);
 }
 const results = JSON.parse(readFileSync(resultsFile, 'utf8'));
 const queries = queryFile ? JSON.parse(readFileSync(queryFile, 'utf8')) : undefined;
+const base = baseFile ? JSON.parse(readFileSync(baseFile, 'utf8')) : undefined;
 
 // Spec 011 criterion 12: above this at 5 MiB, an UNKNOWN goes to the owner.
 const QUERY_LIMIT_MS = 2500;
+// Spec 014 criterion 10: a JSONPath (RFC 9535) bench query over this at 5 MiB on the CI runner
+// sends an UNKNOWN to the owner.
+const JSONPATH_LIMIT_MS = 1000;
 
 // UNK-014's evidence rule for one edit; applyPatch is only the host's share of it.
 const EDIT_LIMIT_MS = 500;
@@ -34,6 +40,10 @@ const SMART_LIMIT_MS = 5000;
 const SMART_JUDGED_MIB = 5;
 // Spec 012 criterion 12: parseData('jsonl') at most this many times parseData('json') on the array.
 const LINES_FACTOR = 1.25;
+// Spec 015 criterion 11: parse of each format at this size at most this many times the base
+// commit's, in the same run.
+const BASE_FACTOR = 1.1;
+const BASE_SIZE = 10;
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -58,7 +68,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ' and spec 011 criterion 12' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
   `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''} changes speed.`,
   '',
   '## Run',
@@ -74,6 +84,8 @@ add(
   'records padded inside the last record. Built in memory by `bench/core/run.mjs`:',
   '',
   '- **json:** `bench/generate.mjs`, the file 003 T11 opens in VS Code (pretty-printed, 2 spaces).',
+  "- **json-ids:** the json file with each record's `id` written as 19 digits (10^18 + i), a big",
+  '  number (spec 015), parsed as json; the padding keeps the size exact.',
   '- **jsonc:** the same records with a `//` comment before each, a `/* */` comment inside each, a',
   '  trailing comma in each nested object and after the last record.',
   '- **json5:** as jsonc, plus unquoted keys, single-quoted strings, a hex field and trailing commas',
@@ -227,6 +239,45 @@ if (jsonl) {
   );
 }
 
+if (base) {
+  add(
+    '',
+    '## Spec 015 criterion 11 (core part): parse against the base commit',
+    '',
+    `\`parse\` of each format at ${BASE_SIZE} MiB must take a median time at most ${BASE_FACTOR} times that of the`,
+    `base commit's core (\`${base.commit ?? 'unknown'}\`), built and measured in the same job on the same runner.`,
+    'json-ids is new with spec 015, so the base commit parses it with rounded ids; it is shown, not judged.',
+    '',
+    '| Format | parse (this commit) | parse (base) | this ÷ base | Result |',
+    '|---|---|---|---|---|',
+  );
+  let baseFailed = false;
+  let judgedAny = false;
+  for (const f of results.formats) {
+    const s = f.sizes.find((x) => x.mib === BASE_SIZE);
+    const b = base.formats
+      .find((x) => x.format === f.format)
+      ?.sizes.find((x) => x.mib === BASE_SIZE);
+    if (!s || !b) continue;
+    const ratio = median(s.parse) / median(b.parse);
+    const judged = f.format !== 'json-ids';
+    const ok = ratio <= BASE_FACTOR;
+    if (judged) judgedAny = true;
+    if (judged && !ok) baseFailed = true;
+    add(
+      `| ${f.format} | ${cell(s.parse)} | ${cell(b.parse)} | ${ratio.toFixed(2)} | ${judged ? (ok ? 'pass' : '**fail**') : 'not judged'} |`,
+    );
+  }
+  add(
+    '',
+    !judgedAny
+      ? `Verdict: not judged (this run has no ${BASE_SIZE} MiB cell on both commits).`
+      : baseFailed
+        ? 'Verdict: **criterion 11 (core part) does not hold** in this run.'
+        : 'Verdict: criterion 11 (core part) holds in this run.',
+  );
+}
+
 if (queries) {
   const sizes = [...new Set(queries.results.map((r) => r.mib))];
   add(
@@ -272,6 +323,54 @@ if (queries) {
     "The reference is V8 running the query on data already in memory; most of the engine's time is",
     'copying the data in and the result out (011 T1 REPORT §3), so the ratio says what the sealed engine',
     'costs, not how fast QuickJS runs the query itself.',
+  );
+}
+
+if (queries?.jsonpath) {
+  const sizes = [...new Set(queries.jsonpath.map((r) => r.mib))];
+  const judgedRows = queries.jsonpath.filter((r) => r.mib === 5);
+  const over = judgedRows.filter((r) => median(r.rfc9535) > JSONPATH_LIMIT_MS);
+  add(
+    '',
+    '## Spec 014 criterion 10: JSONPath queries',
+    '',
+    'Each bench query in JSONPath (RFC 9535) (`executeJsonpathRfc9535` from',
+    '`packages/app-shell/src/query/jsonpath-rfc9535.ts`: json-p3 2.3.2, as the Transform dialog runs it)',
+    "beside JSONPath (Goessner) (the library's `jsonpathQueryLanguage.executeQuery`, jsonpath-plus), in",
+    "the same Node process as the queries above, on the same data already in memory: `bench/generate.mjs`'s",
+    'JSON files at ' +
+      sizes.map((m) => `${m} MiB`).join(' and ') +
+      `, parsed once. Heap collected before every timed call; ${queries.runs} runs per cell after a warm-up on a`,
+    '256 KiB document; each cell is **median** (runs), in milliseconds. "Same result" compares the two',
+    "languages' results with `isDeepStrictEqual`.",
+    '',
+    '- **jsonpath-filter** (`bench/query/jsonpath-filter.jsonpath`): a filter on two fields.',
+    '- **jsonpath-descendant** (`bench/query/jsonpath-descendant.jsonpath`): a descendant search for',
+    '  one key.',
+    '- **jsonpath-match** (`bench/query/jsonpath-match.jsonpath`): a filter with `match`; Goessner has',
+    '  no `match`, so its query is the same filter with an anchored script regular expression.',
+    '- **jsonpath-pick** (`bench/query/jsonpath-pick.jsonpath`): one field of every record.',
+    '',
+    '| Size | Query | RFC 9535 query | Goessner query | Result items | RFC 9535 | Goessner | RFC 9535 ÷ Goessner | Same result | RFC 9535 within 1 s |',
+    '|---|---|---|---|---|---|---|---|---|---|',
+  );
+  const code = (text) => `\`${text.replaceAll('|', '\\|')}\``;
+  for (const r of queries.jsonpath) {
+    const rfc = median(r.rfc9535);
+    const judged = r.mib === 5;
+    add(
+      `| ${r.mib} MiB | ${r.query} | ${code(r.rfc9535Query)} | ${code(r.goessnerQuery)} | ${r.items.toLocaleString('en-US')} | ${cell(r.rfc9535)} | ${cell(r.goessner)} | ${(rfc / Math.max(median(r.goessner), 0.1)).toFixed(1)}× | ${r.same ? 'yes' : '**no**'} | ${judged ? (rfc <= JSONPATH_LIMIT_MS ? 'yes' : '**no**') : 'not judged'} |`,
+    );
+  }
+  add(
+    '',
+    judgedRows.length === 0
+      ? 'Verdict: not judged (this run has no 5 MiB cell).'
+      : !runUrl
+        ? `Verdict: not judged (not the CI runner); at 5 MiB every JSONPath (RFC 9535) median is ${over.length ? '**not** ' : ''}at most ${ms(JSONPATH_LIMIT_MS)} ms on this machine.`
+        : over.length
+          ? `Verdict: **${over.map((r) => r.query).join(', ')} at 5 MiB take${over.length === 1 ? 's' : ''} more than 1 s in JSONPath (RFC 9535)**; criterion 10 asks for an owner UNKNOWN before 014 T4 merges.`
+          : 'Verdict: every JSONPath (RFC 9535) bench query at 5 MiB takes at most 1 s in this run (criterion 10).',
   );
 }
 
@@ -345,7 +444,7 @@ add(
   '',
   'To reproduce: `pnpm --filter @chr-json-editor/core build`, then',
   '`pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`),',
-  'which also runs the query benchmark (`bench/query/run.mjs`).',
+  'which also runs the query benchmarks (`bench/query/run.mjs`).',
 );
 
 writeFileSync(out, lines.join('\n') + '\n');

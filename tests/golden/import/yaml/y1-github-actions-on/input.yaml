@@ -1,0 +1,15 @@
+# A GitHub Actions workflow: under YAML 1.2 the key "on" stays a string.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test
+        if: ${{ always() }}
+octal-like: 0777
+answers: [yes, no, y, n, on, off]

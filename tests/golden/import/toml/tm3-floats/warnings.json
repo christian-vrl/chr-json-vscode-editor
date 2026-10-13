@@ -1,0 +1,26 @@
+[
+  {
+    "message": "/overflow: 1e400 has no JSON form; written as null",
+    "line": 9
+  },
+  {
+    "message": "/special/inf: inf has no JSON form; written as null",
+    "line": 12
+  },
+  {
+    "message": "/special/plus-inf: +inf has no JSON form; written as null",
+    "line": 13
+  },
+  {
+    "message": "/special/minus-inf: -inf has no JSON form; written as null",
+    "line": 14
+  },
+  {
+    "message": "/special/nan: nan has no JSON form; written as null",
+    "line": 15
+  },
+  {
+    "message": "/special/minus-nan: -nan has no JSON form; written as null",
+    "line": 16
+  }
+]

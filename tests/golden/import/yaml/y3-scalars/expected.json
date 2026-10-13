@@ -1,0 +1,49 @@
+{
+  "plain": "hello world",
+  "single": "it's",
+  "double": "tab\there é \"q\"",
+  "literal": "line one\nline two\n",
+  "folded": "folded text\nnew paragraph\n",
+  "strip": "no final newline",
+  "nulls": [
+    null,
+    null,
+    null,
+    null
+  ],
+  "empty": null,
+  "booleans": [
+    true,
+    true,
+    true,
+    false,
+    false,
+    false
+  ],
+  "not-booleans": [
+    "yes",
+    "no",
+    "on",
+    "off",
+    "y",
+    "n"
+  ],
+  "ints": [
+    0,
+    42,
+    -17,
+    15,
+    31,
+    12
+  ],
+  "floats": [
+    1.5,
+    -2.25,
+    0.5,
+    5,
+    1.5,
+    100,
+    1
+  ],
+  "quoted-number": "42"
+}

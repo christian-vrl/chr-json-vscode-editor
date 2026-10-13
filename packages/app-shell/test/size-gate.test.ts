@@ -1,4 +1,4 @@
-// Spec 011 criterion 11's size gate (011 T6): the threshold in UTF-8 bytes of the text, and which
+// Spec 011 criterion 11's and spec 014 criterion 8's size gate (011 T6, 014 T4): the threshold in UTF-8 bytes of the text, and which
 // languages Transform keeps above it. The dialog itself is checked in the web and e2e tests.
 import { describe, expect, it } from 'vitest';
 import type { QueryLanguage } from 'vanilla-jsoneditor';
@@ -11,7 +11,9 @@ import {
 
 const LIMIT = QUERY_SIZE_LIMIT_BYTES;
 const language = (id: string) => ({ id, name: id }) as unknown as QueryLanguage;
-const ALL = ['jsonquery', 'jmespath', 'jsonpath', 'javascript', 'lodash'].map(language);
+const ALL = ['jsonquery', 'jmespath', 'jsonpath-rfc9535', 'jsonpath', 'javascript', 'lodash'].map(
+  language,
+);
 
 describe('isAboveQuerySizeLimit', () => {
   it('is spec 008 threshold, 5 MiB', () => {
@@ -38,10 +40,15 @@ describe('isAboveQuerySizeLimit', () => {
 });
 
 describe('queryLanguagesFor', () => {
-  it('gates JavaScript and Lodash, the library ids', async () => {
+  it('gates JavaScript, Lodash and JSONPath (RFC 9535), by their ids', async () => {
     const library = await import('vanilla-jsoneditor');
+    const { jsonpathRfc9535QueryLanguage } = await import('../src/query/jsonpath-rfc9535.js');
     expect([...SIZE_GATED_QUERY_LANGUAGES].sort()).toEqual(
-      [library.javascriptQueryLanguage.id, library.lodashQueryLanguage.id].sort(),
+      [
+        library.javascriptQueryLanguage.id,
+        library.lodashQueryLanguage.id,
+        jsonpathRfc9535QueryLanguage.id,
+      ].sort(),
     );
   });
 
@@ -58,7 +65,7 @@ describe('queryLanguagesFor', () => {
   });
 
   it('returns a list without gated languages as it is', () => {
-    const plain = ALL.slice(0, 3);
+    const plain = ALL.filter((l) => !SIZE_GATED_QUERY_LANGUAGES.has(l.id));
     expect(queryLanguagesFor(plain, 'a'.repeat(LIMIT + 1))).toBe(plain);
   });
 });

@@ -8,6 +8,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import vocabulary from './tags.json' with { type: 'json' };
+import { parseData } from '../../packages/core/src/index.js';
 import { goldenRoot } from './load.js';
 
 export const csvRoot = path.join(goldenRoot, 'csv');
@@ -154,7 +155,7 @@ function loadCase(dir: string, direction: CsvDirection, name: string): CsvCase {
     return {
       direction,
       name,
-      input: readJson(dir, input, where),
+      input: readData(dir, input, where),
       options: options as CsvExportOptions,
       tags: tags as unknown as CsvTags,
       ...(hasError ? { error } : { expected: readText(dir, 'expected.csv', where) }),
@@ -168,7 +169,7 @@ function loadCase(dir: string, direction: CsvDirection, name: string): CsvCase {
         `${where}: warnings.json must be an array; each warning ${messageShape(direction)}`,
       );
     }
-    result = { expected: readJson(dir, 'expected.json', where), warnings };
+    result = { expected: readData(dir, 'expected.json', where), warnings };
   }
   return {
     direction,
@@ -220,6 +221,14 @@ function readText(dir: string, file: string, where: string): string {
   } catch (error) {
     throw new Error(`${where}: cannot read ${file}`, { cause: error });
   }
+}
+
+/** input.json or expected.json, with big numbers as big numbers (spec 015 B1): core's reading of
+ *  strict JSON, as the golden loader reads patch.json. */
+function readData(dir: string, file: string, where: string): unknown {
+  const read = parseData('json', readText(dir, file, where));
+  if ('error' in read) throw new Error(`${where}: ${file} is not valid JSON`);
+  return read.data;
 }
 
 function readJson(dir: string, file: string, where: string): unknown {

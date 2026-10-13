@@ -1,0 +1,6 @@
+<r>
+  <code><![CDATA[if (a < b && c > d) { return "x"; }]]></code>
+  <joined>pre <![CDATA[<mid>]]> post</joined>
+  <spaced><![CDATA[  padded  ]]></spaced>
+  <number><![CDATA[42]]></number>
+</r>

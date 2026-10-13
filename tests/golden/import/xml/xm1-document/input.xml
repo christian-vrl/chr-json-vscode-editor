@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A comment before the root -->
+<!DOCTYPE note>
+<?xml-stylesheet type="text/xsl" href="style.xsl"?>
+<note>
+  <!-- not carried -->
+  <to>Tove</to>
+  <?pi inside?>
+  <from>Jani</from>
+</note>
+<!-- after the root -->

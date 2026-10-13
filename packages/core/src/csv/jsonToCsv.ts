@@ -1,6 +1,7 @@
 // JSON to CSV (spec 009, 009 T2): rules X1–X7. Two passes over the row source: the first collects
 // the field names (X2), the second writes one record per row. The golden cases in
 // tests/golden/csv/export/ encode the rules; tests/golden/README.md §CSV corpus lists the readings.
+import { jsonText, LosslessNumber } from '../formats/numbers.js';
 import { itemName, memberName } from './fieldName.js';
 import { readsAsScalar } from './values.js';
 import type { CsvDelimiter, CsvExportMessage } from './types.js';
@@ -122,7 +123,10 @@ function cellText(value: unknown, quote: (text: string, isString: boolean) => st
     case 'boolean':
       return value ? 'true' : 'false';
     case 'object':
-      return value === null ? '' : quote(JSON.stringify(value), false);
+      // A big number (spec 015 B9) is written as its decimal text, unquoted like a number, and
+      // big numbers inside a JSON cell as their digits too.
+      if (value instanceof LosslessNumber) return value.value;
+      return value === null ? '' : quote(jsonText(value)!, false);
     default:
       return '';
   }
@@ -144,5 +148,10 @@ function quoted(text: string, isString: boolean, delimiter: string): string {
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    !(value instanceof LosslessNumber)
+  );
 }

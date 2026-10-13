@@ -6,6 +6,7 @@ import JSON5 from 'json5';
 import { describe, expect, it } from 'vitest';
 import { getAdapter, jsonAdapter, jsoncAdapter, stringify, type Style } from '../src/index.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
+import { readBack } from './read-back.js';
 
 const RUNS = 10_000;
 
@@ -34,7 +35,7 @@ describe('criterion 6: parse(stringify(x, format, style)).data deep-equals x', (
           const text = stringify(data, format, s);
           const parsed = getAdapter(format).parse(text);
           expect(parsed.diagnostics).toEqual([]);
-          expectSameData(parsed.data, data);
+          expectSameData(parsed.data, readBack(data));
           // The format's reference parser agrees: JSON.parse, and the json5 package (the reference
           // the golden corpus uses for criterion 2).
           if (format === 'json') expectSameData(JSON.parse(text), data);
@@ -135,10 +136,17 @@ describe('stringify layout', () => {
     expect(() => stringify(NaN, 'json', style())).toThrow(TypeError);
     expect(() => stringify([Infinity], 'jsonc', style())).toThrow(TypeError);
     expect(() => stringify({ a: undefined }, 'json5', style())).toThrow(TypeError);
-    expect(() => stringify([1n], 'json', style())).toThrow(TypeError);
     // A hole in a sparse array reads as undefined.
     // eslint-disable-next-line no-sparse-arrays
     expect(() => stringify([1, , 2], 'json', style())).toThrow(TypeError);
+  });
+
+  it('writes a BigInt as its digits in every format (spec 015 B2)', () => {
+    const one = style({ indent: 0, finalNewline: false });
+    for (const format of ['json', 'jsonc', 'json5'] as const)
+      expect(stringify([1n, -12345678901234567890n], format, one)).toBe(
+        '[1,-12345678901234567890]',
+      );
   });
 
   it('writes a __proto__ member as a member, and parse reads it back as one', () => {

@@ -9,7 +9,14 @@ import { fileURLToPath } from 'node:url';
 import fc from 'fast-check';
 import JSON5 from 'json5';
 import { describe, expect, it } from 'vitest';
-import { detectStyle, json5Adapter, PatchError, stringify, type FormatNode } from '../src/index.js';
+import {
+  detectStyle,
+  json5Adapter,
+  nearestNumbers,
+  PatchError,
+  stringify,
+  type FormatNode,
+} from '../src/index.js';
 import { parseJson5 } from '../src/formats/json5-parser.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
 
@@ -260,7 +267,9 @@ describe('data agrees with the json5 package', () => {
     fc.assert(
       fc.property(dataArbitrary('json5'), styleArbitrary, (value, style) => {
         const text = stringify(value, 'json5', style);
-        expect(isDeepStrictEqual(json5Adapter.parse(text).data, JSON5.parse(text))).toBe(true);
+        // The json5 package reads a big number (spec 015) as its nearest number.
+        const data = nearestNumbers(json5Adapter.parse(text).data);
+        expect(isDeepStrictEqual(data, JSON5.parse(text))).toBe(true);
         expectTokensCoverText(text);
       }),
       { seed: SEED, numRuns: 2_000 },

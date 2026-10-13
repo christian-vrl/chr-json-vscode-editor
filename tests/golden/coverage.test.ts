@@ -63,6 +63,10 @@ describe('coverage helpers', () => {
     expect(tagErrors({ format: 'json', tags: { ...tags, comments: 'before' } })).toEqual([
       'tag "comments" must be "none" in json (got "before")',
     ]);
+    expect(tagErrors({ format: 'jsonc', tags: { ...tags, special: 'hex' } })).toEqual([
+      'tag "special" must be "none" or "big-number" in jsonc (got "hex")',
+    ]);
+    expect(tagErrors({ format: 'json', tags: { ...tags, special: 'big-number' } })).toEqual([]);
   });
 
   it('list the cells no case covers', () => {
@@ -72,9 +76,14 @@ describe('coverage helpers', () => {
     const all = ops.flatMap((op) =>
       locations.map((location) => ({ format, tags: { ...tags, op, location } })),
     );
+    all.push({
+      format,
+      tags: { ...tags, op: 'remove', location: 'array-end', special: 'big-number' },
+    });
     expect(missingCells(all, 'json')).toEqual([]);
     expect(missingCells(all.slice(1), 'json')).toEqual(['op=add × location=root']);
-    expect(missingCells(all, 'jsonc')).toHaveLength(35 + 28 + 2);
+    expect(missingCells(all.slice(0, -1), 'json')).toEqual(['special=big-number']);
+    expect(missingCells(all, 'jsonc')).toHaveLength(35 + 28 + 2 + 1);
     expect(missingCells([], 'json5')).toEqual(
       expect.arrayContaining([
         'op=test-fail × comments=inline',
@@ -84,6 +93,7 @@ describe('coverage helpers', () => {
         'special=hex',
         'special=infinity-nan',
         'special=multiline-string',
+        'special=big-number',
       ]),
     );
     expect(missingCells([], 'json5')).not.toContain('special=none');

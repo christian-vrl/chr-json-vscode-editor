@@ -3,7 +3,8 @@
 // before 012 T2 runs criterion 1 on the same cases:
 // - patch cases: the tags match the patch (the tagged op is in it, the location is where its path
 //   points); expected's items are what `immutable-json-patch` makes of the input's items (criterion
-//   1); expected has no bad line, keeps the input's line ending, final newline (L2's reading) and
+//   1; a `test` on big numbers compares by exact value, spec 015 B3, `facts.ts` `referencePatch`);
+//   expected has no bad line, keeps the input's line ending, final newline (L2's reading) and
 //   BOM (L9, R10); the lines of items no operation names stay, in order (L3–L7); a nested patch on
 //   one item gives the line spec 002's `json` adapter writes for that item's text (L7); an error
 //   case is a failing `test` (R9), a root value that is not an array or a root `remove` (L8), or an
@@ -12,7 +13,7 @@
 // - repair cases: the lines that are not bad stay in order, every line `repairLines` wrote is
 //   compact JSON (002 R12), a run of bad lines that is one value becomes that value's compact line,
 //   the unrepaired lines are bad and kept, and they are the only bad lines left (L10).
-import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
+import type { JSONPatchDocument } from 'immutable-json-patch';
 import { describe, expect, it } from 'vitest';
 import { getAdapter, type PatchOperation } from '../../packages/core/src/index.js';
 import {
@@ -31,6 +32,7 @@ import {
   type JsonlPatchCase,
   type JsonlRepairCase,
 } from './jsonl.js';
+import { markBigData, referencePatch } from './facts.js';
 
 const cases = loadJsonlCases();
 const patchCases = cases.filter((c): c is JsonlPatchCase => c.kind === 'patch');
@@ -80,8 +82,7 @@ describe.each(patchCases.map((c) => [c.name, c] as const))('patch %s', (_, c) =>
 
   if (c.error) {
     it('is a failing test, a root that is not an array, or a text with a bad line (R9, L8, L9)', () => {
-      const run = () =>
-        immutableJSONPatch<unknown>(input.items, c.patch as unknown as JSONPatchDocument);
+      const run = () => referencePatch(input.items, markBigData(c.patch) as JSONPatchDocument);
       if (input.bad.length > 0) {
         expect(c.tags.rules).toContain('L9');
         expect(c.error!.message).toBe(`Line ${input.bad[0]} is not valid JSON.`);
@@ -107,7 +108,7 @@ describe.each(patchCases.map((c) => [c.name, c] as const))('patch %s', (_, c) =>
   });
 
   it("expected's items are the patch applied to the input's items (criterion 1)", () => {
-    const want = immutableJSONPatch(input.items, c.patch as unknown as JSONPatchDocument);
+    const want = referencePatch(input.items, markBigData(c.patch) as JSONPatchDocument);
     expect(expected.items).toEqual(want);
     expect(ordered(expected.items)).toBe(ordered(want));
   });

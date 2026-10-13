@@ -71,11 +71,22 @@ function element(value, format = 'json') {
   return format === 'jsonc' ? `${INDENT}// record ${value.id}\n${lines}` : lines;
 }
 
+/** Spec 015 criterion 11: the first id of 19-digit ids, so every record's id is a big number
+ *  (beyond ±(2^53 − 1)) that `JSON.parse` would round. */
+export const BIG_ID_BASE = 1_000_000_000_000_000_000n;
+
 /** The document text of exactly `bytes` bytes: `[\n<records>\n]\n`, padded inside the last note.
  *  With `changed`, the 007 T5 changed copy (same length, see changedRecord); `format` writes it
- *  as JSON, JSONC or JSON5. */
-export function documentText(bytes, changed = false, format = 'json') {
-  const element_ = (value) => element(value, format);
+ *  as JSON, JSONC or JSON5. With `bigIds` (JSON only, spec 015 criterion 11) record `i`'s id is
+ *  written as the 19 digits of BIG_ID_BASE + i; the padding still makes the size exact. */
+export function documentText(bytes, changed = false, format = 'json', bigIds = false) {
+  const element_ = bigIds
+    ? (value) =>
+        element(value, format).replace(
+          /"id": (\d+)/,
+          (_, id) => `"id": ${BIG_ID_BASE + BigInt(id)}`,
+        )
+    : (value) => element(value, format);
   const recordAt = changed ? changedRecord : record;
   const lastRecord = (i, pad) => ({ ...recordAt(i), note: LAST_MARKER + '.'.repeat(pad) });
   const parts = [];

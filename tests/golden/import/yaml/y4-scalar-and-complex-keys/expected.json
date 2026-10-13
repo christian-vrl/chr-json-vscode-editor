@@ -1,0 +1,9 @@
+{
+  "1.0": "float key",
+  "~": "null key",
+  "true": "boolean key",
+  "0x10": "int key",
+  "quoted": "string key",
+  "[\"a\",\"b\"]": "sequence key",
+  "{\"x\":1}": "mapping key"
+}

@@ -1,18 +1,19 @@
 // Checks the hand-written golden bytes against references that do not depend on our format code
 // (002 T1), so a typo in an expected.* file fails here before any adapter exists:
 // - data: parsing expected gives the data `immutable-json-patch` produces from the input's data
-//   (spec 002 criterion 2); a `test-fail` case's patch must throw and leave the bytes unchanged (R9);
+//   (spec 002 criterion 2), a `test` on big numbers comparing by exact value (spec 015 B3,
+//   `facts.ts` `referencePatch`); a `test-fail` case's patch must throw and leave the bytes unchanged (R9);
 // - R10: expected keeps the input's line endings and final newline (R15's exception aside);
 // - strict JSON stays strict JSON (R6, R4);
 // - the case.json tags describe the input and patch (facts.ts);
 // - whole-document actions (R12–R14): `compact` keeps the data and its key order, `sort` gives the
 //   data the library's sort gives (sort-reference.ts), and both keep every comment; `data-diff`
 //   gives the action's new data and keeps every comment it does not list as removed.
-// JSON5.parse reads all three formats as data: JSONC's comments and trailing commas are JSON5.
-import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
-import JSON5 from 'json5';
+// The json5 package reads all three formats as data (`parseData`): JSONC's comments and trailing
+// commas are JSON5; big numbers (spec 015) are read as marked strings holding their digits.
+import type { JSONPatchDocument } from 'immutable-json-patch';
 import { describe, expect, it } from 'vitest';
-import { commentsOf, parseData, tagMismatches } from './facts.js';
+import { commentsOf, markBigData, parseData, referencePatch, tagMismatches } from './facts.js';
 import { selectGoldenCases } from './filter.js';
 import { loadGoldenCases } from './load.js';
 import { sortData, type SortAction } from './sort-reference.js';
@@ -33,30 +34,31 @@ const eols = (text: string) => ({
 });
 
 describe.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))('%s', (_, c) => {
-  const patch = c.patch as JSONPatchDocument;
+  // Big numbers in patch.json (spec 015 B1) as `parseData` reads them in a text.
+  const patch = markBigData(c.patch) as JSONPatchDocument;
 
   if (c.tags.op === 'compact') {
     it('expected has the input data, keys in the same order, and every comment (R12)', () => {
-      expect(ordered(JSON5.parse(c.expected))).toBe(ordered(parseData(c.input)));
+      expect(ordered(parseData(c.expected))).toBe(ordered(parseData(c.input)));
       expect(commentsOf(c.expected)).toEqual(commentsOf(c.input).map(asBlock));
     });
   } else if (c.tags.op === 'sort') {
     it("expected has the library's sorted data and every comment (R13)", () => {
       const action = c.patch[0] as unknown as SortAction;
-      expect(ordered(JSON5.parse(c.expected))).toBe(ordered(sortData(parseData(c.input), action)));
+      expect(ordered(parseData(c.expected))).toBe(ordered(sortData(parseData(c.input), action)));
       // A `//` comment may become a block comment where it no longer ends its line (R13, R12).
       const comments = (text: string) => commentsOf(text).map(asBlock).sort();
       expect(comments(c.expected)).toEqual(comments(c.input));
     });
   } else if (c.tags.op === 'format') {
     it('expected has the input data, keys in the same order, and every comment as written', () => {
-      expect(ordered(JSON5.parse(c.expected))).toBe(ordered(parseData(c.input)));
+      expect(ordered(parseData(c.expected))).toBe(ordered(parseData(c.input)));
       expect(commentsOf(c.expected)).toEqual(commentsOf(c.input));
     });
   } else if (c.tags.op === 'data-diff') {
     it('expected has the new data and the comments not listed as removed (R14)', () => {
       const action = c.patch[0] as unknown as { value: unknown; removedComments?: string[] };
-      expect(JSON5.parse(c.expected)).toEqual(action.value);
+      expect(parseData(c.expected)).toEqual(markBigData(action.value));
       const removed = action.removedComments ?? [];
       for (const comment of removed) expect(commentsOf(c.input)).toContain(comment);
       expect(commentsOf(c.expected).sort()).toEqual(
@@ -67,12 +69,12 @@ describe.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))('%s', (_,
     });
   } else if (c.tags.op === 'test-fail') {
     it('has a patch that fails and an unchanged expected (R9)', () => {
-      expect(() => immutableJSONPatch(parseData(c.input), patch)).toThrow();
+      expect(() => referencePatch(parseData(c.input), patch)).toThrow();
       expect(c.expected).toBe(c.input);
     });
   } else {
     it('expected data equals the reference patch applied to the input data', () => {
-      expect(JSON5.parse(c.expected)).toEqual(immutableJSONPatch(parseData(c.input), patch));
+      expect(parseData(c.expected)).toEqual(referencePatch(parseData(c.input), patch));
     });
   }
 

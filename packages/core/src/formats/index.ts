@@ -11,3 +11,10 @@ export { parseData, type ParseDataResult } from './parse-data.js';
 export { convert, ConvertError } from './convert.js';
 export { smartFormat, type SmartFormatFormat } from './smart-format.js';
 export type { ConversionLoss, ConvertResult } from './convert.js';
+export {
+  compareNumbers,
+  equalNumbers,
+  LosslessNumber,
+  mayHoldBigNumber,
+  nearestNumbers,
+} from './numbers.js';
