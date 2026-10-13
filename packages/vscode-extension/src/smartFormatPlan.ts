@@ -10,6 +10,9 @@ import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
 export const TOO_LARGE_MESSAGE =
   'Smart Format is off for documents above 5 MiB because it can take a long time. Use Format instead.';
 
+/** Why a JSON Lines document is not smart-formatted (spec 010 §Scope); no menu offers it. */
+export const JSONL_MESSAGE = 'Smart Format does not lay out JSON Lines documents.';
+
 /** Criterion 9: why a document that does not parse is not smart-formatted. */
 export function brokenMessage(format: SmartFormatFormat): string {
   return `Smart Format needs valid ${FORMAT_LABELS[format]}. Fix the errors or run Repair JSON first.`;

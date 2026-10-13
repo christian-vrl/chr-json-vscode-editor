@@ -11,6 +11,7 @@ import {
 import type { Format } from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
+import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
 /** A document like VS Code's: each replacement bumps the version and fires a change event. */
@@ -233,6 +234,13 @@ describe('DocumentSync actions (003 T8)', () => {
     expect(doc.posted.at(-1)).toMatchObject({ type: 'error', code: 'stale-edit' });
   });
 
+  it('runs Repair Lines on a JSON Lines document as one edit (spec 012 L10)', async () => {
+    const doc = memoryDocument('{"a":1}\n{"b":\n2}\n3\n{c\n', 'jsonl');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repairLines' } }));
+    expect(doc.text).toBe('{"a":1}\n{"b":2}\n3\n{"c":null}\n');
+    expect(doc.posted).toEqual([expect.objectContaining({ type: 'update', origin: 'edit' })]);
+  });
+
   it('answers an action core refuses with patch-failed', async () => {
     const doc = memoryDocument('{"a": +Infinity}', 'jsonc');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
@@ -265,10 +273,13 @@ describe('DocumentSync smart format (010 T3)', () => {
     ]);
   });
 
-  it('reads a JSON Lines document as JSON, as the webview does', async () => {
-    const doc = memoryDocument('{"a": [\n1]}', 'jsonl');
+  it('refuses a JSON Lines document (spec 010 §Scope)', async () => {
+    const doc = memoryDocument('{"a": [\n1]}\n', 'jsonl');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
-    expect(doc.text).toBe('{ "a": [1] }');
+    expect(doc.text).toBe('{"a": [\n1]}\n');
+    expect(doc.posted).toEqual([
+      expect.objectContaining({ type: 'error', code: 'patch-failed', message: JSONL_MESSAGE }),
+    ]);
   });
 });
 

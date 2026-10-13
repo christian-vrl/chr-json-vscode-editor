@@ -17,7 +17,8 @@
 // Whole-document actions (003 T8: format, compact, sort, repair; 010 T3: smart format) run core's
 // own action on the document's text here, so comments and style are kept (002 R12–R13, UNK-018),
 // and reach the document as one edit like any other. A repair that cannot keep every comment asks
-// first.
+// first. "Repair Lines" (spec 012 L10) is core's `repairLines` on a JSON Lines document, one edit
+// too; the webview names the lines it could not repair from the text that comes back.
 import {
   PROTOCOL_VERSION,
   type DocumentAction,
@@ -25,9 +26,8 @@ import {
   type EditMessage,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { getAdapter, PatchError, repair, type Format } from '@chr-json-editor/core';
-import { webviewFormat } from './formatBadge';
-import { plan as smartFormatPlan } from './smartFormatPlan';
+import { getAdapter, PatchError, repair, repairLines, type Format } from '@chr-json-editor/core';
+import { JSONL_MESSAGE, plan as smartFormatPlan } from './smartFormatPlan';
 
 /** What the sync needs from the document and the webview. */
 export interface SyncTarget {
@@ -139,8 +139,10 @@ export class DocumentSync {
       case 'format':
         return adapter.prettyPrint(text);
       case 'smartFormat': {
+        // JSON Lines is not laid out (spec 010 §Scope); the webview offers no button for it.
+        if (format === 'jsonl') throw new PatchError(JSONL_MESSAGE);
         // Spec 010 criteria 9 and 10: the reason it did not run reaches the webview's notice.
-        const result = smartFormatPlan(text, webviewFormat(format));
+        const result = smartFormatPlan(text, format);
         if (result.kind === 'refused') throw new PatchError(result.message);
         return result.kind === 'formatted' ? result.text : text;
       }
@@ -155,6 +157,8 @@ export class DocumentSync {
         const ok = await this.target.confirmRepair(result.lostComments);
         return ok ? result.text : text;
       }
+      case 'repairLines':
+        return repairLines(text).text;
     }
   }
 

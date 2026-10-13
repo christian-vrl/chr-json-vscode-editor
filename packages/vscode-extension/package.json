@@ -134,7 +134,7 @@
         },
         {
           "command": "chrJsonEditor.smartFormat",
-          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonl) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
         },
         {
           "command": "chrJsonEditor.convertToJson",

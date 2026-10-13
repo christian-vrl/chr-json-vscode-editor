@@ -36,6 +36,14 @@
   page. The engine is loaded and compiled when a Transform dialog first opens, which waits for it
   (criterion 10). Above 5 MiB, measured on the text when the dialog opens, they are not listed
   (criterion 11, query/size-gate.ts), and the engine is not loaded for that dialog.
+
+  JSON Lines (spec 012) offers Table and Tree only, Table first (criterion 6): VS Code's text editor
+  is the line editor, and format and compact are not offered (its lines are one record each). A
+  document with bad lines shows its items read-only under a banner naming the first bad line
+  (criterion 8, UNK-051): "Open as Text" asks the host for its text editor, and "Repair Lines" is
+  the one change the UI sends then (core's `repairLines`, run by the host). The banner and the
+  read-only state follow the document's text, so an edit made elsewhere that leaves no bad line
+  makes the tab editable again.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -65,6 +73,7 @@
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
+  import { getAdapter } from '@chr-json-editor/core';
   import { compileJSONPointer, getIn, parseJSONPointer } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer } from './data-change.js';
@@ -102,7 +111,12 @@
   } = $props();
 
   const MODE_LABELS: Record<Mode, string> = { tree: 'Tree', text: 'Text', table: 'Table' };
-  const FORMAT_LABELS: Record<Format, string> = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
+  const FORMAT_LABELS: Record<Format, string> = {
+    json: 'JSON',
+    jsonc: 'JSONC',
+    json5: 'JSON5',
+    jsonl: 'JSON Lines',
+  };
   /** Transform's query languages (spec 003 criterion 5, spec 011 criterion 8), in this order. The
    *  library's JSONPath is jsonpath-plus, Goessner's JSONPath, not RFC 9535. JSONQuery's description
    *  links to jsonquerylang.org (004 T1 review). JavaScript and Lodash only with the host's engine
@@ -216,14 +230,25 @@
   ];
   /** The modes large-file mode offers (spec 008 criterion 2). */
   const LARGE_FILE_MODES: readonly Mode[] = ['tree', 'table'];
+  /** The modes JSON Lines offers, Table first (spec 012 criterion 6). */
+  const JSON_LINES_MODES: readonly Mode[] = ['table', 'tree'];
+  /** The library's buttons JSON Lines does not offer (spec 012 criterion 6): a record is one line. */
+  const JSON_LINES_HIDDEN = ['jse-format', 'jse-compact'];
 
   let mode = $state<Mode | undefined>();
   /** Large-file mode, as the host chose it in `init` (spec 008); null for the normal editor. */
   let largeFile = $state<LargeFile | null>(null);
   /** A large file the user has not chosen "Edit anyway" for: read-only (criterion 2). */
   const locked = $derived(largeFile !== null && !largeFile.unlocked);
-  const modes = $derived(largeFile ? LARGE_FILE_MODES : MODES);
   let format = $state<Format | undefined>();
+  const modes = $derived(
+    format === 'jsonl' ? JSON_LINES_MODES : largeFile ? LARGE_FILE_MODES : MODES,
+  );
+  /** A JSON Lines document's bad lines (spec 012 criterion 8), 1-based and in order; null when there
+   *  is none, or the document is not JSON Lines. */
+  let badLines = $state<number[] | null>(null);
+  /** The library shows the document read-only: a locked large file, or JSON Lines with a bad line. */
+  const readOnly = $derived(locked || badLines !== null);
   let notice = $state<string | undefined>();
   /** The host's latest `validation`; its errors show only while it describes the shown text. */
   let validation = $state<ValidationMessage | undefined>();
@@ -247,6 +272,8 @@
   let docVersion = 0;
   let docText = '';
   let inFlight = false;
+  /** The change in flight, or the last one sent. */
+  let sent: DocumentChange | undefined;
   /** Every change sent since the library last got the host's text was already in its data, so
    *  once all are answered its data is the document's. */
   let ownChanges = true;
@@ -277,13 +304,15 @@
       docText = doc.text;
       format = doc.format;
       largeFile = doc.largeFile;
-      mode = largeFile && doc.mode === 'text' ? 'tree' : doc.mode;
+      badLines = findBadLines();
+      // A mode not offered (text mode for a large file or JSON Lines) opens the first one offered.
+      mode = modes.includes(doc.mode) ? doc.mode : modes[0];
       editor = createJSONEditor({
         target,
         props: {
           content: { text: doc.text },
           mode: mode as LibraryMode,
-          readOnly: locked,
+          readOnly,
           parser: parserFor(doc.format, doc.largeFile !== null),
           // The library hands the validator data read by this parser too; its default, JSON.parse,
           // fails on JSONC and JSON5 text in text mode and reports that as a parse error (004 T5).
@@ -330,21 +359,29 @@
   }
 
   /** The library's menus with format, compact, sort and transform routed through core. A large
-   *  file's main menu has no text mode, and a locked one no such actions (spec 008 criterion 2). */
+   *  file's main menu has no text mode, and a locked one no such actions (spec 008 criterion 2); a
+   *  JSON Lines one has Table and Tree, and no format or compact (spec 012 criterion 6). */
   function renderMenu(items: MenuItem[], context: RenderMenuContext): MenuItem[] {
     let routed = onRenderMenu(items, context);
-    if (largeFile && !context.modal) routed = withoutTextMode(routed);
+    if (modes !== MODES && !context.modal) routed = offeredModes(routed);
+    if (format === 'jsonl' && !context.modal) {
+      routed = routed.filter(
+        (item) =>
+          !(item.type === 'button' && JSON_LINES_HIDDEN.some((c) => item.className?.includes(c))),
+      );
+    }
     if (locked && !context.modal) return routed.filter((item) => !isActionButton(item));
     if (context.modal || context.readOnly) return routed;
     return routed.flatMap((item): MenuItem | MenuItem[] => {
       if (item.type !== 'button') return item;
       switch (item.className) {
         case 'jse-format': {
-          const format = { ...item, onClick: () => runAction('format') };
-          // Spec 010 criterion 7: "Smart format" between Format and Compact, in text mode only.
-          if (context.mode !== 'text') return format;
+          const formatItem = { ...item, onClick: () => runAction('format') };
+          // Spec 010 criterion 7: "Smart format" between Format and Compact, in text mode only,
+          // and not for JSON Lines (spec 010 §Scope).
+          if (context.mode !== 'text' || format === 'jsonl') return formatItem;
           return [
-            format,
+            formatItem,
             {
               type: 'button',
               icon: SMART_FORMAT_ICON,
@@ -399,24 +436,80 @@
     });
   }
 
-  /** The library's own mode switch without its text button; tree, next to it, starts the group. */
-  function withoutTextMode(items: MenuItem[]): MenuItem[] {
-    return items
-      .filter((item) => !(isMenuButton(item) && item.title?.startsWith('Switch to text mode')))
-      .map((item) =>
-        isMenuButton(item) && item.title?.startsWith('Switch to tree mode')
-          ? { ...item, className: `${item.className ?? ''} jse-first` }
-          : item,
-      );
+  /** The library's own mode switch with the offered modes only, in `modes`' order, where the
+   *  library put its group; the first and last of them round the group's corners. */
+  function offeredModes(items: MenuItem[]): MenuItem[] {
+    const modeOf = (item: MenuItem): Mode | undefined =>
+      isMenuButton(item)
+        ? MODES.find((m) => item.title?.startsWith(`Switch to ${m} mode`))
+        : undefined;
+    const at = items.findIndex((item) => modeOf(item) !== undefined);
+    if (at < 0) return items;
+    const group = modes.flatMap((m, i) => {
+      const item = items.find((candidate) => modeOf(candidate) === m);
+      if (!item || !isMenuButton(item)) return [];
+      const className = (item.className ?? '').replace(/\s*\bjse-(first|last)\b/g, '');
+      const edges = `${i === 0 ? ' jse-first' : ''}${i === modes.length - 1 ? ' jse-last' : ''}`;
+      return [{ ...item, className: className + edges }];
+    });
+    const rest = items.filter((item) => modeOf(item) === undefined);
+    return [...rest.slice(0, at), ...group, ...rest.slice(at)];
   }
 
   function isActionButton(item: MenuItem): boolean {
     return item.type === 'button' && ACTION_BUTTONS.some((name) => item.className?.includes(name));
   }
 
-  /** "Open as Text" in the large-file banner: the host's own text editor takes over. */
+  /** "Open as Text" in the large-file or bad-line banner: the host's own text editor takes over. */
   function openAsText(): void {
     host.openAsText(docVersion);
+  }
+
+  /** "Repair Lines" in the bad-line banner (spec 012 criterion 8, L10): one action the host runs on
+   *  the document's text; the lines it could not repair are named once its answer arrives. */
+  function repairLines(): void {
+    if (!editor || !badLines) return;
+    queue({ kind: 'action', action: { name: 'repairLines' } });
+  }
+
+  /** The document's bad lines when it is JSON Lines (criterion 8). Core's parse is the one the
+   *  library's parser reads the same text with (core keeps the last parse per format), so this
+   *  costs no second parse. Large JSON Lines files are 012 T6's (spec 012 criterion 10). */
+  function findBadLines(): number[] | null {
+    if (format !== 'jsonl') return null;
+    const errors = getAdapter('jsonl')
+      .parse(docText)
+      .diagnostics.filter((d) => d.severity === 'error');
+    if (errors.length === 0) return null;
+    // Each error spans its line (L1), in order: count the line feeds before each one.
+    let line = 1;
+    let lf = docText.indexOf('\n');
+    return errors.map(({ offset }) => {
+      while (lf >= 0 && lf < offset) {
+        line += 1;
+        lf = docText.indexOf('\n', lf + 1);
+      }
+      return line;
+    });
+  }
+
+  /** After "Repair Lines": the bad lines left are the ones it could not repair (L10). */
+  function nameUnrepaired(): void {
+    if (!badLines) return;
+    const list = badLines.length === 1 ? `line ${badLines[0]}` : `lines ${badLines.join(', ')}`;
+    notice = `Repair Lines could not repair ${list}.`;
+  }
+
+  /** `count` with its noun, singular for one. */
+  function plural(count: number, noun: string): string {
+    return `${count} ${noun}${count === 1 ? '' : 's'}`;
+  }
+
+  /** Reads the bad lines of the host's text again; the tab is read-only while one is left. */
+  function checkLines(): void {
+    const before = readOnly;
+    badLines = findBadLines();
+    if (readOnly !== before) editor?.updateProps({ readOnly });
   }
 
   /** "Edit anyway" in the large-file banner (criterion 4): editable until the tab closes. The host
@@ -462,8 +555,10 @@
 
   /** Queues `change` for the host; `shown` when the library already shows its result. */
   function queue(change: DocumentChange, shown = false): void {
-    // A locked large file sends nothing (spec 008 criterion 2); the editor shows the document again.
+    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line but
+    // its repair (spec 012 criterion 8); the editor shows the document again.
     if (locked) return;
+    if (badLines && !(change.kind === 'action' && change.action.name === 'repairLines')) return;
     queued.push({ change, shown });
     sendNext();
   }
@@ -541,9 +636,9 @@
    */
   export function patch(operations: JsonPatchOperation[]): void {
     if (!editor) throw new Error('The editor is not mounted yet');
-    // A locked large file sends no edit (spec 008 criterion 2), and the library's `readOnly` data
-    // stays as it is.
-    if (locked) return;
+    // A locked large file sends no edit (spec 008 criterion 2), nor JSON Lines with a bad line
+    // (spec 012 criterion 8), and the library's `readOnly` data stays as it is.
+    if (readOnly) return;
     // A tree edit is in the library's data before it is sent; `patch()` puts it there the same way.
     // Where it cannot (text mode, a document with no value, a path that does not exist), the
     // editor shows the host's answer instead.
@@ -663,6 +758,7 @@
       if (!next) break;
       if ('change' in next) {
         inFlight = true;
+        sent = next.change;
         if (!next.shown) ownChanges = false;
         host.save(docVersion, next.change);
       } else {
@@ -823,6 +919,8 @@
           docVersion = event.docVersion;
           docText = event.text;
           notice = undefined;
+          checkLines();
+          if (sent?.kind === 'action' && sent.action.name === 'repairLines') nameUnrepaired();
           sendNext();
           showDocument();
           showValidation();
@@ -832,6 +930,7 @@
         docVersion = event.docVersion;
         docText = event.text;
         notice = undefined;
+        checkLines();
         if (queued.length > 0) {
           // Made on a document that has changed since; dropped, like the edit in flight will be.
           queued.length = 0;
@@ -850,10 +949,17 @@
         return;
       case 'setFormat':
         format = event.format;
+        checkLines();
         editor?.updateProps({
           parser: parserFor(event.format, largeFile !== null),
           validationParser: parserFor(event.format, largeFile !== null),
+          // A new function, so the library renders its menus again for the new format's modes and
+          // actions (spec 012 criterion 6).
+          onRenderMenu: (items: MenuItem[], context: RenderMenuContext) =>
+            renderMenu(items, context),
         });
+        // JSON Lines has no text mode: its first mode instead (criterion 6).
+        if (mode && !modes.includes(mode)) selectMode(modes[0]!);
         // Parse the document's text again with the new format (criterion 8); bytes are unchanged.
         if (!inFlight && queued.length === 0) showText();
         return;
@@ -930,6 +1036,15 @@
       {#if locked}
         <button type="button" onclick={unlock}>Edit anyway</button>
       {/if}
+    </div>
+  {/if}
+  {#if badLines}
+    <div class="banner" role="region" aria-label="Bad lines">
+      <span>
+        Line {badLines[0]} is not valid JSON ({plural(badLines.length, 'bad line')}).
+      </span>
+      <button type="button" onclick={openAsText}>Open as Text</button>
+      <button type="button" onclick={repairLines}>Repair Lines</button>
     </div>
   {/if}
   <div class="notice" role="status">{notice ?? ''}</div>

@@ -15,7 +15,11 @@
 // the document's size: a locked document answers every change with a `read-only` error and ignores
 // undo and redo, as the extension host does; "Edit anyway" unlocks it. "Open as Text" is recorded
 // only, since the page has no other editor to open.
-import { getAdapter, repair, smartFormat } from '@chr-json-editor/core';
+//
+// A JSON Lines document (spec 012) takes patches through core's `jsonl` adapter, which writes one
+// line per item and refuses any patch while a bad line is left (L9), as the extension host does;
+// "Repair Lines" runs core's `repairLines`.
+import { getAdapter, repair, repairLines, smartFormat } from '@chr-json-editor/core';
 import { immutableJSONPatch } from 'immutable-json-patch';
 import type {
   Disposable,
@@ -159,6 +163,8 @@ export class DevHostAdapter implements HostAdapter {
     let text: string;
     try {
       if (change.kind === 'text') text = change.text;
+      else if (change.kind === 'patch' && this.#format === 'jsonl')
+        text = getAdapter('jsonl').applyPatch(this.#text, change.patch);
       else if (change.kind === 'patch') text = applyJsonPatch(this.#text, change.patch);
       else text = runAction(this.#text, this.#format, change.action);
     } catch (e) {
@@ -335,11 +341,16 @@ function runAction(text: string, format: Format, action: DocumentAction): string
     case 'format':
       return adapter.prettyPrint(text);
     case 'smartFormat':
+      // Not for JSON Lines (spec 010 §Scope), as in the extension host.
+      if (format === 'jsonl')
+        throw new Error('Smart Format does not lay out JSON Lines documents.');
       return smartFormat(text, format);
     case 'compact':
       return adapter.compact(text);
     case 'repair':
       return repair(text, format).text;
+    case 'repairLines':
+      return repairLines(text).text;
     case 'sort':
       return adapter.sort(text, { path: action.path, order: action.order });
   }

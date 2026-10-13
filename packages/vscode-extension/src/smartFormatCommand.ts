@@ -10,7 +10,6 @@ import type { SmartFormatFormat } from '@chr-json-editor/core';
 import { textFormat } from './convertCommand';
 import { minimalReplacement } from './documentSync';
 import type { JsonEditorProvider } from './editorProvider';
-import { webviewFormat } from './formatBadge';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { READ_ONLY_MESSAGE } from './largeFile';
 import { plan, tooLarge } from './smartFormatPlan';
@@ -40,9 +39,12 @@ async function smartFormatActive(
   let document: vscode.TextDocument;
   let format: SmartFormatFormat;
   if (custom) {
+    // The format the tab's editor parses it as, as the webview's action uses. JSON Lines is not
+    // laid out (spec 010 §Scope); the menus do not offer the command for it.
+    const chosen = badge.format(custom)!;
+    if (chosen === 'jsonl') return false;
     document = custom;
-    // The format the tab's editor parses it as, as the webview's action uses.
-    format = webviewFormat(badge.format(custom)!);
+    format = chosen;
   } else {
     const editor = vscode.window.activeTextEditor;
     const detected = textFormat(editor);
