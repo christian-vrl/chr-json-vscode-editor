@@ -283,6 +283,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       this.snapshots.set(panel, snapshot);
     }
     this.sessions.set(panel, session);
+    // First of the panel's dispose listeners: the badge's own (`track`, below) fires events whose
+    // listeners ask for the active session, and a disposed panel throws on `active`.
+    panel.onDidDispose(() => this.sessions.delete(panel));
     if (largeFile) this.lockChanges.fire(document.uri);
     this.validations.set(panel, session.validation);
     const badgeStart = performance.now();
