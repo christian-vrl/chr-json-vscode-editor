@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "$ref": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string"
+    },
+    "properties": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "items": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "required",
+        "items"
+      ]
+    },
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "$ref",
+    "type",
+    "properties",
+    "$schema"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "__proto__": {
+      "type": "integer"
+    },
+    "constructor": {
+      "type": "string"
+    },
+    "toString": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "__proto__",
+    "constructor",
+    "toString"
+  ]
+}

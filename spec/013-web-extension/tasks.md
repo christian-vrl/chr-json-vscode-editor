@@ -21,7 +21,7 @@
   failing fixture, `!isWeb && !chrJsonEditor.webHost` on every desktop-only menu entry and the
   desktop-only message per UNK-053. — needs: 013 T1, 007 T4, 008 T2 — *gate: criteria 2 and 8
   green; desktop `pnpm test:e2e` green with no expected value changed*
-- [ ] **T3** Schema files on virtual schemes: `core` association resolves relative `$schema` and
+- [x] **T3** Schema files on virtual schemes: `core` association resolves relative `$schema` and
   settings URLs against the document's or folder's scheme and authority; `readSchemaFile` reads any
   non-remote URI. `parallel` with T2 — needs: 013 T1 — *gate: criterion 6 green; every existing
   association and validation test unchanged*
