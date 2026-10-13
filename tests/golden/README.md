@@ -27,9 +27,15 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
   skips these cases.
 - `coverage.test.ts` — criterion 4: every case carries all seven tags with known values, and every
   grid cell has a case per format.
+  Spec 015 criterion 1 adds a `special: big-number` cell in every format.
+- `load.ts` reads `patch.json` with core's `parseData('json')`, so its big numbers are big numbers
+  (spec 015 B1) when they reach the adapters, as the JSON Lines loader does. The reference checks
+  of this corpus, the JSON Lines corpus and the conversion corpus read big numbers as marked
+  strings (`facts.ts`).
 - `corpus.test.ts` — checks the hand-written bytes against references independent of our format
   code: `JSON5.parse(expected)` deep-equals `immutable-json-patch` applied to `JSON5.parse(input)`
-  (criterion 2); a `test-fail` patch throws there and `expected` equals `input` (R9); `expected` keeps
+  (criterion 2), with every big number (spec 015) read as a marked string holding its decimal
+  digits, so they are compared digit for digit (`facts.ts` `parseData`); a `test-fail` patch throws there and `expected` equals `input` (R9); `expected` keeps
   the input's line endings and final newline (R10; R15 cases on a text with no line break get `\n` and a final newline); `json` cases are strict JSON; each case's tags
   match its input and patch (`facts.ts`: op present in the patch, location derived from the path,
   comments present, trailing comma, and for json5 majority quote, key style and literal kind). For
@@ -65,7 +71,7 @@ Values come from `tags.json`, the single vocabulary for these tests and `scripts
 | `trailingComma` | whether the edited container has a trailing comma. Always `no` in `json`. |
 | `quote` | the file's majority string quote. Always `double` in `json` and `jsonc`. |
 | `keyStyle` | whether the file's keys are quoted or unquoted. Always `quoted` in `json` and `jsonc`. |
-| `special` | a JSON5-only literal in the input: `hex`, `infinity-nan`, `multiline-string`, or `none`. Always `none` in `json` and `jsonc`. |
+| `special` | a JSON5-only literal in the input: `hex`, `infinity-nan`, `multiline-string`; or `big-number`, a number token JavaScript cannot write back with the same digits (spec 015 §Terms), in any format; or `none`. `json` and `jsonc` have only `big-number` and `none`. |
 
 ## Readings the corpus takes where R1–R10 leave a detail open
 
@@ -282,9 +288,11 @@ the readings below for L5–L7.
   `standalone` (a comment line set apart by blank lines), `multi-line-block`, `between-key-and-value`,
   `header` (before the root value), `footer` (after it); `with-warning` is a json input with a
   comment. `trailingComma` says whether the input has one. `special` lists `key-order` (two
-  objects in one container that list shared keys in different orders, UNK-045) and the JSON5
-  literals the input has (`unquoted-key`, `single-quote`, `hex`, `infinity-nan`, `plus-sign`,
-  `leading-dot`, `line-continuation`), or `none`. `style` names the input's indent unit
+  objects in one container that list shared keys in different orders, UNK-045), `big-number` (a
+  number spec 015 reads as a big number; `json/big-numbers` checks its digits survive, spec 015
+  criterion 1, not a criterion 2 cell) and the JSON5 literals the input has (`unquoted-key`,
+  `single-quote`, `hex`, `infinity-nan`, `plus-sign`, `leading-dot`, `line-continuation`), or
+  `none`. `style` names the input's indent unit
   (`indent-tab`, `indent-2`, `indent-4`, or `one-line-input` for a text with no line break) and
   `crlf`, `no-final-newline` and `bom` when they apply. The vocabulary is `smartFormat` in
   `tags.json`.

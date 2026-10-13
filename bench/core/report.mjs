@@ -1,23 +1,25 @@
 // Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
-// spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 014 T4,
-// spec 014 criterion 10) from
-// `bench/core/run.mjs`'s raw results and, when given, `bench/query/run.mjs`'s.
+// spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 015 T2,
+// spec 015 criterion 11's core part; 014 T4, spec 014 criterion 10) from `bench/core/run.mjs`'s raw
+// results and, when given, `bench/query/run.mjs`'s and the base commit's (`<base.json>`, the same
+// runner measuring the base commit's core build in the same job).
 // Every number in the report comes from that file; the text around them says what each one covers.
 //
-//   node bench/core/report.mjs <core.json> <out.md> [query.json]
+//   node bench/core/report.mjs <core.json> <out.md> [query.json [base.json]]
 //
 // The commit is BENCH_COMMIT (the workflow sets it to the pull request's head), else GITHUB_SHA,
 // which on a pull_request run is GitHub's merge ref rather than the commit pushed.
 import { readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 
-const [resultsFile, out, queryFile] = process.argv.slice(2);
+const [resultsFile, out, queryFile, baseFile] = process.argv.slice(2);
 if (!out) {
-  console.error('usage: node bench/core/report.mjs <core.json> <out.md> [query.json]');
+  console.error('usage: node bench/core/report.mjs <core.json> <out.md> [query.json [base.json]]');
   process.exit(2);
 }
 const results = JSON.parse(readFileSync(resultsFile, 'utf8'));
 const queries = queryFile ? JSON.parse(readFileSync(queryFile, 'utf8')) : undefined;
+const base = baseFile ? JSON.parse(readFileSync(baseFile, 'utf8')) : undefined;
 
 // Spec 011 criterion 12: above this at 5 MiB, an UNKNOWN goes to the owner.
 const QUERY_LIMIT_MS = 2500;
@@ -38,6 +40,10 @@ const SMART_LIMIT_MS = 5000;
 const SMART_JUDGED_MIB = 5;
 // Spec 012 criterion 12: parseData('jsonl') at most this many times parseData('json') on the array.
 const LINES_FACTOR = 1.25;
+// Spec 015 criterion 11: parse of each format at this size at most this many times the base
+// commit's, in the same run.
+const BASE_FACTOR = 1.1;
+const BASE_SIZE = 10;
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -62,7 +68,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? `, spec 011 criterion 12${queries.jsonpath ? ' and spec 014 criterion 10' : ''}` : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
   `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''} changes speed.`,
   '',
   '## Run',
@@ -78,6 +84,8 @@ add(
   'records padded inside the last record. Built in memory by `bench/core/run.mjs`:',
   '',
   '- **json:** `bench/generate.mjs`, the file 003 T11 opens in VS Code (pretty-printed, 2 spaces).',
+  "- **json-ids:** the json file with each record's `id` written as 19 digits (10^18 + i), a big",
+  '  number (spec 015), parsed as json; the padding keeps the size exact.',
   '- **jsonc:** the same records with a `//` comment before each, a `/* */` comment inside each, a',
   '  trailing comma in each nested object and after the last record.',
   '- **json5:** as jsonc, plus unquoted keys, single-quoted strings, a hex field and trailing commas',
@@ -228,6 +236,45 @@ if (jsonl) {
       : linesFailed
         ? 'Verdict: **criterion 12 does not hold** in this run.'
         : 'Verdict: criterion 12 holds in this run.',
+  );
+}
+
+if (base) {
+  add(
+    '',
+    '## Spec 015 criterion 11 (core part): parse against the base commit',
+    '',
+    `\`parse\` of each format at ${BASE_SIZE} MiB must take a median time at most ${BASE_FACTOR} times that of the`,
+    `base commit's core (\`${base.commit ?? 'unknown'}\`), built and measured in the same job on the same runner.`,
+    'json-ids is new with spec 015, so the base commit parses it with rounded ids; it is shown, not judged.',
+    '',
+    '| Format | parse (this commit) | parse (base) | this ÷ base | Result |',
+    '|---|---|---|---|---|',
+  );
+  let baseFailed = false;
+  let judgedAny = false;
+  for (const f of results.formats) {
+    const s = f.sizes.find((x) => x.mib === BASE_SIZE);
+    const b = base.formats
+      .find((x) => x.format === f.format)
+      ?.sizes.find((x) => x.mib === BASE_SIZE);
+    if (!s || !b) continue;
+    const ratio = median(s.parse) / median(b.parse);
+    const judged = f.format !== 'json-ids';
+    const ok = ratio <= BASE_FACTOR;
+    if (judged) judgedAny = true;
+    if (judged && !ok) baseFailed = true;
+    add(
+      `| ${f.format} | ${cell(s.parse)} | ${cell(b.parse)} | ${ratio.toFixed(2)} | ${judged ? (ok ? 'pass' : '**fail**') : 'not judged'} |`,
+    );
+  }
+  add(
+    '',
+    !judgedAny
+      ? `Verdict: not judged (this run has no ${BASE_SIZE} MiB cell on both commits).`
+      : baseFailed
+        ? 'Verdict: **criterion 11 (core part) does not hold** in this run.'
+        : 'Verdict: criterion 11 (core part) holds in this run.',
   );
 }
 

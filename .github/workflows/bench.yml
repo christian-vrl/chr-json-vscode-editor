@@ -73,18 +73,42 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # Spec 015 criterion 11: the base commit's core, built in this job, measured at 10 MiB.
+      - uses: actions/checkout@v5
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .bench-base
+      - name: Build the base commit's core
+        if: github.event_name == 'pull_request'
+        working-directory: .bench-base
+        run: |
+          pnpm install --frozen-lockfile --filter @chr-json-editor/core...
+          pnpm --filter @chr-json-editor/core build
       - run: pnpm --filter @chr-json-editor/core build
       - run: pnpm --filter @chr-json-editor/bench bench:core
+      - name: Measure the base commit's core
+        if: github.event_name == 'pull_request'
+        env:
+          BENCH_CORE: .bench-base/packages/core/dist/index.js
+          BENCH_COMMIT: ${{ github.event.pull_request.base.sha }}
+        run: node bench/core/run.mjs bench/.results/core-base.json 10
+      # Rewritten with the base commit's cells, in a step of its own so the report names this
+      # commit (BENCH_COMMIT from the workflow env), not the base.
+      - name: Report against the base commit
+        if: github.event_name == 'pull_request'
+        run: node bench/core/report.mjs bench/.results/core.json bench/RESULTS.md bench/.results/query.json bench/.results/core-base.json
       - name: Report in the run summary and the log
         run: |
           cat bench/RESULTS.md >> "$GITHUB_STEP_SUMMARY"
-          cat bench/RESULTS.md bench/.results/core.json bench/.results/query.json
+          cat bench/RESULTS.md bench/.results/core*.json bench/.results/query.json
       - uses: actions/upload-artifact@v4
         with:
           name: bench-core
           path: |
             bench/RESULTS.md
-            bench/.results/core.json
+            bench/.results/core*.json
             bench/.results/query.json
           include-hidden-files: true
           if-no-files-found: error

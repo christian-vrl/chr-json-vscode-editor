@@ -1,12 +1,12 @@
 # Core benchmark: parse and one edit per format (002 T8)
 
-> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12, spec 011 criterion 12 and spec 014 criterion 10. Written by `bench/core/report.mjs` from one benchmark run; do not edit
+> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12, spec 011 criterion 12, spec 015 criterion 11 (core part). Written by `bench/core/report.mjs` from one benchmark run; do not edit
 > by hand. Re-run it (the `bench` workflow) whenever `packages/core/src/formats` or `packages/app-shell/src/query` changes speed.
 
 ## Run
 
-- Where: GitHub Actions, [run 38440245350](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/38440245350); commit `cc0bd641baa21828748adff9e90554384cc0d2c9`.
-- Machine: Linux x64 (`ubuntu24`), 4 × INTEL(R) XEON(R) PLATINUM 8573C, 16 GiB RAM.
+- Where: GitHub Actions, [run 38445526156](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/38445526156); commit `4679bc866d932ae552d49e20de0bf311d37c4a31`.
+- Machine: Linux x64 (`ubuntu24`), 4 × AMD EPYC 9V74 80-Core Processor, 16 GiB RAM.
 - Node v22.23.3, `@chr-json-editor/core` built from that commit, called directly (no editor, no webview, no message passing). Each format and size runs in its own process (`--expose-gc`, heap collected before every timed call; `--max-old-space-size=6144`, Node's default heap limit on this machine: 4.0 GiB, see Memory).
 - 3 runs per cell after a warm-up on a 256 KiB document; each cell is **median** (run 1, run 2, run 3), in milliseconds.
 
@@ -16,6 +16,8 @@ Each size is exactly N × 2^20 bytes (MiB, as in `bench/vscode-open.md`), ASCII 
 records padded inside the last record. Built in memory by `bench/core/run.mjs`:
 
 - **json:** `bench/generate.mjs`, the file 003 T11 opens in VS Code (pretty-printed, 2 spaces).
+- **json-ids:** the json file with each record's `id` written as 19 digits (10^18 + i), a big
+  number (spec 015), parsed as json; the padding keeps the size exact.
 - **jsonc:** the same records with a `//` comment before each, a `/* */` comment inside each, a
   trailing comma in each nested object and after the last record.
 - **json5:** as jsonc, plus unquoted keys, single-quoted strings, a hex field and trailing commas
@@ -25,11 +27,11 @@ records padded inside the last record. Built in memory by `bench/core/run.mjs`:
 
 Records per file:
 
-| Size | json | jsonc | json5 | jsonl |
-|---|---|---|---|---|
-| 1 MiB (1,048,576 B) | 4,372 | 4,323 | 4,305 | 6,897 |
-| 10 MiB (10,485,760 B) | 43,361 | 42,702 | 42,530 | 68,086 |
-| 50 MiB (52,428,800 B) | 215,488 | 211,612 | 210,767 | 336,787 |
+| Size | json | json-ids | jsonc | json5 | jsonl |
+|---|---|---|---|---|---|
+| 1 MiB (1,048,576 B) | 4,372 | 4,111 | 4,323 | 4,305 | 6,897 |
+| 10 MiB (10,485,760 B) | 43,361 | 40,950 | 42,702 | 42,530 | 68,086 |
+| 50 MiB (52,428,800 B) | 215,488 | 204,170 | 211,612 | 210,767 | 336,787 |
 
 ## Results
 
@@ -53,65 +55,81 @@ edits (L4, L6).
 
 | Size | parse | parseData | replace | add | remove | move |
 |---|---|---|---|---|---|---|
-| 1 MiB | **105** (111, 104, 105) | **5** (5, 5, 5) | **77** (77, 83, 74) | **82** (80, 86, 82) | **81** (80, 81, 81) | **111** (102, 111, 114) |
-| 10 MiB | **967** (1,152, 899, 967) | **51** (51, 49, 52) | **667** (667, 706, 648) | **675** (675, 725, 664) | **670** (670, 714, 667) | **1,131** (1,131, 1,156, 1,105) |
-| 50 MiB | **7,221** (7,221, 7,381, 6,804) | **307** (304, 307, 313) | **5,377** (5,966, 5,257, 5,377) | **5,240** (5,172, 5,240, 5,342) | **5,943** (5,925, 6,035, 5,943) | **9,144** (9,128, 9,327, 9,144) |
+| 1 MiB | **93** (116, 92, 93) | **6** (6, 6, 6) | **69** (69, 71, 68) | **71** (68, 77, 71) | **73** (73, 76, 69) | **95** (95, 94, 96) |
+| 10 MiB | **883** (1,036, 833, 883) | **60** (61, 60, 59) | **615** (615, 628, 607) | **629** (629, 647, 618) | **664** (664, 675, 626) | **1,040** (1,041, 1,040, 1,038) |
+| 50 MiB | **7,644** (8,418, 7,611, 7,644) | **363** (363, 375, 363) | **6,212** (6,251, 6,212, 5,390) | **6,080** (6,080, 6,323, 5,563) | **6,296** (6,411, 6,296, 6,250) | **9,749** (9,865, 9,749, 9,704) |
 
 After the text was parsed (json):
 
 | Size | replace | add | remove | move |
 |---|---|---|---|---|
-| 1 MiB | **0** (0, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **29** (38, 27, 29) |
-| 10 MiB | **0** (0, 0, 0) | **4** (4, 4, 4) | **0** (0, 0, 0) | **437** (442, 430, 437) |
-| 50 MiB | **0** (0, 0, 0) | **15** (15, 15, 14) | **0** (0, 0, 0) | **2,305** (2,329, 2,305, 2,295) |
+| 1 MiB | **0** (0, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **26** (27, 24, 26) |
+| 10 MiB | **0** (0, 0, 0) | **2** (2, 2, 2) | **0** (0, 0, 0) | **391** (391, 385, 393) |
+| 50 MiB | **0** (0, 0, 0) | **9** (8, 9, 9) | **0** (0, 0, 0) | **2,456** (2,456, 2,437, 2,473) |
+
+### json-ids
+
+| Size | parse | parseData | replace | add | remove | move |
+|---|---|---|---|---|---|---|
+| 1 MiB | **99** (124, 94, 99) | **40** (42, 37, 40) | **72** (72, 75, 71) | **74** (73, 75, 74) | **74** (72, 77, 74) | **105** (102, 107, 105) |
+| 10 MiB | **931** (1,120, 910, 931) | **286** (283, 287, 286) | **691** (691, 705, 682) | **739** (743, 739, 683) | **710** (740, 710, 688) | **1,086** (1,086, 1,098, 1,068) |
+| 50 MiB | **7,764** (8,817, 7,461, 7,764) | **1,532** (1,535, 1,521, 1,532) | **6,095** (6,095, 6,116, 5,963) | **6,078** (6,078, 6,100, 5,942) | **6,031** (6,083, 6,031, 5,119) | **9,213** (8,208, 9,404, 9,213) |
+
+After the text was parsed (json-ids):
+
+| Size | replace | add | remove | move |
+|---|---|---|---|---|
+| 1 MiB | **0** (0, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **35** (36, 26, 35) |
+| 10 MiB | **0** (0, 0, 0) | **2** (2, 2, 2) | **0** (0, 0, 0) | **383** (383, 387, 381) |
+| 50 MiB | **0** (0, 0, 0) | **7** (7, 8, 7) | **0** (0, 0, 0) | **2,062** (2,062, 2,085, 2,059) |
 
 ### jsonc
 
 | Size | parse | parseData | replace | add | remove | move |
 |---|---|---|---|---|---|---|
-| 1 MiB | **100** (106, 100, 99) | **39** (39, 20, 41) | **73** (72, 73, 76) | **76** (76, 73, 76) | **76** (76, 76, 78) | **112** (108, 112, 114) |
-| 10 MiB | **834** (924, 831, 834) | **257** (259, 252, 257) | **585** (590, 585, 583) | **609** (617, 609, 604) | **609** (609, 609, 615) | **953** (953, 971, 937) |
-| 50 MiB | **6,697** (7,125, 6,697, 5,948) | **1,223** (1,223, 1,201, 1,238) | **5,410** (5,556, 4,520, 5,410) | **5,426** (5,499, 4,719, 5,426) | **4,912** (5,621, 4,733, 4,912) | **7,433** (7,433, 8,018, 7,412) |
+| 1 MiB | **92** (104, 91, 92) | **38** (37, 38, 40) | **68** (69, 67, 68) | **69** (68, 69, 71) | **71** (72, 70, 71) | **104** (101, 104, 104) |
+| 10 MiB | **752** (884, 752, 748) | **238** (247, 238, 234) | **531** (524, 531, 547) | **562** (562, 553, 564) | **558** (560, 558, 549) | **894** (895, 891, 894) |
+| 50 MiB | **5,805** (7,631, 5,805, 5,791) | **1,218** (1,249, 1,196, 1,218) | **5,709** (4,920, 5,721, 5,709) | **5,719** (5,729, 5,709, 5,719) | **4,940** (5,749, 4,718, 4,940) | **8,207** (8,244, 8,179, 8,207) |
 
 After the text was parsed (jsonc):
 
 | Size | replace | add | remove | move |
 |---|---|---|---|---|
-| 1 MiB | **0** (0, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **38** (41, 35, 38) |
-| 10 MiB | **0** (0, 0, 0) | **3** (3, 7, 3) | **0** (0, 0, 0) | **356** (373, 352, 356) |
-| 50 MiB | **0** (0, 0, 0) | **14** (15, 14, 14) | **0** (0, 0, 0) | **1,534** (1,567, 1,534, 1,530) |
+| 1 MiB | **0** (0, 0, 0) | **1** (1, 1, 1) | **0** (0, 0, 0) | **34** (37, 33, 34) |
+| 10 MiB | **0** (0, 0, 0) | **2** (2, 2, 2) | **0** (0, 0, 0) | **322** (338, 314, 322) |
+| 50 MiB | **0** (0, 0, 0) | **8** (7, 8, 8) | **0** (0, 0, 0) | **1,159** (1,159, 1,148, 1,183) |
 
 ### json5
 
 | Size | parse | parseData | replace | add | remove | move |
 |---|---|---|---|---|---|---|
-| 1 MiB | **67** (88, 67, 56) | **24** (24, 23, 31) | **58** (58, 58, 58) | **61** (61, 58, 62) | **56** (59, 56, 53) | **95** (93, 95, 98) |
-| 10 MiB | **499** (611, 497, 499) | **163** (159, 163, 166) | **498** (511, 497, 498) | **521** (512, 521, 525) | **523** (531, 512, 523) | **781** (792, 777, 781) |
-| 50 MiB | **5,527** (5,933, 5,527, 4,983) | **811** (786, 811, 817) | **5,420** (4,990, 5,986, 5,420) | **5,115** (5,115, 5,040, 5,126) | **5,286** (5,008, 5,286, 5,535) | **7,901** (7,901, 8,186, 7,701) |
+| 1 MiB | **51** (65, 49, 51) | **23** (24, 21, 23) | **54** (54, 53, 56) | **50** (50, 52, 49) | **50** (49, 50, 53) | **94** (96, 94, 94) |
+| 10 MiB | **490** (611, 485, 490) | **145** (145, 140, 146) | **486** (495, 486, 479) | **499** (499, 507, 499) | **495** (495, 493, 507) | **734** (734, 738, 732) |
+| 50 MiB | **5,589** (6,196, 5,589, 5,499) | **731** (731, 723, 740) | **4,613** (4,613, 5,501, 4,557) | **4,712** (4,712, 5,656, 4,693) | **5,706** (5,706, 4,698, 5,764) | **8,520** (8,686, 8,520, 7,517) |
 
 After the text was parsed (json5):
 
 | Size | replace | add | remove | move |
 |---|---|---|---|---|
-| 1 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **40** (41, 37, 40) |
-| 10 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **268** (279, 265, 268) |
-| 50 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **1,671** (1,688, 1,671, 1,671) |
+| 1 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **39** (39, 38, 39) |
+| 10 MiB | **0** (0, 0, 0) | **0** (0, 0, 0) | **0** (0, 0, 0) | **243** (254, 237, 243) |
+| 50 MiB | **0** (1, 0, 0) | **1** (1, 1, 0) | **0** (0, 0, 0) | **1,366** (1,373, 1,364, 1,366) |
 
 ### jsonl
 
 | Size | parse | parseData | replace | add | remove | move |
 |---|---|---|---|---|---|---|
-| 1 MiB | **85** (88, 85, 84) | **7** (8, 7, 7) | **9** (10, 9, 9) | **9** (10, 9, 9) | **8** (9, 8, 8) | **9** (9, 9, 9) |
-| 10 MiB | **550** (652, 550, 539) | **90** (92, 89, 90) | **90** (104, 90, 90) | **93** (103, 91, 93) | **96** (103, 92, 96) | **93** (102, 89, 93) |
-| 50 MiB | **2,807** (3,370, 2,788, 2,807) | **448** (448, 440, 458) | **479** (591, 479, 474) | **482** (568, 477, 482) | **494** (594, 494, 493) | **520** (602, 503, 520) |
+| 1 MiB | **91** (97, 91, 89) | **9** (9, 9, 9) | **11** (12, 11, 11) | **11** (13, 11, 11) | **10** (11, 10, 10) | **11** (12, 10, 11) |
+| 10 MiB | **628** (820, 628, 614) | **106** (107, 106, 106) | **117** (133, 117, 116) | **124** (130, 122, 124) | **125** (130, 122, 125) | **121** (126, 118, 121) |
+| 50 MiB | **3,581** (4,294, 3,510, 3,581) | **554** (554, 569, 550) | **599** (706, 599, 598) | **600** (711, 599, 600) | **606** (725, 606, 606) | **611** (730, 611, 611) |
 
 After the text was parsed (jsonl):
 
 | Size | replace | add | remove | move |
 |---|---|---|---|---|
-| 1 MiB | **2** (2, 2, 2) | **2** (2, 2, 2) | **2** (2, 2, 2) | **2** (2, 2, 2) |
-| 10 MiB | **17** (15, 17, 17) | **17** (15, 17, 25) | **16** (15, 16, 16) | **21** (21, 20, 21) |
-| 50 MiB | **98** (95, 98, 118) | **98** (98, 98, 95) | **97** (96, 97, 103) | **117** (117, 114, 117) |
+| 1 MiB | **2** (3, 2, 2) | **2** (2, 2, 5) | **2** (2, 2, 2) | **2** (2, 2, 3) |
+| 10 MiB | **17** (15, 17, 18) | **18** (14, 18, 19) | **17** (15, 17, 18) | **21** (18, 21, 21) |
+| 50 MiB | **88** (87, 88, 89) | **87** (87, 87, 89) | **87** (87, 86, 88) | **109** (110, 109, 109) |
 
 ## Memory
 
@@ -123,11 +141,11 @@ edit), in MiB. The heap ceiling is raised because with the GitHub runner's defau
 the first run of this benchmark ran out of heap in the json 50 MiB cell
 ([run 37852960823](https://github.com/christian-vrl/chr-json-vscode-editor/actions/runs/37852960823)).
 
-| Size | json retained heap | json parseData heap | json max RSS | jsonc retained heap | jsonc parseData heap | jsonc max RSS | json5 retained heap | json5 parseData heap | json5 max RSS | jsonl retained heap | jsonl parseData heap | jsonl max RSS |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 MiB | 31 | 1 | 250 | 30 | 2 | 244 | 26 | 2 | 223 | 21 | 2 | 157 |
-| 10 MiB | 406 | 12 | 1,852 | 396 | 20 | 1,776 | 342 | 21 | 1,667 | 269 | 19 | 710 |
-| 50 MiB | 2,061 | 58 | 5,826 | 2,007 | 100 | 5,803 | 1,732 | 105 | 5,471 | 1,353 | 90 | 3,117 |
+| Size | json retained heap | json parseData heap | json max RSS | json-ids retained heap | json-ids parseData heap | json-ids max RSS | jsonc retained heap | jsonc parseData heap | jsonc max RSS | json5 retained heap | json5 parseData heap | json5 max RSS | jsonl retained heap | jsonl parseData heap | jsonl max RSS |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 MiB | 31 | 1 | 253 | 27 | 2 | 234 | 28 | 2 | 241 | 26 | 2 | 238 | 21 | 2 | 158 |
+| 10 MiB | 406 | 12 | 1,879 | 390 | 22 | 1,814 | 396 | 20 | 1,785 | 342 | 21 | 1,700 | 269 | 19 | 710 |
+| 50 MiB | 2,061 | 58 | 5,677 | 1,989 | 111 | 5,947 | 2,007 | 100 | 5,895 | 1,732 | 105 | 5,709 | 1,353 | 90 | 3,125 |
 
 ## Spec 008 criterion 7: parseData against parse
 
@@ -136,18 +154,21 @@ at most 50% of `parse`'s, in this run. json takes `JSON.parse`, so it is shown b
 
 | Format | Size | time parseData ÷ parse | heap parseData ÷ parse | Result |
 |---|---|---|---|---|
-| json | 1 MiB | 5% (5 ÷ 105 ms) | 4% (1 ÷ 31 MiB) | not judged |
-| json | 10 MiB | 5% (51 ÷ 967 ms) | 3% (12 ÷ 406 MiB) | not judged |
-| json | 50 MiB | 4% (307 ÷ 7,221 ms) | 3% (58 ÷ 2,061 MiB) | not judged |
-| jsonc | 1 MiB | 39% (39 ÷ 100 ms) | 7% (2 ÷ 30 MiB) | not judged |
-| jsonc | 10 MiB | 31% (257 ÷ 834 ms) | 5% (20 ÷ 396 MiB) | pass |
-| jsonc | 50 MiB | 18% (1,223 ÷ 6,697 ms) | 5% (100 ÷ 2,007 MiB) | pass |
-| json5 | 1 MiB | 36% (24 ÷ 67 ms) | 8% (2 ÷ 26 MiB) | not judged |
-| json5 | 10 MiB | 33% (163 ÷ 499 ms) | 6% (21 ÷ 342 MiB) | pass |
-| json5 | 50 MiB | 15% (811 ÷ 5,527 ms) | 6% (105 ÷ 1,732 MiB) | pass |
-| jsonl | 1 MiB | 9% (7 ÷ 85 ms) | 9% (2 ÷ 21 MiB) | not judged |
-| jsonl | 10 MiB | 16% (90 ÷ 550 ms) | 7% (19 ÷ 269 MiB) | not judged |
-| jsonl | 50 MiB | 16% (448 ÷ 2,807 ms) | 7% (90 ÷ 1,353 MiB) | not judged |
+| json | 1 MiB | 6% (6 ÷ 93 ms) | 4% (1 ÷ 31 MiB) | not judged |
+| json | 10 MiB | 7% (60 ÷ 883 ms) | 3% (12 ÷ 406 MiB) | not judged |
+| json | 50 MiB | 5% (363 ÷ 7,644 ms) | 3% (58 ÷ 2,061 MiB) | not judged |
+| json-ids | 1 MiB | 40% (40 ÷ 99 ms) | 9% (2 ÷ 27 MiB) | not judged |
+| json-ids | 10 MiB | 31% (286 ÷ 931 ms) | 6% (22 ÷ 390 MiB) | not judged |
+| json-ids | 50 MiB | 20% (1,532 ÷ 7,764 ms) | 6% (111 ÷ 1,989 MiB) | not judged |
+| jsonc | 1 MiB | 41% (38 ÷ 92 ms) | 8% (2 ÷ 28 MiB) | not judged |
+| jsonc | 10 MiB | 32% (238 ÷ 752 ms) | 5% (20 ÷ 396 MiB) | pass |
+| jsonc | 50 MiB | 21% (1,218 ÷ 5,805 ms) | 5% (100 ÷ 2,007 MiB) | pass |
+| json5 | 1 MiB | 45% (23 ÷ 51 ms) | 8% (2 ÷ 26 MiB) | not judged |
+| json5 | 10 MiB | 30% (145 ÷ 490 ms) | 6% (21 ÷ 342 MiB) | pass |
+| json5 | 50 MiB | 13% (731 ÷ 5,589 ms) | 6% (105 ÷ 1,732 MiB) | pass |
+| jsonl | 1 MiB | 10% (9 ÷ 91 ms) | 9% (2 ÷ 21 MiB) | not judged |
+| jsonl | 10 MiB | 17% (106 ÷ 628 ms) | 7% (19 ÷ 269 MiB) | not judged |
+| jsonl | 50 MiB | 15% (554 ÷ 3,581 ms) | 7% (90 ÷ 1,353 MiB) | not judged |
 
 Verdict: criterion 7 holds in this run.
 
@@ -159,11 +180,27 @@ Verdict: criterion 7 holds in this run.
 
 | Size | parseData('jsonl') | parseData('json') on the array | jsonl ÷ array | Result |
 |---|---|---|---|---|
-| 1 MiB | **7** (8, 7, 7) | **6** (6, 6, 6) | 1.19 | not judged |
-| 10 MiB | **90** (92, 89, 90) | **76** (80, 76, 76) | 1.18 | not judged |
-| 50 MiB | **448** (448, 440, 458) | **389** (382, 389, 405) | 1.15 | pass |
+| 1 MiB | **9** (9, 9, 9) | **8** (8, 8, 8) | 1.19 | not judged |
+| 10 MiB | **106** (107, 106, 106) | **98** (95, 98, 99) | 1.08 | not judged |
+| 50 MiB | **554** (554, 569, 550) | **515** (516, 515, 511) | 1.08 | pass |
 
 Verdict: criterion 12 holds in this run.
+
+## Spec 015 criterion 11 (core part): parse against the base commit
+
+`parse` of each format at 10 MiB must take a median time at most 1.1 times that of the
+base commit's core (`158cb15b816e962403666cd893cda912b4e75323`), built and measured in the same job on the same runner.
+json-ids is new with spec 015, so the base commit parses it with rounded ids; it is shown, not judged.
+
+| Format | parse (this commit) | parse (base) | this ÷ base | Result |
+|---|---|---|---|---|
+| json | **883** (1,036, 833, 883) | **838** (1,027, 804, 838) | 1.05 | pass |
+| json-ids | **931** (1,120, 910, 931) | **837** (1,012, 781, 837) | 1.11 | not judged |
+| jsonc | **752** (884, 752, 748) | **771** (883, 771, 759) | 0.98 | pass |
+| json5 | **490** (611, 485, 490) | **483** (617, 475, 483) | 1.01 | pass |
+| jsonl | **628** (820, 628, 614) | **578** (703, 578, 578) | 1.09 | pass |
+
+Verdict: criterion 11 (core part) holds in this run.
 
 ## Spec 011 criterion 12: JavaScript and Lodash queries
 
@@ -173,7 +210,7 @@ result copied out) beside the reference (the library's own `executeQuery` of the
 in Node, on the data already in memory, so it copies nothing). The documents are
 `bench/generate.mjs`'s JSON files at 1 MiB and 5 MiB, parsed once. Same Node process, `--expose-gc`, heap collected before every timed call; 7 runs per
 cell after a warm-up on a 256 KiB document; each cell is **median** (runs), in milliseconds. The engine's
-WebAssembly was compiled once before the runs (37 ms; criterion 10 compiles it when Transform first opens).
+WebAssembly was compiled once before the runs (39 ms; criterion 10 compiles it when Transform first opens).
 
 - **filter-map** (JavaScript, `bench/query/filter-map.js`): `filter` on two fields, then `map` to
   four.
@@ -182,46 +219,16 @@ WebAssembly was compiled once before the runs (37 ms; criterion 10 compiles it w
 
 | Size | Query | Result items | Engine | Reference | Engine ÷ reference | Same result | Within 2.5 s |
 |---|---|---|---|---|---|---|---|
-| 1 MiB | filter-map (JavaScript) | 1,897 | **39** (43, 38, 41, 39, 39, 39, 37) | **0** (1, 0, 0, 0, 0, 0, 0) | 94× | yes | not judged |
-| 1 MiB | filter-orderBy-map (Lodash) | 1,897 | **111** (114, 113, 111, 113, 110, 108, 109) | **4** (9, 4, 3, 4, 3, 4, 3) | 30× | yes | not judged |
-| 5 MiB | filter-map (JavaScript) | 9,416 | **172** (179, 173, 169, 172, 170, 171, 173) | **2** (2, 2, 2, 2, 2, 2, 2) | 96× | yes | yes |
-| 5 MiB | filter-orderBy-map (Lodash) | 9,416 | **486** (495, 485, 485, 475, 486, 490, 496) | **13** (15, 12, 13, 13, 12, 15, 15) | 38× | yes | yes |
+| 1 MiB | filter-map (JavaScript) | 1,897 | **41** (45, 41, 42, 41, 40, 40, 39) | **0** (1, 0, 0, 0, 0, 0, 0) | 103× | yes | not judged |
+| 1 MiB | filter-orderBy-map (Lodash) | 1,897 | **118** (119, 118, 118, 117, 118, 117, 117) | **3** (8, 4, 3, 3, 2, 3, 2) | 38× | yes | not judged |
+| 5 MiB | filter-map (JavaScript) | 9,416 | **179** (181, 179, 179, 179, 179, 178, 179) | **2** (2, 2, 2, 2, 2, 2, 2) | 105× | yes | yes |
+| 5 MiB | filter-orderBy-map (Lodash) | 9,416 | **534** (537, 534, 534, 533, 535, 532, 532) | **10** (13, 10, 10, 11, 11, 10, 10) | 51× | yes | yes |
 
 Verdict: every bench query at 5 MiB takes at most 2.5 s in this run (criterion 12).
 
 The reference is V8 running the query on data already in memory; most of the engine's time is
 copying the data in and the result out (011 T1 REPORT §3), so the ratio says what the sealed engine
 costs, not how fast QuickJS runs the query itself.
-
-## Spec 014 criterion 10: JSONPath queries
-
-Each bench query in JSONPath (RFC 9535) (`executeJsonpathRfc9535` from
-`packages/app-shell/src/query/jsonpath-rfc9535.ts`: json-p3 2.3.2, as the Transform dialog runs it)
-beside JSONPath (Goessner) (the library's `jsonpathQueryLanguage.executeQuery`, jsonpath-plus), in
-the same Node process as the queries above, on the same data already in memory: `bench/generate.mjs`'s
-JSON files at 1 MiB and 5 MiB, parsed once. Heap collected before every timed call; 7 runs per cell after a warm-up on a
-256 KiB document; each cell is **median** (runs), in milliseconds. "Same result" compares the two
-languages' results with `isDeepStrictEqual`.
-
-- **jsonpath-filter** (`bench/query/jsonpath-filter.jsonpath`): a filter on two fields.
-- **jsonpath-descendant** (`bench/query/jsonpath-descendant.jsonpath`): a descendant search for
-  one key.
-- **jsonpath-match** (`bench/query/jsonpath-match.jsonpath`): a filter with `match`; Goessner has
-  no `match`, so its query is the same filter with an anchored script regular expression.
-- **jsonpath-pick** (`bench/query/jsonpath-pick.jsonpath`): one field of every record.
-
-| Size | Query | RFC 9535 query | Goessner query | Result items | RFC 9535 | Goessner | RFC 9535 ÷ Goessner | Same result | RFC 9535 within 1 s |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 MiB | jsonpath-filter | `$[?(@.active == true && @.score > 50)]` | `$[?(@.active == true && @.score > 50)]` | 1,897 | **16** (16, 16, 14, 15, 4, 16, 16) | **10** (10, 8, 10, 11, 10, 11, 10) | 1.5× | yes | not judged |
-| 1 MiB | jsonpath-descendant | `$..zip` | `$..zip` | 4,372 | **30** (31, 34, 27, 35, 27, 30, 28) | **14** (14, 14, 13, 15, 15, 16, 14) | 2.2× | yes | not judged |
-| 1 MiB | jsonpath-match | `$[?match(@.name, 'alpha-.*')]` | `$[?(@.name.match(/^alpha-.*$/))]` | 547 | **11** (13, 7, 11, 5, 11, 6, 13) | **6** (8, 6, 11, 6, 6, 5, 6) | 1.8× | yes | not judged |
-| 1 MiB | jsonpath-pick | `$[*].name` | `$[*].name` | 4,372 | **5** (3, 6, 5, 3, 6, 5, 4) | **4** (4, 4, 3, 4, 4, 2, 4) | 1.1× | yes | not judged |
-| 5 MiB | jsonpath-filter | `$[?(@.active == true && @.score > 50)]` | `$[?(@.active == true && @.score > 50)]` | 9,416 | **33** (34, 31, 37, 33, 32, 32, 34) | **28** (31, 28, 29, 25, 29, 27, 28) | 1.2× | yes | yes |
-| 5 MiB | jsonpath-descendant | `$..zip` | `$..zip` | 21,726 | **111** (112, 107, 113, 109, 110, 111, 114) | **36** (34, 34, 37, 39, 36, 38, 36) | 3.1× | yes | yes |
-| 5 MiB | jsonpath-match | `$[?match(@.name, 'alpha-.*')]` | `$[?(@.name.match(/^alpha-.*$/))]` | 2,716 | **32** (30, 32, 29, 35, 32, 30, 33) | **17** (17, 18, 18, 18, 17, 17, 17) | 1.8× | yes | yes |
-| 5 MiB | jsonpath-pick | `$[*].name` | `$[*].name` | 21,726 | **19** (17, 20, 19, 19, 20, 18, 18) | **13** (13, 12, 14, 12, 13, 12, 14) | 1.4× | yes | yes |
-
-Verdict: every JSONPath (RFC 9535) bench query at 5 MiB takes at most 1 s in this run (criterion 10).
 
 ## Spec 010 criterion 11: smart format
 
@@ -232,12 +239,12 @@ HYPOTHESIS: the 5 MiB median is under 5,000 ms on the CI runner.
 
 | Format | Size | smartFormat | prettyPrint | smartFormat ÷ prettyPrint | output size |
 |---|---|---|---|---|---|
-| json | 1 MiB | **287** (314, 287, 246) | **101** (96, 105, 101) | 2.8× | 0.92 MiB |
-| json | 5 MiB | **1,080** (1,121, 1,080, 986) | **490** (485, 492, 490) | 2.2× | 4.61 MiB |
-| jsonc | 1 MiB | **315** (322, 315, 277) | **100** (100, 101, 99) | 3.1× | 1.06 MiB |
-| jsonc | 5 MiB | **1,103** (1,107, 1,103, 1,054) | **439** (448, 437, 439) | 2.5× | 5.29 MiB |
-| json5 | 1 MiB | **366** (406, 366, 309) | **92** (81, 92, 92) | 4.0× | 1.06 MiB |
-| json5 | 5 MiB | **1,411** (1,508, 1,411, 1,310) | **438** (438, 421, 438) | 3.2× | 5.31 MiB |
+| json | 1 MiB | **272** (278, 272, 237) | **95** (94, 95, 99) | 2.9× | 0.92 MiB |
+| json | 5 MiB | **1,059** (1,138, 1,059, 980) | **427** (438, 427, 426) | 2.5× | 4.61 MiB |
+| jsonc | 1 MiB | **298** (307, 298, 260) | **92** (92, 88, 93) | 3.2× | 1.06 MiB |
+| jsonc | 5 MiB | **1,097** (1,149, 1,097, 1,003) | **397** (396, 397, 397) | 2.8× | 5.29 MiB |
+| json5 | 1 MiB | **359** (379, 359, 306) | **80** (80, 83, 80) | 4.5× | 1.06 MiB |
+| json5 | 5 MiB | **1,483** (1,578, 1,483, 1,358) | **455** (443, 465, 455) | 3.3× | 5.31 MiB |
 
 Verdict: the hypothesis holds in this run (every 5 MiB median is under 5,000 ms).
 
@@ -247,13 +254,13 @@ applyPatch is only the host part of an edit: the UI, the message and `workspace.
 top (`bench/vscode-open.md`). So a cell over 500 ms here misses the budget whatever else happens;
 one under it is necessary, not sufficient. The cells use the host's case, a text already parsed.
 
-| Size | json | jsonc | json5 | jsonl |
-|---|---|---|---|---|
-| 1 MiB | within, slowest op 29 | within, slowest op 38 | within, slowest op 40 | within, slowest op 2 |
-| 10 MiB | within, slowest op 437 | within, slowest op 356 | within, slowest op 268 | within, slowest op 21 |
-| 50 MiB | over, slowest op 2,305 | over, slowest op 1,534 | over, slowest op 1,671 | within, slowest op 117 |
+| Size | json | json-ids | jsonc | json5 | jsonl |
+|---|---|---|---|---|---|
+| 1 MiB | within, slowest op 26 | within, slowest op 35 | within, slowest op 34 | within, slowest op 39 | within, slowest op 2 |
+| 10 MiB | within, slowest op 391 | within, slowest op 383 | within, slowest op 322 | within, slowest op 243 | within, slowest op 21 |
+| 50 MiB | over, slowest op 2,456 | over, slowest op 2,062 | over, slowest op 1,159 | over, slowest op 1,366 | within, slowest op 109 |
 
-Medians relative to parse, over all sizes and formats (edit ÷ parse): replace 0.1–1.0×, add 0.1–1.0×, remove 0.1–1.0×, move 0.1–1.6×.
+Medians relative to parse, over all sizes and formats (edit ÷ parse): replace 0.1–1.1×, add 0.1–1.0×, remove 0.1–1.0×, move 0.1–1.9×.
 
 An edit on a text core has not parsed parses it once (tree and tokens) before it edits, so its
 time grows with file size like parse time does. On a parsed text, replace, add and remove only
@@ -262,4 +269,4 @@ removed record.
 
 To reproduce: `pnpm --filter @chr-json-editor/core build`, then
 `pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`),
-which also runs the query benchmarks (`bench/query/run.mjs`).
+which also runs the query benchmark (`bench/query/run.mjs`).
