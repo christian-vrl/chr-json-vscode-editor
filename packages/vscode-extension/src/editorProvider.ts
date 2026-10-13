@@ -466,6 +466,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Has every ready tab of `document` hand over the typing it holds and the edits it sent, as before
+   * a save, so a command that reads the document's text next reads what the tabs show (spec 010
+   * criterion 8: "Smart Format" on a CHR JSON Editor tab in text mode).
+   */
+  async flushDocument(document: vscode.TextDocument): Promise<void> {
+    const ready = [...this.sessions.values()].filter((s) => s.document === document && s.ready);
+    await Promise.all(ready.map((session) => this.flush(session)));
+  }
+
+  /**
    * What "Export to CSV…" exports from `document`'s CHR JSON Editor tab (spec 009 criterion 7): the
    * JSON Pointer its webview names (the array table mode shows, the one value tree mode has
    * selected), or `''` for the document's data. Asks the active tab showing the document, else a

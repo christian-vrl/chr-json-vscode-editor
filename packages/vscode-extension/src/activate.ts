@@ -9,6 +9,7 @@ import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
 import { OPEN_COMMAND } from './commands';
 import { registerCsvCommands, testCsvCommands } from './csvCommands';
+import { registerSmartFormatCommand, testSmartFormat } from './smartFormatCommand';
 import { CsvPanels, testCsvPanel, type CsvSnapshot } from './csvPanel';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
@@ -72,6 +73,8 @@ export interface TestHooks {
   /** 008 T4: answers every later ceiling message of "Open in CHR JSON Editor" (true: "Open as
    *  Text", false: dismiss; undefined: show it). Returns the messages shown since the previous call. */
   ceiling(answer: boolean | undefined): string[];
+  /** 010 T3: the messages "Smart Format" showed since the previous call. */
+  smartFormatMessages(): string[];
   /** 007 T4: every compare panel opened so far, closed ones included. */
   compares(): CompareSnapshot[];
   /** What the open compare panel titled `title` renders. */
@@ -160,6 +163,7 @@ export function activateShared(
     ...registerConvertCommands(formatBadge),
     ...registerCompareCommands(compares, formatBadge, platform),
     ...registerCsvCommands(csvPanels, formatBadge, provider),
+    registerSmartFormatCommand(formatBadge, provider),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -185,6 +189,7 @@ export function activateShared(
             ? platform.readHead(vscode.Uri.parse(uri))
             : Promise.reject(new Error('no Git HEAD reader in this host (desktop only)')),
         compares: () => compares.snapshots,
+        smartFormatMessages: () => testSmartFormat.messages.splice(0),
         probeCompare(title) {
           const panel = compares.find(title);
           return panel ? panel.probe() : Promise.reject(new Error(`no compare panel ${title}`));

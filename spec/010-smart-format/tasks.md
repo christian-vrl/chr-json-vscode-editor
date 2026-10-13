@@ -22,7 +22,7 @@
   owner UNKNOWN is recorded); `pnpm check:licenses` green*
 
 ## Phase C — VS Code (risk-free / additive)
-- [ ] **T3** "Smart format" in the text mode menu, the `smartFormat` action (protocol bump) in
+- [x] **T3** "Smart format" in the text mode menu, the `smartFormat` action (protocol bump) in
   app-shell, the dev host and the host's `runAction`; the `chrJsonEditor.smartFormat` command for the
   CHR JSON editor and the text editor; the broken-source message; the size guard of criterion 10
   (the command checks the text size before running, so no unguarded command ever ships), with e2e

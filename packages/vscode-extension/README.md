@@ -13,6 +13,15 @@ file's comments, except those on members a transform removes. A file that does n
 repaired when it opens in CHR JSON Editor, or with "Repair JSON" in the text editor; the repair
 keeps comments and JSON5 values, and asks first when it cannot keep a comment.
 
+"Smart Format" (the text view's menu, between Format and Compact, or the command in either editor)
+lays the document out the way jsoneditoronline.org's Smart Format does: short arrays and objects stay
+on one line, similar objects line up as a table, and long arrays of short values wrap several items
+per line. Only white space, line breaks and trailing commas change: keys stay in their order, and
+every comment and JSON5 value is kept as written. It is one undoable edit, and it is off for
+documents above 5 MiB, where Format still works. Unlike the site, it never reorders keys to line up
+a table, keeps trailing commas on containers that stay on several lines (JSONC and JSON5), and
+writes an array one item per line when an item is wider than a whole line.
+
 The status bar shows the format the file was detected as (JSON, JSONC or JSON5). Click it, or run
 "Change Format", to parse the file as another format; this never changes the file.
 
@@ -48,3 +57,9 @@ exports as usual but offers no "Import CSV…" until "Edit anyway".
 Files open in the text editor by default. To open a file type in CHR JSON Editor every time, use
 "Reopen Editor With..." > "Configure default editor", or set VS Code's `workbench.editorAssociations`
 setting, for example `{ "*.json5": "chrJsonEditor.editor" }`.
+
+## Credits
+
+Inspired by [jsoneditoronline.org](https://jsoneditoronline.org) (not affiliated). Smart Format uses
+[FracturedJson](https://github.com/j-brooke/FracturedJsonJs) (`fracturedjsonjs`, MIT license), as
+jsoneditoronline.org does.

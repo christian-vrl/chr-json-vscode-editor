@@ -111,6 +111,13 @@ These are the corpus's reading of the spec, listed so a Reviewer can check each 
     take them with it (`move` keeps them before it, as written), `add` at its index inserts before
     them, and `sort` moves them with it. A block comment after a member's comma with a member after
     it on the line is the next member's, not part of the first one's same-line tail.
+12. **The unit of a document with a byte order mark** (R1, changed by 010 T2). A leading BOM is the
+    encoding mark, not indentation: R1's dominant unit is found from the lines after it. Before 010
+    T2, `detectIndent` read the BOM as one space, so a BOM'd JSON5 file got a 1-space unit for new
+    containers; now it gets its real unit (2 spaces for a document with no line break, R1). Every
+    002 case is unchanged; the smart-format `bom-*` cases and
+    `convert/json5-to-json/c6-root-byte-order-mark` cover it. Aligned documents are read the same
+    way as before: lines indented exactly level × unit decide first, then the most frequent increase.
 
 The corpus avoids details R1–R10 do not fix: a new container value inside a single-line container,
 removing the only member of a container, a new key that is not identifier-safe in JSON5, a string

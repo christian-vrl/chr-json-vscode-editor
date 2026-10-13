@@ -11,6 +11,7 @@ import {
 import type { Format } from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
+import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
 /** A document like VS Code's: each replacement bumps the version and fires a change event. */
@@ -244,6 +245,41 @@ describe('DocumentSync actions (003 T8)', () => {
     const doc = memoryDocument('{"a": +Infinity}', 'jsonc');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
     expect(doc.posted).toEqual([expect.objectContaining({ type: 'error', code: 'patch-failed' })]);
+  });
+});
+
+describe('DocumentSync smart format (010 T3)', () => {
+  const INPUT = '{\n  "a": [\n    1,\n    2\n  ], // two\n  "b": {"c": 3},\n}\n';
+
+  it('runs core smartFormat as one change, and answers an already formatted text without one', async () => {
+    const doc = memoryDocument(INPUT, 'jsonc');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [1, 2],  // two\n  "b": {"c": 3},\n}\n');
+    expect(doc.version).toBe(2);
+    await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.version).toBe(2);
+    expect(doc.posted.map((m) => m.type)).toEqual(['update', 'update']);
+  });
+
+  it("answers a document that does not parse with criterion 9's message", async () => {
+    const doc = memoryDocument('{"a": [1, 2,\n"b": 3}', 'json5');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.posted).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        code: 'patch-failed',
+        message: 'Smart Format needs valid JSON5. Fix the errors or run Repair JSON first.',
+      }),
+    ]);
+  });
+
+  it('refuses a JSON Lines document (spec 010 §Scope)', async () => {
+    const doc = memoryDocument('{"a": [\n1]}\n', 'jsonl');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{"a": [\n1]}\n');
+    expect(doc.posted).toEqual([
+      expect.objectContaining({ type: 'error', code: 'patch-failed', message: JSONL_MESSAGE }),
+    ]);
   });
 });
 
