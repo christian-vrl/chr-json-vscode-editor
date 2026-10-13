@@ -4,7 +4,12 @@
 // comment or value the target cannot hold is recorded as a loss. Layout and comments are kept
 // (UNK-033); `NaN` and `Infinity` become `null` (UNK-034). The readings of tests/golden/README.md
 // §Conversion corpus settle the details C1–C7 leave open.
+//
+// JSON Lines (spec 012 J1, J2; 012 T3): from JSON Lines, the items' value bytes go into an array
+// (J1); to JSON Lines, the source is converted to JSON as above and each item of its root array is
+// written on its own line, compact (J2).
 import { getAdapter } from './adapters.js';
+import { jsonlAdapter } from './jsonl-adapter.js';
 import { parseJson5 } from './json5-parser.js';
 import { isComment, Kind, tokenize, type Token } from './tokens.js';
 import type { Diagnostic, Format, FormatNode } from './types.js';
@@ -51,10 +56,12 @@ const JSON_NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
  * superset pair (and for `from === to`) the text comes back unchanged with no losses.
  */
 export function convert(text: string, from: Format, to: Format): ConvertResult {
-  // J1 and J2 (spec 012) come with 012 T3.
-  if (from !== to && (from === 'jsonl' || to === 'jsonl'))
-    throw new Error('Converting to or from JSON Lines is not available yet.');
+  if (from === 'jsonl') {
+    const items = readLines(text);
+    return { text: to === 'jsonl' ? text : arrayOf(text, items), losses: [] };
+  }
   const source = read(text, from);
+  if (to === 'jsonl') return lines(text, source, from === 'json');
   if (from === to || SUPERSETS[from].includes(to)) return { text, losses: [] };
   return new Converter(text, source, to === 'json').run();
 }
@@ -64,19 +71,77 @@ interface Source {
   tree: FormatNode | undefined;
   /** JSON5 tokens may need C1–C4; JSON and JSONC tokens are already valid JSON tokens. */
   json5: boolean;
+  /** Whether the root value is an array (J2). */
+  array: boolean;
 }
 
 function read(text: string, format: Format): Source {
   if (format === 'json5') {
-    const { tokens, tree, error } = parseJson5(text);
+    const { tokens, tree, data, error } = parseJson5(text);
     if (error) throw new ConvertError(error);
-    return { tokens, tree, json5: true };
+    return { tokens, tree, json5: true, array: Array.isArray(data) };
   }
-  const error = getAdapter(format)
-    .parse(text)
-    .diagnostics.find((d) => d.severity === 'error');
+  const { data, diagnostics } = getAdapter(format).parse(text);
+  const error = diagnostics.find((d) => d.severity === 'error');
   if (error) throw new ConvertError(error);
-  return { tokens: tokenize(text), tree: undefined, json5: false };
+  return { tokens: tokenize(text), tree: undefined, json5: false, array: Array.isArray(data) };
+}
+
+const BOM = '\uFEFF';
+
+/** A JSON Lines text's item nodes; a bad line is the error (spec 012 criterion 9, 006 criterion 7). */
+function readLines(text: string): readonly FormatNode[] {
+  const { tree, diagnostics } = jsonlAdapter.parse(text);
+  const error = diagnostics.find((d) => d.severity === 'error');
+  if (error) throw new ConvertError(error);
+  return tree!.children ?? [];
+}
+
+/** J1: `[` + eol + each item's value bytes indented by two spaces, joined by `,` + eol, then eol +
+ *  `]` + eol; `[]` + eol with no item. A leading BOM is kept. */
+function arrayOf(text: string, items: readonly FormatNode[]): string {
+  const { eol } = jsonlAdapter.parse(text).style;
+  const bom = text.startsWith(BOM) ? BOM : '';
+  if (items.length === 0) return `${bom}[]${eol}`;
+  const values = items.map((n) => `  ${text.slice(n.offset, n.offset + n.length)}`);
+  return `${bom}[${eol}${values.join(`,${eol}`)}${eol}]${eol}`;
+}
+
+/**
+ * J2: the source converted to JSON (C1–C7, whose losses are this conversion's), then each item of
+ * its root array on its own line, every token kept and no white space between tokens (002 R12),
+ * each line ended by the source's first line ending (`\n` when it has none; README JSON Lines
+ * conversion reading 1). An empty array gives an empty text.
+ */
+function lines(text: string, source: Source, json: boolean): ConvertResult {
+  if (!source.array)
+    throw new ConvertError({
+      severity: 'error',
+      message: 'JSON Lines needs an array at the root.',
+      offset: 0,
+      length: text.length,
+    });
+  const converted = json ? { text, losses: [] } : new Converter(text, source, true).run();
+  const tokens = json ? source.tokens : tokenize(converted.text);
+  const eol = /\r?\n/.exec(text)?.[0] ?? '\n';
+  let out = '';
+  let item = '';
+  let depth = 0;
+  for (const t of tokens) {
+    if (t.kind === Kind.Whitespace || t.kind === Kind.LineBreak) continue;
+    const opens = t.kind === Kind.OpenBracket || t.kind === Kind.OpenBrace;
+    const closes = t.kind === Kind.CloseBracket || t.kind === Kind.CloseBrace;
+    if (closes) depth--;
+    if (depth === 1 && t.kind === Kind.Comma) {
+      out += item + eol;
+      item = '';
+    } else if (depth >= 1) {
+      item += converted.text.slice(t.offset, t.end);
+    }
+    if (opens) depth++;
+  }
+  if (item !== '') out += item + eol;
+  return { text: out, losses: converted.losses };
 }
 
 /**

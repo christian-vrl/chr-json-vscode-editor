@@ -1,5 +1,5 @@
 {
-  "languages": ["javascript", "lodash"],
+  "languages": ["javascript", "lodash", "jsonpath-rfc9535"],
   "tags": [
     "filter",
     "sort",
@@ -39,7 +39,13 @@
     "missing-query",
     "chain-without-value",
     "bigint-result",
-    "cyclic-result"
+    "cyclic-result",
+    "sort-refused",
+    "multi-pick-refused",
+    "type-error",
+    "unknown-function",
+    "too-deep",
+    "goessner-only"
   ],
   "wizard": ["filter", "sort", "pick"],
   "lodashOnly": ["chain-without-value"],
@@ -63,5 +69,35 @@
     "cyclic-result",
     "date-result",
     "function-result"
+  ],
+  "rfc9535": [
+    "filter",
+    "pick",
+    "sort-refused",
+    "multi-pick-refused",
+    "child",
+    "wildcard",
+    "descendant",
+    "index",
+    "slice",
+    "union",
+    "function-length",
+    "function-count",
+    "function-match",
+    "function-search",
+    "function-value",
+    "nested-root",
+    "empty-result",
+    "syntax-error",
+    "type-error",
+    "unknown-function",
+    "bracket-name",
+    "proto-key",
+    "minus-zero",
+    "nan",
+    "infinity",
+    "deep",
+    "too-deep",
+    "goessner-only"
   ]
 }

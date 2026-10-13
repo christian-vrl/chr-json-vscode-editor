@@ -1,0 +1,9 @@
+{
+  "language": "jsonpath-rfc9535",
+  "tags": ["multi-pick-refused"],
+  "wizard": {
+    "projection": {
+      "paths": [["name"], ["age"]]
+    }
+  }
+}

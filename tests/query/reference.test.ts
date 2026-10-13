@@ -2,18 +2,27 @@
 // Q2 tag, the library's own `executeQuery` gives expected.json5's data, key order checked. Error
 // cases without a Q2 tag make the reference throw too, with error.json's text unless the case says
 // the text is the engine's own wording. The engine half (`runQuery`) is 011 T3's.
+//
+// JSONPath (RFC 9535) cases (014 T1) have no reference engine here (the engine is 014 T2's); two
+// checks tie them to the library's JSONPath (Goessner): each wizard case gives the same data there
+// (014 P7: the wizard text means the same in both), and each `goessner-only` query runs there.
 import { describe, expect, it } from 'vitest';
 import {
   caseData,
   caseExpected,
+  goessnerQuery,
   hasQ2Tag,
+  isRfc9535Case,
   loadQueryCases,
   orderedEqual,
   pointerGet,
+  quickJsCases,
   referenceQuery,
 } from './query.js';
 
-const cases = loadQueryCases().filter((c) => !hasQ2Tag(c));
+const all = loadQueryCases();
+const cases = quickJsCases(all).filter((c) => !hasQ2Tag(c));
+const rfc9535 = all.filter(isRfc9535Case);
 
 describe('query corpus against the reference (spec 011 criterion 1)', () => {
   it.each(cases.filter((c) => c.error === undefined).map((c) => [c.name, c] as const))(
@@ -33,6 +42,23 @@ describe('query corpus against the reference (spec 011 criterion 1)', () => {
       );
     },
   );
+});
+
+describe('JSONPath (RFC 9535) corpus against JSONPath (Goessner) (spec 014 P7)', () => {
+  it.each(
+    rfc9535
+      .filter((c) => c.meta.wizard !== undefined && c.error === undefined)
+      .map((c) => [c.name, c] as const),
+  )('%s: the wizard text gives expected in Goessner too', (_name, c) => {
+    const result = goessnerQuery(caseData(c), c.query);
+    expect(orderedEqual(result, caseExpected(c))).toBe(true);
+  });
+
+  it.each(
+    rfc9535.filter((c) => c.meta.tags.includes('goessner-only')).map((c) => [c.name, c] as const),
+  )('%s: Goessner accepts the query', (_name, c) => {
+    expect(() => goessnerQuery(caseData(c), c.query)).not.toThrow();
+  });
 });
 
 describe('query corpus helpers', () => {

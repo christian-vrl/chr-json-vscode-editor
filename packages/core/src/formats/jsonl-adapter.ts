@@ -32,10 +32,10 @@ const BOM = '﻿';
 /** L8's message for a root that would not be an array. */
 const NOT_AN_ARRAY = 'A JSON Lines document holds an array of items.';
 
-type Ending = '' | '\n' | '\r\n';
+export type Ending = '' | '\n' | '\r\n';
 
 /** A line (§Terms): its text without its ending, and what it holds. */
-interface Line {
+export interface Line {
   /** On the first line, without the leading BOM. */
   readonly text: string;
   readonly ending: Ending;
@@ -47,7 +47,7 @@ interface Line {
 const UNREAD = Symbol('unread');
 
 /** A text as lines; `bom` is the leading BOM, or `''`. */
-interface Lines {
+export interface Lines {
   readonly bom: string;
   readonly lines: readonly Line[];
 }
@@ -57,7 +57,7 @@ const badLine = (number: number) => `Line ${number} is not valid JSON.`;
 
 /** What a line holds. `JSON.parse` reads exactly one RFC 8259 value and allows white space around
  *  it; a line has no LF, and a CR in it (a lone CR) makes it bad (§Terms). */
-function classify(text: string): Pick<Line, 'kind' | 'data'> {
+export function classify(text: string): Pick<Line, 'kind' | 'data'> {
   if (/^[ \t]*$/.test(text)) return { kind: 'blank' };
   if (text.includes('\r')) return { kind: 'bad' };
   try {
@@ -67,7 +67,7 @@ function classify(text: string): Pick<Line, 'kind' | 'data'> {
   }
 }
 
-function split(text: string): Lines {
+export function split(text: string): Lines {
   const bom = text.startsWith(BOM) ? BOM : '';
   const lines: Line[] = [];
   let start = bom.length;

@@ -1,5 +1,7 @@
 // Bundles the extension host code (001 T5): one CommonJS file for VS Code's Node runtime, with
-// `vscode` left external because the editor provides it. Also bundles the webview script (003 T5).
+// `vscode` left external because the editor provides it, and the same code again for the web worker
+// extension host of vscode.dev and github.dev (spec 013 T1, esbuild.web.mjs). Also bundles the
+// webview script (003 T5).
 //
 // CHR_TEST_HOOKS=1 builds the e2e variant (spec 003 §Acceptance criterion: the test-only hook is
 // compiled out of release builds): `__CHR_TEST_HOOKS__` becomes true and `activate` returns
@@ -8,6 +10,7 @@ import { build } from 'esbuild';
 import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { browserEntryOptions } from './esbuild.web.mjs';
 
 const testHooks = process.env.CHR_TEST_HOOKS === '1';
 if (testHooks) console.log('esbuild: CHR_TEST_HOOKS=1, building with e2e test hooks');
@@ -35,6 +38,9 @@ await build({
   minifySyntax: true,
   logLevel: 'info',
 });
+
+// The browser entry (spec 013 T1): dist/web/extension.js, the manifest's `browser`.
+await build(browserEntryOptions({ testHooks }));
 
 // The webview script (003 T5): app-shell's library build (dist/lib, Svelte and vanilla-jsoneditor
 // included) under a VscodeHostAdapter. One classic script, so the page loads it with the nonce like
