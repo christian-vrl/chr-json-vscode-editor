@@ -92,6 +92,21 @@
         "command": "chrJsonEditor.compareWithHead",
         "title": "Compare with HEAD",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.exportCsv",
+        "title": "Export to CSV…",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.importCsv",
+        "title": "Import CSV…",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.convertCsvToJson",
+        "title": "Convert CSV to JSON",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -135,6 +150,18 @@
         {
           "command": "chrJsonEditor.compareWithHead",
           "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
+        },
+        {
+          "command": "chrJsonEditor.exportCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+        },
+        {
+          "command": "chrJsonEditor.importCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor"
+        },
+        {
+          "command": "chrJsonEditor.convertCsvToJson",
+          "when": "resourceExtname =~ /^\\.csv$/i && activeEditor == workbench.editors.files.textFileEditor"
         }
       ],
       "editor/title": [
@@ -162,6 +189,21 @@
           "command": "chrJsonEditor.convertToJson5",
           "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)",
           "group": "1_convert@3"
+        },
+        {
+          "command": "chrJsonEditor.exportCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "group": "2_csv@1"
+        },
+        {
+          "command": "chrJsonEditor.importCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor",
+          "group": "2_csv@2"
+        },
+        {
+          "command": "chrJsonEditor.convertCsvToJson",
+          "when": "resourceExtname =~ /^\\.csv$/i && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "2_csv@3"
         }
       ],
       "editor/title/context": [
@@ -196,6 +238,11 @@
           "command": "chrJsonEditor.compareWithHead",
           "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
           "group": "3_compare@22"
+        },
+        {
+          "command": "chrJsonEditor.convertCsvToJson",
+          "when": "resourceExtname =~ /^\\.csv$/i && !explorerResourceIsFolder && !listMultiSelection",
+          "group": "navigation@21"
         }
       ]
     }

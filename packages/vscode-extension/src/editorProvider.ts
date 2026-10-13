@@ -103,6 +103,8 @@ interface Session {
   ready: boolean;
   /** `flush` requests waiting for the webview's `flushed`, by request number (003 T7). */
   flushes: Map<number, () => void>;
+  /** `getRowSource` requests waiting for the webview's `rowSource`, by request number (009 T4). */
+  rowSources: Map<number, (path: string) => void>;
   /** Large-file mode, chosen when the tab opened (spec 008); null for the normal editor. */
   largeFile: LargeFile | null;
 }
@@ -120,6 +122,10 @@ function isLocked(session: { largeFile: LargeFile | null }): boolean {
  */
 const FLUSH_TIMEOUT_MS = 1500;
 let nextFlush = 1;
+
+/** How long "Export to CSV…" waits for the webview to name its row source (spec 009 criterion 7)
+ *  before it exports the document's data instead. */
+const ROW_SOURCE_TIMEOUT_MS = 1000;
 
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Filled only when `__CHR_TEST_HOOKS__` is true. */
@@ -220,6 +226,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       panel,
       ready: false,
       flushes: new Map(),
+      rowSources: new Map(),
       largeFile,
       validation,
       schema,
@@ -332,6 +339,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       settings.dispose();
       viewState.dispose();
       for (const resolve of session.flushes.values()) resolve();
+      for (const resolve of session.rowSources.values()) resolve('');
       session.schema.dispose();
       session.validation.dispose();
       this.sessions.delete(panel);
@@ -395,6 +403,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         session.flushes.get(message.request)?.();
         session.flushes.delete(message.request);
         return;
+      case 'rowSource':
+        session.rowSources.get(message.request)?.(message.path);
+        session.rowSources.delete(message.request);
+        return;
       case 'openAsText':
         // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open.
         void vscode.commands.executeCommand('chrJsonEditor.reopenAsText', document.uri);
@@ -434,6 +446,36 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         protocol: PROTOCOL_VERSION,
         type: 'flush',
         docVersion: session.document.version,
+        request,
+      });
+    });
+  }
+
+  /**
+   * What "Export to CSV…" exports from `document`'s CHR JSON Editor tab (spec 009 criterion 7): the
+   * JSON Pointer its webview names (the array table mode shows, the one value tree mode has
+   * selected), or `''` for the document's data. Asks the active tab showing the document, else a
+   * visible one; with none, or no answer in ROW_SOURCE_TIMEOUT_MS, the answer is `''`.
+   */
+  rowSource(document: vscode.TextDocument): Promise<string> {
+    const shown = [...this.sessions.values()].filter(
+      (s) => s.document === document && s.ready && s.panel.visible,
+    );
+    const session = shown.find((s) => s.panel.active) ?? shown[0];
+    if (!session) return Promise.resolve('');
+    const request = nextFlush++;
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => done(''), ROW_SOURCE_TIMEOUT_MS);
+      function done(path: string) {
+        clearTimeout(timer);
+        session!.rowSources.delete(request);
+        resolve(path);
+      }
+      session.rowSources.set(request, done);
+      this.post(session, {
+        protocol: PROTOCOL_VERSION,
+        type: 'getRowSource',
+        docVersion: document.version,
         request,
       });
     });
@@ -600,6 +642,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return false;
     void session.panel.webview.postMessage({ chrTest: 'patch', patch });
+    return true;
+  }
+
+  /** Test hook: selects the node at JSON Pointer `path` in the tree of `uri`'s webview, as a click
+   *  on its row would (009 T4). */
+  select(uri: string, path: string): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'select', path });
     return true;
   }
 

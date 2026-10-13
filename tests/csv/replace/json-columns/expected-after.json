@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Ada",
+    "city": "London",
+    "address": {
+      "zip": "NW1"
+    }
+  }
+]

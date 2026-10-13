@@ -15,6 +15,9 @@ export interface AppHandle extends Disposable {
   content(): { text: string } | { json: unknown } | undefined;
   /** Every change was answered and the editor shows the document (e2e test hooks, benchmark). */
   settled(): boolean;
+  /** Selects the node at JSON Pointer `path` in tree mode, as a click on its row does (e2e test
+   *  hooks). */
+  select(path: string): void;
 }
 
 /** What a host adds to the editor beyond its HostAdapter. */

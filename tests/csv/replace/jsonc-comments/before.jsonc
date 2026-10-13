@@ -1,0 +1,8 @@
+// people we know
+[
+  // the first
+  { "name": "Ada", "year": 1843 }, // math
+  /* second */
+  { "name": "Grace", "year": 1959 },
+  { "name": "Linus", "year": 1991 }
+]
