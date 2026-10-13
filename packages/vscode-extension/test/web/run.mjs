@@ -81,9 +81,11 @@ try {
   // A fresh copy each run: the web e2e edits and saves fixtures (013 T4).
   const workspace = path.join(work, 'workspace');
   mkdirSync(workspace);
-  cpSync(path.join(repo, 'tests', 'e2e', 'fixtures', 'open'), path.join(workspace, 'open'), {
-    recursive: true,
-  });
+  for (const fixtures of ['open', 'smart-format']) {
+    cpSync(path.join(repo, 'tests', 'e2e', 'fixtures', fixtures), path.join(workspace, fixtures), {
+      recursive: true,
+    });
+  }
 
   if (process.env.VSCODE_EXECUTABLE_PATH) {
     const { runTests } = await import('@vscode/test-electron');

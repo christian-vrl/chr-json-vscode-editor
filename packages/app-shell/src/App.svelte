@@ -205,8 +205,29 @@
       });
   }
 
-  /** The library's buttons for whole-document actions (003 T8), hidden on a locked large file. */
-  const ACTION_BUTTONS = ['jse-format', 'jse-compact', 'jse-sort', 'jse-transform'];
+  /** Text mode's "Smart format" button (spec 010 criterion 7), added next to the library's Format. */
+  const SMART_FORMAT_CLASS = 'chr-smart-format';
+  /** Its icon: rows of short items lined up in columns, in Font Awesome's shape (the library draws
+   *  menu icons from these). */
+  const SMART_FORMAT_ICON = {
+    prefix: 'fas',
+    iconName: 'table-cells',
+    icon: [
+      448,
+      512,
+      [],
+      '',
+      'M0 96h192v64H0zM256 96h192v64H256zM64 224h128v64H64zM256 224h192v64H256zM64 352h128v64H64zM256 352h192v64H256z',
+    ],
+  } as unknown as NonNullable<Extract<MenuItem, { type: 'button' }>['icon']>;
+  /** The buttons for whole-document actions (003 T8), hidden on a locked large file. */
+  const ACTION_BUTTONS = [
+    'jse-format',
+    SMART_FORMAT_CLASS,
+    'jse-compact',
+    'jse-sort',
+    'jse-transform',
+  ];
   /** The modes large-file mode offers (spec 008 criterion 2). */
   const LARGE_FILE_MODES: readonly Mode[] = ['tree', 'table'];
   /** The modes JSON Lines offers, Table first (spec 012 criterion 6). */
@@ -323,7 +344,8 @@
     };
   });
 
-  /** Runs a whole-document action in the host (003 T8): format, compact or repair. */
+  /** Runs a whole-document action in the host (003 T8): format, smart format (spec 010), compact or
+   *  repair. */
   export function runAction(name: Exclude<DocumentAction['name'], 'sort'>): void {
     if (!editor) return;
     flushText();
@@ -350,11 +372,26 @@
     }
     if (locked && !context.modal) return routed.filter((item) => !isActionButton(item));
     if (context.modal || context.readOnly) return routed;
-    return routed.map((item) => {
+    return routed.flatMap((item): MenuItem | MenuItem[] => {
       if (item.type !== 'button') return item;
       switch (item.className) {
-        case 'jse-format':
-          return { ...item, onClick: () => runAction('format') };
+        case 'jse-format': {
+          const formatItem = { ...item, onClick: () => runAction('format') };
+          // Spec 010 criterion 7: "Smart format" between Format and Compact, in text mode only,
+          // and not for JSON Lines (spec 010 §Scope).
+          if (context.mode !== 'text' || format === 'jsonl') return formatItem;
+          return [
+            formatItem,
+            {
+              type: 'button',
+              icon: SMART_FORMAT_ICON,
+              title: 'Smart format: keep short arrays and objects on one line',
+              className: SMART_FORMAT_CLASS,
+              onClick: () => runAction('smartFormat'),
+              disabled: item.disabled,
+            },
+          ];
+        }
         case 'jse-compact':
           return { ...item, onClick: () => runAction('compact') };
         case 'jse-sort':
