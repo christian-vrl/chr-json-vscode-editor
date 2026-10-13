@@ -25,6 +25,9 @@
     "chrJsonEditor.convertToJson5": {
       "test": "Convert to JSON, JSONC and JSON5 write a new file beside the document, asking before losses"
     },
+    "chrJsonEditor.convertToJsonl": {
+      "test": "Convert to JSON Lines writes one item per line, and JSON Lines converts back"
+    },
     "chrJsonEditor.compareWith": {
       "test": "Compare With… opens the compare panel of JSONC against JSON5"
     },
