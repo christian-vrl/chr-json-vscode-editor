@@ -3,8 +3,15 @@
 // (`runQuery`: a fresh QuickJS runtime, Lodash loaded for Lodash, the data copied in, the query,
 // the result copied out) beside the reference (the library's own `executeQuery` of the same
 // language on the same data, in Node, where `new Function` is allowed). Each result is checked
-// against the reference's. Writes the raw results as JSON; `bench/core/report.mjs` adds them to
-// bench/RESULTS.md.
+// against the reference's.
+//
+// Also (014 T4, spec 014 criterion 10) the JSONPath bench queries (bench/query/jsonpath-*.jsonpath:
+// a filter, a descendant search, a filter with `match` and a pick) at the same sizes in JSONPath
+// (RFC 9535) (`executeJsonpathRfc9535`, json-p3 as the Transform dialog runs it) beside JSONPath
+// (Goessner) (the library's `jsonpathQueryLanguage.executeQuery`, jsonpath-plus), each result
+// checked against the other's. Goessner has no `match`: its query for that one is the same filter
+// with a script regular expression (JSONPATH_GOESSNER). Writes the raw results as JSON;
+// `bench/core/report.mjs` adds them to bench/RESULTS.md.
 //
 // app-shell's TypeScript sources (and engine.ts's `?raw` import of Lodash) are loaded through Vite's
 // SSR module loader, as Vitest loads them for the unit tests; nothing needs building. Run with
@@ -27,6 +34,16 @@ export const QUERIES = [
   { id: 'filter-map', language: 'javascript' },
   { id: 'filter-orderBy-map', language: 'lodash' },
 ];
+/** Spec 014 criterion 10's bench queries, in bench/query/<id>.jsonpath (RFC 9535 text). */
+export const JSONPATH_QUERIES = [
+  'jsonpath-filter',
+  'jsonpath-descendant',
+  'jsonpath-match',
+  'jsonpath-pick',
+];
+/** Goessner's text where RFC 9535's is not Goessner JSONPath: `match` is RFC 9535's own function,
+ *  a full match, so Goessner gets an anchored script regular expression for the same records. */
+export const JSONPATH_GOESSNER = { 'jsonpath-match': '$[?(@.name.match(/^alpha-.*$/))]' };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const [out, ...sizeArgs] = process.argv.slice(2);
@@ -49,6 +66,7 @@ const server = await createServer({
 
 try {
   const { loadQueryEngine, runQuery } = await server.ssrLoadModule('/src/query/run-query.ts');
+  const { executeJsonpathRfc9535 } = await server.ssrLoadModule('/src/query/jsonpath-rfc9535.ts');
   const library = await server.ssrLoadModule('vanilla-jsoneditor');
   const reference = {
     javascript: library.javascriptQueryLanguage,
@@ -64,6 +82,17 @@ try {
     text: readFileSync(path.join(here, `${q.id}.js`), 'utf8'),
   }));
 
+  const jsonpathQueries = JSONPATH_QUERIES.map((id) => {
+    const rfc9535 = readFileSync(path.join(here, `${id}.jsonpath`), 'utf8').trim();
+    return {
+      id,
+      file: `bench/query/${id}.jsonpath`,
+      rfc9535,
+      goessner: JSONPATH_GOESSNER[id] ?? rfc9535,
+    };
+  });
+  const goessner = library.jsonpathQueryLanguage;
+
   const time = (fn) => {
     gc();
     const start = performance.now();
@@ -77,8 +106,13 @@ try {
     runQuery(q.language, small, q.text);
     reference[q.language].executeQuery(small, q.text, JSON);
   }
+  for (const q of jsonpathQueries) {
+    executeJsonpathRfc9535(small, q.rfc9535);
+    goessner.executeQuery(small, q.goessner, JSON);
+  }
 
   const results = [];
+  const jsonpath = [];
   for (const mib of sizes) {
     const text = documentText(mib * MIB);
     const data = JSON.parse(text);
@@ -112,12 +146,44 @@ try {
           `reference ${ref.map(Math.round).join(', ')} ms; same result: ${same}`,
       );
     }
+    for (const q of jsonpathQueries) {
+      const rfc = [];
+      const old = [];
+      let same = true;
+      let items = 0;
+      for (let run = 0; run < RUNS; run++) {
+        const r = time(() => executeJsonpathRfc9535(data, q.rfc9535));
+        const g = time(() => goessner.executeQuery(data, q.goessner, JSON));
+        rfc.push(r.ms);
+        old.push(g.ms);
+        same &&= isDeepStrictEqual(r.result, g.result);
+        items = r.result.length;
+      }
+      jsonpath.push({
+        mib,
+        bytes: Buffer.byteLength(text),
+        records: data.length,
+        query: q.id,
+        file: q.file,
+        rfc9535Query: q.rfc9535,
+        goessnerQuery: q.goessner,
+        items,
+        rfc9535: rfc,
+        goessner: old,
+        same,
+      });
+      console.log(
+        `${mib} MiB ${q.id}: RFC 9535 ${rfc.map(Math.round).join(', ')} ms; ` +
+          `Goessner ${old.map(Math.round).join(', ')} ms; same result: ${same}`,
+      );
+    }
   }
 
   mkdirSync(path.dirname(path.resolve(out)), { recursive: true });
   writeFileSync(
     out,
-    JSON.stringify({ node: process.version, runs: RUNS, compileMs, results }, null, 2) + '\n',
+    JSON.stringify({ node: process.version, runs: RUNS, compileMs, results, jsonpath }, null, 2) +
+      '\n',
   );
 } finally {
   await server.close();

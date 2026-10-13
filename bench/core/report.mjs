@@ -1,5 +1,6 @@
 // Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
-// spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12) from
+// spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 014 T4,
+// spec 014 criterion 10) from
 // `bench/core/run.mjs`'s raw results and, when given, `bench/query/run.mjs`'s.
 // Every number in the report comes from that file; the text around them says what each one covers.
 //
@@ -20,6 +21,9 @@ const queries = queryFile ? JSON.parse(readFileSync(queryFile, 'utf8')) : undefi
 
 // Spec 011 criterion 12: above this at 5 MiB, an UNKNOWN goes to the owner.
 const QUERY_LIMIT_MS = 2500;
+// Spec 014 criterion 10: a JSONPath (RFC 9535) bench query over this at 5 MiB on the CI runner
+// sends an UNKNOWN to the owner.
+const JSONPATH_LIMIT_MS = 1000;
 
 // UNK-014's evidence rule for one edit; applyPatch is only the host's share of it.
 const EDIT_LIMIT_MS = 500;
@@ -58,7 +62,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ' and spec 011 criterion 12' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? `, spec 011 criterion 12${queries.jsonpath ? ' and spec 014 criterion 10' : ''}` : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
   `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''} changes speed.`,
   '',
   '## Run',
@@ -275,6 +279,54 @@ if (queries) {
   );
 }
 
+if (queries?.jsonpath) {
+  const sizes = [...new Set(queries.jsonpath.map((r) => r.mib))];
+  const judgedRows = queries.jsonpath.filter((r) => r.mib === 5);
+  const over = judgedRows.filter((r) => median(r.rfc9535) > JSONPATH_LIMIT_MS);
+  add(
+    '',
+    '## Spec 014 criterion 10: JSONPath queries',
+    '',
+    'Each bench query in JSONPath (RFC 9535) (`executeJsonpathRfc9535` from',
+    '`packages/app-shell/src/query/jsonpath-rfc9535.ts`: json-p3 2.3.2, as the Transform dialog runs it)',
+    "beside JSONPath (Goessner) (the library's `jsonpathQueryLanguage.executeQuery`, jsonpath-plus), in",
+    "the same Node process as the queries above, on the same data already in memory: `bench/generate.mjs`'s",
+    'JSON files at ' +
+      sizes.map((m) => `${m} MiB`).join(' and ') +
+      `, parsed once. Heap collected before every timed call; ${queries.runs} runs per cell after a warm-up on a`,
+    '256 KiB document; each cell is **median** (runs), in milliseconds. "Same result" compares the two',
+    "languages' results with `isDeepStrictEqual`.",
+    '',
+    '- **jsonpath-filter** (`bench/query/jsonpath-filter.jsonpath`): a filter on two fields.',
+    '- **jsonpath-descendant** (`bench/query/jsonpath-descendant.jsonpath`): a descendant search for',
+    '  one key.',
+    '- **jsonpath-match** (`bench/query/jsonpath-match.jsonpath`): a filter with `match`; Goessner has',
+    '  no `match`, so its query is the same filter with an anchored script regular expression.',
+    '- **jsonpath-pick** (`bench/query/jsonpath-pick.jsonpath`): one field of every record.',
+    '',
+    '| Size | Query | RFC 9535 query | Goessner query | Result items | RFC 9535 | Goessner | RFC 9535 ÷ Goessner | Same result | RFC 9535 within 1 s |',
+    '|---|---|---|---|---|---|---|---|---|---|',
+  );
+  const code = (text) => `\`${text.replaceAll('|', '\\|')}\``;
+  for (const r of queries.jsonpath) {
+    const rfc = median(r.rfc9535);
+    const judged = r.mib === 5;
+    add(
+      `| ${r.mib} MiB | ${r.query} | ${code(r.rfc9535Query)} | ${code(r.goessnerQuery)} | ${r.items.toLocaleString('en-US')} | ${cell(r.rfc9535)} | ${cell(r.goessner)} | ${(rfc / Math.max(median(r.goessner), 0.1)).toFixed(1)}× | ${r.same ? 'yes' : '**no**'} | ${judged ? (rfc <= JSONPATH_LIMIT_MS ? 'yes' : '**no**') : 'not judged'} |`,
+    );
+  }
+  add(
+    '',
+    judgedRows.length === 0
+      ? 'Verdict: not judged (this run has no 5 MiB cell).'
+      : !runUrl
+        ? `Verdict: not judged (not the CI runner); at 5 MiB every JSONPath (RFC 9535) median is ${over.length ? '**not** ' : ''}at most ${ms(JSONPATH_LIMIT_MS)} ms on this machine.`
+        : over.length
+          ? `Verdict: **${over.map((r) => r.query).join(', ')} at 5 MiB take${over.length === 1 ? 's' : ''} more than 1 s in JSONPath (RFC 9535)**; criterion 10 asks for an owner UNKNOWN before 014 T4 merges.`
+          : 'Verdict: every JSONPath (RFC 9535) bench query at 5 MiB takes at most 1 s in this run (criterion 10).',
+  );
+}
+
 add(
   '',
   '## Spec 010 criterion 11: smart format',
@@ -345,7 +397,7 @@ add(
   '',
   'To reproduce: `pnpm --filter @chr-json-editor/core build`, then',
   '`pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`),',
-  'which also runs the query benchmark (`bench/query/run.mjs`).',
+  'which also runs the query benchmarks (`bench/query/run.mjs`).',
 );
 
 writeFileSync(out, lines.join('\n') + '\n');

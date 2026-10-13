@@ -1,17 +1,18 @@
-// Spec 011 criterion 11 (011 T6, UNK-049 ★) on the standalone page: above 5 MiB, measured as the
-// document text's UTF-8 length when the Transform dialog opens, the dialog leaves JavaScript and
-// Lodash out and does not load their engine; at or below it every language is listed. The size is
-// the text's now, not the size the tab opened with: an unlocked large-file tab whose text shrank
-// lists them again, and a normal tab whose text grew past the threshold does not. The page's host
-// sends the text (`externalChange`), as another editor would; the e2e suite (queryLargeFile.cjs)
-// proves the same in VS Code on 008's 6 MiB fixture.
+// Spec 011 criterion 11 (011 T6, UNK-049 ★) and spec 014 criterion 8 (014 T4, UNK-065 ★) on the
+// standalone page: above 5 MiB, measured as the document text's UTF-8 length when the Transform
+// dialog opens, the dialog leaves JavaScript, Lodash and JSONPath (RFC 9535) out and does not load
+// the JavaScript engine; at or below it every language is listed. The size is the text's now, not
+// the size the tab opened with: an unlocked large-file tab whose text shrank lists them again, and a
+// normal tab whose text grew past the threshold does not. The page's host sends the text
+// (`externalChange`), as another editor would; the e2e suite (queryLargeFile.cjs) proves the same
+// in VS Code on 008's 6 MiB fixture.
 /// <reference lib="dom" />
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 
 const LIMIT = 5 * 2 ** 20;
 const SIX_MIB = 6 * 2 ** 20;
-const GATED = ['JavaScript', 'Lodash'];
+const GATED = ['JavaScript', 'Lodash', 'JSONPath (RFC 9535)'];
 
 const modal = (page: Page) => page.locator('dialog.jse-transform-modal');
 
@@ -108,7 +109,7 @@ test('a large-file tab unlocked lists no engine language and loads no engine unt
   await expect(page.locator('.jse-tree-mode')).toContainText('COBOL');
   await setText(page, arrayText(SIX_MIB, 'six'), 'six');
   const { listed } = await languages(page);
-  expect(listed).toEqual(expect.arrayContaining(['JSONQuery', 'JMESPath']));
+  expect(listed).toEqual(expect.arrayContaining(['JSONQuery', 'JMESPath', 'JSONPath (Goessner)']));
   expect(listed.filter((name) => GATED.includes(name))).toEqual([]);
   expect(await engineMarks(page)).toEqual([]);
 
