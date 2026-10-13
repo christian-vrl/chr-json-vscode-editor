@@ -184,7 +184,8 @@ test.describe('criterion 10: the engine loads when Transform first opens', () =>
 });
 
 test.describe('criterion 8: languages and wizard', () => {
-  test('the dialog lists the five languages in order, JSONQuery first', async ({ page }) => {
+  // The order is spec 014 criterion 5's amendment of criterion 8 (014 T3).
+  test('the dialog lists the six languages in order, JSONQuery first', async ({ page }) => {
     await open(page);
     await openTransform(page);
     await expect(modal(page).locator('.jse-description a').first()).toHaveAttribute(
@@ -195,6 +196,7 @@ test.describe('criterion 8: languages and wizard', () => {
     await expect(page.locator('.jse-query-language')).toHaveText([
       'JSONQuery',
       'JMESPath',
+      'JSONPath (RFC 9535)',
       'JSONPath (Goessner)',
       'JavaScript',
       'Lodash',

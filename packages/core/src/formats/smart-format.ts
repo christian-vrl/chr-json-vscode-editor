@@ -10,6 +10,13 @@
 //   container that had one and whose closing bracket is on its own line;
 // - criterion 6: a compact array with an item wider than its line is written expanded instead.
 // The rest (L1, L2: indent, line endings, final newline, BOM) comes from the document's `Style`.
+//
+// fracturedjsonjs is pinned to exactly 5.1.0 (packages/core/package.json, spec 010 criterion 12),
+// and must stay so: besides being the golden corpus's contract, this file overrides private
+// `Formatter` methods (DivideContainerIntoSegments, FormatContainerInline,
+// FormatContainerCompactMultiline, FormatTopLevel) and reads its private `_buffer` and `_pads`, none
+// of which a new version promises to keep. A bump re-checks every override and regenerates and
+// re-reviews the corpus; test/smart-format-pin.test.ts fails until then.
 import { CommentPolicy, EolStyle, Formatter, FracturedJsonOptions } from 'fracturedjsonjs';
 import type { JsonItem } from 'fracturedjsonjs/dist/JsonItem.js';
 import { JsonItemType as ItemType } from 'fracturedjsonjs/dist/JsonItemType.js';
@@ -23,15 +30,15 @@ import { parseJson5 } from './json5-parser.js';
 import { isComment, Kind, type Token } from './tokens.js';
 import { PatchError, type Format } from './types.js';
 
+/** The formats smart format lays out (spec 010 §Scope): not JSON Lines. */
+export type SmartFormatFormat = Exclude<Format, 'jsonl'>;
+
 /**
  * `text` laid out by FracturedJson 5.1.0 with spec 010 §Layout's options, changing only white space,
  * line breaks and commas (criterion 3). Throws a `PatchError` when the text has a parse `error`
  * diagnostic (criterion 9); a text with no value (empty, white space or comments only) comes back
  * unchanged (criterion 5).
  */
-/** The formats smart format lays out (spec 010 §Scope): not JSON Lines. */
-export type SmartFormatFormat = Exclude<Format, 'jsonl'>;
-
 export function smartFormat(text: string, format: SmartFormatFormat): string {
   const bom = text.startsWith('\uFEFF') ? '\uFEFF' : '';
   const body = text.slice(bom.length);
