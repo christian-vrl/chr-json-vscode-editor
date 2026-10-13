@@ -1,0 +1,5 @@
+{
+  "language": "Lodash",
+  "mode": "tree",
+  "query": "function query (data) {\n  return _.omit(data, ['team'])\n}"
+}

@@ -7,7 +7,7 @@
 //   block comment's later lines; json output parses with `JSON.parse` when the input did.
 // - L6 (UNK-046): a container in expected ends with a trailing comma exactly when the same
 //   container (by order of its opening bracket) had one in the input and is written on several
-//   lines; never in json.
+//   lines, its closing bracket starting a line (README reading 7); never in json.
 // - Criterion 5 and L1, L2: a BOM exactly when the input has one; every line break is the input's;
 //   a final line break exactly when the input has one; every line's indentation is made of the
 //   input's indent unit (2 spaces for a one-line input), then only the spaces that right-align a
@@ -90,24 +90,27 @@ const kept = (tokens: Token[]) =>
     );
 
 /** Per container, in order of its opening bracket: whether it ends with a trailing comma, and
- *  whether it spans more than one line. */
+ *  whether it is written on several lines: its closing bracket starts a line (README reading 7). */
 function containers(tokens: Token[]): { trailing: boolean; multiLine: boolean }[] {
-  const found: { trailing: boolean; multiLine: boolean; line: number }[] = [];
+  const found: { trailing: boolean; multiLine: boolean }[] = [];
   const open: number[] = [];
   let previous: Token | undefined;
+  let lineStart = true;
   for (const t of tokens) {
-    if (isTrivia(t)) continue;
+    if (t.kind === 'eol') lineStart = true;
+    if (t.kind === 'space' || t.kind === 'eol') continue;
     if (t.text === '{' || t.text === '[') {
       open.push(found.length);
-      found.push({ trailing: false, multiLine: false, line: t.line });
+      found.push({ trailing: false, multiLine: false });
     } else if (t.text === '}' || t.text === ']') {
       const c = found[open.pop()!]!;
       c.trailing = previous?.text === ',';
-      c.multiLine = t.line !== c.line;
+      c.multiLine = lineStart;
     }
-    previous = t;
+    lineStart = false;
+    if (!isComment(t)) previous = t;
   }
-  return found.map(({ trailing, multiLine }) => ({ trailing, multiLine }));
+  return found;
 }
 
 /** Lines of `text` (BOM left out) with the token kinds that start on each. */

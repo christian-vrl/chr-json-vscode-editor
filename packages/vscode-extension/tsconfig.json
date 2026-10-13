@@ -12,7 +12,8 @@
     "resolveJsonModule": true,
     "paths": {
       "@chr-json-editor/core": ["../core/src/index.ts"],
-      "@chr-json-editor/app-shell/protocol": ["../app-shell/src/protocol.ts"]
+      "@chr-json-editor/app-shell/protocol": ["../app-shell/src/protocol.ts"],
+      "@chr-json-editor/app-shell/csv-preview": ["../app-shell/src/csv-preview.ts"]
     }
   },
   "include": ["src"],

@@ -1,0 +1,5 @@
+{
+  "language": "Lodash",
+  "mode": "text",
+  "query": "function query (data) {\n  return _.filter(data, 'active')\n}"
+}

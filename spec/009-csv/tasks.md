@@ -23,7 +23,7 @@
   defaults, preview of the first 100 rows, warnings, error state, buttons per mode; fixtures in
   `tests/csv/`. Needs UNK-042 and UNK-044 resolved. — needs: 009 T2 — *gate: criterion 6 and the
   theme part of criterion 9 green in `pnpm test:web`*
-- [ ] **T4** VS Code CSV panel: `WebviewPanel` with the 003 CSP, the commands "Export to CSV…",
+- [x] **T4** VS Code CSV panel: `WebviewPanel` with the 003 CSP, the commands "Export to CSV…",
   "Import CSV…" and "Convert CSV to JSON" with their menus, save, copy, create file and replace
   document data (R14, one `WorkspaceEdit`), the row-source message from the editor webview (protocol
   bump; verify the table-mode HYPOTHESIS first), the broken-source message, the size checks; e2e.
@@ -31,7 +31,7 @@
   green (criterion 9)*
 
 ## Phase D — Large files (risk-free / additive)
-- [ ] **T5** Spec 008 integration: "Import CSV…" and "Replace Document Data" hidden in a locked tab
+- [x] **T5** Spec 008 integration: "Import CSV…" and "Replace Document Data" hidden in a locked tab
   and back after "Edit anyway"; export from a locked tab through `parseData`; e2e on a
   6 MiB fixture. — needs: 009 T4, 008 T3 — *gate: criterion 10 green in `pnpm test:e2e`*
 

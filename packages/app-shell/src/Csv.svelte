@@ -128,8 +128,10 @@
     void host.open().then((opened) => {
       if (!disposed) source = opened;
     });
+    const changes = host.onDidChangeSource?.((changed) => (source = changed));
     return () => {
       disposed = true;
+      changes?.dispose();
       void table?.destroy();
     };
   });

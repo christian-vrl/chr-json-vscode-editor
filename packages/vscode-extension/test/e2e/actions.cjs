@@ -162,23 +162,38 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
       console.log(`criterion 5: ${feature} writes expected.json byte for byte`);
     }
 
-    // The transform dialog lists the four native query languages (JSONPath (RFC 9535) from 014 T3)
-    // and links to JSONQuery's site.
+    // The transform dialog lists the six query languages in order, JSONQuery first, and links to
+    // JSONQuery's site (spec 011 criterion 8 as amended by spec 014 criterion 5: JavaScript and
+    // Lodash are offered in VS Code since 011 T5, JSONPath (RFC 9535) since 014 T3).
     {
       const { uri, document } = await open(path.join(FIXTURES, 'transform-jsonquery/input.json'));
+      const languages = [
+        'JSONQuery',
+        'JMESPath',
+        'JSONPath (RFC 9535)',
+        'JSONPath (Goessner)',
+        'JavaScript',
+        'Lodash',
+      ];
       const [link, ...names] = await hooks.dom(uri.toString(), [
         { click: '.jse-tree-mode .jse-transform' },
         { read: '.jse-modal .jse-description a', attr: 'href' },
         { click: '.jse-modal .jse-config' },
-        { read: '.jse-query-language', text: 'JSONQuery' },
-        { read: '.jse-query-language', text: 'JMESPath' },
-        { read: '.jse-query-language', text: 'JSONPath (RFC 9535)' },
-        { read: '.jse-query-language', text: 'JSONPath (Goessner)' },
+        ...languages.map((text) => ({ read: '.jse-query-language', text })),
+        { read: '.jse-select-query-language' },
       ]);
       assert.match(link, /^https:\/\/jsonquerylang\.org/);
-      assert.equal(names.length, 4);
-      const shown = await hooks.dom(uri.toString(), [{ read: '.jse-select-query-language' }]);
-      assert.doesNotMatch(shown[0], /JavaScript|Lodash/, 'JavaScript or Lodash is offered');
+      const shown = names.pop();
+      assert.deepEqual(
+        names.map((name) => name.trim()),
+        languages,
+      );
+      const at = languages.map((name) => shown.indexOf(name));
+      assert.deepEqual(
+        at,
+        [...at].sort((a, b) => a - b),
+        `the languages are not in order: ${shown}`,
+      );
       await finish(uri, document);
     }
 
