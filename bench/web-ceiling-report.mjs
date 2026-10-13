@@ -29,13 +29,20 @@ const runs = JSON.parse(readFileSync(path.join(resultsDir, 'web-ceiling-runs.jso
   }),
 );
 
-/** The page or the extension host worker going away before the run's `end` line. */
+/**
+ * The page crashing, or the extension host worker going away, before the run's `end` line. The
+ * workbench starts the extension host worker from a `blob:` URL, so it is told apart by time: it
+ * is the worker that started before the suite's `start` line (the suite runs in it), and it must
+ * outlive the suite. Workers started later (VS Code's own, short-lived) are listed, not counted.
+ */
 function crashes(run) {
+  const begin = run.lines.find((l) => l.kind === 'start')?.at ?? -Infinity;
   const end = run.lines.find((l) => l.kind === 'end')?.at ?? Infinity;
+  const host = new Set(
+    run.lines.filter((l) => l.kind === 'worker' && l.at <= begin).map((l) => l.url),
+  );
   return run.lines.filter(
-    (l) =>
-      (l.kind === 'crash' || (l.kind === 'worker-closed' && /extensionHost/i.test(l.url))) &&
-      !(l.at > end),
+    (l) => (l.kind === 'crash' || (l.kind === 'worker-closed' && host.has(l.url))) && !(l.at > end),
   );
 }
 
@@ -118,6 +125,8 @@ add(
     : `- ${n(over)} bytes (one over the ceiling): ${overRefused ? `refused in every run with spec 008 criterion 9's message` : 'NOT refused with the message in every run; see the table'}.`,
   '',
   '## Opens',
+  '',
+  "Times are from running the command, on the extension host's clock. The webview heap is Chromium's `performance.memory.usedJSHeapSize`, which Chromium rounds to coarse buckets without `--enable-precise-memory-info`: read it as an order of magnitude.",
   '',
   '| Size | Run | Verdict | Large-file mode | Banner (ms) | Webview ready (ms) | Tree shown (ms) | Webview heap |',
   '|---|---|---|---|---|---|---|---|',
