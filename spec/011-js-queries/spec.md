@@ -83,8 +83,11 @@ result is written back like any other transform, keeping comments.
    the library's `createQuery` text for that language and the preview shows its result.
 9. **CSP and offline:** the editor webview's CSP is 003 criterion 6's with one change (UNK-048 ★):
    `script-src` is the nonce plus `'wasm-unsafe-eval'`; it still has no `'unsafe-eval'`, no
-   `'unsafe-inline'` and `connect-src 'none'`. The engine's WebAssembly is inside the script bundle,
-   so nothing is fetched. `pnpm check:offline` passes; any URL the new bundles add is listed in
+   `'unsafe-inline'` and `connect-src 'none'`. The engine's WebAssembly is inside the engine's own
+   script files, which ship with the extension and load from the webview's own source with
+   `import()` when Transform first opens (011 T1 REPORT §3), so nothing is fetched from the network.
+   *Corrected by 011 T5 (was "inside the script bundle, so nothing is fetched"), owner Keep/Revert
+   card cmsg_01Wz9SKzwQD2da69nuNGPcidDQMPyEiYUCGmsZov4df4PU (AGENTS rule 7).* `pnpm check:offline` passes; any URL the new bundles add is listed in
    `offline-allowlist.txt` by name with the Reviewer's sign-off (AGENTS rule 3). The CSV, compare and
    convert panels keep 003 criterion 6 exactly.
 10. **Loading (web):** the editor shows the document before the engine's WebAssembly is compiled (the
@@ -129,8 +132,12 @@ result is written back like any other transform, keeping comments.
 
 ## Where we differ from jsoneditoronline.org
 - The site runs JavaScript and Lodash queries with `new Function` on the page. We run them in QuickJS:
-  the same query text and results (criterion 1), about 3–4 times slower (criterion 12), with time and
-  memory limits the site does not have (criterion 5).
+  the same query text and results (criterion 1), slower: on a 5 MiB document one run takes about
+  0.2 s in JavaScript and 0.7 s in Lodash on the CI runner, 50–100 times the library's own run on
+  data already in memory, almost all of it copying the data into the engine and the result out
+  (`bench/RESULTS.md`, criterion 12); with time and memory limits the site does not have
+  (criterion 5). *Corrected by 011 T5 (was "about 3–4 times slower"), owner Keep/Revert card
+  cmsg_01Wz9SKzwQD2da69nuNGPcidDQMPyEiYUCGmsZov4df4PU (AGENTS rule 7).*
 - The site's queries can use browser objects (`window`, `fetch`); ours cannot (criterion 4).
 - QuickJS has no `Intl`, so locale-aware string methods ignore the locale: `localeCompare` orders by
   UTF-16 code unit, the order of a plain `sort()` (`Apple, Zebra, apple, Ébano`, where the site in an

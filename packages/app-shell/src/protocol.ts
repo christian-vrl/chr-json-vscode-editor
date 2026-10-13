@@ -331,7 +331,9 @@ export type CsvRunOutcome = { done: true } | { error: { message: string; line?: 
 export interface CsvReadyMessage extends Envelope<'csvReady'> {
   docVersion: 0;
 }
-/** The host's answer to `csvReady`: what the panel converts. */
+/** The host's answer to `csvReady`: what the panel converts. The host posts it again when what the
+ *  panel offers changes (an import's `canReplace` following spec 008's lock, 009 T5); a page built
+ *  before that keeps the first one, so the version stays. */
 export interface CsvSourceMessage extends Envelope<'csvSource'> {
   docVersion: 0;
   source: CsvSourceMessageBody;

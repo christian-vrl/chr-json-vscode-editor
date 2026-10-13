@@ -56,7 +56,7 @@ async function smartFormatActive(
   const text = document.getText();
   // A locked large-file tab takes no edit (spec 008 criterion 2): above the threshold it gets the
   // size message like any document, at or below it (changed by another editor) the read-only one.
-  if (custom && provider.isLocked(document) && !tooLarge(text)) {
+  if (custom && provider.isLocked(document.uri) && !tooLarge(text)) {
     show('warning', READ_ONLY_MESSAGE);
     return false;
   }

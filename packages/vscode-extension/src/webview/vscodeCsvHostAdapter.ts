@@ -2,8 +2,9 @@
 // protocol's CSV messages. It talks to csvPanel.ts in the extension host through the webview's
 // `postMessage`. Runs in the webview, so it must not import `vscode` or Node modules.
 //
-// `open` sends `csvReady` and resolves with the host's `csvSource`, which the host posts only in
-// answer to it. An export's preview arrives as JSON5 text and is read here with core's `parseData`:
+// `open` sends `csvReady` and resolves with the host's `csvSource`, which the host posts in answer
+// to it; a later `csvSource` (the import's `canReplace` following spec 008's lock, 009 T5) goes to
+// `onDidChangeSource`'s listeners. An export's preview arrives as JSON5 text and is read here with core's `parseData`:
 // a JSON message would turn `NaN` and `Infinity` into `null` and `-0` into `0` (as the compare
 // panel's adapter explains), and the preview writes those differently (X5). `run` sends `csvRun`
 // and resolves with the `csvOutcome` that carries the same request number.
@@ -18,6 +19,7 @@ import type {
   CsvOutcome,
   CsvRequest,
   CsvSource,
+  Disposable,
 } from '@chr-json-editor/app-shell/csv';
 import { parseData } from '@chr-json-editor/core';
 import type { Subscribe, WebviewApi } from './vscodeHostAdapter';
@@ -27,6 +29,7 @@ export class VscodeCsvHostAdapter implements CsvHostAdapter {
   #opened: Promise<CsvSource> | undefined;
   #resolveOpen: ((source: CsvSource) => void) | undefined;
   readonly #runs = new Map<number, (outcome: CsvOutcome) => void>();
+  readonly #sourceListeners = new Set<(source: CsvSource) => void>();
   #nextRun = 1;
 
   constructor(api: WebviewApi, subscribe: Subscribe) {
@@ -40,6 +43,11 @@ export class VscodeCsvHostAdapter implements CsvHostAdapter {
       this.#post({ protocol: PROTOCOL_VERSION, type: 'csvReady', docVersion: 0 });
     });
     return this.#opened;
+  }
+
+  onDidChangeSource(listener: (source: CsvSource) => void): Disposable {
+    this.#sourceListeners.add(listener);
+    return { dispose: () => this.#sourceListeners.delete(listener) };
   }
 
   run(request: CsvRequest): Promise<CsvOutcome> {
@@ -70,9 +78,13 @@ export class VscodeCsvHostAdapter implements CsvHostAdapter {
     }
     const message = decoded.message;
     if (message.type === 'csvSource') {
-      if (!this.#resolveOpen) return;
-      this.#resolveOpen(toSource(message.source));
-      this.#resolveOpen = undefined;
+      const source = toSource(message.source);
+      if (this.#resolveOpen) {
+        this.#resolveOpen(source);
+        this.#resolveOpen = undefined;
+      } else if (this.#opened) {
+        for (const listener of this.#sourceListeners) listener(source);
+      }
       return;
     }
     this.#runs.get(message.request)?.(message.outcome);

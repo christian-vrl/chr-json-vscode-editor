@@ -154,5 +154,7 @@ describe('CSV round trip (spec 009 criterion 3)', () => {
       }),
       { seed: SEED, numRuns: RUNS },
     );
-  });
+    // About 5 s alone and more under a full parallel run; criterion 3 fixes the run count, so the
+    // test gets time rather than fewer runs (as actions.test.ts does).
+  }, 60_000);
 });

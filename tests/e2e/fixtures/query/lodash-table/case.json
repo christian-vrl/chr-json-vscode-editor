@@ -1,0 +1,5 @@
+{
+  "language": "Lodash",
+  "mode": "table",
+  "query": "function query (data) {\n  return _.chain(data).filter(item => item.age < 30).value()\n}"
+}

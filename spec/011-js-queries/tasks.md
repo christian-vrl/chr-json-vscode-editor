@@ -36,7 +36,7 @@
   6, 8, 10 green in `pnpm test:web`*
 
 ## Phase E — VS Code (risk-free / additive)
-- [ ] **T5** `'wasm-unsafe-eval'` in the CHR JSON editor webview's CSP only (panels unchanged) and
+- [x] **T5** `'wasm-unsafe-eval'` in the CHR JSON editor webview's CSP only (panels unchanged) and
   `assertCriterion6`'s variant; e2e write-back fixtures in `tests/e2e/fixtures/query/`; `bench/query/`
   queries and the engine column in `bench/RESULTS.md`; `THIRD_PARTY_LICENSES.md`; `.vsix` size
   change in the PR body. — needs: 011 T4 — *gate: criteria 7 and 9 green in `pnpm test:e2e` and
@@ -44,7 +44,7 @@
   is recorded); criterion 13*
 
 ## Phase F — Large files (risk-free / additive)
-- [ ] **T6** Leave JavaScript and Lodash out of the list in a large-file tab (unlocked); e2e on 008's
+- [x] **T6** Leave JavaScript and Lodash out of the list in a large-file tab (unlocked); e2e on 008's
   6 MiB fixture. Needs UNK-049 resolved. — needs: 011 T5, 008 T3 — *gate: criterion 11 green in
   `pnpm test:e2e`*
 

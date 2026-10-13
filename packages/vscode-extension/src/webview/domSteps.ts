@@ -46,12 +46,22 @@ export async function runSteps(steps: DomStep[]): Promise<(string | null)[]> {
           cancelable: true,
         }),
       );
+    } else if ('mousedown' in step) {
+      const element = await waitFor(step.mousedown, step.text);
+      const init = { button: 0, buttons: 1, bubbles: true, cancelable: true, composed: true };
+      element.dispatchEvent(new MouseEvent('mousedown', init));
+      element.dispatchEvent(new MouseEvent('mouseup', { ...init, buttons: 0 }));
     } else if ('select' in step) {
       const field = (await waitFor(step.select)) as HTMLSelectElement;
       field.value = step.value;
       field.dispatchEvent(new Event('change', { bubbles: true }));
     } else if ('waitFor' in step) await waitFor(step.waitFor, step.text, step.gone);
-    else {
+    else if ('readAll' in step) {
+      // Every match's trimmed text, as one JSON array (011 T6: the query languages listed).
+      await waitFor(step.readAll);
+      const elements = [...document.querySelectorAll<HTMLElement>(step.readAll)];
+      reads.push(JSON.stringify(elements.map((element) => element.textContent?.trim() ?? '')));
+    } else {
       const element = await waitFor(step.read, step.text);
       reads.push(step.attr ? element.getAttribute(step.attr) : (element.textContent ?? ''));
     }

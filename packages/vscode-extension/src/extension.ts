@@ -107,6 +107,9 @@ export interface TestHooks {
   ): { saveAs: string[]; messages: string[] };
   /** What `csv` returns, without changing its answers. */
   csvSeen(): { saveAs: string[]; messages: string[] };
+  /** 009 T5: the value the CSV commands gave the `chrJsonEditor.customEditorLocked` context key
+   *  (true while the active tab is locked in large-file mode). */
+  csvLocked(): boolean | undefined;
   /** 007 T5: the compare size limit in bytes in place of UNK-037's (undefined: UNK-037's), and the
    *  answer to the text diff offered above it (true: open it, false: dismiss it, undefined: show
    *  the message). Returns UNK-037's limit. */
@@ -142,6 +145,8 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
       formatBadge.format(document) ??
       detect(document.uri.path, document.languageId, document.getText()).format,
     openJson: (uri) => vscode.commands.executeCommand(OPEN_COMMAND, uri),
+    locked: (uri) => provider.isLocked(uri),
+    onDidChangeLocks: provider.onDidChangeLocks,
   });
   context.subscriptions.push(
     compares,
@@ -198,6 +203,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
           const panel = csvPanels.find(title);
           return panel ? panel.dom(steps) : Promise.reject(new Error(`no CSV panel ${title}`));
         },
+        csvLocked: () => testCsvCommands.locked,
         csvSeen: () => ({
           saveAs: testCsvPanel.asked.splice(0),
           messages: testCsvCommands.messages.splice(0),
