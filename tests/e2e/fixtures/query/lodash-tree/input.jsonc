@@ -1,0 +1,10 @@
+// Team
+{
+  "team": "core", // the team's name
+  // who is in it
+  "members": [
+    "Ada", // first
+    "Grace"
+  ],
+  "lead": "Ada" /* for now */
+}

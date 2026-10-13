@@ -24,8 +24,15 @@ const LF = 0x0a;
  * The start of a CSV `text` that holds its first 100 rows whatever options the panel shows: it
  * ends at the first line end where at least 101 non-empty records (a header and 100 rows) are done
  * when read with each delimiter of I3, and where none of those readings is inside a quoted field.
- * So `csvToJson` on it gives the same first 100 rows, warnings and errors as on the whole text,
- * whichever delimiter and header setting is chosen. Without such a line end, it is the whole text.
+ * So `csvToJson` on it gives the same first 100 rows as on the whole text, with the same warnings
+ * and errors for the records it holds, whichever delimiter and header setting is chosen. Without
+ * such a line end, it is the whole text.
+ *
+ * Errors in the records past the cut show only in the full import, which the host runs when a
+ * button writes: a quote left open after the 100th row, and I5's cap on the `null` items filled in
+ * for missing array indices, which counts over every row of the import (UNK-063), so rows past the
+ * cut can take it over the limit when the first 100 do not. The page shows such an error from the
+ * host's answer (Csv.svelte, `runError`).
  *
  * Each reading follows I2 as core's reader does (csvToJson.ts `readRecords`): a quote opens a
  * quoted field only at the start of a field, `""` inside it is a quote, and text after the closing

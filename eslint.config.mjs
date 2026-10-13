@@ -82,6 +82,8 @@ export default defineConfig(
   globalIgnores(['packages/core/test/fixtures/json5-tests/']),
   // Query cases (011 T2): scripts that define `query` for the engine, with Lodash's `_` in scope.
   globalIgnores(['tests/query/*/']),
+  // Bench queries (011 T5): the same kind of scripts, read as query text.
+  globalIgnores(['bench/query/*.js']),
   // Spec 013 criterion 2's fixture (013 T2): imports Node on purpose; nodeImports.test.ts lints it.
   globalIgnores(['tests/fixtures/node-import/']),
   {

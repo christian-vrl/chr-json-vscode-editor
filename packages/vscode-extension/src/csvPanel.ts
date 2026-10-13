@@ -11,10 +11,18 @@
 // A new file whose name is taken, or with no folder to go to (an untitled source), goes where a
 // save dialog prefilled with that name says, as 006's convert does (UNK-035). Nothing else writes:
 // closing the panel writes nothing, and the source is never changed but by "Replace Document Data".
+// An export writes the row source as it was read when the command ran, which is what the preview
+// shows; edits made to the document meanwhile go into the next "Export to CSV…".
+//
+// Spec 008's large-file mode (009 T5, criterion 10): while a tab shows the import's target document
+// locked, the panel offers no "Replace Document Data"; the panel follows the lock as it changes
+// (a tab opening locked, "Edit anyway", the locked tab closing) by posting `csvSource` again with
+// the new `canReplace`, and the page keeps its options.
 //
 // The webview gets the same CSP and `localResourceRoots` as the editor (spec 003 criterion 6,
 // webviewHtml.ts). It posts `csvReady` once its script listens, and only then does the panel post
-// the source.
+// the source. It is kept while hidden (`retainContextWhenHidden`), so the options chosen survive a
+// switch to another tab; the page holds 100 rows at most, never the whole source.
 import * as vscode from 'vscode';
 import {
   decodeToCsvHost,
@@ -41,6 +49,10 @@ import type { CsvPageProbe, DomStep } from './testProbe';
 import { createNonce, renderWebviewHtml } from './webviewHtml';
 
 export const CSV_VIEW_TYPE = 'chrJsonEditor.csv';
+
+/** Why "Replace Document Data" changed nothing: a tab shows the document locked (criterion 10). */
+export const LOCKED_REPLACE_MESSAGE =
+  'CHR JSON Editor: the document is a large file open read-only. Choose "Edit anyway" to replace its data.';
 
 /** Replaced by esbuild (esbuild.mjs): true only in the e2e build, so release code never has hooks. */
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -98,6 +110,10 @@ export interface CsvPanelHost {
   formatOf(document: vscode.TextDocument): Format;
   /** Opens a created JSON file in the CHR JSON Editor ("Open in CHR JSON Editor"). */
   openJson(uri: vscode.Uri): Thenable<unknown>;
+  /** Whether a tab shows the document of `uri` locked in large-file mode (spec 008). */
+  locked(uri: vscode.Uri): boolean;
+  /** Fires with a document's URI when whether it is locked may have changed. */
+  onDidChangeLocks: vscode.Event<vscode.Uri>;
 }
 
 function inputKey(input: CsvPanelInput): string {
@@ -111,11 +127,16 @@ export class CsvPanels {
   private readonly panels = new Map<string, CsvPanel>();
   /** Filled only when `__CHR_TEST_HOOKS__` is true; kept after a panel closes. */
   readonly snapshots: CsvSnapshot[] = [];
+  private readonly lockListener: vscode.Disposable;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly host: CsvPanelHost,
-  ) {}
+  ) {
+    this.lockListener = host.onDidChangeLocks((uri) => {
+      for (const panel of this.panels.values()) panel.lockChanged(uri);
+    });
+  }
 
   /** Opens a panel on `input`. A panel already open on the same source closes first, so the new
    *  one shows the source as it is now. */
@@ -137,13 +158,14 @@ export class CsvPanels {
   }
 
   dispose(): void {
+    this.lockListener.dispose();
     for (const panel of [...this.panels.values()]) panel.dispose();
   }
 }
 
 export class CsvPanel {
   private readonly panel: vscode.WebviewPanel;
-  private readonly source: CsvSourceMessageBody;
+  private source: CsvSourceMessageBody;
   private readonly disposeListeners: (() => void)[] = [];
   /** A run can end after the panel closed; nothing is posted then. */
   private disposed = false;
@@ -161,14 +183,14 @@ export class CsvPanel {
     this.source =
       input.mode === 'export'
         ? exportSource(input.name, input.pointer, input.value)
-        : importSource(input.name, input.text, input.target !== undefined);
+        : importSource(input.name, input.text, this.canReplace());
     this.title = panelTitle(this.source);
     const dist = vscode.Uri.joinPath(extensionUri, 'dist');
     this.panel = vscode.window.createWebviewPanel(
       CSV_VIEW_TYPE,
       this.title,
       vscode.ViewColumn.Active,
-      { enableScripts: true, localResourceRoots: [dist] },
+      { enableScripts: true, localResourceRoots: [dist], retainContextWhenHidden: true },
     );
     const { webview } = this.panel;
     webview.html = renderWebviewHtml({
@@ -180,11 +202,9 @@ export class CsvPanel {
       body: '<main id="app"></main>',
     });
     if (__CHR_TEST_HOOKS__) {
-      const source: Partial<CsvSourceMessageBody> = { ...this.source };
-      delete source.preview;
       this.snapshot = {
         title: this.title,
-        source: source as CsvSnapshot['source'],
+        source: withoutPreview(this.source),
         html: webview.html,
         cspSource: webview.cspSource,
         enableScripts: webview.options.enableScripts ?? false,
@@ -204,6 +224,26 @@ export class CsvPanel {
       if (this.snapshot) this.snapshot.open = false;
       for (const listener of this.disposeListeners) listener();
     });
+  }
+
+  /** Whether the panel offers "Replace Document Data": an import into a document no tab shows
+   *  locked (criterion 10). */
+  private canReplace(): boolean {
+    const input = this.input;
+    return input.mode === 'import' && input.target !== undefined && !this.host.locked(input.target);
+  }
+
+  /** Follows a change of whether the document of `uri` is locked: posts the source again when
+   *  that changes what the panel offers. */
+  lockChanged(uri: vscode.Uri): void {
+    const { input, source } = this;
+    if (input.mode !== 'import' || source.mode !== 'import') return;
+    if (input.target?.toString() !== uri.toString()) return;
+    const canReplace = this.canReplace();
+    if (canReplace === source.canReplace) return;
+    this.source = { ...source, canReplace };
+    if (this.snapshot) this.snapshot.source = withoutPreview(this.source);
+    this.post({ type: 'csvSource', source: this.source });
   }
 
   onDidDispose(listener: () => void): void {
@@ -299,7 +339,13 @@ export class CsvPanel {
       await this.host.openJson(target);
       return { done: true };
     }
-    if (input.target) await this.replaceData(input.target, result.data);
+    if (!input.target) return { done: true };
+    // A tab may have opened the document locked since the page last heard (criterion 10).
+    if (this.host.locked(input.target)) {
+      this.show('error', LOCKED_REPLACE_MESSAGE);
+      return { done: true };
+    }
+    await this.replaceData(input.target, result.data);
     return { done: true };
   }
 
@@ -402,6 +448,13 @@ export class CsvPanel {
       void this.panel.webview.postMessage({ ...message, id });
     });
   }
+}
+
+/** Test hooks: the source as a snapshot holds it, its preview left out. */
+function withoutPreview(source: CsvSourceMessageBody): CsvSnapshot['source'] {
+  const copy: Partial<CsvSourceMessageBody> = { ...source };
+  delete copy.preview;
+  return copy as CsvSnapshot['source'];
 }
 
 function baseName(uri: vscode.Uri): string {
