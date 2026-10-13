@@ -88,7 +88,7 @@ validates it from then on.
 4. **Inherited keys (unit; amends spec 004 criterion 2, see §Changes):** spec 004's validator
    created with `ownProperties: true` reports exactly one error, `required` at `""`, for the schema
    `{"properties": {"constructor": {"type": "null"}, "toString": {"type": "string"}}, "required":
-   ["hasOwnProperty"]}` on `{}` (on `main` @ d02d8ca it reports two `type` errors and no
+   ["hasOwnProperty"]}` on `{}` (before T2, as on `main` @ 0b67093, it reports two `type` errors and no
    `required` one), and every `tests/schema/` fixture gives the same errors as before.
 5. **Command (e2e):** "Generate JSON Schema" (`chrJsonEditor.generateSchema`) runs from the command
    palette and the editor-title menu, in the CHR JSON editor and in the text editor, for `.json`,

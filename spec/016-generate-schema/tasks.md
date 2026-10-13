@@ -39,6 +39,9 @@
   web e2e suite*
 
 ## Off the critical path
+- Gate review of the spec PR (lows carried here, criteria unchanged): T5 also runs criterion 5's
+  "file exists" case (save dialog, then Cancel) on the web host; if criterion 9's bound misses on
+  the CI runner, T4 records an owner UNKNOWN before it merges instead of relaxing the bound.
 - Naming: the spec PR is reviewed as "016-T1"; the corpus task's PR is the first real 016 T1, and
   its verdict is read on its own head SHA.
 - Big numbers: whichever of 016 T1 and 015 T2 merges later adds a `big-number` corpus case (a
