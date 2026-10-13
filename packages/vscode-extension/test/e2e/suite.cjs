@@ -401,6 +401,17 @@ exports.run = async function run() {
     isCustom,
   });
 
+  // Gate (010 T4, criterion 10 in a large-file tab): Smart Format's size guard
+  // (smartFormatLargeFile.cjs).
+  await closeAll();
+  await require('./smartFormatLargeFile.cjs').runSmartFormatLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (009 T5, criterion 10): CSV in a tab locked in large-file mode (csvLargeFile.cjs).
   await closeAll();
   await require('./csvLargeFile.cjs').runCsvLargeFile({

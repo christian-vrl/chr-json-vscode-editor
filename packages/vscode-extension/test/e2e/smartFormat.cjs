@@ -7,7 +7,7 @@
 //   the editor has not reported yet is laid out too;
 // - criterion 9: a document that does not parse is unchanged and the message names its format;
 // - criterion 10 (text editor): a 6 MiB document is unchanged with the size message, and a document
-//   of exactly 5 MiB is laid out. Large-file tabs are 010 T4's.
+//   of exactly 5 MiB is laid out. Large-file tabs: smartFormatLargeFile.cjs (010 T4).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
