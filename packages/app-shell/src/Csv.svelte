@@ -18,7 +18,7 @@
     type MenuItem,
     Mode as LibraryMode,
   } from 'vanilla-jsoneditor';
-  import { csvToJson, detectDelimiter, jsonToCsv, nearestNumbers } from '@chr-json-editor/core';
+  import { csvToJson, detectDelimiter, jsonToCsv } from '@chr-json-editor/core';
   import {
     CSV_EXPORT_DEFAULTS,
     CSV_IMPORT_DEFAULTS,
@@ -31,6 +31,7 @@
     type CsvSource,
   } from './csv-host-adapter.js';
   import { CSV_PREVIEW_ROWS } from './csv-preview.js';
+  import { parserFor } from './parser.js';
   import './theme.css';
 
   let { host }: { host: CsvHostAdapter } = $props();
@@ -76,9 +77,9 @@
     if ('error' in result) return { kind: 'error', error: result.error };
     return {
       kind: 'rows',
-      // Import keeps big numbers exact (spec 015 B9); the preview table shows their nearest numbers
-      // until the page's parser writes big numbers (015 T4), as the editor does.
-      rows: nearestNumbers(result.data.slice(0, CSV_PREVIEW_ROWS)) as unknown[],
+      // Import keeps big numbers exact (spec 015 B9), and the table shows their digits (the editor's
+      // parser, 015 T4).
+      rows: result.data.slice(0, CSV_PREVIEW_ROWS),
       warnings: result.warnings,
     };
   });
@@ -153,6 +154,8 @@
         content: { json },
         mode: LibraryMode.table,
         readOnly: true,
+        // The editor's parser: the library reads a big number as a number through its `stringify`.
+        parser: parserFor('json'),
         ariaLabel: 'JSON preview',
         onRenderMenu: tableOnly,
       },

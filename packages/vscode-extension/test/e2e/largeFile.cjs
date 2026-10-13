@@ -208,7 +208,10 @@ exports.runLargeFile = async function runLargeFile({
     hooks.send(key, {
       type: 'edit',
       docVersion: version,
-      change: { kind: 'patch', patch: [{ op: 'replace', path: '/0/marker', value: 'sent' }] },
+      change: {
+        kind: 'patch',
+        patch: [{ op: 'replace', path: '/0/marker', valueText: '"sent"' }],
+      },
     });
     await waitFor('the refusal', () => view(uri).readOnlyRefusals === 1);
     await sleep(SETTLE_MS);

@@ -2,6 +2,7 @@
 // HostAdapter contract suite runs against it once the host applies edits (003 T5, document sync).
 import { describe, expect, it } from 'vitest';
 import { PROTOCOL_VERSION } from '@chr-json-editor/app-shell/protocol';
+import { LosslessNumber } from '@chr-json-editor/core';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
 function fakeWebview() {
@@ -102,6 +103,37 @@ describe('VscodeHostAdapter', () => {
       { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 7 },
       { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 5 },
       { protocol: PROTOCOL_VERSION, type: 'unlock', docVersion: 5 },
+    ]);
+  });
+
+  // Spec 015 B5: patch values go as JSON text, big numbers as their digits, `-0` with its sign.
+  it('posts patch values as JSON text', () => {
+    const { adapter, posted } = fakeWebview();
+    const value = { id: new LosslessNumber('12345678901234567890'), zero: -0, list: [1e400] };
+    adapter.save(3, {
+      kind: 'patch',
+      patch: [
+        { op: 'replace', path: '/a', value: value as never },
+        { op: 'test', path: '/b', value: 'x' },
+      ],
+    });
+    expect(posted).toEqual([
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'edit',
+        docVersion: 3,
+        change: {
+          kind: 'patch',
+          patch: [
+            {
+              op: 'replace',
+              path: '/a',
+              valueText: '{"id":12345678901234567890,"zero":-0,"list":[Infinity]}',
+            },
+            { op: 'test', path: '/b', valueText: '"x"' },
+          ],
+        },
+      },
     ]);
   });
 

@@ -57,6 +57,7 @@
     jsonpathQueryLanguage,
     jsonQueryLanguage,
     lodashQueryLanguage,
+    parseJSONPath,
     type Content,
     createMultiSelection,
     isMenuButton,
@@ -74,11 +75,17 @@
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
   import { getAdapter } from '@chr-json-editor/core';
-  import { compileJSONPointer, getIn, parseJSONPointer } from 'immutable-json-patch';
+  import {
+    compileJSONPointer,
+    getIn,
+    parseJSONPointer,
+    type JSONPath,
+  } from 'immutable-json-patch';
   import './theme.css';
-  import { dataChange, isContainer } from './data-change.js';
+  import { dataChange, isContainer, reordering } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
-  import { parserFor } from './parser.js';
+  import { parserFor, validationParserFor } from './parser.js';
+  import { columnPath, exactOrder, onlyNestedPath, type SortRequest } from './sort-order.js';
   import { jsonpathRfc9535QueryLanguage } from './query/jsonpath-rfc9535.js';
   import {
     isQueryEngineLoaded,
@@ -319,7 +326,7 @@
           parser: parserFor(doc.format, doc.largeFile !== null),
           // The library hands the validator data read by this parser too; its default, JSON.parse,
           // fails on JSONC and JSON5 text in text mode and reports that as a parse error (004 T5).
-          validationParser: parserFor(doc.format, doc.largeFile !== null),
+          validationParser: validationParserFor(doc.format, doc.largeFile !== null),
           validator: validatorFor(validation),
           queryLanguages: QUERY_LANGUAGES,
           queryLanguageId: QUERY_LANGUAGES[0]!.id,
@@ -337,10 +344,12 @@
     // Capture phase: these run before the library's own handlers and can stop them.
     target.addEventListener('keydown', interceptShortcut, true);
     target.addEventListener('click', interceptRepair, true);
+    target.addEventListener('click', recordSort, true);
     return () => {
       disposed = true;
       target.removeEventListener('keydown', interceptShortcut, true);
       target.removeEventListener('click', interceptRepair, true);
+      target.removeEventListener('click', recordSort, true);
       subscription.dispose();
       window.removeEventListener('keydown', onKeydown, true);
       void editor?.destroy();
@@ -593,6 +602,12 @@
     if (only?.op === 'replace' && isContainer(only.value)) {
       const before: unknown = getIn(previousJson, parseJSONPointer(only.path));
       if (isContainer(before)) {
+        const sorted = exactSort(only.path, before, only.value);
+        if (sorted !== undefined) {
+          // The library shows its own order, which B3's may differ from: show the host's text.
+          ownChanges = false;
+          return sorted ? [sorted] : [];
+        }
         const change = dataChange(only.path, before, only.value);
         return change ? [change] : [];
       }
@@ -618,14 +633,18 @@
     return target.querySelector('dialog.jse-sort-modal[open]') !== null;
   }
 
-  function textSort(previous: Content, updated: string): DocumentChange | undefined {
+  /** The sort, or null for a sort in B3's order that leaves the document as it is (015 T4). */
+  function textSort(previous: Content, updated: string): DocumentChange | null | undefined {
     const parser = parserFor(format ?? 'json', largeFile !== null);
     try {
       const before: unknown =
         typeof (previous as { text?: unknown }).text === 'string'
           ? parser.parse((previous as { text: string }).text)
           : (previous as { json: unknown }).json;
-      const change = dataChange('', before, parser.parse(updated));
+      const after = parser.parse(updated);
+      const sorted = exactSort('', before, after);
+      if (sorted !== undefined) return sorted;
+      const change = dataChange('', before, after);
       return change?.kind === 'action' ? change : undefined;
     } catch {
       return undefined;
@@ -633,12 +652,110 @@
   }
 
   /**
+   * Sorts the user asked for that the library has not handed over yet (spec 015 B3, sort-order.ts),
+   * by the JSON Pointer of the array. One asked for in the library's "Edit nested content" dialog
+   * waits for that dialog's Apply; any other arrives at once, or is dropped.
+   */
+  const sortRequests = new Map<string, SortRequest & { nested: boolean }>();
+
+  /**
+   * Notes the sort a click asks the library for (capture phase, before the library's handler runs):
+   * the sort dialog's Sort button (the array's path, its property and direction selects), or a
+   * table column header (the column, and the direction the library turns it to). In a nested
+   * dialog, paths are relative to its content, whose path the dialog shows.
+   */
+  function recordSort(event: MouseEvent): void {
+    const button = (event.target as Element | null)?.closest('button');
+    if (!button) return;
+    const nested = target.querySelector<HTMLInputElement>(
+      'dialog.jse-jsoneditor-modal[open] input.jse-path',
+    );
+    let path: JSONPath;
+    let request: SortRequest;
+    if (button.classList.contains('jse-column-header')) {
+      if (button.classList.contains('jse-readonly')) return;
+      const name = (button.getAttribute('title') ?? '').replace(/ \(Click to sort[^)]*\)$/, '');
+      const sorted = button.querySelector('.jse-column-sort-icon')?.getAttribute('title') ?? '';
+      path = [];
+      request = {
+        itemPath: (items) => columnPath(name, items, parseJSONPath),
+        // The library turns an ascending column descending, and any other ascending.
+        direction: sorted.includes('ascending') ? -1 : 1,
+      };
+    } else {
+      const dialog = button.closest('.jse-sort-modal');
+      if (!dialog || !button.classList.contains('jse-primary')) return;
+      path = pathOfLabel(dialog.querySelector<HTMLInputElement>('input.jse-path')?.value ?? '');
+      const property = selectValue(dialog, 'Property');
+      const itemPath = Array.isArray(property) ? (property as JSONPath) : undefined;
+      request = {
+        itemPath: itemPath ? () => itemPath : onlyNestedPath,
+        direction: selectValue(dialog, 'Direction') === -1 ? -1 : 1,
+      };
+    }
+    const base = nested ? pathOfLabel(nested.value) : [];
+    const pointer = compileJSONPointer([...base, ...path]);
+    const entry = { ...request, nested: nested !== null };
+    sortRequests.set(pointer, entry);
+    if (!nested) {
+      setTimeout(() => {
+        if (sortRequests.get(pointer) === entry) sortRequests.delete(pointer);
+      }, 0);
+    }
+  }
+
+  /** A path as the library's dialogs show it (`stringifyJSONPath`, or "(document root)"). */
+  function pathOfLabel(label: string): JSONPath {
+    return label === '' || label === '(document root)' ? [] : parseJSONPath(label);
+  }
+
+  /** The `value` of the option chosen in the sort dialog's select on the row headed `heading`
+   *  (svelte-select keeps it, as JSON, in a hidden input). */
+  function selectValue(dialog: Element, heading: string): unknown {
+    for (const row of dialog.querySelectorAll('tr')) {
+      if (row.querySelector('th')?.textContent?.trim() !== heading) continue;
+      const input = row.querySelector<HTMLInputElement>('input[type="hidden"]');
+      try {
+        return (JSON.parse(input?.value ?? 'null') as { value?: unknown } | null)?.value;
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Core's sort action for a sort the user asked for at `path` (recordSort), with the items of
+   * `before` in B3's order rather than the library's `after` (sort-order.ts); null when that order
+   * leaves them as they are. Undefined when no sort was asked for there, or `after` is not a
+   * reordering of the array `before` (an edit made after a sort in a nested dialog).
+   */
+  function exactSort(path: string, before: unknown, after: unknown): DocumentChange | null | undefined {
+    const request = sortRequests.get(path);
+    if (!request) return undefined;
+    sortRequests.delete(path);
+    if (request.nested && !target.querySelector('dialog.jse-jsoneditor-modal[open]')) return undefined;
+    if (!Array.isArray(before)) return undefined;
+    const libraryOrder = reordering(before, after);
+    if (!libraryOrder) return undefined;
+    const order = exactOrder(before, libraryOrder, request);
+    if (order.every((from, to) => from === to)) return null;
+    return { kind: 'action', action: { name: 'sort', path, order } };
+  }
+
+  /**
    * Test hook (spec 003 criterion 1): sends operations down the same path as a tree or table edit,
    * as if the library had reported them. The library's own `patch()` neither reports a change nor
    * applies to a document with no value, so it is not used; the view follows the host's answer.
+   * Given as JSON text, the operations are read with the editor's parser, so their big numbers are
+   * the editor's (spec 015 criterion 4: a value typed with more digits than a float holds).
    */
-  export function patch(operations: JsonPatchOperation[]): void {
+  export function patch(given: JsonPatchOperation[] | string): void {
     if (!editor) throw new Error('The editor is not mounted yet');
+    const operations =
+      typeof given === 'string'
+        ? (parserFor('json').parse(given) as JsonPatchOperation[])
+        : given;
     // A locked large file sends no edit (spec 008 criterion 2), nor JSON Lines with a bad line
     // (spec 012 criterion 8), and the library's `readOnly` data stays as it is.
     if (readOnly) return;
@@ -742,6 +859,11 @@
       const sort = sortDialogOpen() ? textSort(previous, text) : undefined;
       if (sort) {
         queue(sort);
+        return;
+      }
+      if (sort === null) {
+        // B3's order is the document's own: the library's text goes nowhere.
+        showText();
         return;
       }
     }
@@ -955,7 +1077,7 @@
         checkLines();
         editor?.updateProps({
           parser: parserFor(event.format, largeFile !== null),
-          validationParser: parserFor(event.format, largeFile !== null),
+          validationParser: validationParserFor(event.format, largeFile !== null),
           // A new function, so the library renders its menus again for the new format's modes and
           // actions (spec 012 criterion 6).
           onRenderMenu: (items: MenuItem[], context: RenderMenuContext) =>

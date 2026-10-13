@@ -19,14 +19,25 @@
 // and reach the document as one edit like any other. A repair that cannot keep every comment asks
 // first. "Repair Lines" (spec 012 L10) is core's `repairLines` on a JSON Lines document, one edit
 // too; the webview names the lines it could not repair from the text that comes back.
+//
+// A patch's values arrive as JSON text (protocol 15, spec 015 B5) and are read here with core's
+// `parseData`, so big numbers keep their digits; a value that does not read is a failed patch.
 import {
+  decodeChange,
   PROTOCOL_VERSION,
   type DocumentAction,
   type EditErrorCode,
   type EditMessage,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { getAdapter, PatchError, repair, repairLines, type Format } from '@chr-json-editor/core';
+import {
+  getAdapter,
+  parseData,
+  PatchError,
+  repair,
+  repairLines,
+  type Format,
+} from '@chr-json-editor/core';
 import { JSONL_MESSAGE, plan as smartFormatPlan } from './smartFormatPlan';
 
 /** What the sync needs from the document and the webview. */
@@ -80,7 +91,7 @@ export class DocumentSync {
     });
   }
 
-  private async apply({ docVersion, change }: EditMessage): Promise<void> {
+  private async apply({ docVersion, change: wire }: EditMessage): Promise<void> {
     const version = this.target.version();
     if (docVersion !== version) {
       this.error(
@@ -92,6 +103,7 @@ export class DocumentSync {
     const text = this.target.text();
     let next: string;
     try {
+      const change = decodeChange(wire, readValue);
       if (change.kind === 'text') next = change.text;
       else if (change.kind === 'patch')
         next = getAdapter(this.target.format()).applyPatch(text, change.patch);
@@ -206,4 +218,13 @@ function splits(text: string, at: number): boolean {
   const next = text.charCodeAt(at);
   const surrogate = prev >= 0xd800 && prev <= 0xdbff && next >= 0xdc00 && next <= 0xdfff;
   return surrogate || (prev === 13 && next === 10);
+}
+
+/** A patch value from its `valueText` (spec 015 B5): JSON read by core, big numbers exactly. */
+function readValue(text: string): unknown {
+  const result = parseData('json', text);
+  if ('error' in result) {
+    throw new PatchError(`A patch value is not JSON: ${result.error.message} in ${text.slice(0, 40)}`);
+  }
+  return result.data;
 }

@@ -24,8 +24,10 @@
  *      `csvOutcome`.
  *  13: `init`, `setFormat` and the compare sides take the `jsonl` format; `edit` can carry the
  *      `repairLines` action (012 T4).
- *  14: adds the `smartFormat` whole-document action (010 T3). */
-export const PROTOCOL_VERSION = 14;
+ *  14: adds the `smartFormat` whole-document action (010 T3).
+ *  15: an `edit`'s `add`, `replace` and `test` operations carry their value as JSON text in
+ *      `valueText`, so big numbers keep their digits (spec 015 B5, 015 T4). */
+export const PROTOCOL_VERSION = 15;
 
 /** AGENTS.md §Glossary "Format", and JSON Lines (spec 012). */
 export type Format = 'json' | 'jsonc' | 'json5' | 'jsonl';
@@ -41,11 +43,72 @@ export type JsonValue =
 /** Settings snapshot the host sends with `init`; keys are defined by spec 019. */
 export type EditorSettings = { readonly [key: string]: JsonValue };
 
-/** One RFC 6902 operation. `path` and `from` are RFC 6901 JSON Pointers. */
+/** One RFC 6902 operation. `path` and `from` are RFC 6901 JSON Pointers. A big number in `value`
+ *  is a lossless-json `LosslessNumber` (spec 015 B1), which `JsonValue` does not spell out. */
 export type JsonPatchOperation =
   | { op: 'add' | 'replace' | 'test'; path: string; value: JsonValue }
   | { op: 'remove'; path: string }
   | { op: 'move' | 'copy'; from: string; path: string };
+
+/**
+ * A `JsonPatchOperation` as an `edit` message carries it (spec 015 B5): the value as one JSON text,
+ * `valueText`, written so big numbers keep their digits and `-0` its sign (core's `valueText`), and
+ * read back by the receiver (core's `parseData('json', …)`). As text, a document object that has
+ * `isLosslessNumber` and `value` members stays that object: only a real big number is written as
+ * digits.
+ */
+export type WirePatchOperation =
+  | { op: 'add' | 'replace' | 'test'; path: string; valueText: string }
+  | { op: 'remove'; path: string }
+  | { op: 'move' | 'copy'; from: string; path: string };
+
+/** A `DocumentChange` as an `edit` carries it: a patch's operations as `WirePatchOperation`s. */
+export type WireDocumentChange =
+  | { kind: 'patch'; patch: WirePatchOperation[] }
+  | Exclude<DocumentChange, { kind: 'patch' }>;
+
+/** `change` as an `edit` carries it, each patch value written with `write` (core's `valueText`). */
+export function encodeChange(
+  change: DocumentChange,
+  write: (value: unknown) => string,
+): WireDocumentChange {
+  if (change.kind !== 'patch') return change;
+  return {
+    kind: 'patch',
+    patch: change.patch.map((op): WirePatchOperation => {
+      switch (op.op) {
+        case 'add':
+        case 'replace':
+        case 'test':
+          return { op: op.op, path: op.path, valueText: write(op.value) };
+        default:
+          return op;
+      }
+    }),
+  };
+}
+
+/** The change an `edit` carries, each patch value read with `read`, which throws for a text it
+ *  cannot read (core's `parseData('json', …)`). */
+export function decodeChange(
+  change: WireDocumentChange,
+  read: (text: string) => unknown,
+): DocumentChange {
+  if (change.kind !== 'patch') return change;
+  return {
+    kind: 'patch',
+    patch: change.patch.map((op): JsonPatchOperation => {
+      switch (op.op) {
+        case 'add':
+        case 'replace':
+        case 'test':
+          return { op: op.op, path: op.path, value: read(op.valueText) as JsonValue };
+        default:
+          return op;
+      }
+    }),
+  };
+}
 
 /**
  * A change the UI asks the host to apply. Tree and table modes send a JSON Patch (applied by
@@ -60,8 +123,9 @@ export type DocumentChange =
 /**
  * A whole-document action the host runs with core on the document's text (003 T8, 002 R12–R13,
  * UNK-018), so comments and style are kept: `format` (core `prettyPrint`), `smartFormat` (core
- * `smartFormat`, spec 010), `compact`, `repair`, and `sort`, which puts the members of the container at `path` in `order` (their indices before the
- * sort), the order the editor's sort chose. Data-level changes (transform) are a `patch` made by
+ * `smartFormat`, spec 010), `compact`, `repair`, and `sort`, which puts the members of the
+ * container at `path` in `order` (their indices before the sort), the order the editor's sort
+ * chose. Data-level changes (transform) are a `patch` made by
  * core's `diff` (002 R14). `repairLines` is "Repair Lines" in a JSON Lines document's bad-line
  * banner (spec 012 criterion 8, L10: core `repairLines`); it is the one change such a document's
  * UI sends while a bad line is left.
@@ -127,9 +191,9 @@ export interface UpdateMessage extends Envelope<'update'> {
 }
 export type UpdateOrigin = 'edit' | 'external';
 export const UPDATE_ORIGINS: readonly UpdateOrigin[] = ['edit', 'external'];
-/** The UI's change to the document. */
+/** The UI's change to the document, its patch values as JSON text (`decodeChange` reads them). */
 export interface EditMessage extends Envelope<'edit'> {
-  change: DocumentChange;
+  change: WireDocumentChange;
 }
 /** Switch the UI to another mode. */
 export interface SetModeMessage extends Envelope<'setMode'> {
@@ -590,32 +654,33 @@ function jsonObject(v: unknown, name: string): { [key: string]: JsonValue } {
   return out;
 }
 
-const PATCH_FIELDS: Record<JsonPatchOperation['op'], Fields> = {
-  add: { op: str, path: pointer, value: json },
-  replace: { op: str, path: pointer, value: json },
-  test: { op: str, path: pointer, value: json },
+const PATCH_FIELDS: Record<WirePatchOperation['op'], Fields> = {
+  add: { op: str, path: pointer, valueText: str },
+  replace: { op: str, path: pointer, valueText: str },
+  test: { op: str, path: pointer, valueText: str },
   remove: { op: str, path: pointer },
   move: { op: str, from: pointer, path: pointer },
   copy: { op: str, from: pointer, path: pointer },
 };
 
-function patchOperation(v: unknown, name: string): JsonPatchOperation {
+function patchOperation(v: unknown, name: string): WirePatchOperation {
   const raw = record(v, name);
   const op = raw.op;
   if (typeof op !== 'string' || !Object.hasOwn(PATCH_FIELDS, op)) {
     throw new Invalid(`${name}.op must be one of ${Object.keys(PATCH_FIELDS).join(', ')}`);
   }
-  return readFields(raw, PATCH_FIELDS[op as JsonPatchOperation['op']], name) as JsonPatchOperation;
+  return readFields(raw, PATCH_FIELDS[op as WirePatchOperation['op']], name) as WirePatchOperation;
 }
 
-function documentChange(v: unknown, name: string): DocumentChange {
+function documentChange(v: unknown, name: string): WireDocumentChange {
   const raw = record(v, name);
-  if (raw.kind === 'text') return readFields(raw, { kind: str, text: str }, name) as DocumentChange;
+  if (raw.kind === 'text')
+    return readFields(raw, { kind: str, text: str }, name) as WireDocumentChange;
   if (raw.kind === 'patch') {
-    return readFields(raw, { kind: str, patch: patchList }, name) as DocumentChange;
+    return readFields(raw, { kind: str, patch: patchList }, name) as WireDocumentChange;
   }
   if (raw.kind === 'action') {
-    return readFields(raw, { kind: str, action: documentAction }, name) as DocumentChange;
+    return readFields(raw, { kind: str, action: documentAction }, name) as WireDocumentChange;
   }
   throw new Invalid(`${name}.kind must be patch, text or action`);
 }
@@ -639,7 +704,7 @@ function indexList(v: unknown, name: string): number[] {
   });
 }
 
-function patchList(v: unknown, name: string): JsonPatchOperation[] {
+function patchList(v: unknown, name: string): WirePatchOperation[] {
   if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
   return v.map((op, i) => patchOperation(op, `${name}[${i}]`));
 }

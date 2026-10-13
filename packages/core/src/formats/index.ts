@@ -12,9 +12,14 @@ export { convert, ConvertError } from './convert.js';
 export { smartFormat, type SmartFormatFormat } from './smart-format.js';
 export type { ConversionLoss, ConvertResult } from './convert.js';
 export {
+  bigNumberKey,
   compareNumbers,
   equalNumbers,
+  holdsBigNumber,
+  jsonText,
   LosslessNumber,
   mayHoldBigNumber,
   nearestNumbers,
+  readJsonExact,
+  valueText,
 } from './numbers.js';
