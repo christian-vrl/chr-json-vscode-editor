@@ -45,3 +45,9 @@
   `packages/app-shell/src/query/jsonpath-rfc9535.ts` (`isStackOverflow`) matches V8's
   `RangeError` text ("Maximum call stack size exceeded"); Chrome, Chromium and VS Code's webview
   all run V8. Firefox throws `InternalError: too much recursion`, so a non-V8 host widens the check.
+- json-p3 2.3.2 sets `minIntIndex` from `options.maxIntIndex` (a typo in its `JSONPathEnvironment`
+  constructor; 014 T2 review). Unreachable here, since `jsonpath-rfc9535.ts` passes neither option;
+  recheck it on a json-p3 upgrade or before passing either.
+- Follow-up (014 T3, not filed): in Chromium, tree mode cannot show data nested deeper than about
+  130 levels, and the Transform dialog cannot open on it in any mode (a stack overflow in the
+  library's Svelte tree). Criterion 6's too-deep case is therefore proven in the unit corpus only.

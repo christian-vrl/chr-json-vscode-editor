@@ -162,6 +162,7 @@ test.describe('criterion 5: dialog and wizard', () => {
       await expect(queryBox(page)).toHaveValue(c.kept);
       await expect(previewError(page)).toHaveCount(0);
       await expect(previewData(page)).toContainText(c.kept === '$' ? '1 item' : '4 items');
+      await expect(transformButton(page)).toBeEnabled();
       await hostUnchanged(page, text);
     });
   }
