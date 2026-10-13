@@ -4,7 +4,7 @@
 // in the webview, not the extension host, so it must not import `vscode` or Node modules.
 import '@chr-json-editor/app-shell/page.css';
 import '@chr-json-editor/app-shell/ui.css';
-import { mountApp, type AppHandle } from '@chr-json-editor/app-shell/ui';
+import { mountApp, type AppHandle, type QueryEngineModule } from '@chr-json-editor/app-shell/ui';
 import { installTestHooks } from './testHooks';
 import { VscodeHostAdapter } from './vscodeHostAdapter';
 
@@ -29,4 +29,11 @@ const host = new VscodeHostAdapter(vscode, (listener) => {
   return () => listeners.delete(listener);
 });
 const target = document.getElementById('app');
-if (target) app = mountApp(target, host);
+// The JavaScript and Lodash query engine (spec 011 T5): an ES module next to this script, whose
+// webview URI the extension puts on #app. `import()` from this nonce'd script inherits the nonce, so
+// the CSP allows it (011 T1 REPORT §3 route (a)); nothing loads it before Transform first opens.
+const engineUrl = target?.dataset.queryEngine;
+const loadQueryEngine = engineUrl
+  ? () => import(engineUrl) as Promise<QueryEngineModule>
+  : undefined;
+if (target) app = mountApp(target, host, { loadQueryEngine });

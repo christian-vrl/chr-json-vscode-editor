@@ -1,0 +1,14 @@
+{
+    "team": [
+        "lead",
+        {
+            "name"  : "Christopher",
+            "role"  : "maintainer",
+            "email" : "christopher@example.org",
+            "city"  : "Lisbon",
+            "active": true
+        },
+        false,
+        "x"
+    ]
+}

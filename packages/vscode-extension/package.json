@@ -18,6 +18,10 @@
     "Other"
   ],
   "main": "./dist/extension.js",
+  "browser": "./dist/web/extension.js",
+  "capabilities": {
+    "virtualWorkspaces": true
+  },
   "activationEvents": [],
   "contributes": {
     "customEditors": [
@@ -88,6 +92,21 @@
         "command": "chrJsonEditor.compareWithHead",
         "title": "Compare with HEAD",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.exportCsv",
+        "title": "Export to CSV…",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.importCsv",
+        "title": "Import CSV…",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.convertCsvToJson",
+        "title": "Convert CSV to JSON",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -130,7 +149,19 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
+        },
+        {
+          "command": "chrJsonEditor.exportCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+        },
+        {
+          "command": "chrJsonEditor.importCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked"
+        },
+        {
+          "command": "chrJsonEditor.convertCsvToJson",
+          "when": "resourceExtname =~ /^\\.csv$/i && activeEditor == workbench.editors.files.textFileEditor"
         }
       ],
       "editor/title": [
@@ -158,6 +189,21 @@
           "command": "chrJsonEditor.convertToJson5",
           "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)",
           "group": "1_convert@3"
+        },
+        {
+          "command": "chrJsonEditor.exportCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "group": "2_csv@1"
+        },
+        {
+          "command": "chrJsonEditor.importCsv",
+          "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked",
+          "group": "2_csv@2"
+        },
+        {
+          "command": "chrJsonEditor.convertCsvToJson",
+          "when": "resourceExtname =~ /^\\.csv$/i && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "2_csv@3"
         }
       ],
       "editor/title/context": [
@@ -168,7 +214,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
           "group": "3_compare@21"
         }
       ],
@@ -190,8 +236,13 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
           "group": "3_compare@22"
+        },
+        {
+          "command": "chrJsonEditor.convertCsvToJson",
+          "when": "resourceExtname =~ /^\\.csv$/i && !explorerResourceIsFolder && !listMultiSelection",
+          "group": "navigation@21"
         }
       ]
     }
@@ -199,7 +250,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && tsc -p src/webview/tsconfig.json --noEmit && node esbuild.mjs",
     "package": "pnpm --filter chr-json-editor... run build && node scripts/copy-license.mjs && node ../../scripts/check-licenses.mjs --package . --notice THIRD_PARTY_LICENSES.md && vsce package --no-dependencies",
-    "test:e2e": "node test/e2e/run.mjs"
+    "test:e2e": "node test/e2e/run.mjs",
+    "test:e2e:web": "node test/web/run.mjs"
   },
   "dependencies": {
     "@chr-json-editor/app-shell": "workspace:*",
@@ -209,10 +261,13 @@
     "ajv-formats": "3.0.1"
   },
   "devDependencies": {
+    "@types/mocha": "10.0.10",
     "@types/vscode": "1.95.0",
     "@vscode/test-electron": "3.1.0",
+    "@vscode/test-web": "0.0.81",
     "@vscode/vsce": "4.0.0",
     "esbuild": "0.28.2",
+    "mocha": "11.8.0",
     "ovsx": "1.2.0"
   }
 }

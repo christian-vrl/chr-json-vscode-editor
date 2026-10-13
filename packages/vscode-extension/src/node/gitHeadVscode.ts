@@ -6,7 +6,7 @@
 // reader must return the committed bytes unchanged (007 T2 gate).
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import { readHead, type HeadGit, type HeadRepository, type HeadResult } from './gitHead';
+import { readHead, type HeadGit, type HeadRepository, type HeadResult } from '../gitHead';
 
 interface GitRepository {
   buffer(ref: string, path: string): Promise<Uint8Array>;

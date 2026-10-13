@@ -15,3 +15,6 @@ packages/core/test/fixtures/repair-json5/** -text
 
 # CSV panel fixtures (009 T3) are read byte for byte; import/many.csv uses CR LF on purpose.
 tests/csv/** -text
+
+# The vendored JSONPath compliance test suite (014 T1) is checked against its SHA-256 in SOURCE.
+tests/query/jsonpath-cts/** -text

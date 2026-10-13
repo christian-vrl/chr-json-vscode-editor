@@ -118,6 +118,34 @@ jobs:
       - run: CHR_TEST_HOOKS=1 pnpm package
       - run: xvfb-run -a pnpm test:e2e
 
+  e2e-web:
+    name: test:e2e:web (VS Code stable, web worker host)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # @vscode/test-web drives VS Code's web build in Playwright's Chromium (spec 013, ADR-013).
+      - run: pnpm exec playwright install --with-deps chromium
+      # The CI route of test/web/run.mjs (VSCODE_EXECUTABLE_PATH is not set here): @vscode/test-web
+      # downloads VS Code stable's web build into .vscode-test-web. Cached by the stable version,
+      # as the e2e job caches the desktop build.
+      - name: Resolve VS Code stable
+        id: vscode
+        run: |
+          version=$(curl -fsS --retry 3 https://update.code.visualstudio.com/api/releases/stable | jq -r '.[0]')
+          echo "VS Code stable: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: packages/vscode-extension/.vscode-test-web
+          key: vscode-web-${{ runner.os }}-${{ steps.vscode.outputs.version }}
+      # The e2e build, as for test:e2e: the suite reads webview state through test hooks.
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      - run: pnpm test:e2e:web
+
   package:
     name: package (.vsix artifact)
     runs-on: ubuntu-latest

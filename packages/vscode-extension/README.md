@@ -28,6 +28,16 @@ formatting; unsaved changes are included, and edits made anywhere show up in the
 normal, undoable edit that keeps the target's comments. The HEAD side is read from the local Git
 repository and is never changed.
 
+"Export to CSV…" turns an array of objects into CSV, and "Import CSV…" (in CHR JSON Editor) and
+"Convert CSV to JSON" (on a `.csv` file) turn CSV into JSON. A panel shows the delimiter, header row
+and flattening options with a preview of the first 100 rows. Export takes the array the table view
+shows, or the array or object selected in the tree view, else the whole document; it can save
+`<name>.csv` beside the file or copy the CSV. Export writes the data as it was when the panel
+opened, which is what its preview shows; run "Export to CSV…" again after editing to export the
+edits. Import creates `<name>.json` beside the CSV file, or replaces the document's data as one
+undoable edit that keeps the comments of members that stay. A large file that opened read-only
+exports as usual but offers no "Import CSV…" until "Edit anyway".
+
 Files open in the text editor by default. To open a file type in CHR JSON Editor every time, use
 "Reopen Editor With..." > "Configure default editor", or set VS Code's `workbench.editorAssociations`
 setting, for example `{ "*.json5": "chrJsonEditor.editor" }`.

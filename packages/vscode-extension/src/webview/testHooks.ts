@@ -208,6 +208,11 @@ export function installTestHooks(
       selectDialect(String((message as { dialect?: unknown }).dialect));
       return true;
     }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'select') {
+      const { path } = message as { path?: unknown };
+      app()?.select(typeof path === 'string' ? path : '');
+      return true;
+    }
     if (typeof message === 'object' && message !== null && message.chrTest === 'send') {
       const sent = (message as { message?: object }).message;
       api.postMessage({ protocol: PROTOCOL_VERSION, ...sent });

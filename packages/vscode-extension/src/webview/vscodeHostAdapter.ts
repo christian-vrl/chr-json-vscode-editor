@@ -90,6 +90,10 @@ export class VscodeHostAdapter implements HostAdapter {
     this.#post({ protocol: PROTOCOL_VERSION, type: 'unlock', docVersion });
   }
 
+  rowSource(docVersion: number, request: number, path: string): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion, request, path });
+  }
+
   #receive(data: unknown): void {
     const decoded = decodeToWebview(data);
     if (!decoded.ok) {

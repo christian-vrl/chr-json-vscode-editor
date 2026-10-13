@@ -1,0 +1,5 @@
+// Cities
+[
+  {name: 'London', people: 9}, // capital
+  {name: 'Helsinki', people: 1.3}, // north
+]

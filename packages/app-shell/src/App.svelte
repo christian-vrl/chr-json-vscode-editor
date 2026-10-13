@@ -34,7 +34,8 @@
   the query engine (mount.ts `MountOptions`). They are the library's own languages, with
   `executeQuery` running the query in the sealed QuickJS engine (query/run-query.ts), never in the
   page. The engine is loaded and compiled when a Transform dialog first opens, which waits for it
-  (criterion 10).
+  (criterion 10). Above 5 MiB, measured on the text when the dialog opens, they are not listed
+  (criterion 11, query/size-gate.ts), and the engine is not loaded for that dialog.
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -49,7 +50,11 @@
     jsonQueryLanguage,
     lodashQueryLanguage,
     type Content,
+    createMultiSelection,
     isMenuButton,
+    isMultiSelection,
+    isValueSelection,
+    type JSONEditorSelection,
     type JsonEditor,
     type MenuItem,
     type Mode as LibraryMode,
@@ -60,7 +65,7 @@
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { getIn, parseJSONPointer } from 'immutable-json-patch';
+  import { compileJSONPointer, getIn, parseJSONPointer } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
@@ -73,6 +78,7 @@
     type QueryEngineLoader,
     type QueryLanguageId,
   } from './query/run-query.js';
+  import { queryLanguagesFor } from './query/size-gate.js';
   import {
     isEditError,
     MODES,
@@ -134,14 +140,45 @@
 
   /** A Transform dialog waiting for the engine to compile; a second request meanwhile is dropped. */
   let engineWait: Promise<void> | undefined;
+  /** The query language last picked in Transform, kept while a large document hides it. */
+  let chosenQueryLanguageId = QUERY_LANGUAGES[0]!.id;
+  /** The list the library holds now: all of QUERY_LANGUAGES, or the ones allowed above 5 MiB. */
+  let shownQueryLanguages = QUERY_LANGUAGES;
+
+  /**
+   * Gives the library the languages for the document's size now (criterion 11): the text as text
+   * mode shows it (typing included), else the host's last text. A language the list leaves out is
+   * not selected; the user's pick comes back with it. Returns whether the engine's languages are
+   * listed.
+   */
+  function showQueryLanguagesForSize(): boolean {
+    if (!editor) return true;
+    let text = docText;
+    if (mode === 'text') {
+      flushText();
+      const content = editor.get();
+      if ('text' in content) text = content.text;
+    }
+    const shown = queryLanguagesFor(QUERY_LANGUAGES, text);
+    if (shown.length !== shownQueryLanguages.length) {
+      shownQueryLanguages = shown;
+      const selected = shown.some((language) => language.id === chosenQueryLanguageId)
+        ? chosenQueryLanguageId
+        : shown[0]!.id;
+      editor.updateProps({ queryLanguages: shown, queryLanguageId: selected });
+    }
+    return shown === QUERY_LANGUAGES;
+  }
 
   /**
    * Opens a Transform dialog with `open` once the query engine is compiled (criterion 10): the first
    * time, it loads and compiles the engine first. If that fails, the dialog opens anyway and
-   * JavaScript and Lodash say the engine is not loaded.
+   * JavaScript and Lodash say the engine is not loaded. A document above 5 MiB lists no engine
+   * language (criterion 11), so its dialog opens without loading the engine.
    */
   function withQueryEngine(open: () => void): void {
-    if (!queryEngineLoader || isQueryEngineLoaded()) {
+    const engineListed = showQueryLanguagesForSize();
+    if (!queryEngineLoader || !engineListed || isQueryEngineLoaded()) {
       open();
       return;
     }
@@ -171,6 +208,8 @@
   let validation = $state<ValidationMessage | undefined>();
   let target: HTMLDivElement;
   let editor: JsonEditor | undefined;
+  /** What tree or table mode has selected (the library's `onSelect`), for "Export to CSV…". */
+  let selection: JSONEditorSelection | undefined;
 
   // Sync (003 T5). The host owns the document: the UI sends each change as an `edit` made on
   // `docVersion` and the host answers every edit, in order, with an `update` (origin `edit`) or an
@@ -231,10 +270,12 @@
           validator: validatorFor(validation),
           queryLanguages: QUERY_LANGUAGES,
           queryLanguageId: QUERY_LANGUAGES[0]!.id,
+          onChangeQueryLanguage: (id: string) => (chosenQueryLanguageId = id),
           onRenderMenu: renderMenu,
           onRenderContextMenu: renderContextMenu,
           onChange,
           onChangeMode,
+          onSelect: (next: JSONEditorSelection | undefined) => (selection = next),
         },
       });
       // Criterion 10's test hook: the editor shows the document (the engine is not loaded yet).
@@ -481,6 +522,32 @@
     }
     queued.push({ change: { kind: 'patch', patch: operations }, shown });
     sendNext();
+  }
+
+  /** Selects the node at JSON Pointer `path` in tree mode, as a click on its row does (e2e test
+   *  hooks, 009 T4). The library does not report its own `select` to `onSelect`, so the selection
+   *  is kept here too. */
+  export function select(path: string): void {
+    const at = parseJSONPointer(path);
+    selection = createMultiSelection(at, at);
+    editor?.select(selection);
+  }
+
+  /**
+   * What "Export to CSV…" exports (spec 009 criterion 7), as a JSON Pointer: in table mode, the
+   * array the table shows, which is always the document's root (the library's table mode shows
+   * the root array, and opens a nested one in a dialog of its own); in tree mode, the one value
+   * selected (a value, or a row selected alone); otherwise `''`, the document's data. The host
+   * checks that the value there is an array or an object.
+   */
+  function rowSourcePath(): string {
+    if (mode !== 'tree' || !selection) return '';
+    if (isValueSelection(selection)) return compileJSONPointer(selection.path);
+    if (isMultiSelection(selection)) {
+      const anchor = compileJSONPointer(selection.anchorPath);
+      if (anchor === compileJSONPointer(selection.focusPath)) return anchor;
+    }
+    return '';
   }
 
   /** What the editor holds now, for tests. */
@@ -770,6 +837,9 @@
       case 'flush':
         flushes.push(event.request);
         void reportTyping().then(answerFlushes);
+        return;
+      case 'getRowSource':
+        host.rowSource(docVersion, event.request, rowSourcePath());
         return;
     }
   }

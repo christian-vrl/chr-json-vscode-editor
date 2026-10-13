@@ -1,0 +1,9 @@
+{
+  "language": "jsonpath-rfc9535",
+  "tags": ["pick"],
+  "wizard": {
+    "projection": {
+      "paths": [["name"]]
+    }
+  }
+}
