@@ -15,7 +15,6 @@ import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
 import type { ComparePageProbe, CsvPageProbe, DomStep, RenderedProbe } from './testProbe';
 import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
-import { webviewFormat } from './formatBadge';
 import type { HostPlatform } from './platform';
 import type { HeadResult } from './gitHead';
 import { cachedParseTexts, detect } from '@chr-json-editor/core';
@@ -134,11 +133,11 @@ export function activateShared(
 ): { testHooks: TestHooks } | undefined {
   const formatBadge = new FormatBadgeController(formatCore);
   const { provider, disposable } = JsonEditorProvider.register(context, formatBadge);
-  const compares = new ComparePanels(context.extensionUri, (document) =>
-    webviewFormat(
+  const compares = new ComparePanels(
+    context.extensionUri,
+    (document) =>
       formatBadge.format(document) ??
-        detect(document.uri.path, document.languageId, document.getText()).format,
-    ),
+      detect(document.uri.path, document.languageId, document.getText()).format,
   );
   const csvPanels = new CsvPanels(context.extensionUri, {
     formatOf: (document) =>
@@ -154,7 +153,7 @@ export function activateShared(
     formatBadge,
     disposable,
     formatBadge.onDidChangeFormat(({ document, format }) => {
-      provider.formatChanged(document, webviewFormat(format));
+      provider.formatChanged(document, format);
       compares.formatChanged(document);
     }),
     ...registerCommands(),

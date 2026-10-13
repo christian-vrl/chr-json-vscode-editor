@@ -49,6 +49,7 @@ const toWebview: ToWebviewMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 2, text: '{}', origin: 'edit' },
   { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 2, mode: 'table' },
   { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'json5' },
+  { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'jsonl' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'stale', message: 'Edit on 2' },
   {
     protocol: PROTOCOL_VERSION,
@@ -119,7 +120,7 @@ const toHost: ToHostMessage[] = [
     docVersion: 0,
     change: { kind: 'text', text: '' },
   },
-  ...(['format', 'compact', 'repair'] as const).map((name): ToHostMessage => ({
+  ...(['format', 'compact', 'repair', 'repairLines'] as const).map((name): ToHostMessage => ({
     protocol: PROTOCOL_VERSION,
     type: 'edit',
     docVersion: 4,

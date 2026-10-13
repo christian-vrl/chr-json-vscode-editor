@@ -24,7 +24,7 @@
   criterion 5 and the L10 golden cases green*
 
 ## Phase C — UI (risk-free / additive)
-- [ ] **T4** app-shell: `parserFor('jsonl')` without the `JSON.parse` fast path; Table and Tree only
+- [x] **T4** app-shell: `parserFor('jsonl')` without the `JSON.parse` fast path; Table and Tree only
   with Table first for `jsonl`; the bad-line banner (read-only, "Open as Text", "Repair Lines"
   requests to the host, protocol bump); whole-document actions hidden per criterion 6; dev host
   fixtures; web tests. — needs: 012 T2, 008 T2 — *gate: criterion 8's banner and read-only parts and
