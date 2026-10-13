@@ -21,6 +21,13 @@ new file beside it (`data.json5` becomes `data.json`), keeping its layout and ev
 target can hold. Going to JSON removes comments, and `NaN` and `Infinity` become `null` in JSON and
 JSONC; the command asks first when that happens. The original file is never changed.
 
+`.jsonl` and `.ndjson` files (JSON Lines, one JSON value per line) open in the table view, with the
+tree view as the other choice; an edit rewrites only the lines it changes. A line that is not valid
+JSON makes the file read-only until it is fixed: "Repair Lines" repairs what it can as one undoable
+edit, and "Open as Text" opens the text editor at that line. "Convert to JSON Lines" writes an array
+as one item per line, and "Convert to JSON", "Convert to JSONC" and "Convert to JSON5" turn JSON
+Lines into an array.
+
 "Compare With…", "Compare Selected" (two files in the explorer) and "Compare with HEAD" show two
 documents side by side as trees with every data difference marked, ignoring key order, comments and
 formatting; unsaved changes are included, and edits made anywhere show up in the compare. "Next" and

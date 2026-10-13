@@ -1,5 +1,6 @@
-// CustomTextEditorProvider for *.json, *.jsonc and *.json5 (spec 003 T3). The document stays a
-// normal VS Code TextDocument; the webview shows it in app-shell's editor (003 T5, webview/main.ts).
+// CustomTextEditorProvider for *.json, *.jsonc, *.json5, *.jsonl and *.ndjson (spec 003 T3, 012
+// T5). The document stays a normal VS Code TextDocument; the webview shows it in app-shell's editor
+// (003 T5, webview/main.ts).
 // The webview runs scripts only with a per-render nonce and loads files only from the extension's
 // dist folder (003 T4, criterion 6; see webviewHtml.ts). Each tab reports to the status-bar format
 // badge (003 T10). Schema validation runs here in the host and reaches the webview as `validation`
@@ -35,7 +36,7 @@ import {
   type ToWebviewMessage,
   type ValidationMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { detect, releaseParse } from '@chr-json-editor/core';
+import { detect, getAdapter, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
@@ -374,7 +375,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           docVersion: document.version,
           text: document.getText(),
           format: this.formatOf(document),
-          mode: 'tree',
+          // JSON Lines opens in Table mode (spec 012 criterion 6).
+          mode: this.formatOf(document) === 'jsonl' ? 'table' : 'tree',
           settings: {},
           largeFile: session.largeFile && { ...session.largeFile },
         });
@@ -417,8 +419,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         session.rowSources.delete(message.request);
         return;
       case 'openAsText':
-        // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open.
-        void vscode.commands.executeCommand('chrJsonEditor.reopenAsText', document.uri);
+        // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open. From
+        // a JSON Lines tab's bad-line banner the cursor goes to the start of the first bad line
+        // (spec 012 criterion 8).
+        void this.openAsText(document);
         return;
       case 'unlock':
         // Only a large-file tab's banner sends it; the tab stays unlocked until it closes.
@@ -489,6 +493,24 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         request,
       });
     });
+  }
+
+  /** "Open as Text": VS Code's text editor on `document`, at its first bad line when it is JSON
+   *  Lines and has one. */
+  private async openAsText(document: vscode.TextDocument): Promise<void> {
+    const bad = this.formatOf(document) === 'jsonl' ? firstBadLine(document.getText()) : undefined;
+    await vscode.commands.executeCommand('chrJsonEditor.reopenAsText', document.uri);
+    if (bad === undefined || document.isClosed) return;
+    const editor = [vscode.window.activeTextEditor, ...vscode.window.visibleTextEditors].find(
+      (e) => e?.document === document,
+    );
+    if (!editor) return;
+    const start = new vscode.Position(document.positionAt(bad).line, 0);
+    editor.selection = new vscode.Selection(start, start);
+    editor.revealRange(
+      new vscode.Range(start, start),
+      vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+    );
   }
 
   /** The format the badge holds for the document: detected, or chosen by the user. */
@@ -767,4 +789,12 @@ async function readSchemaFile(uri: string): Promise<string> {
     vscode.Uri.from({ scheme: 'file', authority, path }),
   );
   return new TextDecoder().decode(bytes);
+}
+
+/** The offset of a JSON Lines text's first bad line (L1: each error diagnostic spans its line), or
+ *  undefined when it has none. Core keeps the last parse per format, which the badge made too. */
+function firstBadLine(text: string): number | undefined {
+  return getAdapter('jsonl')
+    .parse(text)
+    .diagnostics.find((d) => d.severity === 'error')?.offset;
 }

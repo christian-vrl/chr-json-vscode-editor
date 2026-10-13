@@ -61,6 +61,21 @@ describe('SchemaBinding', () => {
     expect(binding.schemaFile).toBe('file:///work/schemas/person.json');
   });
 
+  it('binds no schema to a JSON Lines document (spec 012 §Scope), and one once it is JSON', async () => {
+    const { state, calls, reads, binding } = setup('{"$schema": "../schemas/person.json"}\n', {
+      'file:///work/schemas/person.json': JSON.stringify(PERSON),
+    });
+    state.format = 'jsonl';
+    state.jsonSchemas = [{ entries: [{ fileMatch: ['*'], schema: PERSON }] }];
+    await binding.refresh();
+    expect(binding.associate()).toEqual({ source: 'none' });
+    expect(reads).toEqual([]);
+    expect(calls).toEqual([['setSchema', undefined, undefined]]);
+    state.format = 'json';
+    await binding.refresh();
+    expect(calls.at(-1)).toEqual(['setSchema', PERSON, undefined]);
+  });
+
   it('reads a JSONC or JSON5 schema file in its own format', async () => {
     const { calls, binding } = setup('{"$schema": "./person.schema.json5"}', {
       'file:///work/data/person.schema.json5': "// note\n{type: 'object', required: ['name'],}",

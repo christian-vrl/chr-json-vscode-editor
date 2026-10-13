@@ -37,6 +37,12 @@
           },
           {
             "filenamePattern": "*.json5"
+          },
+          {
+            "filenamePattern": "*.jsonl"
+          },
+          {
+            "filenamePattern": "*.ndjson"
           }
         ],
         "priority": "option"
@@ -79,6 +85,11 @@
         "category": "CHR JSON Editor"
       },
       {
+        "command": "chrJsonEditor.convertToJsonl",
+        "title": "Convert to JSON Lines",
+        "category": "CHR JSON Editor"
+      },
+      {
         "command": "chrJsonEditor.compareWith",
         "title": "Compare With…",
         "category": "CHR JSON Editor"
@@ -113,7 +124,7 @@
       "commandPalette": [
         {
           "command": "chrJsonEditor.openInEditor",
-          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && activeCustomEditorId != chrJsonEditor.editor"
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5|jsonl|ndjson)$/ && activeCustomEditorId != chrJsonEditor.editor"
         },
         {
           "command": "chrJsonEditor.reopenAsText",
@@ -129,15 +140,19 @@
         },
         {
           "command": "chrJsonEditor.convertToJson",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(jsonc|json5)$/)"
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(jsonc|json5|jsonl)$/)"
         },
         {
           "command": "chrJsonEditor.convertToJsonc",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonc) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|json5)$/)"
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonc) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|json5|jsonl)$/)"
         },
         {
           "command": "chrJsonEditor.convertToJson5",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)"
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|jsonl)$/)"
+        },
+        {
+          "command": "chrJsonEditor.convertToJsonl",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonl) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
         },
         {
           "command": "chrJsonEditor.compareWith",
@@ -167,7 +182,7 @@
       "editor/title": [
         {
           "command": "chrJsonEditor.openInEditor",
-          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && activeEditor == workbench.editors.files.textFileEditor",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5|jsonl|ndjson)$/ && activeEditor == workbench.editors.files.textFileEditor",
           "group": "navigation"
         },
         {
@@ -177,18 +192,23 @@
         },
         {
           "command": "chrJsonEditor.convertToJson",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(jsonc|json5)$/)",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(jsonc|json5|jsonl)$/)",
           "group": "1_convert@1"
         },
         {
           "command": "chrJsonEditor.convertToJsonc",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonc) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|json5)$/)",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonc) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|json5|jsonl)$/)",
           "group": "1_convert@2"
         },
         {
           "command": "chrJsonEditor.convertToJson5",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc)$/)",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != json5) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|jsonl)$/)",
           "group": "1_convert@3"
+        },
+        {
+          "command": "chrJsonEditor.convertToJsonl",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonl) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "group": "1_convert@4"
         },
         {
           "command": "chrJsonEditor.exportCsv",
@@ -221,7 +241,7 @@
       "explorer/context": [
         {
           "command": "chrJsonEditor.openInEditor",
-          "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder",
+          "when": "resourceExtname =~ /^\\.(json|jsonc|json5|jsonl|ndjson)$/ && !explorerResourceIsFolder",
           "group": "navigation@20"
         },
         {

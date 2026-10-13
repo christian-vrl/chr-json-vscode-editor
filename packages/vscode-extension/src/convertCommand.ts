@@ -1,4 +1,5 @@
-// "Convert to JSON / JSONC / JSON5" (spec 006 T3, criteria 6 and 7). Each command converts the
+// "Convert to JSON / JSONC / JSON5" (spec 006 T3, criteria 6 and 7) and "Convert to JSON Lines"
+// (spec 012 T5, criterion 9; JSON Lines sources too). Each command converts the
 // active document, in the CHR JSON Editor or the text editor, with core's `convert` (convertPlan.ts),
 // asks before removing comments or changing values, and writes the result to a new file beside the
 // source with the target's extension, opened in the kind of editor the command ran from (UNK-035).
@@ -11,17 +12,25 @@
 import * as vscode from 'vscode';
 import { detect, type Format } from '@chr-json-editor/core';
 import { confirm } from './confirm';
-import { brokenMessage, convertedName, FORMAT_LABELS, lossQuestion, plan } from './convertPlan';
+import {
+  brokenMessage,
+  convertedName,
+  FORMAT_LABELS,
+  lossQuestion,
+  NOT_ARRAY_MESSAGE,
+  plan,
+} from './convertPlan';
 import { VIEW_TYPE } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
-/** "Convert to JSON Lines" comes with 012 T5. */
-export const CONVERT_COMMANDS: Readonly<Record<Exclude<Format, 'jsonl'>, string>> = {
+/** One command per target format; "Convert to JSON Lines" is spec 012 criterion 9. */
+export const CONVERT_COMMANDS: Readonly<Record<Format, string>> = {
   json: 'chrJsonEditor.convertToJson',
   jsonc: 'chrJsonEditor.convertToJsonc',
   json5: 'chrJsonEditor.convertToJson5',
+  jsonl: 'chrJsonEditor.convertToJsonl',
 };
 
 /** Context keys the menus' `when` clauses read. */
@@ -125,6 +134,10 @@ async function convertActive(
     const result = plan(text, from, to, bom);
     if (result.kind === 'same') {
       show('info', `CHR JSON Editor: the document is already ${FORMAT_LABELS[to]}.`);
+      return undefined;
+    }
+    if (result.kind === 'not-array') {
+      show('error', `CHR JSON Editor: ${NOT_ARRAY_MESSAGE}`);
       return undefined;
     }
     if (result.kind === 'broken') {

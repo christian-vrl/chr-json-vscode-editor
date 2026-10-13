@@ -55,8 +55,10 @@ export class SchemaBinding {
     private readonly delayMs = 100,
   ) {}
 
-  /** The association for the document as it is now (criterion 1). */
+  /** The association for the document as it is now (criterion 1). A JSON Lines document has none:
+   *  004 validates a whole document, and a schema for each item is out of spec 012's scope. */
   associate(): SchemaAssociation {
+    if (this.source.format() === 'jsonl') return { source: 'none' };
     const { jsonSchemas, json5Schemas } = this.source.settings();
     return resolveSchemaAssociation({
       documentUri: this.source.documentUri(),
