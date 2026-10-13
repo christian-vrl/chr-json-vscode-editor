@@ -201,7 +201,7 @@ export function smartFormatCells(format: GoldenFormat): string[] {
   if (format === 'json5') {
     cells.push(
       ...smartFormatTags.special
-        .filter((v) => v !== 'none' && v !== 'key-order')
+        .filter((v) => v !== 'none' && v !== 'key-order' && v !== 'big-number')
         .map((v) => `special=${v}`),
     );
   }

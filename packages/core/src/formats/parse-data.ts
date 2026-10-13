@@ -7,6 +7,7 @@ import { printParseErrorCode } from 'jsonc-parser';
 import { parseJson5Data } from './json5-parser.js';
 import { visitData } from './jsonc-adapter.js';
 import { parseLinesData } from './jsonl-adapter.js';
+import { mayHoldBigNumber } from './numbers.js';
 import type { Format } from './types.js';
 
 export type ParseDataResult = { data: unknown } | { error: { message: string; offset: number } };
@@ -22,9 +23,12 @@ export function parseData(format: Format, text: string): ParseDataResult {
   if (format === 'jsonl') return parseLinesData(text);
   // Strict JSON is valid in every format and parses to the same data: `JSON.parse` defines
   // members as own properties (`__proto__` too), keeps `-0` and lets a duplicate key's last value
-  // win in the first one's place, as both parsers do. Anything else takes the format's own walk.
+  // win in the first one's place, as both parsers do. Anything else takes the format's own walk,
+  // and so does strict JSON that may hold a big number, which `JSON.parse` would round (spec 015
+  // B1; the scan runs only once `JSON.parse` has read the text).
   try {
-    return { data: JSON.parse(text) as unknown };
+    const data = JSON.parse(text) as unknown;
+    if (!mayHoldBigNumber(text)) return { data };
   } catch {
     // Not strict JSON: comments, trailing commas, JSON5 syntax, or an error.
   }

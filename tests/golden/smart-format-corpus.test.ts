@@ -14,12 +14,14 @@
 //   number at the start of a compact-array row.
 // - Criterion 6: a line longer than 120 characters (a tab counted as the indent width, 4 for tab
 //   indents) holds at most one key and one scalar value, plus comments.
-// - Tags: `style`, `trailingComma`, `special` (json5's literal kinds and key-order) and the
+// - Tags: `style`, `trailingComma`, `special` (json5's literal kinds, key-order and big numbers,
+//   spec 015 criterion 1) and the
 //   comment tags `none`, `with-warning`, `header`, `footer` and `multi-line-block` match the input.
 //   The other comment tags and `layout` are checked by the Reviewer against expected.
 import { isDeepStrictEqual } from 'node:util';
 import JSON5 from 'json5';
 import { describe, expect, it } from 'vitest';
+import { hasBigNumber } from './facts.js';
 import { loadSmartFormatCases, type SmartFormatCase } from './smart-format.js';
 
 const cases = loadSmartFormatCases();
@@ -233,6 +235,7 @@ describe.each(cases)('smart-format case $format/$name', (c) => {
     const strings = significant.filter((t) => t.kind === 'string').map((t) => t.text);
     const specials: [string, boolean][] = [
       ['key-order', hasKeyOrderRows(JSON5.parse(withoutBom(c.input)))],
+      ['big-number', words.some(hasBigNumber)],
       [
         'unquoted-key',
         significant.some((t, i) => t.kind === 'word' && significant[i + 1]?.text === ':'),

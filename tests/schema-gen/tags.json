@@ -2,6 +2,7 @@
   "tags": [
     "scalar-root",
     "integer",
+    "big-number",
     "number-merge",
     "minus-zero",
     "nan",

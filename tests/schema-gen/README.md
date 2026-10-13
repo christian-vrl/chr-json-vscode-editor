@@ -21,7 +21,8 @@ files are compared byte for byte. G9's boundary (1,000 levels generate, 1,001 do
 
 - **G1** `null` → `"null"`, booleans → `"boolean"`, strings → `"string"`, a number →
   `"integer"` when `Number.isInteger(n)` (`-0`, `2.0`, `1e300`), else `"number"` (`NaN`,
-  `±Infinity`); arrays → `"array"`, other objects → `"object"`.
+  `±Infinity`); arrays → `"array"`, other objects → `"object"`. A big number (spec 015) is typed
+  by its nearest number (`big-number`: a 19-digit id is `"integer"`, `1e400` is `"number"`).
 - **G2** A schema describes a set of values: `type` is one string, or an array in the order
   `object`, `array`, `string`, `number`, `integer`, `boolean`, `null`; `number` absorbs `integer`.
 - **G3** `properties`: every key of the set's objects, in the order first met, each with the schema

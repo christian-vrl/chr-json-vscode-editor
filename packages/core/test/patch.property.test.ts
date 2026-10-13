@@ -14,6 +14,7 @@ import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch
 import { describe, expect, it } from 'vitest';
 import {
   getAdapter,
+  nearestNumbers,
   PatchError,
   type Format,
   type FormatNode,
@@ -21,6 +22,7 @@ import {
 } from '../src/index.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
 import { printDocument } from './print-document.js';
+import { readBack } from './read-back.js';
 
 const RUNS = 10_000;
 
@@ -307,14 +309,19 @@ describe('criterion 3: random documents × random patches', () => {
             const input = printDocument(data, format, style, g);
             const parsed = adapter.parse(input);
             expect(parsed.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
-            const steps = patchFor(parsed.data, g);
-            const patch = steps.map((s) => s.op);
+            // The model and the reference read big numbers (spec 015) as nearest numbers; the
+            // values the patch gives core are read back the way core reads their text
+            // (read-back.ts), so `test` compares a big number with the big number its text holds.
+            const model = nearestNumbers(parsed.data);
+            const steps = patchFor(model, g);
+            const reference = steps.map((s) => s.op);
+            const patch = readBack(reference) as PatchOperation[];
 
             if (steps.at(-1)?.fails) {
               // R9: the patch throws as a whole. The reference agrees on a failing `test`; it does
               // not throw for every path RFC 6901 says does not exist (e.g. a member of a string).
               if (patch.at(-1)!.op === 'test')
-                expect(() => immutableJSONPatch(parsed.data, patch as JSONPatchDocument)).toThrow();
+                expect(() => immutableJSONPatch(model, reference as JSONPatchDocument)).toThrow();
               expect(() => adapter.applyPatch(input, patch)).toThrow(PatchError);
               return;
             }
@@ -324,7 +331,8 @@ describe('criterion 3: random documents × random patches', () => {
             const result = adapter.parse(output);
             expect(result.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
             if (format === 'json') expect(() => JSON.parse(output) as unknown).not.toThrow();
-            const expected = immutableJSONPatch(parsed.data, patch as JSONPatchDocument);
+            // A whole number JavaScript writes as a big number reads back as one (read-back.ts).
+            const expected = readBack(immutableJSONPatch(model, reference as JSONPatchDocument));
             if (!sameData(result.data, expected)) expect(result.data).toEqual(expected);
 
             // Comments outside removed, replaced and moved members survive byte-identical.

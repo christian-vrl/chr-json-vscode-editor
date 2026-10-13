@@ -17,11 +17,14 @@ const fixedTags: Record<GoldenFormat, Partial<Record<TagName, string>>> = {
     trailingComma: 'no',
     quote: 'double',
     keyStyle: 'quoted',
-    special: 'none',
   },
-  jsonc: { quote: 'double', keyStyle: 'quoted', special: 'none' },
+  jsonc: { quote: 'double', keyStyle: 'quoted' },
   json5: {},
 };
+
+/** `special` values every format has: none, or a big number (spec 015 criterion 1). The others
+ *  are JSON5-only literals. */
+const commonSpecial = ['none', 'big-number'];
 
 /** Criterion 4's grids, by tag, then the formats that must cover each value. */
 const gridOps = ['add', 'replace', 'remove', 'move', 'copy', 'test', 'test-fail'];
@@ -43,6 +46,9 @@ export function tagErrors(c: Pick<GoldenCase, 'format' | 'tags'>): string[] {
       const fixed = fixedTags[c.format][name];
       if (fixed !== undefined && value !== fixed) {
         errors.push(`tag "${name}" must be "${fixed}" in ${c.format} (got "${value}")`);
+      }
+      if (name === 'special' && c.format !== 'json5' && !commonSpecial.includes(value)) {
+        errors.push(`tag "special" must be "none" or "big-number" in ${c.format} (got "${value}")`);
       }
     }
   }
@@ -78,6 +84,9 @@ export function missingCells(
     for (const quote of tagValues.quote) cells.push({ quote });
     for (const keyStyle of tagValues.keyStyle) cells.push({ keyStyle });
     for (const special of tagValues.special.filter((s) => s !== 'none')) cells.push({ special });
+  } else {
+    // Spec 015 criterion 1: big numbers in every format.
+    cells.push({ special: 'big-number' });
   }
 
   return cells

@@ -3,6 +3,7 @@
 // criterion 4). Inputs and expected outputs are read unchanged so tests can compare bytes (D3).
 import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { parseData } from '../../packages/core/src/index.js';
 
 export const goldenFormats = ['json', 'jsonc', 'json5'] as const;
 export type GoldenFormat = (typeof goldenFormats)[number];
@@ -80,7 +81,7 @@ function isGoldenFormat(name: string): name is GoldenFormat {
 
 function loadCase(dir: string, format: GoldenFormat, name: string): GoldenCase {
   const where = `golden case ${format}/${name}`;
-  const patch = readJson(dir, 'patch.json', where);
+  const patch = readPatch(dir, where);
   if (!Array.isArray(patch) || !patch.every(isPatchOperation)) {
     throw new Error(`${where}: patch.json must be an array of {op, path} operations`);
   }
@@ -104,6 +105,13 @@ function readText(dir: string, file: string, where: string): string {
   } catch (error) {
     throw new Error(`${where}: cannot read ${file}`, { cause: error });
   }
+}
+
+/** patch.json, with big numbers as big numbers (spec 015 B1): core's reading of strict JSON. */
+export function readPatch(dir: string, where: string): unknown {
+  const read = parseData('json', readText(dir, 'patch.json', where));
+  if ('error' in read) throw new Error(`${where}: patch.json is not valid JSON`);
+  return read.data;
 }
 
 function readJson(dir: string, file: string, where: string): unknown {
