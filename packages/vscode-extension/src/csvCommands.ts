@@ -7,6 +7,10 @@
 //   ("Replace Document Data") or a new JSON file.
 // - "Convert CSV to JSON": the CSV file an explorer or editor title menu names, into a new JSON file.
 // A CSV file above VS Code's sync limit (spec 008's ceiling) is not read (criterion 8).
+// In a tab locked in spec 008's large-file mode (criterion 10, 009 T5), "Import CSV…" is not
+// offered: the `chrJsonEditor.customEditorLocked` context key hides it from the palette and the
+// editor title, and run anyway (a keybinding) it says why. "Export to CSV…" stays, reading the
+// data with core's data-only `parseData`, so core's cache keeps no parse of the document.
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { detect, parseData } from '@chr-json-editor/core';
@@ -22,25 +26,44 @@ declare const __CHR_TEST_HOOKS__: boolean;
 export const EXPORT_CSV_COMMAND = 'chrJsonEditor.exportCsv';
 export const IMPORT_CSV_COMMAND = 'chrJsonEditor.importCsv';
 export const CONVERT_CSV_COMMAND = 'chrJsonEditor.convertCsvToJson';
+/** True while the active tab is a CHR JSON Editor tab locked in large-file mode. */
+export const LOCKED_KEY = 'chrJsonEditor.customEditorLocked';
 
-/** Test hooks only: the answer to "Import CSV…"'s open dialog (undefined: show the dialog), and
- *  the messages the commands showed. */
+/** Criterion 10: why "Import CSV…" did nothing in a locked tab. */
+export const LOCKED_IMPORT_MESSAGE =
+  'CHR JSON Editor: this large file is read-only. Choose "Edit anyway" to import CSV into it.';
+
+/** Test hooks only: the answer to "Import CSV…"'s open dialog (undefined: show the dialog), the
+ *  messages the commands showed, and the value of LOCKED_KEY. */
 export const testCsvCommands: {
   pick: (() => string | undefined) | undefined;
   messages: string[];
-} = { pick: undefined, messages: [] };
+  locked: boolean | undefined;
+} = { pick: undefined, messages: [], locked: undefined };
 
 export function registerCsvCommands(
   panels: CsvPanels,
   badge: FormatBadgeController,
   provider: JsonEditorProvider,
 ): vscode.Disposable[] {
+  let locked: boolean | undefined;
+  const updateLocked = () => {
+    const now = provider.activeLocked();
+    if (now === locked) return;
+    locked = now;
+    if (__CHR_TEST_HOOKS__) testCsvCommands.locked = now;
+    void vscode.commands.executeCommand('setContext', LOCKED_KEY, now);
+  };
+  updateLocked();
   return [
+    // The badge refreshes when the active tab changes; "Edit anyway" changes no tab.
+    badge.onDidRefresh(updateLocked),
+    provider.onDidChangeLocks(updateLocked),
     vscode.commands.registerCommand(EXPORT_CSV_COMMAND, (uri?: unknown) =>
       exportCsv(panels, badge, provider, uri instanceof vscode.Uri ? uri : undefined),
     ),
     vscode.commands.registerCommand(IMPORT_CSV_COMMAND, (uri?: unknown) =>
-      importCsv(panels, badge, uri instanceof vscode.Uri ? uri : undefined),
+      importCsv(panels, badge, provider, uri instanceof vscode.Uri ? uri : undefined),
     ),
     vscode.commands.registerCommand(CONVERT_CSV_COMMAND, (uri?: unknown) =>
       convertCsv(panels, uri instanceof vscode.Uri ? uri : undefined),
@@ -105,11 +128,16 @@ async function exportCsv(
 async function importCsv(
   panels: CsvPanels,
   badge: FormatBadgeController,
+  provider: JsonEditorProvider,
   uri: vscode.Uri | undefined,
 ) {
   const document = uri ? await vscode.workspace.openTextDocument(uri) : badge.activeDocument();
   if (!document) {
     show('Open a document in the CHR JSON Editor to import CSV into it.');
+    return undefined;
+  }
+  if (provider.isLocked(document.uri)) {
+    show(LOCKED_IMPORT_MESSAGE);
     return undefined;
   }
   const csv = await pickCsv();

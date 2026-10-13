@@ -7,6 +7,7 @@
 // host runs the full conversion and does the write (ADR-003). Implemented by DevCsvHostAdapter for
 // the standalone page and `pnpm test:web`, and by the extension's CSV panel (009 T4).
 import type { CsvDelimiter } from '@chr-json-editor/core';
+import type { Disposable } from './host-adapter.js';
 
 export type { CsvDelimiter };
 
@@ -100,6 +101,10 @@ export type CsvOutcome = { done: true } | { error: CsvPanelMessage };
 export interface CsvHostAdapter {
   /** Resolves once with what the panel converts. */
   open(): Promise<CsvSource>;
+  /** Calls `listener` with the source each time the host changes what the panel offers after
+   *  `open` (the VS Code panel's `canReplace` follows spec 008's lock, 009 criterion 10); the page
+   *  keeps its options. Hosts whose source never changes leave it out. */
+  onDidChangeSource?(listener: (source: CsvSource) => void): Disposable;
   /** Runs the full conversion with `request.options` and writes the result; the page sends only
    *  the requests its mode offers. */
   run(request: CsvRequest): Promise<CsvOutcome>;
