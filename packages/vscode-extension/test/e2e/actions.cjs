@@ -162,12 +162,19 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
       console.log(`criterion 5: ${feature} writes expected.json byte for byte`);
     }
 
-    // The transform dialog lists the five query languages in order, JSONQuery first, and links to
-    // JSONQuery's site (spec 011 criterion 8: JavaScript and Lodash are offered in VS Code since
-    // 011 T5).
+    // The transform dialog lists the six query languages in order, JSONQuery first, and links to
+    // JSONQuery's site (spec 011 criterion 8 as amended by spec 014 criterion 5: JavaScript and
+    // Lodash are offered in VS Code since 011 T5, JSONPath (RFC 9535) since 014 T3).
     {
       const { uri, document } = await open(path.join(FIXTURES, 'transform-jsonquery/input.json'));
-      const languages = ['JSONQuery', 'JMESPath', 'JSONPath (Goessner)', 'JavaScript', 'Lodash'];
+      const languages = [
+        'JSONQuery',
+        'JMESPath',
+        'JSONPath (RFC 9535)',
+        'JSONPath (Goessner)',
+        'JavaScript',
+        'Lodash',
+      ];
       const [link, ...names] = await hooks.dom(uri.toString(), [
         { click: '.jse-tree-mode .jse-transform' },
         { read: '.jse-modal .jse-description a', attr: 'href' },

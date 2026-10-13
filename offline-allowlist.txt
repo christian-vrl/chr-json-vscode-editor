@@ -41,6 +41,9 @@ https://lodash.com
 # https://npms.io/search?q=ponyfill."), in lodash-es (the library's Lodash language) and in
 # lodash.min.js (evaluated only inside the query engine): a message string, never fetched.
 https://npms.io/search?q=ponyfill
+# 014 T3 registers JSONPath (RFC 9535) (json-p3) in the same dialog; its help text links to the RFC
+# (spec 014 criterion 9): a page the user may open, not a request the editor makes.
+https://www.rfc-editor.org/rfc/rfc9535
 
 # 004 T2: the extension host bundles Ajv 8.20.0 and ajv-formats 3.0.1 (ADR-010).
 # JSON Schema `$id`s of the meta-schemas Ajv adds itself; Ajv has no `loadSchema`, nothing fetches them.

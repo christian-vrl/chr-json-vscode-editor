@@ -144,7 +144,20 @@ jobs:
           key: vscode-web-${{ runner.os }}-${{ steps.vscode.outputs.version }}
       # The e2e build, as for test:e2e: the suite reads webview state through test hooks.
       - run: CHR_TEST_HOOKS=1 pnpm package
+      # The suite (013 T4): spec 013 criteria 3–5, 7, 8 (palette), 9 and 11 (network check).
       - run: pnpm test:e2e:web
+      # Criterion 11's expected failure: a fetch of https://example.com from the worker extension
+      # host must fail the network check (exit 1, and the request named), while the same fetch from
+      # the webview is refused by its CSP (test/web/suite/probe.ts).
+      - name: test:e2e:web --probe fails on a fetch of https://example.com from the worker
+        working-directory: packages/vscode-extension
+        run: |
+          set +e
+          node test/web/run.mjs --probe 2>&1 | tee "$RUNNER_TEMP/probe.log"
+          status=${PIPESTATUS[0]}
+          echo "exit $status (expected 1)"
+          test "$status" -eq 1 &&
+            grep -q '^test:e2e:web: network: https://example.com/ (' "$RUNNER_TEMP/probe.log"
 
   package:
     name: package (.vsix artifact)
