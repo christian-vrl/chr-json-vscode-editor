@@ -1,6 +1,8 @@
 # SPEC 013 — Web extension (vscode.dev and github.dev)
 
 > **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidQbVdJVVfHtwPqHyhUJuvE4, 2026-10-11)`
+> Criteria 1, 8 and 11 were reworded in review after that approval; the owner kept the new wording
+> (Keep/Revert card cmsg_01Wz9SKzwQD2da69nuNGPcidV4NLoW5PjyW1XF61ZfWRec, 2026-10-12 11:52Z, "Keep").
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -174,11 +176,12 @@ with the fixture folder mounted on a virtual scheme.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-052 | What the README and listing say about the network on the web | criterion 14; T6 | ★ Ship, with the sentence in criterion 14 · Don't ship a web build (desktop only) |
-| UNK-053 | What "Compare with HEAD" does in the browser | criteria 7, 8; T2 | ★ Desktop-only: hidden on the web, a message if run · Shown, with the message only |
+| UNK-052 | What the README and listing say about the network on the web | criterion 14; T6 | ★ Ship, with the sentence in criterion 14 · Don't ship a web build (desktop only) — resolved: ★ |
+| UNK-053 | What "Compare with HEAD" does in the browser | criteria 7, 8; T2 | ★ Desktop-only: hidden on the web, a message if run · Shown, with the message only — resolved: ★ |
 | UNK-054 | Largest document that opens in the web host | criterion 10; T5 | delegated (T5 evidence) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
+- [x] Result-affecting UNKNOWNS resolved (UNK-052, UNK-053 by the owner on 2026-10-12; UNK-054 is
+  delegated and decided by T5's evidence)
 - [x] Human approval recorded
