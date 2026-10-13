@@ -1,6 +1,6 @@
 # SPEC 017 — YAML, TOML and XML import
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidHnJ7WptLzuHMPNwoMzSPwC, 2026-10-13)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -223,7 +223,7 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
   YAML, TOML or XML…" with their menus, messages, warnings channel and size checks; JSON Lines
   tabs; locked large-file tabs; the bench rows and UNK-077's YAML limit; the web e2e cases; one
   README line per command.
-- **Out:** export from JSON to YAML, TOML or XML (UNK-076 ★ a later spec); editing YAML, TOML or
+- **Out:** export from JSON to YAML, TOML or XML (UNK-076: import only); editing YAML, TOML or
   XML in place; carrying comments (into JSONC, say); YAML or TOML or XML files under other
   extensions (`.plist`, `.svg`, `.csproj`, `.yaml.j2`); encodings other than UTF-8; XML Schema or
   DTD validation and typed values from them; namespace resolution; YAML 1.1 timestamps as dates;
@@ -294,11 +294,11 @@ None. Spec 006's §Scope Out already names spec 017 for YAML, TOML and XML.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-075 | How an XML document becomes JSON (shape and value types) | XM1–XM8, criteria 1, 2; T1 | see ledger |
-| UNK-076 | Whether 017 also exports JSON to YAML, TOML or XML | §Scope, Goal | see ledger |
+| UNK-075 | How an XML document becomes JSON (shape and value types) | XM1–XM8, criteria 1, 2; T1 | resolved (owner): ★ Compact |
+| UNK-076 | Whether 017 also exports JSON to YAML, TOML or XML | §Scope, Goal | resolved (owner): ★ Import only |
 | UNK-077 | The YAML limit (largest YAML file converted) | criteria 8, 10; T4 | delegated: evidence rule in the ledger |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved (UNK-077 is delegated and decided by T4's bench run)
+- [x] Human approval recorded
