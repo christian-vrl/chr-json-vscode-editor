@@ -39,6 +39,10 @@ file up to there is about the JavaScript and Lodash cases.
   `__proto__` key, an ISO date string), and a `proto-key` input has an own `__proto__` key.
 - `jsonpath-cts.test.ts` — spec 014 (014 T1): `jsonpath-cts/cts.json` is the pinned suite (its
   SHA-256 and commit in `SOURCE`, 706 tests, each well formed) and its licence is recorded.
+- `jsonpath-rfc9535.test.ts` — spec 014 criteria 1 and 2 (014 T2): `jsonpathRfc9535QueryLanguage`
+  gives every compliance test's result (or one of its results), key order checked, and throws for
+  every invalid selector; it gives every RFC 9535 case's `expected.json5` or an error containing
+  `error.json`'s text, and its `createQuery` throws the refused wizard cases' message.
 - `reference.test.ts` — the reference half of criterion 1: every case without `error.json` and
   without a Q2 tag gives `expected.json5` in the reference, key order checked; every error case
   without a Q2 tag makes the reference throw, with `error.json`'s text unless the case is marked
@@ -132,8 +136,8 @@ hand from P1–P7 of `spec/014-jsonpath-rfc9535/spec.md`, never produced by the 
 
 The coverage test also checks that a `bracket-name` query has a bracketed name selector, that a
 `deep` input nests more than 50 levels (the engine's default limit) and less than 1,000 (P6), and
-that a `too-deep` input nests more than 1,000. `reference.test.ts` has no RFC 9535 engine to run
-(that is 014 T2's); it checks that each wizard case gives the same data in the library's JSONPath
+that a `too-deep` input nests more than 1,000. `reference.test.ts` runs no RFC 9535 engine
+(`jsonpath-rfc9535.test.ts` does, below); it checks that each wizard case gives the same data in the library's JSONPath
 (Goessner), as P7 says, and that Goessner accepts each `goessner-only` query.
 
 ### RFC 9535 tags
@@ -181,4 +185,4 @@ The error tags are `syntax-error`, `type-error`, `unknown-function`, `too-deep`,
 the file's SHA-256 and its 706 tests. It is test data, never fetched by a test and never shipped, so
 `pnpm check:licenses` (shipped dependencies) and `pnpm check:offline` (build output) do not see it.
 `.gitattributes` marks it `-text` so its bytes keep their hash. Criterion 1 (every test against the
-engine) is 014 T2's; updating the suite is its own PR with an engine check (plan R1).
+engine) is `jsonpath-rfc9535.test.ts` (014 T2); updating the suite is its own PR with an engine check (plan R1).

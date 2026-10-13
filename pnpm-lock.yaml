@@ -92,6 +92,9 @@ importers:
       immutable-json-patch:
         specifier: 6.0.3
         version: 6.0.3
+      json-p3:
+        specifier: 2.3.2
+        version: 2.3.2
       lodash:
         specifier: 4.18.1
         version: 4.18.1
@@ -122,6 +125,9 @@ importers:
 
   packages/core:
     dependencies:
+      fracturedjsonjs:
+        specifier: 5.1.0
+        version: 5.1.0
       jsonc-parser:
         specifier: 3.3.1
         version: 3.3.1
@@ -2070,6 +2076,9 @@ packages:
     resolution: {integrity: sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==}
     engines: {node: '>= 6'}
 
+  fracturedjsonjs@5.1.0:
+    resolution: {integrity: sha512-0Tsd0jja/VGM787lckNlfSfxE4gwaAFr0UrFoOtzV9DNu3FbXxwmBRAaHGvBlb+SgZfQRVymVWHxcVX+VqBjbA==}
+
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
     engines: {node: '>= 0.6'}
@@ -2365,6 +2374,9 @@ packages:
   jsep@1.4.0:
     resolution: {integrity: sha512-B7qPcEVE3NVkmSJbaYxvv4cHkVW7DQsZz13pUMrfS8z8Q/BuShN+gcTXrUlPiGqM2/t/EEaI030bpxMqY8gMlw==}
     engines: {node: '>= 10.16.0'}
+
+  json-p3@2.3.2:
+    resolution: {integrity: sha512-Gm+3Bj/esPCnWBSXRcruUnkSi+a+FMd51lxRddcyBprWU626MPC6Tu8Hi48639UmCVp7NJyNNL0G+V4uRmjsBA==}
 
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
@@ -5346,6 +5358,8 @@ snapshots:
       hasown: 2.0.4
       mime-types: 2.1.35
 
+  fracturedjsonjs@5.1.0: {}
+
   fresh@0.5.2: {}
 
   fs-constants@1.0.0:
@@ -5643,6 +5657,8 @@ snapshots:
       argparse: 2.0.1
 
   jsep@1.4.0: {}
+
+  json-p3@2.3.2: {}
 
   json-schema-traverse@0.4.1: {}
 

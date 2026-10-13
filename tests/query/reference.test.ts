@@ -3,7 +3,7 @@
 // cases without a Q2 tag make the reference throw too, with error.json's text unless the case says
 // the text is the engine's own wording. The engine half (`runQuery`) is 011 T3's.
 //
-// JSONPath (RFC 9535) cases (014 T1) have no reference engine here (the engine is 014 T2's); two
+// JSONPath (RFC 9535) cases (014 T1) have no reference engine here (jsonpath-rfc9535.test.ts runs the engine); two
 // checks tie them to the library's JSONPath (Goessner): each wizard case gives the same data there
 // (014 P7: the wizard text means the same in both), and each `goessner-only` query runs there.
 import { describe, expect, it } from 'vitest';

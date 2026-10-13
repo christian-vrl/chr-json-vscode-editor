@@ -7,6 +7,7 @@ import { applyOperation, Doc, type Rebuild, type Writer } from './edit.js';
 import { parseJson5 } from './json5-parser.js';
 import { detectStyle } from './style.js';
 import { stringify } from './stringify.js';
+import type { Token } from './tokens.js';
 import {
   PatchError,
   type FormatAdapter,
@@ -23,6 +24,10 @@ const analysis = lastText((text: string) => {
   const parsed = parseJson5(text);
   return { ...parsed, style: detectStyle(text, 'json5', parsed.tokens) };
 });
+
+/** The tokens of a text, up to its syntax error, from the same cached parse as `parse` (smart
+ *  format, 010 T2). */
+export const json5Tokens = (text: string): Token[] => analysis(text).tokens;
 
 /** The parse result lives with the analysis, so a `parse` never leaves an edit's parse behind. */
 const results = new WeakMap<object, ParseResult>();
