@@ -20,6 +20,8 @@
     "packages/*/test/**/*.ts",
     "packages/*/*.mts",
     "scripts/**/*.ts",
-    "scripts/**/*.d.mts"
+    "scripts/**/*.d.mts",
+    // run-query.ts imports Lodash's source with Vite's `?raw` (011 T3); tests reach it from source.
+    "packages/app-shell/src/query/lodash-source.d.ts"
   ]
 }

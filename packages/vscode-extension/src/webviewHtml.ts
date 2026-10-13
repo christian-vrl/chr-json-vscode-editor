@@ -27,11 +27,19 @@ export function createNonce(): string {
  * `unsafe-inline`, no `unsafe-eval`); stylesheets from the webview source or with the nonce; no
  * network connections. Inline `style` attributes are blocked; styles set through the CSSOM
  * (`element.style.x = ...`) are not.
+ *
+ * `wasm` adds `'wasm-unsafe-eval'` to `script-src` and changes nothing else: the CHR JSON editor
+ * page compiles the query engine's WebAssembly with it (spec 011 criterion 9, UNK-048 ★); the
+ * panels never pass it.
  */
-export function contentSecurityPolicy(cspSource: string, nonce: string): string {
+export function contentSecurityPolicy(
+  cspSource: string,
+  nonce: string,
+  { wasm = false }: { wasm?: boolean } = {},
+): string {
   return [
     "default-src 'none'",
-    `script-src 'nonce-${nonce}'`,
+    `script-src 'nonce-${nonce}'${wasm ? " 'wasm-unsafe-eval'" : ''}`,
     `style-src ${cspSource} 'nonce-${nonce}'`,
     "connect-src 'none'",
     "base-uri 'none'",

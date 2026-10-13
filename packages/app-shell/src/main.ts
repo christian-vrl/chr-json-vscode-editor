@@ -1,7 +1,8 @@
 // Standalone page entry for the Vite build (003 T2), served to `pnpm test:web`: the editor UI over
 // a DevHostAdapter holding a sample document. `?mode=text|table` picks the starting mode, `?text=`
 // the document, and `?largeFile=<bytes>` opens it in large-file mode (spec 008) as the extension
-// host would for a text of that size, unlocked too with `&unlocked=1`.
+// host would for a text of that size, unlocked too with `&unlocked=1`. Transform's JavaScript and
+// Lodash engine (spec 011) is a separate Vite chunk, loaded when the dialog first opens.
 import './page.css';
 import { mountApp } from './app.js';
 import { DevHostAdapter } from './dev-host-adapter.js';
@@ -39,4 +40,8 @@ const host = new DevHostAdapter({
 window.devHost = host;
 
 const app = document.querySelector<HTMLElement>('#app');
-if (app) window.devApp = mountApp(app, host);
+if (app) {
+  window.devApp = mountApp(app, host, {
+    loadQueryEngine: () => import('./query/engine.js'),
+  });
+}

@@ -20,6 +20,7 @@ inline in tree, table and text modes, and with zero network access.
    `tests/schema/<dialect>/<case>/` (`schema.json`, `doc.*`, `expected-errors.json` as
    `[{instancePath, keyword}]` sorted), the reported errors equal the expected list. Ajv runs with
    `strict: false`, `allErrors: true`, and `ajv-formats` added.
+   *Amended by spec 016 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidEKL4N1bAgegHusPXenRPF6, 2026-10-13; AGENTS rule 7): Ajv runs with `strict: false`, `allErrors: true`, `ownProperties: true`, and `ajv-formats` added, so keywords look at a document's own keys only.*
 3. A schema with `$ref: "https://…"` reports "Remote schema references are not loaded (offline)"; the
    network-blocked test records zero requests.
 4. The main webview CSP still has no `unsafe-eval` (spec 003 criterion 6 stays green).

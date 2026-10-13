@@ -8,8 +8,8 @@
   `format`, `dialect` and `tags`, hand-written `expected.schema.json`; the folder added to
   `.prettierignore`, since files compare byte for byte) with a `README.md` naming the
   layout and G1–G9; `generateSchema(data, dialect)` in `packages/core/src/schema/generate.ts`,
-  exported from core; the corpus test (criterion 1) and the coverage test (criterion 2). Needs
-  UNK-069 resolved. — *gate: criteria 1, 2 green; Reviewer PASS on G1–G9 per case*
+  exported from core; the corpus test (criterion 1) and the coverage test (criterion 2).
+  — *gate: criteria 1, 2 green; Reviewer PASS on G1–G9 per case*
 
 ## Phase B — Validator (mutation of an approved behavior; covered by the spec approval)
 - [ ] **T2** `ownProperties: true` in `compileSchema` (`packages/vscode-extension/src/validation.ts`)
@@ -23,7 +23,7 @@
   editor-title menu (`when` clauses like the convert commands', for json, jsonc and json5), the
   schema file beside the source, the save-dialog and untitled fallbacks, the broken-source message,
   the notification and the link button per UNK-070; e2e fixtures in
-  `tests/e2e/fixtures/generate-schema/`. Needs UNK-070 resolved. — needs: 016 T2 — *gate: criteria
+  `tests/e2e/fixtures/generate-schema/`. — needs: 016 T2 — *gate: criteria
   5, 6, 7 green in `pnpm test:e2e`*
 
 ## Phase D — JSON Lines and size (risk-free / additive)

@@ -11,7 +11,9 @@ produced by the code under test, and changes only with a spec change (`AGENTS.md
 `__proto__` key as an own key), or the node at `case.json`'s `path` for a query on a selected node.
 `query.js` is the query text exactly as the Transform dialog's query box would hold it.
 
-`sealed/` is not a case: it is reserved for 011 T4's criterion 4 queries, and the loader skips it.
+`sealed/` is not a case: it holds criterion 4's queries (011 T4), which `tests/web/query.spec.ts` runs
+in the standalone page's Transform dialog in both languages; every value of their result must be
+`"undefined"`. The loader skips it.
 
 ## Commands
 
@@ -34,7 +36,9 @@ produced by the code under test, and changes only with a spec change (`AGENTS.md
 - `reference.test.ts` — the reference half of criterion 1: every case without `error.json` and
   without a Q2 tag gives `expected.json5` in the reference, key order checked; every error case
   without a Q2 tag makes the reference throw, with `error.json`'s text unless the case is marked
-  `engineMessage` (below). The engine half, `runQuery` against every case, is 011 T3's.
+  `engineMessage` (below).
+- `run-query.test.ts` — the engine half of criterion 1 (011 T3): `runQuery` gives every case's
+  `expected.json5`, key order checked, or a `QueryError` whose message contains `error.json`'s text.
 
 ## `case.json`
 

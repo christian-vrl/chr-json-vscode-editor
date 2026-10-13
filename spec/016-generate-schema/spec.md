@@ -1,6 +1,6 @@
 # SPEC 016 — Generate JSON Schema
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidEKL4N1bAgegHusPXenRPF6, 2026-10-13)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -22,7 +22,8 @@ validates it from then on.
   TypeScript (no DOM, no Node API), our own code with no new dependency.
 - **Dialect:** the JSON Schema dialect the schema is written in, per UNK-069 (★ draft-07), named by
   its `$schema` URI as spec 004's validator registers it (`http://json-schema.org/draft-07/schema#`
-  or `https://json-schema.org/draft/2020-12/schema`).
+  or `https://json-schema.org/draft/2020-12/schema`). The command writes draft-07 (UNK-069); the
+  generator also takes 2020-12, which the corpus and criterion 3 cover.
 - **Source data:** core's `parseData(format, text)` (spec 008) of the document's text when the
   command runs, in the format its badge shows. A text whose `parseData` gives `{ error }` has no
   source data.
@@ -180,7 +181,7 @@ validates it from then on.
   `menus.commandPalette`, `menus.editor/title` (the convert commands' `when` clauses with
   `chrJsonEditor.customEditorFormat` and `chrJsonEditor.textEditorFormat`).
 
-## Changes to approved specs (AGENTS rule 7; to be approved with this spec on the approval card)
+## Changes to approved specs (AGENTS rule 7; approved with this spec on the approval card, which named the old and new wording)
 - **004 criterion 2** "Ajv runs with `strict: false`, `allErrors: true`, and `ajv-formats` added" →
   "Ajv runs with `strict: false`, `allErrors: true`, `ownProperties: true`, and `ajv-formats`
   added". Effect: `properties`, `required` and the other keyword checks look at a document's own
@@ -190,10 +191,10 @@ validates it from then on.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-069 | Which dialect the generated schema is written in | G1–G9's `$schema`, criteria 1–3; T1 | owner: ★ draft-07 · 2020-12 · ask each time |
-| UNK-070 | Whether the notification offers to link the schema to the document | criterion 7; T3 | owner: ★ "Use for `<name>`" button · no button |
+| UNK-069 | Which dialect the generated schema is written in | G1–G9's `$schema`, criteria 1–3; T1 | resolved (owner): ★ draft-07 |
+| UNK-070 | Whether the notification offers to link the schema to the document | criterion 7; T3 | resolved (owner): ★ "Use for `<name>`" button |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved
+- [x] Human approval recorded
