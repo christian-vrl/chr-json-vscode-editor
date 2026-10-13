@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "名前": {
+      "type": "string"
+    },
+    "café": {
+      "type": "integer"
+    },
+    "😀": {
+      "type": "boolean"
+    },
+    "quote\"d": {
+      "type": "null"
+    },
+    "tab\there": {
+      "type": "number"
+    },
+    "été": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "名前",
+    "café",
+    "😀",
+    "quote\"d",
+    "tab\there",
+    "été"
+  ]
+}

@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Generator (risk-free / additive)
-- [ ] **T1** Write the corpus in `tests/schema-gen/<case>/` (`input.<ext>`, `case.json` with
+- [x] **T1** Write the corpus in `tests/schema-gen/<case>/` (`input.<ext>`, `case.json` with
   `format`, `dialect` and `tags`, hand-written `expected.schema.json`; the folder added to
   `.prettierignore`, since files compare byte for byte) with a `README.md` naming the
   layout and G1–G9; `generateSchema(data, dialect)` in `packages/core/src/schema/generate.ts`,
