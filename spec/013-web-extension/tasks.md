@@ -34,7 +34,7 @@
   unit test and the message in the web e2e: the extension API cannot read the palette). — needs: 013 T2, T3 — *gate: criteria 3–5, 7, 8 (palette), 9, 11 green in CI*
 
 ## Phase D — Limits and docs (risk-free / additive)
-- [ ] **T5** Large files in the web host (starts last: 008 T3 is still open): on the CI route,
+- [x] **T5** Large files in the web host (started once 008 T3 and T4 were done): on the CI route,
   open the bench generator's documents at 5 MiB + 1 byte, 10, 25 and 50 MiB (and VS Code's
   ceiling) in the web host; commit
   `bench/web-ceiling.md`; resolve UNK-054 per its rule; criterion 10's e2e. — needs: 013 T4, 008 T3,

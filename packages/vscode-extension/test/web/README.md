@@ -22,7 +22,9 @@ network check counted.
 `run.mjs` copies into the workspace `tests/e2e/fixtures/` (as `fixtures/`), `tests/compare/`,
 `tests/csv/`, the first ten golden patch cases of each format (as the desktop e2e picks them) and a
 `.vscode/settings.json` whose `json.schemas` and `json5.schemas` select `fixtures/inline/people.*`
-with urls relative to the folder. Each test edits copies under `work/`. One file per area:
+with urls relative to the folder. It also writes `large/`: ASCII JSON of exactly 5,242,880, 5,242,881,
+52,428,800 and 52,428,801 bytes, and `utf8-over-threshold.json` (5,242,881 bytes of UTF-8,
+5,242,880 UTF-16 code units: one `é`) (criterion 10). Each test edits copies under `work/`. One file per area:
 
 | File | Spec 013 criterion |
 |---|---|
@@ -33,6 +35,7 @@ with urls relative to the folder. Each test edits copies under `work/`. One file
 | `actions.ts` | 4, 7: mode switches, spec 003's actions, Repair JSON, Open in / Reopen as Text |
 | `validation.ts` | 5, 6: relative `$schema`, folder `json.schemas`, `https:` never loaded, absolute `$schema` |
 | `convert.ts`, `compare.ts`, `csv.ts`, `query.ts` | 7, 9: each command's own spec cases (plan R6 for queries) |
+| `largeFile.ts` | 10 (013 T5): large-file mode at 5,242,881 bytes and not at 5,242,880; the web ceiling (UNK-054) opens, one byte more shows spec 008's message |
 
 `coverage.json` maps every command to the test that runs it or to "desktop-only" (criterion 7);
 `test/unit/webCoverage.test.ts` checks it against `package.json` and the suite's `it` titles. A
@@ -53,6 +56,10 @@ for `remote-schema.json` in the first CI run), so the workspace sets
 **Palette check (criterion 8, CI route).** `palette.ts` logs a request; `run.mjs` sees it in the
 console it relays, opens the palette in the page (F1), types the filter, and writes the rows'
 labels to a file in the mounted folder, which the test fetches from the test server.
+
+**Web ceiling (UNK-054, 013 T5).** `run.mjs --ceiling` (CI route only) runs `suite/ceiling.ts`
+instead of the suite on the documents `bench/web-ceiling.mjs` writes; that script runs it three
+times and writes `bench/web-ceiling.md` (the `bench.yml` job `web-ceiling`).
 
 ## What only the CI route covers
 

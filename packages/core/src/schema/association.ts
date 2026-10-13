@@ -96,9 +96,11 @@ export function localSchemaPath(value: unknown, documentUri: string): string | u
     return scheme.toLowerCase() === 'file' ? normalizeFileUri(path) : undefined;
   }
   if (path.startsWith('/') || path.startsWith('\\')) {
-    // An absolute path is on the document's own scheme and authority, as VS Code's JSON service
-    // resolves it (`/x` on `vscode-vfs://github/o/r/a.json` is `vscode-vfs://github/o/r/x`): `file:`
-    // for a `file:` document or one with no folder.
+    // An absolute path is on the document's own scheme and authority, from the authority's root:
+    // `/x` on `vscode-vfs://github/o/r/a.json` is `vscode-vfs://github/x`, and on the test
+    // harness's `vscode-test-web://mount/w/a.json` it is `vscode-test-web://mount/x` (013 T4).
+    // Whether github.dev's own JSON service resolves it the same way is not verified. `file:` for
+    // a `file:` document or one with no folder.
     const absolute = path.replace(/\\/g, '/');
     const prefix = HIERARCHICAL.exec(documentUri)?.[1];
     return prefix !== undefined && hasFolder(documentUri) && !/^file:/i.test(prefix)
