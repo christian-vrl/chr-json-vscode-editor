@@ -1,7 +1,7 @@
 // Spec 014 (014 T1): the vendored JSONPath Compliance Test Suite is the pinned one. cts.json's bytes
 // match the SHA-256 in SOURCE, SOURCE names the commit spec 014 pins, and the file holds 706 tests,
 // each either a valid selector with a document and its result(s) or an invalid selector. Running
-// the engine against every test (criterion 1) is 014 T2's.
+// the engine against every test (criterion 1) is jsonpath-rfc9535.test.ts (014 T2).
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
