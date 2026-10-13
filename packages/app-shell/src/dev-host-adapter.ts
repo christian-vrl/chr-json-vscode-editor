@@ -85,6 +85,8 @@ export class DevHostAdapter implements HostAdapter {
   /** `flush` requests sent and waiting for `flushed`, by request number. */
   readonly #flushing = new Map<number, () => void>();
   #nextFlush = 1;
+  /** `getRowSource` requests sent and waiting for `rowSource`, by request number (009 T4). */
+  readonly #rowSources = new Map<number, (path: string) => void>();
 
   constructor(document: DevDocument) {
     this.#text = document.text;
@@ -219,6 +221,25 @@ export class DevHostAdapter implements HostAdapter {
 
   openAsText(): void {
     this.banner.push('openAsText');
+  }
+
+  rowSource(_docVersion: number, request: number, path: string): void {
+    this.#rowSources.get(request)?.(path);
+    this.#rowSources.delete(request);
+  }
+
+  /** Plays "Export to CSV…" (009 T4): sends `getRowSource` and resolves with the UI's answer. */
+  requestRowSource(): Promise<string> {
+    const request = this.#nextFlush++;
+    return new Promise((resolve) => {
+      this.#rowSources.set(request, resolve);
+      this.#emit({
+        protocol: PROTOCOL_VERSION,
+        type: 'getRowSource',
+        docVersion: this.#docVersion,
+        request,
+      });
+    });
   }
 
   unlock(): void {

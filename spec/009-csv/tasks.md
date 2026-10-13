@@ -23,7 +23,7 @@
   defaults, preview of the first 100 rows, warnings, error state, buttons per mode; fixtures in
   `tests/csv/`. Needs UNK-042 and UNK-044 resolved. — needs: 009 T2 — *gate: criterion 6 and the
   theme part of criterion 9 green in `pnpm test:web`*
-- [ ] **T4** VS Code CSV panel: `WebviewPanel` with the 003 CSP, the commands "Export to CSV…",
+- [x] **T4** VS Code CSV panel: `WebviewPanel` with the 003 CSP, the commands "Export to CSV…",
   "Import CSV…" and "Convert CSV to JSON" with their menus, save, copy, create file and replace
   document data (R14, one `WorkspaceEdit`), the row-source message from the editor webview (protocol
   bump; verify the table-mode HYPOTHESIS first), the broken-source message, the size checks; e2e.

@@ -5,10 +5,15 @@ import {
   PROTOCOL_VERSION,
   decodeToCompareHost,
   decodeToComparePage,
+  decodeToCsvHost,
+  decodeToCsvPage,
   decodeToHost,
   decodeToWebview,
   type ToCompareHostMessage,
   type ToComparePageMessage,
+  type CsvSourceMessage,
+  type ToCsvHostMessage,
+  type ToCsvPageMessage,
   type ToHostMessage,
   type ToWebviewMessage,
 } from '../src/protocol.js';
@@ -88,6 +93,7 @@ const toWebview: ToWebviewMessage[] = [
     result: { kind: 'skipped', reason: 'Schema draft not supported (draft-03).' },
   },
   { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 8, request: 3 },
+  { protocol: PROTOCOL_VERSION, type: 'getRowSource', docVersion: 8, request: 4 },
 ];
 
 const toHost: ToHostMessage[] = [
@@ -132,6 +138,8 @@ const toHost: ToHostMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'flushed', docVersion: 5, request: 3 },
   { protocol: PROTOCOL_VERSION, type: 'openAsText', docVersion: 5 },
   { protocol: PROTOCOL_VERSION, type: 'unlock', docVersion: 5 },
+  { protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion: 5, request: 4, path: '' },
+  { protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion: 5, request: 5, path: '/a~1b/0' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 5, code: 'parse', message: 'Bad' },
 ];
 
@@ -149,7 +157,7 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2; getRowSource, rowSource: 009 T4)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
       [
@@ -157,9 +165,11 @@ describe('protocol round trip', () => {
         'error',
         'flush',
         'flushed',
+        'getRowSource',
         'init',
         'openAsText',
         'ready',
+        'rowSource',
         'unlock',
         'redo',
         'undo',
@@ -377,6 +387,22 @@ describe('protocol rejects malformed messages', () => {
       'a flush (host → webview only)',
       { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 1, request: 1 },
     ],
+    [
+      'a rowSource whose path is not a JSON Pointer',
+      { protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion: 1, request: 1, path: 'a' },
+    ],
+    [
+      'a rowSource without request',
+      { protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion: 1, path: '' },
+    ],
+    [
+      'a rowSource from protocol 11',
+      { protocol: 11, type: 'rowSource', docVersion: 1, request: 1, path: '' },
+    ],
+    [
+      'a getRowSource (host → webview only)',
+      { protocol: PROTOCOL_VERSION, type: 'getRowSource', docVersion: 1, request: 1 },
+    ],
   ])('webview → host: %s', (_why, data) => {
     const result = decodeToHost(data);
     expect(result.ok).toBe(false);
@@ -511,6 +537,152 @@ describe('compare protocol (007 T4)', () => {
     ],
   ])('page → host: %s', (_why, data) => {
     const result = decodeToCompareHost(data);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/\S/);
+  });
+});
+
+// 009 T4: the CSV panel's messages travel the same way and are decoded by their own tables.
+const exportOptions = {
+  delimiter: '\t',
+  header: true,
+  flattenObjects: false,
+  flattenArrays: true,
+  bom: true,
+} as const;
+const importOptions = { delimiter: 'detect', header: false, nestedObjects: true } as const;
+
+const toCsvPage: ToCsvPageMessage[] = [
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'csvSource',
+    docVersion: 0,
+    source: {
+      mode: 'export',
+      name: 'data.json5',
+      pointer: '/rows',
+      preview: '[{a:NaN,b:-0}]',
+      rowCount: 250,
+    },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'csvSource',
+    docVersion: 0,
+    source: {
+      mode: 'import',
+      name: 'people.csv',
+      preview: 'a;b\r\n1;2\r\n',
+      complete: false,
+      canReplace: true,
+    },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'csvOutcome',
+    docVersion: 0,
+    request: 1,
+    outcome: { done: true },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'csvOutcome',
+    docVersion: 0,
+    request: 2,
+    outcome: { error: { message: 'A quote is left open', line: 152 } },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'csvOutcome',
+    docVersion: 0,
+    request: 3,
+    outcome: { error: { message: 'CSV export needs an array or an object' } },
+  },
+];
+
+const toCsvHost: ToCsvHostMessage[] = [
+  { protocol: PROTOCOL_VERSION, type: 'csvReady', docVersion: 0 },
+  ...(['save', 'copy'] as const).map((action, i): ToCsvHostMessage => ({
+    protocol: PROTOCOL_VERSION,
+    type: 'csvRun',
+    docVersion: 0,
+    request: i + 1,
+    run: { action, options: exportOptions },
+  })),
+  ...(['createFile', 'replaceData'] as const).map((action, i): ToCsvHostMessage => ({
+    protocol: PROTOCOL_VERSION,
+    type: 'csvRun',
+    docVersion: 0,
+    request: i + 3,
+    run: { action, options: { ...importOptions, delimiter: i ? '|' : 'detect' } },
+  })),
+  { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 0, code: 'bad-message', message: 'x' },
+];
+
+describe('CSV panel messages (009 T4)', () => {
+  it.each(toCsvPage.map((m, i) => [`${m.type} #${i}`, m] as const))('host → page %s', (_n, m) => {
+    expect(decodeToCsvPage(JSON.parse(JSON.stringify(m)))).toEqual({ ok: true, message: m });
+    expect(decodeToCsvPage(structuredClone(m))).toEqual({ ok: true, message: m });
+  });
+
+  it.each(toCsvHost.map((m, i) => [`${m.type} #${i}`, m] as const))('page → host %s', (_n, m) => {
+    expect(decodeToCsvHost(JSON.parse(JSON.stringify(m)))).toEqual({ ok: true, message: m });
+    expect(decodeToCsvHost(structuredClone(m))).toEqual({ ok: true, message: m });
+  });
+
+  const run = (value: unknown) => ({
+    protocol: PROTOCOL_VERSION,
+    type: 'csvRun',
+    docVersion: 0,
+    request: 1,
+    run: value,
+  });
+
+  it.each([
+    ['a csvReady with a version', { protocol: PROTOCOL_VERSION, type: 'csvReady', docVersion: 1 }],
+    ['a csvReady from protocol 11', { protocol: 11, type: 'csvReady', docVersion: 0 }],
+    ['an unknown action', run({ action: 'print', options: exportOptions })],
+    ['save with import options', run({ action: 'save', options: importOptions })],
+    ['createFile with export options', run({ action: 'createFile', options: exportOptions })],
+    [
+      'export options with "detect"',
+      run({ action: 'copy', options: { ...exportOptions, delimiter: 'detect' } }),
+    ],
+    [
+      'an unknown delimiter',
+      run({ action: 'createFile', options: { ...importOptions, delimiter: ':' } }),
+    ],
+    ['a missing option', run({ action: 'save', options: { ...exportOptions, bom: undefined } })],
+    ['a run without options', run({ action: 'save' })],
+    ['a csvSource (host → page only)', toCsvPage[0]],
+  ])('page → host: %s', (_why, data) => {
+    const result = decodeToCsvHost(data);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toMatch(/\S/);
+  });
+
+  const outcome = (value: unknown) => ({ ...toCsvPage[2], outcome: value });
+  const exportPage = toCsvPage[0] as CsvSourceMessage;
+  it.each([
+    ['done that is not true', outcome({ done: false })],
+    ['an error with a fractional line', outcome({ error: { message: 'x', line: 1.5 } })],
+    ['an error without a message', outcome({ error: { line: 1 } })],
+    ['done and an error', outcome({ done: true, error: { message: 'x' } })],
+    [
+      'a source with an unknown mode',
+      { ...exportPage, source: { ...exportPage.source, mode: 'merge' } },
+    ],
+    [
+      'an export whose pointer is not a JSON Pointer',
+      { ...exportPage, source: { ...exportPage.source, pointer: 'rows' } },
+    ],
+    [
+      'an import without canReplace',
+      { ...toCsvPage[1], source: { mode: 'import', name: 'a.csv', preview: '', complete: true } },
+    ],
+    ['a csvRun (page → host only)', toCsvHost[1]],
+  ])('host → page: %s', (_why, data) => {
+    const result = decodeToCsvPage(data);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toMatch(/\S/);
   });

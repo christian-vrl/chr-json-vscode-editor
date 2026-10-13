@@ -19,9 +19,12 @@
  *      `compare`.
  *  11: `init` carries `largeFile`; adds the UI → host `openAsText` and `unlock` messages and the
  *      `read-only` edit error (008 T2).
- *  12: `init`, `setFormat` and the compare sides take the `jsonl` format; `edit` can carry the
+ *  12: adds the host → UI `getRowSource` request with its UI → host `rowSource` answer, and the CSV
+ *      panel's messages (009 T4): UI → host `csvReady` and `csvRun`, host → UI `csvSource` and
+ *      `csvOutcome`.
+ *  13: `init`, `setFormat` and the compare sides take the `jsonl` format; `edit` can carry the
  *      `repairLines` action (012 T4). */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /** AGENTS.md §Glossary "Format", and JSON Lines (spec 012). */
 export type Format = 'json' | 'jsonc' | 'json5' | 'jsonl';
@@ -167,6 +170,22 @@ export type OpenAsTextMessage = Envelope<'openAsText'>;
  * it sends after it reaches the host after it.
  */
 export type UnlockMessage = Envelope<'unlock'>;
+/**
+ * "Export to CSV…" ran from this editor (009 T4, spec 009 criterion 7): the UI answers `rowSource`
+ * with the same `request`, naming what the user is looking at.
+ */
+export interface GetRowSourceMessage extends Envelope<'getRowSource'> {
+  request: number;
+}
+/**
+ * The answer to `getRowSource`: `path` is the JSON Pointer of the array table mode shows, or of the
+ * one value tree mode has selected; `''` (the document's data) otherwise. The host exports the
+ * value there only when it is an array or an object in the document it holds, else the data.
+ */
+export interface RowSourceMessage extends Envelope<'rowSource'> {
+  request: number;
+  path: string;
+}
 /** A failure the other side should show; `code` is machine-readable, `message` is for people. */
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
@@ -279,6 +298,63 @@ export interface CopyMessage extends Envelope<'copy'> {
 export type ToComparePageMessage = CompareMessage;
 export type ToCompareHostMessage = CompareReadyMessage | CopyMessage | ErrorMessage;
 
+// The CSV panel (spec 009, 009 T4) speaks the same protocol with its own messages, decoded by
+// `decodeToCsvPage` and `decodeToCsvHost`. The panel has no document, so `docVersion` is always 0.
+// The shapes mirror app-shell's CsvHostAdapter (csv-host-adapter.ts), which this file cannot import.
+
+/** Spec 009 §Options' delimiters. */
+export type CsvDelimiterChoice = ',' | ';' | '\t' | '|';
+export const CSV_DELIMITERS: readonly CsvDelimiterChoice[] = [',', ';', '\t', '|'];
+
+/** What the CSV panel converts, as CsvSource, except that an export's preview is JSON5 text (core
+ *  `stringify`) rather than data: a JSON message would turn `NaN` and `Infinity` into `null` and
+ *  `-0` into `0`, which the CSV preview writes differently (X5). */
+export type CsvSourceMessageBody =
+  | { mode: 'export'; name: string; pointer: string; preview: string; rowCount: number }
+  | { mode: 'import'; name: string; preview: string; complete: boolean; canReplace: boolean };
+
+export interface CsvExportOptionsMessage {
+  delimiter: CsvDelimiterChoice;
+  header: boolean;
+  flattenObjects: boolean;
+  flattenArrays: boolean;
+  bom: boolean;
+}
+export interface CsvImportOptionsMessage {
+  delimiter: CsvDelimiterChoice | 'detect';
+  header: boolean;
+  nestedObjects: boolean;
+}
+export type CsvRunRequest =
+  | { action: 'save' | 'copy'; options: CsvExportOptionsMessage }
+  | { action: 'createFile' | 'replaceData'; options: CsvImportOptionsMessage };
+export type CsvRunOutcome = { done: true } | { error: { message: string; line?: number } };
+
+/** The CSV page is listening and asks for its source, like `ready`. */
+export interface CsvReadyMessage extends Envelope<'csvReady'> {
+  docVersion: 0;
+}
+/** The host's answer to `csvReady`: what the panel converts. */
+export interface CsvSourceMessage extends Envelope<'csvSource'> {
+  docVersion: 0;
+  source: CsvSourceMessageBody;
+}
+/** A button of the page: run the full conversion with `run.options` and write the result. */
+export interface CsvRunMessage extends Envelope<'csvRun'> {
+  docVersion: 0;
+  request: number;
+  run: CsvRunRequest;
+}
+/** How the `csvRun` with the same `request` ended. */
+export interface CsvOutcomeMessage extends Envelope<'csvOutcome'> {
+  docVersion: 0;
+  request: number;
+  outcome: CsvRunOutcome;
+}
+
+export type ToCsvPageMessage = CsvSourceMessage | CsvOutcomeMessage;
+export type ToCsvHostMessage = CsvReadyMessage | CsvRunMessage | ErrorMessage;
+
 export type ToWebviewMessage =
   | InitMessage
   | UpdateMessage
@@ -286,7 +362,8 @@ export type ToWebviewMessage =
   | SetFormatMessage
   | ErrorMessage
   | ValidationMessage
-  | FlushMessage;
+  | FlushMessage
+  | GetRowSourceMessage;
 export type ToHostMessage =
   | ReadyMessage
   | EditMessage
@@ -296,9 +373,15 @@ export type ToHostMessage =
   | FlushedMessage
   | OpenAsTextMessage
   | UnlockMessage
+  | RowSourceMessage
   | ErrorMessage;
 export type ProtocolMessage =
-  ToWebviewMessage | ToHostMessage | ToComparePageMessage | ToCompareHostMessage;
+  | ToWebviewMessage
+  | ToHostMessage
+  | ToComparePageMessage
+  | ToCompareHostMessage
+  | ToCsvPageMessage
+  | ToCsvHostMessage;
 
 export type DecodeResult<M> = { ok: true; message: M } | { ok: false; error: string };
 
@@ -320,6 +403,16 @@ export function decodeToComparePage(data: unknown): DecodeResult<ToComparePageMe
 /** Validates data received by the compare panel's host from its page. */
 export function decodeToCompareHost(data: unknown): DecodeResult<ToCompareHostMessage> {
   return decode(data, TO_COMPARE_HOST);
+}
+
+/** Validates data received by the CSV page from its host. */
+export function decodeToCsvPage(data: unknown): DecodeResult<ToCsvPageMessage> {
+  return decode(data, TO_CSV_PAGE);
+}
+
+/** Validates data received by the CSV panel's host from its page. */
+export function decodeToCsvHost(data: unknown): DecodeResult<ToCsvHostMessage> {
+  return decode(data, TO_CSV_HOST);
 }
 
 // Decoding. A field reader returns the decoded value or throws Invalid; unknown keys are rejected
@@ -349,6 +442,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   error: { code: str, message: str },
   validation: { dialect: schemaDialect, result: validationResult },
   flush: { request: count },
+  getRowSource: { request: count },
 };
 
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
@@ -360,6 +454,7 @@ const TO_HOST: Record<ToHostMessage['type'], Fields> = {
   flushed: { request: count },
   openAsText: {},
   unlock: {},
+  rowSource: { request: count, path: pointer },
   error: { code: str, message: str },
 };
 
@@ -370,6 +465,17 @@ const TO_COMPARE_PAGE: Record<ToComparePageMessage['type'], Fields> = {
 const TO_COMPARE_HOST: Record<ToCompareHostMessage['type'], Fields> = {
   compareReady: { docVersion: zero },
   copy: { difference, to: oneOf(COMPARE_SIDES) },
+  error: { code: str, message: str },
+};
+
+const TO_CSV_PAGE: Record<ToCsvPageMessage['type'], Fields> = {
+  csvSource: { docVersion: zero, source: csvSource },
+  csvOutcome: { docVersion: zero, request: count, outcome: csvOutcome },
+};
+
+const TO_CSV_HOST: Record<ToCsvHostMessage['type'], Fields> = {
+  csvReady: { docVersion: zero },
+  csvRun: { docVersion: zero, request: count, run: csvRun },
   error: { code: str, message: str },
 };
 
@@ -607,4 +713,64 @@ function difference(v: unknown, name: string): CompareDifference {
 function differenceList(v: unknown, name: string): CompareDifference[] {
   if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
   return v.map((d, i) => difference(d, `${name}[${i}]`));
+}
+
+function csvSource(v: unknown, name: string): CsvSourceMessageBody {
+  const raw = record(v, name);
+  if (raw.mode === 'export') {
+    const fields = { mode: str, name: str, pointer, preview: str, rowCount: count };
+    return readFields(raw, fields, name) as unknown as CsvSourceMessageBody;
+  }
+  if (raw.mode === 'import') {
+    const fields = { mode: str, name: str, preview: str, complete: bool, canReplace: bool };
+    return readFields(raw, fields, name) as unknown as CsvSourceMessageBody;
+  }
+  throw new Invalid(`${name}.mode must be export or import`);
+}
+
+const CSV_EXPORT_OPTIONS: Fields = {
+  delimiter: oneOf(CSV_DELIMITERS),
+  header: bool,
+  flattenObjects: bool,
+  flattenArrays: bool,
+  bom: bool,
+};
+const CSV_IMPORT_OPTIONS: Fields = {
+  delimiter: oneOf<CsvImportOptionsMessage['delimiter']>([...CSV_DELIMITERS, 'detect']),
+  header: bool,
+  nestedObjects: bool,
+};
+
+function csvRun(v: unknown, name: string): CsvRunRequest {
+  const raw = record(v, name);
+  const action = oneOf(['save', 'copy', 'createFile', 'replaceData'] as const)(
+    raw.action,
+    `${name}.action`,
+  );
+  const fields = action === 'save' || action === 'copy' ? CSV_EXPORT_OPTIONS : CSV_IMPORT_OPTIONS;
+  const options = (o: unknown, where: string) => readFields(record(o, where), fields, where);
+  return readFields(raw, { action: str, options }, name) as unknown as CsvRunRequest;
+}
+
+function csvOutcome(v: unknown, name: string): CsvRunOutcome {
+  const raw = record(v, name);
+  if (Object.hasOwn(raw, 'done')) {
+    return readFields(
+      raw,
+      { done: (d, n) => (d === true ? d : invalid(`${n} must be true`)) },
+      name,
+    ) as CsvRunOutcome;
+  }
+  const message = (m: unknown, where: string) => {
+    const error = record(m, where);
+    const fields: Fields = Object.hasOwn(error, 'line')
+      ? { message: str, line: count }
+      : { message: str };
+    return readFields(error, fields, where);
+  };
+  return readFields(raw, { error: message }, name) as CsvRunOutcome;
+}
+
+function invalid(message: string): never {
+  throw new Invalid(message);
 }
