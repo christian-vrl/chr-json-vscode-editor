@@ -3,6 +3,7 @@
 // position (plan 016 §Approach), a second writes the schema in G6's key order. The first pass uses an
 // explicit stack, so G9's depth limit is a counter rather than a stack overflow; the second recurses
 // at most as deep as that limit allows.
+import { LosslessNumber } from '../formats/numbers.js';
 
 /** The dialects the generator writes (UNK-069: the command writes `draft-07`). */
 export type GeneratedSchemaDialect = 'draft-07' | '2020-12';
@@ -73,6 +74,9 @@ function accumulator(): Accumulator {
 /** G1: the type bit of `value`. */
 function typeOf(value: unknown): number {
   if (value === null) return NULL;
+  // A big number (spec 015) is typed by its nearest number, the value spec 004's validator sees
+  // (015 B6): a 19-digit id is an integer, `1e400` (Infinity) a number.
+  if (value instanceof LosslessNumber) return typeOf(Number(value.value));
   switch (typeof value) {
     case 'boolean':
       return BOOLEAN;

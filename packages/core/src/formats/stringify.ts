@@ -18,8 +18,11 @@
 //   `indent: 0` (so like `JSON.stringify`, `-0` aside), each line ended by `style.eol`, the last one
 //   only when `finalNewline`; an empty array is `""`. Only `eol` and `finalNewline` are read.
 // Numbers are written as `JSON.stringify` would, except `-0`, written `-0` so it reads back as -0.
-// A value the format cannot hold (a non-finite number in JSON or JSONC, `undefined`, a function, a
-// symbol or a bigint) throws a `TypeError` rather than being dropped or changed.
+// A big number (a `LosslessNumber`, spec 015 B2) is written as its `value`, unquoted, in every
+// format, and a `BigInt` as its decimal digits.
+// A value the format cannot hold (a non-finite number in JSON or JSONC, `undefined`, a function or
+// a symbol) throws a `TypeError` rather than being dropped or changed.
+import { LosslessNumber } from './numbers.js';
 import type { Format, Style } from './types.js';
 
 /** Keys JSON5 can write without quotes: an ES5 IdentifierName. Limited to ASCII so the check does
@@ -73,8 +76,11 @@ export function stringify(data: unknown, format: Format, style: Style): string {
         return number(v);
       case 'boolean':
         return String(v);
+      case 'bigint':
+        return v.toString();
       case 'object':
         if (v === null) return 'null';
+        if (v instanceof LosslessNumber) return v.value;
         if (Array.isArray(v)) {
           return container(
             '[',

@@ -56,7 +56,10 @@ export type DomStep =
   | { waitFor: string; text?: string; gone?: boolean }
   | { read: string; text?: string; attr?: string }
   | { readAll: string }
-  | { select: string; value: string };
+  | { select: string; value: string }
+  /** 013 T4 (spec 013 criterion 11): the page fetches `fetch`; reads "status <code>", or
+   *  "blocked <error>" when the request is refused (the CSP's `connect-src 'none'`). */
+  | { fetch: string };
 
 /** What the compare panel's `probe` reports about its page (007 T4, compareTestHooks.ts). */
 export interface ComparePageProbe {

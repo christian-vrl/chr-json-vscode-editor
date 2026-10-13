@@ -71,9 +71,10 @@ export function resolveSchemaAssociation(input: SchemaAssociationInput): SchemaA
 
 /**
  * The `$schema` value as a local URI, or undefined when it is not a local path (a remote URL such as
- * a meta-schema id, another scheme, an empty or non-string value). Absolute paths are `file:`;
- * relative paths resolve against the document's folder on the document's own scheme and authority,
- * unless the document has no folder (untitled) or is itself remote.
+ * a meta-schema id, another scheme, an empty or non-string value). Relative and absolute paths
+ * resolve on the document's own scheme and authority (an absolute one from its root), unless the
+ * document has no folder (untitled) or is itself remote; Windows paths and `file:` documents give
+ * `file:` URIs.
  */
 export function localSchemaPath(value: unknown, documentUri: string): string | undefined {
   if (typeof value !== 'string') {
@@ -95,7 +96,14 @@ export function localSchemaPath(value: unknown, documentUri: string): string | u
     return scheme.toLowerCase() === 'file' ? normalizeFileUri(path) : undefined;
   }
   if (path.startsWith('/') || path.startsWith('\\')) {
-    return fileUri(path.replace(/\\/g, '/'));
+    // An absolute path is on the document's own scheme and authority, as VS Code's JSON service
+    // resolves it (`/x` on `vscode-vfs://github/o/r/a.json` is `vscode-vfs://github/o/r/x`): `file:`
+    // for a `file:` document or one with no folder.
+    const absolute = path.replace(/\\/g, '/');
+    const prefix = HIERARCHICAL.exec(documentUri)?.[1];
+    return prefix !== undefined && hasFolder(documentUri) && !/^file:/i.test(prefix)
+      ? prefix + normalizeSegments(absolute)
+      : fileUri(absolute);
   }
   if (!hasFolder(documentUri)) {
     return undefined;

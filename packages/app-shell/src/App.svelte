@@ -79,6 +79,7 @@
   import { dataChange, isContainer } from './data-change.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
   import { parserFor } from './parser.js';
+  import { jsonpathRfc9535QueryLanguage } from './query/jsonpath-rfc9535.js';
   import {
     isQueryEngineLoaded,
     loadQueryEngine,
@@ -117,14 +118,16 @@
     json5: 'JSON5',
     jsonl: 'JSON Lines',
   };
-  /** Transform's query languages (spec 003 criterion 5, spec 011 criterion 8), in this order. The
-   *  library's JSONPath is jsonpath-plus, Goessner's JSONPath, not RFC 9535. JSONQuery's description
+  /** Transform's query languages (spec 003 criterion 5, spec 011 criterion 8 as amended by spec 014
+   *  criterion 5), in this order. The library's JSONPath is jsonpath-plus, Goessner's JSONPath;
+   *  JSONPath (RFC 9535) is json-p3 (query/jsonpath-rfc9535.ts). JSONQuery's description
    *  links to jsonquerylang.org (004 T1 review). JavaScript and Lodash only with the host's engine
    *  loader, read once at mount. */
   // svelte-ignore state_referenced_locally: the library takes the list once, when it mounts
   const QUERY_LANGUAGES: QueryLanguage[] = [
     jsonQueryLanguage,
     jmespathQueryLanguage,
+    jsonpathRfc9535QueryLanguage,
     { ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' },
     ...(queryEngineLoader
       ? [

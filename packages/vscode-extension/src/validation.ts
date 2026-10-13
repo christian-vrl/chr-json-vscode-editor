@@ -8,7 +8,7 @@
 // Ajv classes; every meta-schema ships inside those packages and so inside this bundle. A missing
 // or unknown `$schema` is assumed draft-07; drafts before 04 are not validated. Which schema
 // applies to a document is schemaBinding.ts (004 T5, the association rules of 004 T3).
-import { getAdapter, type Format } from '@chr-json-editor/core';
+import { getAdapter, nearestNumbers, type Format } from '@chr-json-editor/core';
 import {
   PROTOCOL_VERSION,
   type SchemaDialect,
@@ -87,6 +87,8 @@ export function selectDialect(
  * AGENTS.md rule 3) and is reported as {@link REMOTE_REF_REASON} instead. Never throws.
  */
 export function compileSchema(schema: object | boolean, override?: SchemaDialect): CompiledSchema {
+  // Ajv reads a schema's big numbers as nearest numbers, as it reads the data's (spec 015 B6).
+  schema = nearestNumbers(schema) as object | boolean;
   const dialect = selectDialect(schema, override);
   if (typeof dialect === 'string') return { ok: false, dialect: null, reason: dialect };
   const options = { strict: false, allErrors: true, ownProperties: true };
@@ -118,7 +120,8 @@ export function compileSchema(schema: object | boolean, override?: SchemaDialect
     ok: true,
     dialect,
     validate: (data) => {
-      validate(data);
+      // A big number (spec 015) is validated as its nearest number (B6).
+      validate(nearestNumbers(data));
       const errors = (validate.errors ?? []).map(({ instancePath, keyword, message }) => ({
         instancePath,
         keyword,

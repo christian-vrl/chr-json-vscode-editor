@@ -23,6 +23,8 @@ Node built-ins leave the shared code:
 
 Schema files on virtual schemes change `core`'s association: relative paths resolve against the
 document's (or settings folder's) scheme and authority, not only `file:`; `http(s):` stays remote.
+An absolute `$schema` path (`/x`) names a file from the root of the document's own scheme and
+authority, as VS Code's JSON service resolves it (013 T4); on `file:` it stays `file:///x`.
 `readSchemaFile` reads any non-remote URI through `workspace.fs`.
 
 Tests (ADR-013):

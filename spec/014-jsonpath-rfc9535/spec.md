@@ -68,10 +68,18 @@ the dialog's preview.
    description names RFC 9535 and links to `https://www.rfc-editor.org/rfc/rfc9535`. Picking it
    and using the wizard's filter field, or the pick field with one field, fills the query box with
    P7's text and the preview shows its result; a sort field, or two or more pick fields, shows the
-   library's JSONPath message in the preview and Transform is disabled.
+   library's JSONPath message under the wizard, and the query box keeps its last valid query, the
+   preview that query's result and Transform stays enabled for it, as JSONPath (Goessner) does
+   (amended in 014 T3, owner: Chris, thread decision card
+   cmsg_01Wz9SKzwQD2da69nuNGPcidDFewF7MrBcpSgZ9b9uCHGf, 2026-10-13).
 6. **Errors (web):** a syntax error (`$[?@.a`), a type error (`$[?length(@.*) < 3]`), an unknown
-   function (`$[?foo(@)]`) and P6's too-deep data each show their message in the preview, with the
-   engine's position text for the first three; Transform is disabled; the document is unchanged.
+   function (`$[?foo(@)]`) each show their message in the preview, with the engine's position
+   text; Transform is disabled; the document is unchanged. P6's too-deep message is proven by the
+   unit corpus's `too-deep` case (criterion 2) only: in Chromium the library's Transform dialog
+   cannot open on data deeper than about 130 levels of arrays (165 to 180 of objects; a stack
+   overflow in its tree), so data past
+   P6's 1,000-level limit never reaches the dialog (amended in 014 T3, owner: Chris, thread
+   decision card cmsg_01Wz9SKzwQD2da69nuNGPcidQmzaokVg5YHK7y2A6YBWuw, 2026-10-13).
 7. **Write-back (e2e):** Transform with JSONPath (RFC 9535) on
    `tests/e2e/fixtures/query/jsonpath-rfc9535-<case>/input.{json,jsonc,json5}` (the whole
    document in text, tree and table modes, and a selected node in tree mode) leaves the document
