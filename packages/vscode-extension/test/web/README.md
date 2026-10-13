@@ -45,7 +45,10 @@ the worker extension host (its iframe and the worker) and from the frames of web
 not either (it serves the webview's files from the server). `run.mjs --probe` runs
 `suite/probe.ts` instead: a fetch of `https://example.com` from the worker, which must fail the
 check (the `ci.yml` step expects exit 1 and the request named), and the same fetch from the CHR
-JSON Editor's webview, which its CSP refuses.
+JSON Editor's webview, which its CSP refuses. The built-in JSON Language Features extension
+shares the worker and downloads `https` schemas by default (it fetched `https://example.com/s.json`
+for `remote-schema.json` in the first CI run), so the workspace sets
+`"json.schemaDownload.enable": false`.
 
 **Palette check (criterion 8, CI route).** `palette.ts` logs a request; `run.mjs` sees it in the
 console it relays, opens the palette in the page (F1), types the filter, and writes the rows'

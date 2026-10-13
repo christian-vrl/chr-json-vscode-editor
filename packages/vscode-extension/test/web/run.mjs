@@ -84,7 +84,9 @@ function makeWorkspace(workspace) {
   }
   writeFileSync(path.join(workspace, 'golden', 'cases.json'), JSON.stringify(golden));
   // Criterion 5: a workspace folder's `json.schemas` and `json5.schemas`, with urls relative to the
-  // folder (criterion 6), select fixtures/inline/people.*.
+  // folder (criterion 6), select fixtures/inline/people.*. VS Code's own JSON language features run
+  // in the same web worker extension host and download https schemas by default, which the network
+  // check (criterion 11) would count against us: they are off, as a user working offline sets them.
   mkdirSync(path.join(workspace, '.vscode'));
   const url = './fixtures/inline/people.schema.json';
   writeFileSync(
@@ -96,6 +98,7 @@ function makeWorkspace(workspace) {
           { fileMatch: ['remote-schema.json'], url: 'https://example.com/s.json' },
         ],
         'json5.schemas': [{ fileMatch: ['/inline/people.json5'], url }],
+        'json.schemaDownload.enable': false,
       },
       null,
       2,
