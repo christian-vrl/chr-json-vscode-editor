@@ -29,14 +29,25 @@
   starts locked: the library is `readOnly`, the whole-document actions are not offered, and no
   change, undo or redo leaves the UI. "Edit anyway" unlocks it until the tab closes; "Open as Text"
   asks the host for its text editor.
+
+  JavaScript and Lodash queries (spec 011) are listed in Transform when the host passes a loader for
+  the query engine (mount.ts `MountOptions`). They are the library's own languages, with
+  `executeQuery` running the query in the sealed QuickJS engine (query/run-query.ts), never in the
+  page. The engine is loaded and compiled when a Transform dialog first opens, which waits for it
+  (criterion 10).
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
+    type ContextMenuItem,
     createJSONEditor,
+    isContextMenuColumn,
+    isContextMenuRow,
+    javascriptQueryLanguage,
     jmespathQueryLanguage,
     jsonpathQueryLanguage,
     jsonQueryLanguage,
+    lodashQueryLanguage,
     type Content,
     isMenuButton,
     type JsonEditor,
@@ -55,6 +66,14 @@
   import type { HostAdapter, HostEvent } from './host-adapter.js';
   import { parserFor } from './parser.js';
   import {
+    isQueryEngineLoaded,
+    loadQueryEngine,
+    QueryError,
+    runQuery,
+    type QueryEngineLoader,
+    type QueryLanguageId,
+  } from './query/run-query.js';
+  import {
     isEditError,
     MODES,
     SCHEMA_DIALECTS,
@@ -68,18 +87,72 @@
     type ValidationMessage,
   } from './protocol.js';
 
-  let { host }: { host: HostAdapter } = $props();
+  let {
+    host,
+    loadQueryEngine: queryEngineLoader,
+  }: {
+    host: HostAdapter;
+    loadQueryEngine?: QueryEngineLoader;
+  } = $props();
 
   const MODE_LABELS: Record<Mode, string> = { tree: 'Tree', text: 'Text', table: 'Table' };
   const FORMAT_LABELS: Record<Format, string> = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
-  /** Transform's query languages (spec 003 criterion 5). JavaScript and Lodash run user code and
-   *  are not registered (spec 011). The library's JSONPath is jsonpath-plus, Goessner's JSONPath,
-   *  not RFC 9535. JSONQuery's description links to jsonquerylang.org (004 T1 review). */
+  /** Transform's query languages (spec 003 criterion 5, spec 011 criterion 8), in this order. The
+   *  library's JSONPath is jsonpath-plus, Goessner's JSONPath, not RFC 9535. JSONQuery's description
+   *  links to jsonquerylang.org (004 T1 review). JavaScript and Lodash only with the host's engine
+   *  loader, read once at mount. */
+  // svelte-ignore state_referenced_locally: the library takes the list once, when it mounts
   const QUERY_LANGUAGES: QueryLanguage[] = [
     jsonQueryLanguage,
     jmespathQueryLanguage,
     { ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' },
+    ...(queryEngineLoader
+      ? [
+          sealedLanguage(javascriptQueryLanguage, 'javascript'),
+          sealedLanguage(lodashQueryLanguage, 'lodash'),
+        ]
+      : []),
   ];
+
+  /** The library's language (name, description, wizard's `createQuery`) with the query run in the
+   *  sealed engine. A QueryError reaches the preview as a plain Error, so it reads like the
+   *  library's own languages' errors ("Error: …"). Each run marks `chr:query-run` on the page's
+   *  performance timeline (spec 011 criterion 5's web test times the limits from it). */
+  function sealedLanguage(language: QueryLanguage, id: QueryLanguageId): QueryLanguage {
+    return {
+      ...language,
+      executeQuery: (json, query) => {
+        performance.mark('chr:query-run');
+        try {
+          return runQuery(id, json, query);
+        } catch (error) {
+          throw error instanceof QueryError ? new Error(error.message) : error;
+        }
+      },
+    };
+  }
+
+  /** A Transform dialog waiting for the engine to compile; a second request meanwhile is dropped. */
+  let engineWait: Promise<void> | undefined;
+
+  /**
+   * Opens a Transform dialog with `open` once the query engine is compiled (criterion 10): the first
+   * time, it loads and compiles the engine first. If that fails, the dialog opens anyway and
+   * JavaScript and Lodash say the engine is not loaded.
+   */
+  function withQueryEngine(open: () => void): void {
+    if (!queryEngineLoader || isQueryEngineLoaded()) {
+      open();
+      return;
+    }
+    if (engineWait) return;
+    engineWait = loadQueryEngine(queryEngineLoader)
+      .catch((error: unknown) => console.error('CHR JSON Editor: query engine', error))
+      .finally(() => {
+        engineWait = undefined;
+        if (editor) open();
+      });
+  }
 
   /** The library's buttons for whole-document actions (003 T8), hidden on a locked large file. */
   const ACTION_BUTTONS = ['jse-format', 'jse-compact', 'jse-sort', 'jse-transform'];
@@ -159,10 +232,13 @@
           queryLanguages: QUERY_LANGUAGES,
           queryLanguageId: QUERY_LANGUAGES[0]!.id,
           onRenderMenu: renderMenu,
+          onRenderContextMenu: renderContextMenu,
           onChange,
           onChangeMode,
         },
       });
+      // Criterion 10's test hook: the editor shows the document (the engine is not loaded yet).
+      performance.mark('chr:document-shown');
     });
     // Capture phase: these run before the library's own handlers and can stop them.
     target.addEventListener('keydown', interceptShortcut, true);
@@ -217,11 +293,32 @@
           };
         case 'jse-transform':
           // In tree and table mode the result arrives as a patch (see `routePatch`).
-          if (context.mode !== 'text') return item;
-          return { ...item, onClick: () => transformText() };
+          if (context.mode !== 'text') {
+            return {
+              ...item,
+              onClick: (event: MouseEvent) => withQueryEngine(() => item.onClick(event)),
+            };
+          }
+          return { ...item, onClick: () => withQueryEngine(transformText) };
         default:
           return item;
       }
+    });
+  }
+
+  /** The context menu's Transform (tree and table mode) waits for the query engine too. */
+  function renderContextMenu(items: ContextMenuItem[]): ContextMenuItem[] {
+    return items.map(function route<T>(item: T): T {
+      if (isContextMenuRow(item) || isContextMenuColumn(item)) {
+        return { ...item, items: item.items.map(route) };
+      }
+      if (isMenuButton(item) && item.text === 'Transform') {
+        return {
+          ...item,
+          onClick: (event: MouseEvent) => withQueryEngine(() => item.onClick(event)),
+        };
+      }
+      return item;
     });
   }
 

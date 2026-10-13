@@ -116,6 +116,7 @@ result is written back like any other transform, keeping comments.
   `JSON.stringify` (a `Date` becomes its ISO string; a function, symbol or `undefined` member is
   dropped; one in an array becomes `null`), except that a `BigInt` or a cycle is a `QueryError`
   ("The result has a BigInt, which JSON can't hold." / "The result refers to itself.").
+  *Amended by spec 015 B8 per UNK-066 ★ "Like the site" (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): a big number enters the engine as a number-like object and returns with its digits, and a `BigInt` in the result is written as its digits instead of the BigInt `QueryError`; criterion 2's `bigint-result` cases expect digits. A cycle is still a `QueryError`.*
 - **Q3 Scope:** the engine's global object has the ECMAScript built-ins and, for Lodash, `_`; nothing
   else. `Date.now()` and `Math.random()` work; there are no timers, no `console`, no modules.
 - **Q4 Isolation of runs:** every preview and every Transform is its own run; nothing a query stores
@@ -131,7 +132,19 @@ result is written back like any other transform, keeping comments.
   the same query text and results (criterion 1), about 3–4 times slower (criterion 12), with time and
   memory limits the site does not have (criterion 5).
 - The site's queries can use browser objects (`window`, `fetch`); ours cannot (criterion 4).
+- QuickJS has no `Intl`, so locale-aware string methods ignore the locale: `localeCompare` orders by
+  UTF-16 code unit, the order of a plain `sort()` (`Apple, Zebra, apple, Ébano`, where the site in an
+  English browser gives `apple, Apple, Ébano, Zebra`), and `toLocaleString` adds no digit grouping.
+  The wizard's sort and Lodash's `orderBy` and `sortBy` compare with `<` and `>`, so they order the
+  same as the site; only hand-written queries that call these methods differ (011 T1 REPORT §3,
+  plan R4).
 - Above 5 MiB we offer only the native languages (UNK-049 ★).
+- *Pending UNK-074 (owner):* the 5-second stop is checked between steps of the query, so a loop
+  whose every step is one heavy built-in call (`while (true) new Array(1e6).fill(0)`) can run for
+  about a minute before it stops, and a loop that keeps such arrays can take past 15 seconds to
+  reach 256 MiB (the first large run in a tab also waits while the engine's memory grows: 12.6 s
+  in Chromium for 16 MiB blocks, 2.5 s for 64 MiB blocks); the editor is unresponsive meanwhile,
+  then recovers with the document unchanged.
 
 ## Scope
 - **In:** `runQuery` and the engine wrapper in `app-shell`, the JavaScript and Lodash `QueryLanguage`s

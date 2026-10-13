@@ -13,6 +13,10 @@
 // does. Any CSP violation fails the test. Such a CSP also refuses `fetch` to other origins before
 // the request exists, so the tests that prove the offline block itself turn it off with
 // `test.use({ webviewCsp: false })`.
+//
+// 011 T4: the editor page (index.html) gets the CHR JSON editor webview's CSP with
+// `'wasm-unsafe-eval'`, which its query engine needs (spec 011 criterion 9); the compare and CSV
+// pages keep 003 criterion 6's policy exactly, as their VS Code panels do.
 import { test as base, expect } from '@playwright/test';
 import { contentSecurityPolicy } from '../../packages/vscode-extension/src/webviewHtml';
 
@@ -69,7 +73,9 @@ export const test = base.extend<{
             body: html,
             headers: {
               ...response.headers(),
-              'content-security-policy': contentSecurityPolicy(origin, NONCE),
+              'content-security-policy': contentSecurityPolicy(origin, NONCE, {
+                wasm: !/\/(compare|csv)\.html$/.test(new URL(url).pathname),
+              }),
             },
           });
         }

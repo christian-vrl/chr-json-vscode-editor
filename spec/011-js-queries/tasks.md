@@ -23,14 +23,14 @@
   every case without a Q2 tag matches the reference; Reviewer PASS on Q1–Q5 per case*
 
 ## Phase C — Engine (risk-free / additive)
-- [ ] **T3** (Large) `runQuery` in `packages/app-shell/src/query/`: QuickJS runtime per run, limits,
+- [x] **T3** (Large) `runQuery` in `packages/app-shell/src/query/`: QuickJS runtime per run, limits,
   the bridge in and out (Q2), Lodash loaded from a bundled string, error mapping; dependencies pinned
   per plan; unit tests for criterion 1 and the fast-check suite for criterion 3 (seed committed,
   10 000 runs per language). — needs: 011 T1, T2 — *gate: criteria 1 and 3 green;
   `pnpm check:licenses` green*
 
 ## Phase D — Editor (risk-free / additive)
-- [ ] **T4** JavaScript and Lodash in `QUERY_LANGUAGES` with our `executeQuery`; lazy engine chunk
+- [x] **T4** JavaScript and Lodash in `QUERY_LANGUAGES` with our `executeQuery`; lazy engine chunk
   compiled on the first Transform; the dev host's CSP mirrors the editor's; web tests for criteria
   4, 5, 6, 8 and 10 with fixtures in `tests/query/sealed/`. — needs: 011 T3 — *gate: criteria 4, 5,
   6, 8, 10 green in `pnpm test:web`*

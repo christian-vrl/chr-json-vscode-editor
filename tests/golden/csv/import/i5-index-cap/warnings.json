@@ -1,0 +1,18 @@
+[
+  {
+    "message": "Field name \"b[100001]\" has an array index above 100000; it is kept as a flat key",
+    "line": 1
+  },
+  {
+    "message": "Field name \"c[4294967294]\" has an array index above 100000; it is kept as a flat key",
+    "line": 1
+  },
+  {
+    "message": "Field name \"d.e[0][100001]\" has an array index above 100000; it is kept as a flat key",
+    "line": 1
+  },
+  {
+    "message": "Field name \"a.k\" conflicts with \"a[100000]\"; it is kept as a flat key",
+    "line": 1
+  }
+]

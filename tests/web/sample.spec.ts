@@ -16,10 +16,21 @@ test('serves the page under the webview CSP, with the library stylesheet applied
 }) => {
   const response = await page.goto('/');
   const csp = response?.headers()['content-security-policy'] ?? '';
-  expect(csp).toMatch(/^default-src 'none'; script-src 'nonce-[^']+';/);
-  expect(csp).not.toMatch(/unsafe-inline|unsafe-eval/);
+  // The editor page compiles the query engine's WebAssembly (spec 011 criterion 9); nothing else.
+  expect(csp).toMatch(/^default-src 'none'; script-src 'nonce-[^']+' 'wasm-unsafe-eval';/);
+  expect(csp).not.toMatch(/unsafe-inline|'unsafe-eval'/);
   // vanilla-jsoneditor's own rule, now loaded from the stylesheet file instead of an inline <style>.
   await expect(page.locator('.jse-main')).toHaveCSS('min-height', '150px');
+});
+
+test("serves the compare and CSV pages under 003 criterion 6's policy exactly", async ({
+  page,
+}) => {
+  for (const file of ['compare.html', 'csv.html']) {
+    const response = await page.goto(`/${file}`);
+    const csp = response?.headers()['content-security-policy'] ?? '';
+    expect(csp).toMatch(/^default-src 'none'; script-src 'nonce-[^']+'; style-src /);
+  }
 });
 
 test.describe('a page that tries to leave the local origin', () => {

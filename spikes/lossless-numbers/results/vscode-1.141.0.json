@@ -1,0 +1,1430 @@
+{
+  "vscode": "1.141.0",
+  "probes": [
+    {
+      "id": "parse",
+      "observed": {
+        "bigNumbersInText": [
+          "12345678901234567890",
+          "0.1000000000000000000001",
+          "1e400",
+          "9007199254740993",
+          "1E-400",
+          "1e400",
+          "-12345678901234567890",
+          "12345678901234567891",
+          "0.1000000000000000000001",
+          "12345678901234567890",
+          "12345678901234567891",
+          "9007199254740993",
+          "12345678901234567890"
+        ],
+        "bigNumbersInData": [
+          "12345678901234567890",
+          "0.1000000000000000000001",
+          "1e400",
+          "9007199254740993",
+          "1E-400",
+          "1e400",
+          "-12345678901234567890",
+          "12345678901234567891",
+          "0.1000000000000000000001",
+          "12345678901234567890",
+          "12345678901234567891",
+          "9007199254740993",
+          "12345678901234567890"
+        ],
+        "data": {
+          "a": {
+            "big": "12345678901234567890"
+          },
+          "b": {
+            "big": "0.1000000000000000000001"
+          },
+          "c": {
+            "big": "1e400"
+          },
+          "d": 4,
+          "e": {
+            "big": "9007199254740993"
+          },
+          "f": {
+            "big": "1E-400"
+          },
+          "plain": [
+            9007199254740991,
+            0.1,
+            100,
+            {
+              "number": "0"
+            },
+            1.5e+300
+          ],
+          "ids": [
+            {
+              "big": "1e400"
+            },
+            {
+              "big": "-12345678901234567890"
+            },
+            5,
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "0.1000000000000000000001"
+            },
+            {
+              "big": "12345678901234567890"
+            },
+            0.1
+          ],
+          "records": [
+            {
+              "id": {
+                "big": "12345678901234567891"
+              },
+              "name": "second"
+            },
+            {
+              "id": {
+                "big": "9007199254740993"
+              },
+              "name": "smallest"
+            },
+            {
+              "id": {
+                "big": "12345678901234567890"
+              },
+              "name": "first"
+            },
+            {
+              "id": 7,
+              "name": "plain"
+            }
+          ]
+        },
+        "valueTypeOfBig": "number",
+        "stringify": "{\"a\":12345678901234567890,\"b\":0.1000000000000000000001,\"c\":1e400,\"d\":4,\"e\":9007199254740993,\"f\":1E-400,\"plain\":[9007199254740991,0.1,100,0,1.5e+300],\"ids\":[1e400,-12345678901234567890,5,12345678901234567891,0.1000000000000000000001,12345678901234567890,0.1],\"records\":[{\"id\":12345678901234567891,\"name\":\"second\"},{\"id\":9007199254740993,\"name\":\"smallest\"},{\"id\":12345678901234567890,\"name\":\"first\"},{\"id\":7,\"name\":\"plain\"}]}",
+        "reviverHasSource": true
+      },
+      "ms": 3
+    },
+    {
+      "id": "tree render",
+      "observed": {
+        "expected": [
+          "12345678901234567890",
+          "0.1000000000000000000001",
+          "1e400",
+          "9007199254740993",
+          "1E-400",
+          "1e400",
+          "-12345678901234567890",
+          "12345678901234567891",
+          "0.1000000000000000000001",
+          "12345678901234567890",
+          "12345678901234567891",
+          "9007199254740993",
+          "12345678901234567890"
+        ],
+        "missing": [],
+        "notNumberClass": [],
+        "rendered": [
+          "12345678901234567890",
+          "0.1000000000000000000001",
+          "1e400",
+          "4",
+          "9007199254740993",
+          "1E-400",
+          "9007199254740991",
+          "0.1",
+          "100",
+          "0",
+          "1.5e+300",
+          "1e400",
+          "-12345678901234567890",
+          "5",
+          "12345678901234567891",
+          "0.1000000000000000000001",
+          "12345678901234567890",
+          "0.1",
+          "12345678901234567891",
+          "second",
+          "9007199254740993",
+          "smallest",
+          "12345678901234567890",
+          "first",
+          "7",
+          "plain"
+        ]
+      },
+      "ms": 395.5
+    },
+    {
+      "id": "table render",
+      "observed": {
+        "ids": {
+          "expected": [
+            "1e400",
+            "-12345678901234567890",
+            "12345678901234567891",
+            "0.1000000000000000000001",
+            "12345678901234567890"
+          ],
+          "missing": [],
+          "cells": [
+            "1e400",
+            "-12345678901234567890",
+            "5",
+            "12345678901234567891",
+            "0.1000000000000000000001",
+            "12345678901234567890",
+            "0.1"
+          ]
+        },
+        "records": {
+          "expected": [
+            "12345678901234567891",
+            "9007199254740993",
+            "12345678901234567890"
+          ],
+          "missing": [],
+          "cells": [
+            "12345678901234567891",
+            "second",
+            "9007199254740993",
+            "smallest",
+            "12345678901234567890",
+            "first",
+            "7",
+            "plain"
+          ]
+        }
+      },
+      "ms": 237.4000000001397
+    },
+    {
+      "id": "inline edit",
+      "observed": {
+        "typed": "123456789012345678901",
+        "redo": [
+          {
+            "op": "replace",
+            "path": "/a",
+            "value": {
+              "big": "123456789012345678901"
+            }
+          }
+        ],
+        "valueIsLosslessNumber": true,
+        "value": {
+          "big": "123456789012345678901"
+        },
+        "rendered": "123456789012345678901"
+      },
+      "ms": 262.9000000001397
+    },
+    {
+      "id": "paste",
+      "observed": {
+        "/b": {
+          "pasted": "123456789012345678901",
+          "redo": [
+            {
+              "op": "replace",
+              "path": "/b",
+              "value": {
+                "big": "123456789012345678901"
+              }
+            }
+          ],
+          "value": {
+            "big": "123456789012345678901"
+          },
+          "bigTexts": [
+            "123456789012345678901"
+          ]
+        },
+        "/plain": {
+          "pasted": "[123456789012345678901, 1, 0.1000000000000000000001]",
+          "redo": [
+            {
+              "op": "replace",
+              "path": "/plain",
+              "value": [
+                {
+                  "big": "123456789012345678901"
+                },
+                1,
+                {
+                  "big": "0.1000000000000000000001"
+                }
+              ]
+            }
+          ],
+          "value": [
+            {
+              "big": "123456789012345678901"
+            },
+            1,
+            {
+              "big": "0.1000000000000000000001"
+            }
+          ],
+          "bigTexts": [
+            "123456789012345678901",
+            "0.1000000000000000000001"
+          ]
+        }
+      },
+      "ms": 581.1000000000931
+    },
+    {
+      "id": "copy",
+      "observed": {
+        "/a": {
+          "written": [
+            "12345678901234567890"
+          ],
+          "clipboardErrors": []
+        },
+        "/ids": {
+          "written": [
+            "[\n  1e400,\n  -12345678901234567890,\n  5,\n  12345678901234567891,\n  0.1000000000000000000001,\n  12345678901234567890,\n  0.1\n]"
+          ],
+          "clipboardErrors": []
+        }
+      },
+      "ms": 543.5999999998603
+    },
+    {
+      "id": "search",
+      "observed": {
+        "12345678901234567890": {
+          "count": "1/4",
+          "highlighted": [
+            "12345678901234567890",
+            "12345678901234567890",
+            "12345678901234567890",
+            "12345678901234567890"
+          ]
+        },
+        "0.1000000000000000000001": {
+          "count": "1/2",
+          "highlighted": [
+            "0.1000000000000000000001",
+            "0.1000000000000000000001"
+          ]
+        },
+        "1e400": {
+          "count": "1/2",
+          "highlighted": [
+            "1e400",
+            "1e400"
+          ]
+        },
+        "4.0": {
+          "count": "0",
+          "highlighted": []
+        }
+      },
+      "ms": 2542.399999999907
+    },
+    {
+      "id": "sort dialog",
+      "observed": {
+        "ids": {
+          "error": "Error: timed out waiting for a change",
+          "pageErrors": [],
+          "changes": 0,
+          "dialog": {
+            "open": true,
+            "path": "ids",
+            "selects": [
+              "ascending",
+              "{\"value\":1,\"label\":\"ascending\"}"
+            ],
+            "text": "Sort array items PathDirection ascending Error: Cannot safely convert to number: the value '1e400' would overflow and become Infinity Sort"
+          }
+        },
+        "ids without 1e400": {
+          "order": [
+            0.1,
+            5,
+            {
+              "big": "-12345678901234567890"
+            },
+            {
+              "big": "0.1000000000000000000001"
+            },
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "12345678901234567890"
+            }
+          ],
+          "redoOps": [
+            "replace /ids"
+          ],
+          "dialogWhenChangeArrived": {
+            "open": true,
+            "path": "ids",
+            "selects": [
+              "ascending",
+              "{\"value\":1,\"label\":\"ascending\"}"
+            ],
+            "text": "Sort array items PathDirection ascending Sort"
+          },
+          "onSortModalPropCalls": 0
+        },
+        "records by id": {
+          "order": [
+            7,
+            {
+              "big": "9007199254740993"
+            },
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "12345678901234567890"
+            }
+          ],
+          "redoOps": [
+            "replace /records"
+          ],
+          "dialogWhenChangeArrived": {
+            "open": true,
+            "path": "records",
+            "selects": [
+              "id",
+              "{\"value\":[\"id\"],\"label\":\"id\"}",
+              "ascending",
+              "{\"value\":1,\"label\":\"ascending\"}"
+            ],
+            "text": "Sort array items PathProperty Option id, selected. Select is focused, type to refine list, press down to open the menu. id Direction ascending Sort"
+          },
+          "onSortModalPropCalls": 0
+        },
+        "ids, valueOf never throws": {
+          "order": [
+            0.1,
+            5,
+            {
+              "big": "-12345678901234567890"
+            },
+            {
+              "big": "0.1000000000000000000001"
+            },
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "12345678901234567890"
+            },
+            {
+              "big": "1e400"
+            }
+          ],
+          "redoOps": [
+            "replace /ids"
+          ],
+          "dialogWhenChangeArrived": {
+            "open": true,
+            "path": "ids",
+            "selects": [
+              "ascending",
+              "{\"value\":1,\"label\":\"ascending\"}"
+            ],
+            "text": "Sort array items PathDirection ascending Sort"
+          },
+          "onSortModalPropCalls": 0
+        }
+      },
+      "ms": 3245.3000000000466
+    },
+    {
+      "id": "table header sort",
+      "observed": {
+        "ids": {
+          "error": "Error: timed out waiting for a change",
+          "pageErrors": [
+            "Uncaught Error: Cannot safely convert to number: the value '1e400' would overflow and become Infinity"
+          ],
+          "changes": 0,
+          "dialog": null
+        },
+        "ids without 1e400": {
+          "order": [
+            0.1,
+            5,
+            {
+              "big": "-12345678901234567890"
+            },
+            {
+              "big": "0.1000000000000000000001"
+            },
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "12345678901234567890"
+            }
+          ],
+          "redoOps": [
+            "replace "
+          ],
+          "sortedHeaderWhenChangeArrived": null,
+          "sortedHeaderAfter": {
+            "column": "values",
+            "title": "Currently sorted in ascending order"
+          }
+        },
+        "records by id": {
+          "order": [
+            7,
+            {
+              "big": "9007199254740993"
+            },
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "12345678901234567890"
+            }
+          ],
+          "redoOps": [
+            "replace "
+          ],
+          "sortedHeaderWhenChangeArrived": null,
+          "sortedHeaderAfter": {
+            "column": "id",
+            "title": "Currently sorted in ascending order"
+          }
+        },
+        "ids, valueOf never throws": {
+          "order": [
+            0.1,
+            5,
+            {
+              "big": "-12345678901234567890"
+            },
+            {
+              "big": "0.1000000000000000000001"
+            },
+            {
+              "big": "12345678901234567891"
+            },
+            {
+              "big": "12345678901234567890"
+            },
+            {
+              "big": "1e400"
+            }
+          ],
+          "redoOps": [
+            "replace "
+          ],
+          "sortedHeaderWhenChangeArrived": null,
+          "sortedHeaderAfter": {
+            "column": "values",
+            "title": "Currently sorted in ascending order"
+          }
+        }
+      },
+      "ms": 2747
+    },
+    {
+      "id": "queries",
+      "observed": [
+        {
+          "language": "jsonquery",
+          "query": ".records | filter(.id > 5) | map(.id)",
+          "onEditorData": {
+            "result": [
+              12345678901234567000,
+              9007199254740992,
+              12345678901234567000,
+              7
+            ],
+            "bigTexts": []
+          },
+          "onRoundedCopy": {
+            "result": [
+              12345678901234567000,
+              9007199254740992,
+              12345678901234567000,
+              7
+            ],
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jsonquery",
+          "query": ".records | sort(.id) | map(.id)",
+          "onEditorData": {
+            "result": [
+              7,
+              9007199254740992,
+              12345678901234567000,
+              12345678901234567000
+            ],
+            "bigTexts": []
+          },
+          "onRoundedCopy": {
+            "result": [
+              7,
+              9007199254740992,
+              12345678901234567000,
+              12345678901234567000
+            ],
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jsonquery",
+          "query": ".records | map(.id) | max()",
+          "onEditorData": {
+            "result": 12345678901234567000,
+            "bigTexts": []
+          },
+          "onRoundedCopy": {
+            "result": 12345678901234567000,
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jmespath",
+          "query": "records[?id > `5`].id",
+          "onEditorData": {
+            "result": [
+              12345678901234567000,
+              9007199254740992,
+              12345678901234567000,
+              7
+            ],
+            "bigTexts": []
+          },
+          "onRoundedCopy": {
+            "result": [
+              12345678901234567000,
+              9007199254740992,
+              12345678901234567000,
+              7
+            ],
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jmespath",
+          "query": "sort(records[*].id)",
+          "onEditorData": {
+            "result": [
+              12345678901234567000,
+              12345678901234567000,
+              7,
+              9007199254740992
+            ],
+            "bigTexts": []
+          },
+          "onRoundedCopy": {
+            "result": [
+              12345678901234567000,
+              12345678901234567000,
+              7,
+              9007199254740992
+            ],
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jmespath",
+          "query": "max_by(records, &id).id",
+          "onEditorData": {
+            "result": 12345678901234567000,
+            "bigTexts": []
+          },
+          "onRoundedCopy": {
+            "result": 12345678901234567000,
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jsonpath",
+          "query": "$.records[?(@.id > 5)].id",
+          "onEditorData": {
+            "result": [
+              {
+                "big": "12345678901234567891"
+              },
+              {
+                "big": "9007199254740993"
+              },
+              {
+                "big": "12345678901234567890"
+              },
+              7
+            ],
+            "bigTexts": [
+              "12345678901234567891",
+              "9007199254740993",
+              "12345678901234567890"
+            ]
+          },
+          "onRoundedCopy": {
+            "result": [
+              12345678901234567000,
+              9007199254740992,
+              12345678901234567000,
+              7
+            ],
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jsonpath",
+          "query": "$.ids[?(@ > 5)]",
+          "onEditorData": {
+            "error": "Error: jsonPath: Cannot safely convert to number: the value '1e400' would overflow and become Infinity: @ > 5"
+          },
+          "onRoundedCopy": {
+            "result": [
+              {
+                "number": "Infinity"
+              },
+              12345678901234567000,
+              12345678901234567000
+            ],
+            "bigTexts": []
+          }
+        },
+        {
+          "language": "jsonpath",
+          "query": "$.ids[*]",
+          "onEditorData": {
+            "result": [
+              {
+                "big": "1e400"
+              },
+              {
+                "big": "-12345678901234567890"
+              },
+              5,
+              {
+                "big": "12345678901234567891"
+              },
+              {
+                "big": "0.1000000000000000000001"
+              },
+              {
+                "big": "12345678901234567890"
+              },
+              0.1
+            ],
+            "bigTexts": [
+              "1e400",
+              "-12345678901234567890",
+              "12345678901234567891",
+              "0.1000000000000000000001",
+              "12345678901234567890"
+            ]
+          },
+          "onRoundedCopy": {
+            "result": [
+              {
+                "number": "Infinity"
+              },
+              -12345678901234567000,
+              5,
+              12345678901234567000,
+              0.1,
+              12345678901234567000,
+              0.1
+            ],
+            "bigTexts": []
+          }
+        }
+      ],
+      "ms": 8.799999999813735
+    }
+  ],
+  "clipboard": "[\n  1e400,\n  -12345678901234567890,\n  5,\n  12345678901234567891,\n  0.1000000000000000000001,\n  12345678901234567890,\n  0.1\n]",
+  "bench": {
+    "plain-5mib": {
+      "JSON.parse": {
+        "median": 23.4,
+        "min": 17.1,
+        "max": 37.2,
+        "runs": [
+          37.2,
+          22.5,
+          23.4,
+          31.4,
+          20.9,
+          25.7,
+          32.4,
+          22.6,
+          17.1
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0.1,
+        "min": 0.1,
+        "max": 0.2,
+        "runs": [
+          0.2,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 7,
+        "min": 5.8,
+        "max": 9,
+        "runs": [
+          6,
+          6.1,
+          5.8,
+          5.9,
+          8.3,
+          8.1,
+          9,
+          8.6,
+          7
+        ],
+        "answer": false
+      },
+      "scan: char loop": {
+        "median": 11.9,
+        "min": 11.7,
+        "max": 16.3,
+        "runs": [
+          16.3,
+          11.9,
+          12.6,
+          11.9,
+          12,
+          11.9,
+          11.7,
+          11.9,
+          12.3
+        ],
+        "answer": false
+      },
+      "spike parser (token scan + route)": {
+        "median": 24.3,
+        "min": 21.9,
+        "max": 33.9,
+        "runs": [
+          24.3,
+          21.9,
+          24.3,
+          33.9,
+          23.7,
+          23.5,
+          24.1,
+          25.4,
+          24.8
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, big only": {
+        "median": 84,
+        "min": 66.1,
+        "max": 109,
+        "runs": [
+          66.1,
+          109,
+          84,
+          105.4,
+          97.5,
+          94.8,
+          75.9,
+          75.5,
+          73.8
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, all numbers": {
+        "median": 88.6,
+        "min": 70.6,
+        "max": 104.2,
+        "runs": [
+          88.6,
+          91.7,
+          70.8,
+          90.9,
+          81.3,
+          104.2,
+          70.6,
+          71.4,
+          92.9
+        ],
+        "answer": 43452
+      },
+      "JSON.parse + source reviver": {
+        "median": 134.6,
+        "min": 88.1,
+        "max": 178,
+        "runs": [
+          115.8,
+          88.1,
+          100.6,
+          134.6,
+          158,
+          143.4,
+          178,
+          138,
+          91.7
+        ],
+        "answer": 0
+      },
+      "core parseData(json)": {
+        "median": 14.8,
+        "min": 14,
+        "max": 30.9,
+        "runs": [
+          14.2,
+          14,
+          14.3,
+          14,
+          14.8,
+          26.2,
+          21.2,
+          28.5,
+          30.9
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "median": 562,
+        "min": 458.4,
+        "max": 1036.7,
+        "runs": [
+          607.4,
+          571.4,
+          458.4,
+          562,
+          485.4,
+          468.4,
+          1036.7,
+          609.8,
+          478.7
+        ],
+        "answer": 0
+      },
+      "JSON.stringify (data)": {
+        "median": 22.9,
+        "min": 8.3,
+        "max": 39.1,
+        "runs": [
+          8.3,
+          18.3,
+          22.3,
+          22.9,
+          29.6,
+          30.6,
+          8.3,
+          23.6,
+          39.1
+        ],
+        "answer": "3330990 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 64.4,
+        "min": 58.5,
+        "max": 103.3,
+        "runs": [
+          73.9,
+          103.3,
+          64.4,
+          63,
+          60.3,
+          60,
+          81.3,
+          64.9,
+          58.5
+        ],
+        "answer": "3330990 chars"
+      }
+    },
+    "big-id-5mib": {
+      "JSON.parse": {
+        "median": 25.4,
+        "min": 15.2,
+        "max": 31.1,
+        "runs": [
+          24.8,
+          31.1,
+          30.4,
+          18,
+          25.4,
+          21.4,
+          30.5,
+          27.9,
+          15.2
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0.2,
+        "runs": [
+          0.2,
+          0.1,
+          0.1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0.2,
+        "runs": [
+          0.2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.1
+        ],
+        "answer": true
+      },
+      "scan: char loop": {
+        "median": 0,
+        "min": 0,
+        "max": 0.1,
+        "runs": [
+          0.1,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0.1,
+          0
+        ],
+        "answer": true
+      },
+      "spike parser (token scan + route)": {
+        "median": 87,
+        "min": 74.5,
+        "max": 120.5,
+        "runs": [
+          90.3,
+          120.5,
+          74.5,
+          79.9,
+          93.3,
+          105.8,
+          87,
+          80.7,
+          77.8
+        ],
+        "answer": 20496
+      },
+      "lossless-json parse, big only": {
+        "median": 89.6,
+        "min": 80.5,
+        "max": 103.5,
+        "runs": [
+          103.5,
+          97.4,
+          95.4,
+          86.5,
+          90.4,
+          80.5,
+          85,
+          89.6,
+          85
+        ],
+        "answer": 20496
+      },
+      "lossless-json parse, all numbers": {
+        "median": 91.1,
+        "min": 76.2,
+        "max": 127.8,
+        "runs": [
+          76.2,
+          86.7,
+          83,
+          91.1,
+          82.8,
+          104.8,
+          95.1,
+          127.8,
+          127.2
+        ],
+        "answer": 40992
+      },
+      "JSON.parse + source reviver": {
+        "median": 106.6,
+        "min": 91.4,
+        "max": 170.3,
+        "runs": [
+          170.3,
+          97.2,
+          104.2,
+          109.6,
+          112.4,
+          106.6,
+          99.5,
+          110.1,
+          91.4
+        ],
+        "answer": 20496
+      },
+      "core parseData(json)": {
+        "median": 19.7,
+        "min": 15.3,
+        "max": 30.6,
+        "runs": [
+          15.5,
+          30.6,
+          19.7,
+          19.5,
+          29.8,
+          28.4,
+          25.5,
+          18.6,
+          15.3
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "median": 578.1,
+        "min": 489.9,
+        "max": 964,
+        "runs": [
+          578.1,
+          489.9,
+          628.9,
+          491.1,
+          515.1,
+          634.3,
+          645.1,
+          563.1,
+          964
+        ],
+        "answer": 0
+      },
+      "JSON.stringify (data)": {
+        "median": 44.5,
+        "min": 32.8,
+        "max": 51.8,
+        "runs": [
+          51.8,
+          44.5,
+          45.3,
+          45.4,
+          46.3,
+          36.1,
+          37.6,
+          37.8,
+          32.8
+        ],
+        "answer": "4177086 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 51.6,
+        "min": 37.1,
+        "max": 160.3,
+        "runs": [
+          160.3,
+          63.5,
+          45.7,
+          46.6,
+          51.6,
+          44.8,
+          52.3,
+          37.1,
+          63.4
+        ],
+        "answer": "3439230 chars"
+      }
+    },
+    "plain-50mib": {
+      "JSON.parse": {
+        "median": 261.3,
+        "min": 259.6,
+        "max": 277.8,
+        "runs": [
+          277.8,
+          259.6,
+          261.3
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0.2,
+        "min": 0.1,
+        "max": 0.2,
+        "runs": [
+          0.2,
+          0.1,
+          0.2
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 91.4,
+        "min": 73.3,
+        "max": 106.6,
+        "runs": [
+          73.3,
+          91.4,
+          106.6
+        ],
+        "answer": false
+      },
+      "scan: char loop": {
+        "median": 169.8,
+        "min": 156.8,
+        "max": 223.6,
+        "runs": [
+          223.6,
+          156.8,
+          169.8
+        ],
+        "answer": false
+      },
+      "spike parser (token scan + route)": {
+        "median": 398.8,
+        "min": 395.1,
+        "max": 405.5,
+        "runs": [
+          405.5,
+          398.8,
+          395.1
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, big only": {
+        "median": 960.4,
+        "min": 941.3,
+        "max": 1010.2,
+        "runs": [
+          941.3,
+          1010.2,
+          960.4
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, all numbers": {
+        "median": 1241,
+        "min": 1225.8,
+        "max": 1247.4,
+        "runs": [
+          1247.4,
+          1225.8,
+          1241
+        ],
+        "answer": 430976
+      },
+      "JSON.parse + source reviver": {
+        "median": 1497.1,
+        "min": 1297.8,
+        "max": 1765.6,
+        "runs": [
+          1765.6,
+          1297.8,
+          1497.1
+        ],
+        "answer": 0
+      },
+      "core parseData(json)": {
+        "median": 287.8,
+        "min": 189.4,
+        "max": 304.5,
+        "runs": [
+          287.8,
+          304.5,
+          189.4
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "skipped": "memory (full parse of 50 MiB)"
+      },
+      "JSON.stringify (data)": {
+        "median": 103.2,
+        "min": 94.2,
+        "max": 109.3,
+        "runs": [
+          94.2,
+          109.3,
+          103.2
+        ],
+        "answer": "33465854 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 1007.4,
+        "min": 806.7,
+        "max": 1025.3,
+        "runs": [
+          1025.3,
+          1007.4,
+          806.7
+        ],
+        "answer": "33465854 chars"
+      }
+    },
+    "big-id-50mib": {
+      "JSON.parse": {
+        "median": 294.1,
+        "min": 249,
+        "max": 382.5,
+        "runs": [
+          382.5,
+          294.1,
+          249
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0.1,
+        "runs": [
+          0.1,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0.2,
+        "runs": [
+          0.2,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: char loop": {
+        "median": 0,
+        "min": 0,
+        "max": 0.1,
+        "runs": [
+          0.1,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "spike parser (token scan + route)": {
+        "median": 1242.8,
+        "min": 676.9,
+        "max": 1363.4,
+        "runs": [
+          676.9,
+          1363.4,
+          1242.8
+        ],
+        "answer": 204170
+      },
+      "lossless-json parse, big only": {
+        "median": 818.6,
+        "min": 807,
+        "max": 1022.4,
+        "runs": [
+          818.6,
+          807,
+          1022.4
+        ],
+        "answer": 204170
+      },
+      "lossless-json parse, all numbers": {
+        "median": 905.2,
+        "min": 775.1,
+        "max": 937.6,
+        "runs": [
+          905.2,
+          775.1,
+          937.6
+        ],
+        "answer": 408340
+      },
+      "JSON.parse + source reviver": {
+        "median": 1243.2,
+        "min": 1065.7,
+        "max": 1318.6,
+        "runs": [
+          1318.6,
+          1243.2,
+          1065.7
+        ],
+        "answer": 204170
+      },
+      "core parseData(json)": {
+        "median": 178.7,
+        "min": 173.4,
+        "max": 185.9,
+        "runs": [
+          173.4,
+          178.7,
+          185.9
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "skipped": "memory (full parse of 50 MiB)"
+      },
+      "JSON.stringify (data)": {
+        "median": 249.1,
+        "min": 228.4,
+        "max": 270.2,
+        "runs": [
+          228.4,
+          249.1,
+          270.2
+        ],
+        "answer": "41811958 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 1021.1,
+        "min": 850.4,
+        "max": 1426.2,
+        "runs": [
+          1021.1,
+          1426.2,
+          850.4
+        ],
+        "answer": "34461838 chars"
+      }
+    }
+  },
+  "page": {
+    "policy": "default-src 'none'; script-src 'nonce-P1lR13V4mknFpSkq6veBLQ=='; style-src 'self' https://*.vscode-cdn.net 'nonce-P1lR13V4mknFpSkq6veBLQ=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36",
+    "violations": []
+  },
+  "probesPage": {
+    "policy": "default-src 'none'; script-src 'nonce-P1lR13V4mknFpSkq6veBLQ=='; style-src 'self' https://*.vscode-cdn.net 'nonce-P1lR13V4mknFpSkq6veBLQ=='; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Code/1.141.0 Chrome/150.0.7871.250 Electron/43.7.7 Safari/537.36",
+    "violations": []
+  }
+}
