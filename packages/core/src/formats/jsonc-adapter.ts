@@ -7,7 +7,7 @@ import { compact, prettyPrint, sort } from './actions.js';
 import { lastText } from './cache.js';
 import { applyOperation, Doc, type Open, type Rebuild, type Writer } from './edit.js';
 import { setMember } from './member.js';
-import { jsonText, mayBeBig, numberValue } from './numbers.js';
+import { jsonText, mayBeBig, mayHoldBigNumber, numberValue } from './numbers.js';
 import { detectStyle } from './style.js';
 import { stringify } from './stringify.js';
 import { isComment, Kind, tokenize, type Token } from './tokens.js';
@@ -28,21 +28,22 @@ interface Analysis {
   errors: ParseError[];
   tokens: Token[];
   style: Style;
+  /** `mayHoldBigNumber(text)`: false means no number in the text is big. */
+  mayHold: boolean;
 }
 
 function analyze(text: string, format: Format): Analysis {
   const errors: ParseError[] = [];
   const root = parseTree(text, errors, parseOptions);
   const tokens = tokenize(text);
-  if (root) exactNumbers(text, root, tokens);
-  return { root, errors, tokens, style: detectStyle(text, format, tokens) };
+  // One scan of the text, so a document with no big number is not walked at all.
+  const mayHold = mayHoldBigNumber(text);
+  if (root && mayHold) exactNumbers(text, root);
+  return { root, errors, tokens, style: detectStyle(text, format, tokens), mayHold };
 }
 
-/** B1 in the tree: each big number node's value becomes its `LosslessNumber`. The tokens show
- *  first whether any number may be big, so a document with none is not walked. */
-function exactNumbers(text: string, root: Node, tokens: readonly Token[]): void {
-  if (!tokens.some((t) => t.kind === Kind.NumericLiteral && mayBeBig(text, t.offset, t.end)))
-    return;
+/** B1 in the tree: each big number node's value becomes its `LosslessNumber`. */
+function exactNumbers(text: string, root: Node): void {
   const stack: Node[] = [root];
   for (let node = stack.pop(); node; node = stack.pop()) {
     // A loop, not `push(...children)`: 100k+ arguments would overflow the call stack.
@@ -57,7 +58,7 @@ function exactNumbers(text: string, root: Node, tokens: readonly Token[]): void 
 }
 
 function parse(analysis: Analysis, text: string, format: Format): ParseResult {
-  const { root, errors, tokens, style } = analysis;
+  const { root, errors, tokens, style, mayHold } = analysis;
   const diagnostics: Diagnostic[] = errors.map((e) => ({
     severity: 'error',
     message: printParseErrorCode(e.error),
@@ -68,19 +69,21 @@ function parse(analysis: Analysis, text: string, format: Format): ParseResult {
   if (format === 'json')
     for (const warning of strictJsonWarnings(tokens)) diagnostics.push(warning);
   diagnostics.sort((a, b) => a.offset - b.offset);
-  return { data: visitData(text), tree: root, style, diagnostics };
+  return { data: visitData(text, undefined, mayHold), tree: root, style, diagnostics };
 }
 
 /**
  * The document's data, built like jsonc-parser's `parse` (same visitor, same error tolerance) except
  * that object members are defined as own properties. `parse` assigns them, so a `"__proto__"` key
  * set the object's prototype instead of becoming a member and its data was lost. A big number is
- * its `LosslessNumber` (spec 015 B1), read from the token's text. `onError` gets
+ * its `LosslessNumber` (spec 015 B1), read from the token's text; `mayHold` false (the caller
+ * knows `mayHoldBigNumber(text)` is false) skips that check. `onError` gets
  * the errors `parseTree` reports (it runs the same visitor), in the same order.
  */
 export function visitData(
   text: string,
   onError?: (error: number, offset: number, length: number) => void,
+  mayHold = true,
 ): unknown {
   const root: unknown[] = [];
   let parent: unknown[] | Record<string, unknown> = root;
@@ -109,12 +112,14 @@ export function visitData(
       onObjectEnd: end,
       onArrayBegin: () => begin([]),
       onArrayEnd: end,
-      onLiteralValue: (value: unknown, offset: number, length: number) =>
-        onValue(
-          typeof value === 'number' && mayBeBig(text, offset, offset + length)
-            ? numberValue(text.slice(offset, offset + length), value)
-            : value,
-        ),
+      onLiteralValue: mayHold
+        ? (value: unknown, offset: number, length: number) =>
+            onValue(
+              typeof value === 'number' && mayBeBig(text, offset, offset + length)
+                ? numberValue(text.slice(offset, offset + length), value)
+                : value,
+            )
+        : onValue,
       onError,
     },
     parseOptions,
