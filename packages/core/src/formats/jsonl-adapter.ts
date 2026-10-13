@@ -51,6 +51,9 @@ const UNREAD = Symbol('unread');
 export interface Lines {
   readonly bom: string;
   readonly lines: readonly Line[];
+  /** False when the text holds no big number (`mayHoldBigNumber`), so no line needs the exact path
+   *  (spec 015 B1); absent means it may. */
+  readonly mayHold?: boolean;
 }
 
 /** The 1-based message of L1 for a bad line. */
@@ -93,7 +96,7 @@ export function split(text: string): Lines {
     });
     start = lf < 0 ? text.length : lf + 1;
   }
-  return { bom, lines };
+  return { bom, lines, mayHold };
 }
 
 /** L2: the first line ending (`\n` when there is none); a final newline when the text ends with a
@@ -139,7 +142,7 @@ const valueOf = (text: string) => {
 /** L1: the items' data, a node per item with offsets into the whole text, one error per bad line
  *  spanning the line without its ending (on the first line, the BOM included: the BOM belongs to
  *  the first line, §Terms; README reading 5). */
-function parse(text: string, { bom, lines }: Lines): ParseResult {
+function parse(text: string, { bom, lines, mayHold }: Lines): ParseResult {
   const data: unknown[] = [];
   const children: FormatNode[] = [];
   const diagnostics: Diagnostic[] = [];
@@ -147,7 +150,10 @@ function parse(text: string, { bom, lines }: Lines): ParseResult {
   lines.forEach((line, index) => {
     if (line.kind === 'item') {
       data.push(line.data);
-      children.push(shifted(parseTree(line.text)!, offset, line.text));
+      const tree = parseTree(line.text)!;
+      children.push(
+        mayHold === false ? shifted(tree, offset) : shiftedExact(tree, offset, line.text),
+      );
     } else if (line.kind === 'bad') {
       const head = index === 0 ? bom.length : 0;
       diagnostics.push({
@@ -167,9 +173,22 @@ function parse(text: string, { bom, lines }: Lines): ParseResult {
   };
 }
 
-/** A jsonc-parser node of the line `text` as a `FormatNode` moved `by` characters, a big number's
- *  value as its `LosslessNumber` (spec 015 B1). */
-function shifted(node: Node, by: number, text: string): FormatNode {
+/** A jsonc-parser node as a `FormatNode` moved `by` characters. */
+function shifted(node: Node, by: number): FormatNode {
+  const out: { -readonly [K in keyof FormatNode]: FormatNode[K] } = {
+    type: node.type,
+    offset: node.offset + by,
+    length: node.length,
+  };
+  if (node.value !== undefined) out.value = node.value;
+  if (node.children) out.children = node.children.map((child) => shifted(child, by));
+  return out;
+}
+
+/** `shifted` for a line `text` that may hold a big number: a big number's value is its
+ *  `LosslessNumber` (spec 015 B1). Kept apart so lines of a text with none take `shifted` as it
+ *  was (spec 015 criterion 11). */
+function shiftedExact(node: Node, by: number, text: string): FormatNode {
   const out: { -readonly [K in keyof FormatNode]: FormatNode[K] } = {
     type: node.type,
     offset: node.offset + by,
@@ -180,7 +199,7 @@ function shifted(node: Node, by: number, text: string): FormatNode {
       node.type === 'number' && mayBeBig(text, node.offset, node.offset + node.length)
         ? numberValue(text.slice(node.offset, node.offset + node.length), node.value as number)
         : node.value;
-  if (node.children) out.children = node.children.map((child) => shifted(child, by, text));
+  if (node.children) out.children = node.children.map((child) => shiftedExact(child, by, text));
   return out;
 }
 
