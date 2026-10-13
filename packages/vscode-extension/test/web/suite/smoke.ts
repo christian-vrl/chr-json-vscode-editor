@@ -1,4 +1,4 @@
-// Web e2e smoke (013 T1): spec 013 criterion 3 on one `.json` fixture. The rest of criterion 3, and
+// Web e2e smoke (013 T1): spec 013 criterion 3 on one `.json` fixture, and "Smart Format" (010 T3). The rest of criterion 3, and
 // criteria 4, 5, 7, 9 and 11, are 013 T4's web suite.
 /// <reference types="mocha" />
 import * as vscode from 'vscode';
@@ -70,6 +70,25 @@ describe('web host smoke (spec 013 criterion 3, one fixture)', () => {
     equal(probe.mode, 'tree', 'mode');
     equal(probe.format, 'JSON', 'format label');
     equal(probe.violations, [], 'CSP violations');
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  });
+
+  // Spec 010 criterion 8 in the web host (010 T3): the command has no Node-only code.
+  it('runs "Smart Format" on smart-format/input.json in the text editor', async () => {
+    const [folder] = vscode.workspace.workspaceFolders ?? [];
+    if (!folder) throw new Error('no workspace folder is open');
+    const dir = vscode.Uri.joinPath(folder.uri, 'smart-format');
+    const expected = new TextDecoder().decode(
+      await vscode.workspace.fs.readFile(vscode.Uri.joinPath(dir, 'expected.json')),
+    );
+    const document = await vscode.workspace.openTextDocument(
+      vscode.Uri.joinPath(dir, 'input.json'),
+    );
+    await vscode.window.showTextDocument(document);
+    await vscode.commands.executeCommand('chrJsonEditor.smartFormat');
+    await waitFor('the smart-formatted text', () => document.getText() === expected);
+    equal(document.isDirty, true, 'dirty');
+    await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 });
