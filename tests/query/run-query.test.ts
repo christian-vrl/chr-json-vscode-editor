@@ -11,7 +11,7 @@ import { caseData, caseExpected, loadQueryCases, orderedEqual, quickJsCases } fr
 
 const cases = quickJsCases(loadQueryCases());
 
-beforeAll(() => loadQueryEngine());
+beforeAll(() => loadQueryEngine(() => import('../../packages/app-shell/src/query/engine.js')));
 
 describe('query corpus in the engine (spec 011 criterion 1)', () => {
   it.each(cases.filter((c) => c.error === undefined).map((c) => [c.name, c] as const))(

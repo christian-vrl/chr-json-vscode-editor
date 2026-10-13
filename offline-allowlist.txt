@@ -34,6 +34,13 @@ https://jsonquerylang.org
 https://jmespath.org
 https://jmespath.org/tutorial.html
 https://github.com/JSONPath-Plus/JSONPath
+# 011 T4 registers the library's JavaScript and Lodash languages; Lodash's help text in the same
+# dialog links here.
+https://lodash.com
+# Lodash 4.18.1's error text for an unsupported core-js ("Unsupported core-js use. Try
+# https://npms.io/search?q=ponyfill."), in lodash-es (the library's Lodash language) and in
+# lodash.min.js (evaluated only inside the query engine): a message string, never fetched.
+https://npms.io/search?q=ponyfill
 
 # 004 T2: the extension host bundles Ajv 8.20.0 and ajv-formats 3.0.1 (ADR-010).
 # JSON Schema `$id`s of the meta-schemas Ajv adds itself; Ajv has no `loadSchema`, nothing fetches them.

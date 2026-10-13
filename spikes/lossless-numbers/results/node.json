@@ -1,0 +1,701 @@
+{
+  "node": "v22.22.0",
+  "texts": [
+    {
+      "id": "plain-5mib",
+      "bigNumbers": 0,
+      "bytes": 5242880,
+      "sha256": "045b61bc74c090106e8c33cfd7dd277f9e8bb3161db256720bf46eb5f81b81d9",
+      "runs": 9
+    },
+    {
+      "id": "big-id-5mib",
+      "bigNumbers": 20496,
+      "records": 20496,
+      "bytes": 5242880,
+      "sha256": "7115ae7a8302d20bebdb581d1f75272d0f616042b2e23f48662f91de12283940",
+      "runs": 9
+    },
+    {
+      "id": "plain-50mib",
+      "bigNumbers": 0,
+      "bytes": 52428800,
+      "sha256": "7ba53f051fff981279273e1d3018c8b4e3db33a1ece5db15c98730f92935077c",
+      "runs": 3
+    },
+    {
+      "id": "big-id-50mib",
+      "bigNumbers": 204170,
+      "records": 204170,
+      "bytes": 52428800,
+      "sha256": "82987b2aae18d1066c9a92b18f8695e5bd25dcb68e2de36e8d338ae1ade7c344",
+      "runs": 3
+    }
+  ],
+  "results": {
+    "plain-5mib": {
+      "JSON.parse": {
+        "median": 32.1,
+        "min": 25.9,
+        "max": 42.8,
+        "runs": [
+          38.4,
+          27.2,
+          33.4,
+          37.3,
+          42.8,
+          29.1,
+          32.1,
+          31.8,
+          25.9
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0.1,
+        "min": 0.1,
+        "max": 0.3,
+        "runs": [
+          0.3,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1,
+          0.1
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 13.8,
+        "min": 13.5,
+        "max": 14,
+        "runs": [
+          13.6,
+          14,
+          14,
+          13.5,
+          13.8,
+          13.8,
+          13.8,
+          13.8,
+          13.9
+        ],
+        "answer": false
+      },
+      "scan: char loop": {
+        "median": 31,
+        "min": 30.8,
+        "max": 33.5,
+        "runs": [
+          33.5,
+          31,
+          30.8,
+          31,
+          31.3,
+          31,
+          31.2,
+          31,
+          31.1
+        ],
+        "answer": false
+      },
+      "spike parser (token scan + route)": {
+        "median": 51.4,
+        "min": 44.4,
+        "max": 75.2,
+        "runs": [
+          53.2,
+          51.4,
+          56.1,
+          46,
+          75.2,
+          44.6,
+          52,
+          44.4,
+          51.3
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, big only": {
+        "median": 154,
+        "min": 91.6,
+        "max": 163,
+        "runs": [
+          91.6,
+          140.9,
+          162.2,
+          154,
+          95.7,
+          154.1,
+          159.6,
+          163,
+          106.9
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, all numbers": {
+        "median": 115.9,
+        "min": 91.9,
+        "max": 162,
+        "runs": [
+          100.4,
+          98,
+          97.2,
+          124.6,
+          119.4,
+          162,
+          152.5,
+          91.9,
+          115.9
+        ],
+        "answer": 43452
+      },
+      "JSON.parse + source reviver": {
+        "median": 199.8,
+        "min": 152.5,
+        "max": 290.1,
+        "runs": [
+          201.6,
+          157.9,
+          199.8,
+          152.5,
+          153.4,
+          185.2,
+          290.1,
+          288.6,
+          248.2
+        ],
+        "answer": 0
+      },
+      "core parseData(json)": {
+        "median": 28.2,
+        "min": 21.3,
+        "max": 39.5,
+        "runs": [
+          21.3,
+          25,
+          28.2,
+          24.8,
+          22.2,
+          39.5,
+          35.9,
+          38.7,
+          35.4
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "median": 932.1,
+        "min": 758.3,
+        "max": 1826.3,
+        "runs": [
+          780,
+          1022.1,
+          983,
+          758.3,
+          932.1,
+          785.7,
+          1826.3,
+          978.4,
+          791.3
+        ],
+        "answer": 0
+      },
+      "JSON.stringify (data)": {
+        "median": 17.8,
+        "min": 13.9,
+        "max": 29.6,
+        "runs": [
+          17.8,
+          13.9,
+          29.6,
+          26.5,
+          19.2,
+          15.4,
+          14.6,
+          14.1,
+          27.6
+        ],
+        "answer": "3330990 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 110.7,
+        "min": 106.8,
+        "max": 149.9,
+        "runs": [
+          149.9,
+          127.5,
+          109,
+          106.8,
+          115.9,
+          110.7,
+          108.1,
+          107.1,
+          122.4
+        ],
+        "answer": "3330990 chars"
+      }
+    },
+    "big-id-5mib": {
+      "JSON.parse": {
+        "median": 28,
+        "min": 21.8,
+        "max": 40.4,
+        "runs": [
+          21.8,
+          21.9,
+          32.1,
+          25.1,
+          33.3,
+          38.6,
+          40.4,
+          24.4,
+          28
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "runs": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "runs": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: char loop": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "runs": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "spike parser (token scan + route)": {
+        "median": 121.7,
+        "min": 94.6,
+        "max": 159.2,
+        "runs": [
+          141,
+          125.4,
+          159.2,
+          150.5,
+          104.5,
+          121.7,
+          94.6,
+          103.3,
+          103
+        ],
+        "answer": 20496
+      },
+      "lossless-json parse, big only": {
+        "median": 110.6,
+        "min": 95.8,
+        "max": 172.9,
+        "runs": [
+          95.8,
+          172.9,
+          97.7,
+          101.9,
+          160.2,
+          155.9,
+          103.9,
+          136.2,
+          110.6
+        ],
+        "answer": 20496
+      },
+      "lossless-json parse, all numbers": {
+        "median": 148.2,
+        "min": 97.3,
+        "max": 164.1,
+        "runs": [
+          98.2,
+          97.3,
+          106.2,
+          107.9,
+          148.2,
+          158.2,
+          157.9,
+          162.4,
+          164.1
+        ],
+        "answer": 40992
+      },
+      "JSON.parse + source reviver": {
+        "median": 208.8,
+        "min": 167.7,
+        "max": 269.6,
+        "runs": [
+          208.8,
+          176.8,
+          257.3,
+          244.2,
+          176.1,
+          167.7,
+          269.6,
+          265,
+          204.8
+        ],
+        "answer": 20496
+      },
+      "core parseData(json)": {
+        "median": 31.7,
+        "min": 26.2,
+        "max": 47.1,
+        "runs": [
+          28,
+          31.7,
+          39,
+          47.1,
+          39.3,
+          44.1,
+          28.9,
+          30.5,
+          26.2
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "median": 835.8,
+        "min": 671.7,
+        "max": 928.5,
+        "runs": [
+          869.2,
+          924.3,
+          819.9,
+          671.7,
+          835.8,
+          928.5,
+          900.7,
+          698.8,
+          766.9
+        ],
+        "answer": 0
+      },
+      "JSON.stringify (data)": {
+        "median": 28.5,
+        "min": 23.5,
+        "max": 45,
+        "runs": [
+          33.3,
+          27.1,
+          45,
+          37.4,
+          31.1,
+          26.4,
+          27.3,
+          23.5,
+          28.5
+        ],
+        "answer": "4177086 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 179.2,
+        "min": 132.1,
+        "max": 324.5,
+        "runs": [
+          177.6,
+          152.8,
+          132.1,
+          179.2,
+          171,
+          269.4,
+          310.3,
+          211.2,
+          324.5
+        ],
+        "answer": "3439230 chars"
+      }
+    },
+    "plain-50mib": {
+      "JSON.parse": {
+        "median": 246.7,
+        "min": 245,
+        "max": 643.9,
+        "runs": [
+          643.9,
+          245,
+          246.7
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0.1,
+        "min": 0.1,
+        "max": 0.1,
+        "runs": [
+          0.1,
+          0.1,
+          0.1
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 113.8,
+        "min": 113.3,
+        "max": 115.5,
+        "runs": [
+          113.8,
+          115.5,
+          113.3
+        ],
+        "answer": false
+      },
+      "scan: char loop": {
+        "median": 199.3,
+        "min": 163,
+        "max": 201.6,
+        "runs": [
+          201.6,
+          199.3,
+          163
+        ],
+        "answer": false
+      },
+      "spike parser (token scan + route)": {
+        "median": 384.5,
+        "min": 381.8,
+        "max": 395.6,
+        "runs": [
+          395.6,
+          384.5,
+          381.8
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, big only": {
+        "median": 1255.6,
+        "min": 1245.3,
+        "max": 1309.5,
+        "runs": [
+          1255.6,
+          1245.3,
+          1309.5
+        ],
+        "answer": 0
+      },
+      "lossless-json parse, all numbers": {
+        "median": 1462.9,
+        "min": 1118.1,
+        "max": 1769.3,
+        "runs": [
+          1462.9,
+          1769.3,
+          1118.1
+        ],
+        "answer": 430976
+      },
+      "JSON.parse + source reviver": {
+        "median": 2394.3,
+        "min": 2203.1,
+        "max": 2580.6,
+        "runs": [
+          2203.1,
+          2580.6,
+          2394.3
+        ],
+        "answer": 0
+      },
+      "core parseData(json)": {
+        "median": 355.4,
+        "min": 348.6,
+        "max": 427.3,
+        "runs": [
+          355.4,
+          427.3,
+          348.6
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "skipped": "memory (full parse of 50 MiB)"
+      },
+      "JSON.stringify (data)": {
+        "median": 246.3,
+        "min": 186.4,
+        "max": 255.7,
+        "runs": [
+          246.3,
+          255.7,
+          186.4
+        ],
+        "answer": "33465854 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 1734.9,
+        "min": 1574.8,
+        "max": 2300.4,
+        "runs": [
+          2300.4,
+          1734.9,
+          1574.8
+        ],
+        "answer": "33465854 chars"
+      }
+    },
+    "big-id-50mib": {
+      "JSON.parse": {
+        "median": 606.9,
+        "min": 565.1,
+        "max": 630.7,
+        "runs": [
+          630.7,
+          565.1,
+          606.9
+        ],
+        "answer": 0
+      },
+      "scan: plan regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "runs": [
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: token regex": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "runs": [
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "scan: char loop": {
+        "median": 0,
+        "min": 0,
+        "max": 0,
+        "runs": [
+          0,
+          0,
+          0
+        ],
+        "answer": true
+      },
+      "spike parser (token scan + route)": {
+        "median": 1854.8,
+        "min": 1653.6,
+        "max": 1907.1,
+        "runs": [
+          1653.6,
+          1907.1,
+          1854.8
+        ],
+        "answer": 204170
+      },
+      "lossless-json parse, big only": {
+        "median": 1655.7,
+        "min": 1600.9,
+        "max": 2222.1,
+        "runs": [
+          2222.1,
+          1655.7,
+          1600.9
+        ],
+        "answer": 204170
+      },
+      "lossless-json parse, all numbers": {
+        "median": 1619.4,
+        "min": 1419.1,
+        "max": 1622.5,
+        "runs": [
+          1619.4,
+          1419.1,
+          1622.5
+        ],
+        "answer": 408340
+      },
+      "JSON.parse + source reviver": {
+        "median": 2785.8,
+        "min": 2132.1,
+        "max": 2874.1,
+        "runs": [
+          2132.1,
+          2874.1,
+          2785.8
+        ],
+        "answer": 204170
+      },
+      "core parseData(json)": {
+        "median": 307.6,
+        "min": 276.3,
+        "max": 369.6,
+        "runs": [
+          307.6,
+          276.3,
+          369.6
+        ],
+        "answer": 0
+      },
+      "core getAdapter(json).parse": {
+        "skipped": "memory (full parse of 50 MiB)"
+      },
+      "JSON.stringify (data)": {
+        "median": 411.1,
+        "min": 257.6,
+        "max": 651.6,
+        "runs": [
+          651.6,
+          411.1,
+          257.6
+        ],
+        "answer": "41811958 chars"
+      },
+      "lossless-json stringify (data)": {
+        "median": 1653.7,
+        "min": 1507.1,
+        "max": 1723.1,
+        "runs": [
+          1653.7,
+          1723.1,
+          1507.1
+        ],
+        "answer": "34461838 chars"
+      }
+    }
+  }
+}

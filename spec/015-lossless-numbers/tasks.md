@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Spike (risk-free / additive)
-- [ ] **T1** Webview spike: `vanilla-jsoneditor` 3.13.0 in the dev host with a lossless parser over
+- [x] **T1** Webview spike: `vanilla-jsoneditor` 3.13.0 in the dev host with a lossless parser over
   `tests/e2e/fixtures/big-numbers/input.json`: tree and table render, inline edit and paste of a
   21-digit value, copy, search, the sort dialog through `onSortModal` and the table header sort,
   JSONQuery/JMESPath/JSONPath on a rounded copy; webview parser costs (pre-scan regex vs char loop,

@@ -51,7 +51,7 @@ export const identityData: fc.Arbitrary<unknown> = fc.oneof(dataArbitrary('json5
 /** Registers one property test: `runs` runs of the identity query in `language` from `seed`. */
 export function identityProperty(language: QueryLanguageId, seed: number, runs: number): void {
   it(`${language}: the identity query returns its input, ${runs} runs, seed ${seed}`, async () => {
-    await loadQueryEngine();
+    await loadQueryEngine(() => import('../src/query/engine.js'));
     fc.assert(
       fc.property(identityData, (data) => {
         const result = runQuery(language, data, IDENTITY_QUERY);
