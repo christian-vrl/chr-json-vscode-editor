@@ -21,8 +21,9 @@
  *      `read-only` edit error (008 T2).
  *  12: adds the host → UI `getRowSource` request with its UI → host `rowSource` answer, and the CSV
  *      panel's messages (009 T4): UI → host `csvReady` and `csvRun`, host → UI `csvSource` and
- *      `csvOutcome`. */
-export const PROTOCOL_VERSION = 12;
+ *      `csvOutcome`.
+ *  13: adds the `smartFormat` whole-document action (010 T3). */
+export const PROTOCOL_VERSION = 13;
 
 /** AGENTS.md §Glossary "Format". */
 export type Format = 'json' | 'jsonc' | 'json5';
@@ -56,14 +57,15 @@ export type DocumentChange =
 
 /**
  * A whole-document action the host runs with core on the document's text (003 T8, 002 R12–R13,
- * UNK-018), so comments and style are kept: `format` (core `prettyPrint`), `compact`, `repair`, and
- * `sort`, which puts the members of the container at `path` in `order` (their indices before the
+ * UNK-018), so comments and style are kept: `format` (core `prettyPrint`), `smartFormat` (core
+ * `smartFormat`, spec 010), `compact`, `repair`, and `sort`, which puts the members of the container at `path` in `order` (their indices before the
  * sort), the order the editor's sort chose. Data-level changes (transform) are a `patch` made by
  * core's `diff` (002 R14).
  */
 export type DocumentAction =
-  { name: 'format' | 'compact' | 'repair' } | { name: 'sort'; path: string; order: number[] };
-export const ACTION_NAMES = ['format', 'compact', 'repair', 'sort'] as const;
+  | { name: 'format' | 'smartFormat' | 'compact' | 'repair' }
+  | { name: 'sort'; path: string; order: number[] };
+export const ACTION_NAMES = ['format', 'smartFormat', 'compact', 'repair', 'sort'] as const;
 
 interface Envelope<T extends string> {
   protocol: typeof PROTOCOL_VERSION;

@@ -64,6 +64,11 @@
         "category": "CHR JSON Editor"
       },
       {
+        "command": "chrJsonEditor.smartFormat",
+        "title": "Smart Format",
+        "category": "CHR JSON Editor"
+      },
+      {
         "command": "chrJsonEditor.convertToJson",
         "title": "Convert to JSON",
         "category": "CHR JSON Editor"
@@ -126,6 +131,10 @@
         {
           "command": "chrJsonEditor.repairJson",
           "when": "editorLangId =~ /^(json|jsonc|json5)$/ && activeEditor == workbench.editors.files.textFileEditor"
+        },
+        {
+          "command": "chrJsonEditor.smartFormat",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
         },
         {
           "command": "chrJsonEditor.convertToJson",

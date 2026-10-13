@@ -12,6 +12,7 @@ import { registerCsvCommands, testCsvCommands } from './csvCommands';
 import { CsvPanels, testCsvPanel, type CsvSnapshot } from './csvPanel';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
 import { JsonEditorProvider, type WebviewSnapshot } from './editorProvider';
+import { registerSmartFormatCommand, testSmartFormat } from './smartFormatCommand';
 import type { ComparePageProbe, CsvPageProbe, DomStep, RenderedProbe } from './testProbe';
 import { testConfirm, type TestAnswer } from './confirm';
 import { FormatBadgeController, formatCore, type FormatBadgeSnapshot } from './formatBadgeVscode';
@@ -73,6 +74,8 @@ export interface TestHooks {
   /** 008 T4: answers every later ceiling message of "Open in CHR JSON Editor" (true: "Open as
    *  Text", false: dismiss; undefined: show it). Returns the messages shown since the previous call. */
   ceiling(answer: boolean | undefined): string[];
+  /** 010 T3: the messages "Smart Format" showed since the previous call. */
+  smartFormatMessages(): string[];
   /** 007 T4: every compare panel opened so far, closed ones included. */
   compares(): CompareSnapshot[];
   /** What the open compare panel titled `title` renders. */
@@ -153,6 +156,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
     ...registerConvertCommands(formatBadge),
     ...registerCompareCommands(compares, formatBadge),
     ...registerCsvCommands(csvPanels, formatBadge, provider),
+    registerSmartFormatCommand(formatBadge, provider),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -175,6 +179,7 @@ export function activate(context: vscode.ExtensionContext): { testHooks: TestHoo
         dom: (uri, steps) => provider.dom(uri, steps),
         readHead: (uri) => readHeadOf(vscode.Uri.parse(uri)),
         compares: () => compares.snapshots,
+        smartFormatMessages: () => testSmartFormat.messages.splice(0),
         probeCompare(title) {
           const panel = compares.find(title);
           return panel ? panel.probe() : Promise.reject(new Error(`no compare panel ${title}`));

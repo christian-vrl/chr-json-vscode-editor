@@ -340,6 +340,16 @@ exports.run = async function run() {
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (010 T3, criteria 8, 9 and 10 in the text editor): "Smart Format" (smartFormat.cjs).
+  await closeAll();
+  await require('./smartFormat.cjs').runSmartFormat({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (009 T4, criteria 4, 5, 7, 8 and 9's CSP): the CSV panel and its commands (csv.cjs).
   await closeAll();
   await require('./csv.cjs').runCsv({

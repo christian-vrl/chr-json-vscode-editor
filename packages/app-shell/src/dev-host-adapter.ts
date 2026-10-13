@@ -15,7 +15,7 @@
 // the document's size: a locked document answers every change with a `read-only` error and ignores
 // undo and redo, as the extension host does; "Edit anyway" unlocks it. "Open as Text" is recorded
 // only, since the page has no other editor to open.
-import { getAdapter, repair } from '@chr-json-editor/core';
+import { getAdapter, repair, smartFormat } from '@chr-json-editor/core';
 import { immutableJSONPatch } from 'immutable-json-patch';
 import type {
   Disposable,
@@ -334,6 +334,8 @@ function runAction(text: string, format: Format, action: DocumentAction): string
   switch (action.name) {
     case 'format':
       return adapter.prettyPrint(text);
+    case 'smartFormat':
+      return smartFormat(text, format);
     case 'compact':
       return adapter.compact(text);
     case 'repair':

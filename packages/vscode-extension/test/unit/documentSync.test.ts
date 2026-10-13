@@ -240,6 +240,38 @@ describe('DocumentSync actions (003 T8)', () => {
   });
 });
 
+describe('DocumentSync smart format (010 T3)', () => {
+  const INPUT = '{\n  "a": [\n    1,\n    2\n  ], // two\n  "b": {"c": 3},\n}\n';
+
+  it('runs core smartFormat as one change, and answers an already formatted text without one', async () => {
+    const doc = memoryDocument(INPUT, 'jsonc');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [1, 2],  // two\n  "b": {"c": 3},\n}\n');
+    expect(doc.version).toBe(2);
+    await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.version).toBe(2);
+    expect(doc.posted.map((m) => m.type)).toEqual(['update', 'update']);
+  });
+
+  it("answers a document that does not parse with criterion 9's message", async () => {
+    const doc = memoryDocument('{"a": [1, 2,\n"b": 3}', 'json5');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.posted).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        code: 'patch-failed',
+        message: 'Smart Format needs valid JSON5. Fix the errors or run Repair JSON first.',
+      }),
+    ]);
+  });
+
+  it('reads a JSON Lines document as JSON, as the webview does', async () => {
+    const doc = memoryDocument('{"a": [\n1]}', 'jsonl');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{ "a": [1] }');
+  });
+});
+
 describe('DocumentSync history (003 T7)', () => {
   it('runs undo after the edits received before it, and reports it as external', async () => {
     const doc = memoryDocument('[]');
