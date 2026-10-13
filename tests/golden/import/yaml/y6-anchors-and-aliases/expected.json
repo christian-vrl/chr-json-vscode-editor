@@ -1,0 +1,18 @@
+{
+  "base": {
+    "name": "shared",
+    "list": [
+      1,
+      2
+    ]
+  },
+  "copy": {
+    "name": "shared",
+    "list": [
+      1,
+      2
+    ]
+  },
+  "scalar": "hello",
+  "again": "hello"
+}

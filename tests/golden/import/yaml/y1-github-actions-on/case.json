@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "Y1",
+    "Y4"
+  ],
+  "tags": [
+    "yaml-github-actions-on"
+  ]
+}

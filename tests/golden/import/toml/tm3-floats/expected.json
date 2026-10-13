@@ -1,0 +1,18 @@
+{
+  "pi": 3.14,
+  "negative-zero": -0,
+  "exponent": 5e+22,
+  "small": 6.626e-34,
+  "precise": 0.1,
+  "underflow": 0,
+  "whole": 3,
+  "grouped": 224617.445991,
+  "overflow": null,
+  "special": {
+    "inf": null,
+    "plus-inf": null,
+    "minus-inf": null,
+    "nan": null,
+    "minus-nan": null
+  }
+}

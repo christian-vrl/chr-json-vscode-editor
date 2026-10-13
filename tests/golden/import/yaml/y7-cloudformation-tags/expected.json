@@ -1,0 +1,35 @@
+{
+  "Resources": {
+    "Bucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": "${AWS::StackName}-data",
+        "Tags": [
+          {
+            "Key": "owner",
+            "Value": "Owner"
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "Arn": {
+      "Value": "Bucket.Arn"
+    },
+    "Name": {
+      "Value": "Bucket"
+    },
+    "Domain": {
+      "Value": [
+        "Bucket",
+        "DomainName"
+      ]
+    }
+  },
+  "Extra": {
+    "binary": "aGVsbG8=",
+    "forced": "123",
+    "count": 7
+  }
+}

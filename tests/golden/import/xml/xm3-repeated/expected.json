@@ -1,0 +1,12 @@
+{
+  "catalog": {
+    "item": [
+      1,
+      2,
+      {
+        "name": "three"
+      }
+    ],
+    "single": "only"
+  }
+}

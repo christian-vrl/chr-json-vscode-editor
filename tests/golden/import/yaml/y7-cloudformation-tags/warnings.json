@@ -1,0 +1,18 @@
+[
+  {
+    "message": "Tag !Sub was ignored (1 place)",
+    "line": 5
+  },
+  {
+    "message": "Tag !Ref was ignored (2 places)",
+    "line": 8
+  },
+  {
+    "message": "Tag !GetAtt was ignored (2 places)",
+    "line": 11
+  },
+  {
+    "message": "Tag !!binary was ignored (1 place)",
+    "line": 17
+  }
+]
