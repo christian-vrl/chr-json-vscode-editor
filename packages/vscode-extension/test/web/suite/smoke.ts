@@ -1,86 +1,65 @@
-// Web e2e smoke (013 T1): spec 013 criterion 3 on one `.json` fixture, and "Smart Format" (010 T3). The rest of criterion 3, and
-// criteria 4, 5, 7, 9 and 11, are 013 T4's web suite.
+// Web e2e, spec 013 criterion 3 (013 T1 smoke, 013 T4 all three formats): the extension activates
+// in the web worker extension host with no error, and "Open With → CHR JSON Editor" on spec 003's
+// `.json`, `.jsonc` and `.json5` fixtures shows the document's data in the webview. Also "Smart
+// Format" (010 T3, spec 010 criterion 8).
 /// <reference types="mocha" />
 import * as vscode from 'vscode';
-import type { TestHooks } from '../../../src/extension';
+import {
+  activateHooks,
+  closeAll,
+  deepEqual,
+  equal,
+  EXTENSION_ID,
+  fixture,
+  FORMATS,
+  openCustom,
+  probeUntil,
+  readText,
+  waitFor,
+} from './util';
 
-const EXTENSION_ID = 'christian-vrl.chr-json-editor';
-const VIEW_TYPE = 'chrJsonEditor.editor';
+const LABELS = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
 
-async function waitFor<T>(
-  what: string,
-  check: () => T | Promise<T>,
-  timeoutMs = 30_000,
-): Promise<T> {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const value = await check();
-    if (value) return value;
-    if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}`);
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
-function equal(actual: unknown, expected: unknown, what: string): void {
-  const a = JSON.stringify(actual);
-  const e = JSON.stringify(expected);
-  if (a !== e) throw new Error(`${what}: expected ${e}, got ${a}`);
-}
-
-describe('web host smoke (spec 013 criterion 3, one fixture)', () => {
-  let hooks: TestHooks;
-
+describe('web host smoke (spec 013 criterion 3)', () => {
   it('runs in the web worker extension host and activates the extension there', async () => {
     // No Node: the suite and the extension share the worker (plan R2).
     equal(typeof (globalThis as { process?: unknown }).process, 'undefined', 'typeof process');
-    const extension = vscode.extensions.getExtension<{ testHooks?: TestHooks }>(EXTENSION_ID);
-    if (!extension) throw new Error(`${EXTENSION_ID} is not loaded in the web host`);
     // Rejects with the activation error, if any.
-    const exports = await extension.activate();
-    if (!extension.isActive) throw new Error('the extension did not activate');
-    if (!exports?.testHooks)
-      throw new Error('no test hooks: build the .vsix with CHR_TEST_HOOKS=1');
-    hooks = exports.testHooks;
+    await activateHooks();
+    equal(vscode.extensions.getExtension(EXTENSION_ID)?.isActive, true, 'the extension is active');
     // Restricted Mode turns the extension off (spec 013 §Where we differ); README.md records it.
     console.log(`web e2e: workspace trusted: ${vscode.workspace.isTrusted}`);
     if (!vscode.workspace.isTrusted)
       throw new Error('the test workspace starts in Restricted Mode');
+    console.log(`web e2e: workspace folder ${fixture().toString()}`);
   });
 
-  it('opens sample.json in CHR JSON Editor with the document’s data', async () => {
-    const [folder] = vscode.workspace.workspaceFolders ?? [];
-    if (!folder) throw new Error('no workspace folder is open');
-    console.log(`web e2e: workspace folder ${folder.uri.toString()}`);
-    const uri = vscode.Uri.joinPath(folder.uri, 'open', 'sample.json');
-    const document = await vscode.workspace.openTextDocument(uri);
-    const expected: unknown = JSON.parse(document.getText());
-
-    await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE);
-    await waitFor('the sample.json webview script to run', () =>
-      hooks.webviews().some((view) => view.uri === uri.toString() && view.scriptLoaded),
-    );
-    // The editor library holds the data as `{ json }` or as `{ text }` (testProbe.ts).
-    const probe = await waitFor('the editor to render', async () => {
-      const shown = await hooks.probe(uri.toString());
-      return shown.mode !== null && shown.content ? shown : undefined;
+  for (const format of FORMATS) {
+    it(`opens sample.${format} in CHR JSON Editor with the document’s data`, async () => {
+      const hooks = await activateHooks();
+      const uri = fixture('fixtures', 'open', `sample.${format}`);
+      await openCustom(hooks, uri);
+      // The editor library holds the data as `{ json }` or as `{ text }` (testProbe.ts); text is
+      // the document's own text, comments included, so it is compared as it is.
+      const probe = await probeUntil(hooks, uri, 'the format label', (p) => p.format !== '');
+      const content = probe.content as { text: string } | { json: unknown };
+      const document = await vscode.workspace.openTextDocument(uri);
+      if ('json' in content) deepEqual(content.json, JSON.parse(document.getText()), 'data');
+      else equal(content.text, document.getText(), 'webview text');
+      equal(probe.mode, 'tree', 'mode');
+      equal(probe.format, LABELS[format], 'format label');
+      equal(probe.toolbarMode, 'Tree', 'toolbar mode');
+      equal(probe.mainMinHeight, '150px', 'library CSS');
+      deepEqual(probe.violations, [], 'CSP violations');
+      await closeAll();
     });
-    const content = probe.content as { text: string } | { json: unknown };
-    const data: unknown = 'json' in content ? content.json : JSON.parse(content.text);
-    equal(data, expected, 'webview data');
-    equal(probe.mode, 'tree', 'mode');
-    equal(probe.format, 'JSON', 'format label');
-    equal(probe.violations, [], 'CSP violations');
-    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-  });
+  }
 
   // Spec 010 criterion 8 in the web host (010 T3): the command has no Node-only code.
   it('runs "Smart Format" on smart-format/input.json in the text editor', async () => {
-    const [folder] = vscode.workspace.workspaceFolders ?? [];
-    if (!folder) throw new Error('no workspace folder is open');
-    const dir = vscode.Uri.joinPath(folder.uri, 'smart-format');
-    const expected = new TextDecoder().decode(
-      await vscode.workspace.fs.readFile(vscode.Uri.joinPath(dir, 'expected.json')),
-    );
+    await activateHooks();
+    const dir = fixture('fixtures', 'smart-format');
+    const expected = await readText(vscode.Uri.joinPath(dir, 'expected.json'));
     const document = await vscode.workspace.openTextDocument(
       vscode.Uri.joinPath(dir, 'input.json'),
     );
@@ -89,6 +68,6 @@ describe('web host smoke (spec 013 criterion 3, one fixture)', () => {
     await waitFor('the smart-formatted text', () => document.getText() === expected);
     equal(document.isDirty, true, 'dirty');
     await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
-    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    await closeAll();
   });
 });
