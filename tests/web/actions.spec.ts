@@ -114,9 +114,8 @@ test('text mode: sort goes as core sort; after a cancelled sort, typing goes as 
   expect((await changesOf(page)).slice(1)).toEqual([{ kind: 'text', text: '{"b": 1, "a": 2}' }]);
 });
 
-test('transform offers JSONQuery, JMESPath and JSONPath (Goessner) only, and runs JSONPath', async ({
-  page,
-}) => {
+// The list of languages is spec 011 criterion 8's (query.spec.ts).
+test('transform links to JSONQuery and runs JSONPath (Goessner)', async ({ page }) => {
   await open(page, '[{"n": 1}, {"n": 5}]', 'tree');
   await page.locator('.jse-tree-mode .jse-transform').click();
   const modal = page.locator('.jse-modal');
@@ -125,11 +124,6 @@ test('transform offers JSONQuery, JMESPath and JSONPath (Goessner) only, and run
     /^https:\/\/jsonquerylang\.org/,
   );
   await modal.locator('.jse-config').click();
-  await expect(page.locator('.jse-query-language')).toHaveText([
-    'JSONQuery',
-    'JMESPath',
-    'JSONPath (Goessner)',
-  ]);
   await page.locator('.jse-query-language', { hasText: 'JSONPath (Goessner)' }).click();
   await modal.locator('textarea.jse-query').fill('$[?(@.n > 2)]');
   await modal.getByRole('button', { name: 'Transform', exact: true }).click();
