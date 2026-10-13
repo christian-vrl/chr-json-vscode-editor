@@ -90,6 +90,16 @@ describe('criterion 6: parseData agrees with parse', () => {
     '{"a": /* c */ 1} // end',
     '[1] [2]',
     '9'.repeat(400),
+    // json5-parser.ts's fast data walk (UNK-064): texts it reads itself, then texts it hands over.
+    '[0X1f, -0x10, +0xFF, 0, 5., 5.e3, .5e-2, -0, +0, 1e5, 1.5E+3]',
+    '[1234567890123456, 123456789012345, 12345678901234567890, +Infinity, -NaN, -Infinity]',
+    "{a: '\\x41\\u0042\\0\\v\\q', b: 'a\\\r\nb\\\u2028c', c: '\u2028', d: \"'\\\"\", e: ''}",
+    '{a$_9: 1, $: 2, _: 3, A: [true, false, null,], }',
+    '[1,\u2028\u00a0\ufeff2] /* end */ // end',
+    ...['0x', '0xg', '01', '1e', '1e+', '.e1', '.', '-.', '+', '-x', 'Infinityx', 'nullx'],
+    ...['true1', 'falsey', 'nul', "'\\1'", "'\\00'", "'\\xZ'", "'\\u12'", "'a\nb'", "'a"],
+    ...['{\\u0061: 1}', '{a\\u0062: 1}', '{é: 1}', '{aé: 1}', '{1a: 2}', '{a\\: 1}', '{a 1}'],
+    ...['[1 /* open', '[1 / 2]', '{a: 1', '[1,', '{a: 1,', '{', '[', '{a:}', '[1]x'],
   ];
   for (const format of formats) {
     it(`${format}: edge texts`, () => {
