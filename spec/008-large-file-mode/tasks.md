@@ -62,4 +62,8 @@
   (008 T3 review findings 1 and 2). Left as they are: `dataOf` keeps one slot, so two large
   documents read in turn parse each time (finding 3); the `send` test hook exists only in test
   builds (finding 4).
-- UNK-064: on the CI runner criterion 7 misses for json5 at 10 MiB (50.2%); owner's call.
+- UNK-064: on the CI runner criterion 7 missed for json5 at 10 MiB (50.2%); Chris chose "Speed it
+  up" and T1 was reopened. `parseJson5Data` now runs a data-only walk (`json5-parser.ts`
+  `DataParser`) that gives up on any syntax error or rare construct and hands the text to the full
+  grammar, so data and errors stay the same. `bench/RESULTS.md` (run 38247455427): json5 10 MiB 37%
+  (192 ÷ 526 ms), 50 MiB 17%.
