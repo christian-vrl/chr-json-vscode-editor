@@ -26,6 +26,17 @@ const COMMANDS = {
 };
 /** VS Code keeps a leading BOM out of the document's text. */
 const withoutBom = (text) => text.replace(/^\uFEFF/, '');
+/** Whether JSON `text` holds a number JavaScript cannot write back exactly (spec 015 §Terms):
+ *  beyond double range, or an integer beyond 2^53. */
+function bigNumbers(text) {
+  const tokens = text
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
+  return (tokens ?? []).some((token) => {
+    const n = Number(token);
+    return !Number.isFinite(n) || (Number.isInteger(n) && !Number.isSafeInteger(n));
+  });
+}
 /** Criterion 7's count of golden cases. */
 const GOLDEN_CASES = 10;
 
@@ -225,7 +236,12 @@ exports.runJsonLines = async function runJsonLines({
     const names = fs
       .readdirSync(GOLDEN)
       .sort()
-      .filter((name) => fs.existsSync(path.join(GOLDEN, name, 'expected.jsonl')))
+      .filter((name) =>
+        ['patch.json', 'expected.jsonl'].every((f) => fs.existsSync(path.join(GOLDEN, name, f))),
+      )
+      // Big numbers (spec 015) reach the editor UI exactly from 015 T4 on; the patch is read with
+      // JSON.parse here, so its own big numbers would round (as sync.cjs leaves them out).
+      .filter((name) => !bigNumbers(fs.readFileSync(path.join(GOLDEN, name, 'patch.json'), 'utf8')))
       .slice(0, GOLDEN_CASES);
     assert.equal(names.length, GOLDEN_CASES, 'not enough golden cases');
     for (const name of names) {
