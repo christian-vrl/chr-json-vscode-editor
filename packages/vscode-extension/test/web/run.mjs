@@ -14,6 +14,10 @@
 //
 // `--probe` (CI route only) runs suite/probe.ts instead of the suite: the expected-failure fixture
 // of criterion 11. Its fetch from the worker must make this script exit 1 with "network:".
+//
+// `--ceiling` (CI route only, 013 T5) runs suite/ceiling.ts instead: UNK-054's measurement on the
+// documents in CHR_WEB_CEILING_DATA (bench/web-ceiling.mjs writes them), mounted as `ceiling/`. Its
+// result lines, and any crash of the page or a worker, go to the JSON file CHR_WEB_CEILING_OUT.
 import { spawnSync } from 'node:child_process';
 import {
   cpSync,
@@ -35,6 +39,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(here, '../..');
 const repo = path.resolve(packageDir, '../..');
 const probe = process.argv.includes('--probe');
+const ceiling = process.argv.includes('--ceiling');
 
 /** The port @vscode/test-web serves on (its default). */
 const PORT = 3000;
@@ -42,8 +47,13 @@ const PORT = 3000;
  *  goes into the mounted folder as PALETTE_ANSWER(n) (suite/palette.ts). */
 const PALETTE_REQUEST = '[chr-web-e2e] palette ';
 const PALETTE_ANSWER = (n) => `chr-web-e2e-palette-${n}.json`;
+/** What suite/ceiling.ts starts each result line with (its RESULT). */
+const CEILING_RESULT = '[chr-web-ceiling] ';
 /** How long the whole suite may take on the CI route (the CI job allows 20 minutes). */
 const SUITE_TIMEOUT_MS = 15 * 60_000;
+/** Spec 008's threshold and UNK-054's web ceiling, in bytes (suite/largeFile.ts). */
+const THRESHOLD = 5 * 1024 * 1024;
+const WEB_CEILING = 50 * 1024 * 1024;
 /** The golden patch cases per format that criterion 4 applies (as test/e2e/sync.cjs). */
 const GOLDEN_CASES_PER_FORMAT = 10;
 /** The `op` tags of whole-document golden cases (tests/golden/load.ts `wholeDocumentOps`). */
@@ -106,6 +116,36 @@ function makeWorkspace(workspace) {
     ),
   );
   mkdirSync(path.join(workspace, 'work'));
+  // Criterion 10 (013 T5, suite/largeFile.ts): ASCII JSON of exactly spec 008's threshold, the web
+  // ceiling UNK-054 records (VS Code's, bench/web-ceiling.md), and one byte more than each.
+  mkdirSync(path.join(workspace, 'large'));
+  for (const bytes of [THRESHOLD, THRESHOLD + 1, WEB_CEILING, WEB_CEILING + 1]) {
+    writeFileSync(path.join(workspace, 'large', `${bytes}.json`), largeJson(bytes));
+  }
+  // One byte over the threshold in UTF-8 only: one "a" becomes "é" (2 bytes, 1 UTF-16 code unit).
+  writeFileSync(
+    path.join(workspace, 'large', 'utf8-over-threshold.json'),
+    largeJson(THRESHOLD).replace('"alpha"', '"alphé"'),
+  );
+}
+
+/** An ASCII JSON array of exactly `bytes` bytes, padded with spaces before the closing bracket. */
+function largeJson(bytes) {
+  const line = '  {"id": 1, "name": "alpha", "tags": ["a", "b"]},\n';
+  const body = `[\n${line.repeat(Math.floor((bytes - 64) / line.length))}  {"id": 2}`;
+  return body + ' '.repeat(bytes - body.length - 2) + '\n]';
+}
+
+/** The folder `--ceiling` runs in: the measured documents under `ceiling/`, and no schema
+ *  downloads (as makeWorkspace). */
+function makeCeilingWorkspace(workspace, data) {
+  mkdirSync(workspace);
+  cpSync(data, path.join(workspace, 'ceiling'), { recursive: true });
+  mkdirSync(path.join(workspace, '.vscode'));
+  writeFileSync(
+    path.join(workspace, '.vscode', 'settings.json'),
+    JSON.stringify({ 'json.schemaDownload.enable': false }, null, 2),
+  );
 }
 
 /**
@@ -148,8 +188,10 @@ async function runInBrowser({ extensionPath, suite, workspace }) {
     const requests = [];
     const record = (request, from) => requests.push({ url: request.url(), from });
     // Criterion 11's sources: the worker extension host (and any worker it starts) and the frames
-    // of our webviews. VS Code's own workbench frames are not counted.
-    page.on('worker', (worker) => worker.on('request', (r) => record(r, `worker ${worker.url()}`)));
+    // of our webviews. VS Code's own workbench frames are not counted. Playwright 1.64 has no
+    // per-worker request event: a dedicated worker's requests reach the context's `request` event
+    // once, with the frame that started the worker (the extension host's iframe), so each request
+    // is counted once (checked 013 T5 with a page whose cross-origin iframe starts a fetching worker).
     context.on('request', (request) => {
       if (request.serviceWorker()) return; // the webview service worker serves from the server
       let frame;
@@ -163,11 +205,26 @@ async function runInBrowser({ extensionPath, suite, workspace }) {
         record(request, `extension host ${frame.url()}`);
     });
 
+    // `--ceiling`: the suite's results, and what crashed (UNK-054: "neither the worker nor the
+    // webview crashes"; the webview's liveness the suite checks itself).
+    const results = [];
+    page.on('crash', () => results.push({ kind: 'crash', what: 'page', at: Date.now() }));
+    page.on('worker', (worker) => {
+      results.push({ kind: 'worker', url: worker.url(), at: Date.now() });
+      worker.on('close', () =>
+        results.push({ kind: 'worker-closed', url: worker.url(), at: Date.now() }),
+      );
+    });
+
     let palette = Promise.resolve();
     const exit = new Promise((resolve) => {
+      page.on('crash', () => resolve(1));
       page.exposeFunction('codeAutomationLog', (type, args) => {
         console[type](...args);
         const line = args.map(String).join(' ');
+        if (line.startsWith(CEILING_RESULT)) {
+          results.push({ ...JSON.parse(line.slice(CEILING_RESULT.length)), at: Date.now() });
+        }
         if (line.startsWith(PALETTE_REQUEST)) {
           const [, n, filter] = /^(\d+) (.*)$/s.exec(line.slice(PALETTE_REQUEST.length)) ?? [];
           const answer = path.join(workspace, PALETTE_ANSWER(n));
@@ -194,6 +251,9 @@ async function runInBrowser({ extensionPath, suite, workspace }) {
       ),
     ]);
     await palette;
+    if (ceiling) {
+      writeFileSync(process.env.CHR_WEB_CEILING_OUT, JSON.stringify(results, null, 2));
+    }
 
     // Criterion 11: one origin, the test server's (`data:` and `blob:` URLs load nothing from a
     // network).
@@ -253,8 +313,11 @@ if (vsixFiles.length !== 1) {
     `expected exactly one .vsix in ${packageDir}, found ${vsixFiles.length}; run \`CHR_TEST_HOOKS=1 pnpm package\` first.`,
   );
 }
-if (probe && process.env.VSCODE_EXECUTABLE_PATH) {
-  fail('--probe runs on the CI route only: the local route has no browser page to record');
+if ((probe || ceiling) && process.env.VSCODE_EXECUTABLE_PATH) {
+  fail('--probe and --ceiling run on the CI route only: the local route has no browser page');
+}
+if (ceiling && !(process.env.CHR_WEB_CEILING_DATA && process.env.CHR_WEB_CEILING_OUT)) {
+  fail('--ceiling needs CHR_WEB_CEILING_DATA and CHR_WEB_CEILING_OUT (bench/web-ceiling.mjs)');
 }
 
 const work = mkdtempSync(path.join(tmpdir(), 'chr-web-'));
@@ -277,9 +340,15 @@ try {
     }
   }
 
-  const bundle = path.join(packageDir, 'dist-test', 'web', probe ? 'probe.js' : 'suite.js');
+  const entry = probe ? 'probe' : ceiling ? 'ceiling' : 'index';
+  const bundle = path.join(
+    packageDir,
+    'dist-test',
+    'web',
+    `${entry === 'index' ? 'suite' : entry}.js`,
+  );
   await build({
-    entryPoints: [path.join(here, 'suite', probe ? 'probe.ts' : 'index.ts')],
+    entryPoints: [path.join(here, 'suite', `${entry}.ts`)],
     outfile: bundle,
     bundle: true,
     format: 'cjs',
@@ -295,7 +364,8 @@ try {
   cpSync(bundle, suite);
 
   const workspace = path.join(work, 'workspace');
-  makeWorkspace(workspace);
+  if (ceiling) makeCeilingWorkspace(workspace, process.env.CHR_WEB_CEILING_DATA);
+  else makeWorkspace(workspace);
 
   if (process.env.VSCODE_EXECUTABLE_PATH) {
     const { runTests } = await import('@vscode/test-electron');

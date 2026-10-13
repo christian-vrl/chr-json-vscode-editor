@@ -11,6 +11,9 @@
 # - large-file (008 T5, spec 008 criterion 11, evidence for UNK-041): large-file mode for JSON, JSONC
 #   and JSON5 at 6, 10 and 50 MiB (open, host busy time, one validation, heap, one unlocked edit at
 #   50 MiB); bench/large-file.md.
+# - web-ceiling (013 T5, evidence for UNK-054): the largest JSON document that opens in VS Code's
+#   web host, 3 runs of the CI route of test:e2e:web at 5 MiB + 1 byte, 10, 25, 50 MiB and one byte
+#   over; bench/web-ceiling.md.
 # Not part of ci.yml: they take minutes and measure, they do not gate. Run on demand and on pull
 # requests that change the benchmarks.
 name: bench
@@ -166,5 +169,42 @@ jobs:
           path: |
             bench/large-file.md
             bench/.results/large-file.json
+          include-hidden-files: true
+          if-no-files-found: error
+
+  web-ceiling:
+    name: web host ceiling at 5/10/25/50 MiB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # As ci.yml's e2e-web job: @vscode/test-web drives VS Code's web build in Playwright's Chromium.
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Resolve VS Code stable
+        id: vscode
+        run: |
+          version=$(curl -fsS --retry 3 https://update.code.visualstudio.com/api/releases/stable | jq -r '.[0]')
+          echo "VS Code stable: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: packages/vscode-extension/.vscode-test-web
+          key: vscode-web-${{ runner.os }}-${{ steps.vscode.outputs.version }}
+      # The e2e .vsix: the release build plus test hooks.
+      - run: CHR_TEST_HOOKS=1 pnpm package
+      - run: pnpm --filter @chr-json-editor/bench bench:web-ceiling
+      - name: Report in the run summary and the log
+        run: |
+          cat bench/web-ceiling.md >> "$GITHUB_STEP_SUMMARY"
+          cat bench/web-ceiling.md bench/.results/web-ceiling-*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-web-ceiling
+          path: |
+            bench/web-ceiling.md
+            bench/.results/web-ceiling-*.json
           include-hidden-files: true
           if-no-files-found: error
