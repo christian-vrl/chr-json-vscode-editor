@@ -1,0 +1,44 @@
+{
+  "$comment": "Spec 013 criterion 7: every command in package.json's contributes.commands, mapped to the web e2e test (its `it` title in test/web/suite/) that runs it, or to \"desktop-only\" with a reason (UNK-053). test/unit/webCoverage.test.ts checks this file.",
+  "commands": {
+    "chrJsonEditor.openInEditor": {
+      "test": "Open in CHR JSON Editor and Reopen as Text swap the active editor in place"
+    },
+    "chrJsonEditor.reopenAsText": {
+      "test": "Open in CHR JSON Editor and Reopen as Text swap the active editor in place"
+    },
+    "chrJsonEditor.selectFormat": {
+      "test": "Change Format re-parses in the host and the webview without changing the bytes"
+    },
+    "chrJsonEditor.repairJson": {
+      "test": "Repair JSON repairs in the text editor, asking before removing a comment"
+    },
+    "chrJsonEditor.convertToJson": {
+      "test": "Convert to JSON, JSONC and JSON5 write a new file beside the document, asking before losses"
+    },
+    "chrJsonEditor.convertToJsonc": {
+      "test": "Convert to JSON, JSONC and JSON5 write a new file beside the document, asking before losses"
+    },
+    "chrJsonEditor.convertToJson5": {
+      "test": "Convert to JSON, JSONC and JSON5 write a new file beside the document, asking before losses"
+    },
+    "chrJsonEditor.compareWith": {
+      "test": "Compare With… opens the compare panel of JSONC against JSON5"
+    },
+    "chrJsonEditor.compareSelected": {
+      "test": "Compare Selected opens the compare panel, and a copy is one undoable edit"
+    },
+    "chrJsonEditor.compareWithHead": {
+      "desktop-only": "UNK-053 ★: reads Git HEAD through VS Code's Git extension (vscode.git), which the web host does not have; github.dev's GitHub Repositories extension has no public API for committed content"
+    },
+    "chrJsonEditor.exportCsv": {
+      "test": "Export to CSV… saves and copies the CSV"
+    },
+    "chrJsonEditor.importCsv": {
+      "test": "Import CSV… replaces the document's data as one undoable edit"
+    },
+    "chrJsonEditor.convertCsvToJson": {
+      "test": "Convert CSV to JSON creates a JSON file opened in the CHR JSON Editor"
+    }
+  }
+}

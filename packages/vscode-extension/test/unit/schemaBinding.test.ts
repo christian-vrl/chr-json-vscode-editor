@@ -292,4 +292,10 @@ describe('schemaFileParts', () => {
   ])('%s', (uri, expected) => {
     expect(schemaFileParts(uri)).toEqual(expected);
   });
+
+  it('refuses what is not a URI with a scheme and an absolute path, with no file: fallback', () => {
+    for (const uri of ['s.json', './s.json', '/work/s.json', 'vscode-vfs:s.json', '']) {
+      expect(() => schemaFileParts(uri), uri).toThrow(`not a schema file URI: ${uri}`);
+    }
+  });
 });
