@@ -288,11 +288,13 @@ loader; `smart-format-corpus.test.ts` checks facts that use neither core's forma
 FracturedJson, with a scanner of its own: expected has the input's data (json5's `parse`) and the
 input's kept tokens in order, byte for byte (criterion 3; a multi-line block comment's later lines
 may change their leading white space); a container ends with a trailing comma exactly when it had
-one and is written on several lines, never in json (L6); the BOM, line breaks and final newline
+one and is written on several lines (reading 7), never in json (L6); the BOM, line breaks and final newline
 are the input's and every line is indented in the input's unit (criterion 5); a line over 120
 characters holds at most one key and one scalar (criterion 6); and the `style`, `trailingComma`,
 `special` and some `comments` tags match the input. The Reviewer checks `layout` and the other
-`comments` tags.
+`comments` tags. `smart-format-apply.test.ts` (010 T2) runs criterion 1 with core's `smartFormat`, and
+criterion 4 on each expected file; core's property suite (`packages/core/test/smart-format.property.test.ts`)
+also runs criteria 3–6 on every input.
 
 Readings the smart-format corpus takes where spec 010 leaves a detail open:
 
@@ -321,6 +323,16 @@ Readings the smart-format corpus takes where spec 010 leaves a detail open:
 6. **Comma before a comment.** FracturedJson writes a member's comma after a same-line block
    comment that follows the value (`"ports": [80, 443] /* web */,` from `[80, 443], /* web */`);
    commas are layout tokens (spec 010 §Terms), so criterion 3 allows it (`json/comment-with-warning`).
+
+7. **Several lines, for trailing commas** (L6, UNK-046). A container is written on several lines
+   when its closing bracket starts a line (plan 010, step 5). An inline container that spans two
+   lines only because a string in it has a line continuation is written on one line, so it has no
+   trailing comma (`json5/inline-line-continuation-trailing-comma`).
+8. **Line length over FracturedJson's layout** (criterion 6). FracturedJson writes a compact
+   array's item on a row of its own when it does not fit after the others, even when it is wider
+   than a whole row, which leaves a row over 120 columns with several values on it. Smart format
+   writes such an array expanded instead, one item per line, so the wide item gets its own
+   layout (`json/compact-array-wide-item`).
 
 Not in the corpus: a text with no value (criterion 5 returns it unchanged), broken input
 (criterion 9) and large inputs (criteria 10, 11) are tested by 010 T2 and T3 in unit and e2e tests.

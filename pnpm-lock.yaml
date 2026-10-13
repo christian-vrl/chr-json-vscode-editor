@@ -125,6 +125,9 @@ importers:
 
   packages/core:
     dependencies:
+      fracturedjsonjs:
+        specifier: 5.1.0
+        version: 5.1.0
       jsonc-parser:
         specifier: 3.3.1
         version: 3.3.1
@@ -2072,6 +2075,9 @@ packages:
   form-data@4.0.6:
     resolution: {integrity: sha512-vKatAh4SlVfgbv+YtmhiRjhEMJsYpsG1Y2rMQtR+SVSbytsSD1YGzDIcrAJmdFec88u/+VoGmxnl+80gL1tRCQ==}
     engines: {node: '>= 6'}
+
+  fracturedjsonjs@5.1.0:
+    resolution: {integrity: sha512-0Tsd0jja/VGM787lckNlfSfxE4gwaAFr0UrFoOtzV9DNu3FbXxwmBRAaHGvBlb+SgZfQRVymVWHxcVX+VqBjbA==}
 
   fresh@0.5.2:
     resolution: {integrity: sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==}
@@ -5351,6 +5357,8 @@ snapshots:
       es-set-tostringtag: 2.1.0
       hasown: 2.0.4
       mime-types: 2.1.35
+
+  fracturedjsonjs@5.1.0: {}
 
   fresh@0.5.2: {}
 
