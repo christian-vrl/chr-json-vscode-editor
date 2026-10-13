@@ -1,9 +1,10 @@
 // Criterion 1 of spec 012 (012 T2): for every patch case of the JSON Lines corpus,
 // `applyPatch(input, patch)` of the `jsonl` adapter is byte-equal to `expected.jsonl`, or throws the
 // `PatchError` of `error.json`; `parse(expected).data` deep-equals `immutable-json-patch`'s result on
-// `parse(input).data` (as 002 criteria 1–2); parse cases give their data and diagnostics (L1).
+// `parse(input).data` (as 002 criteria 1–2; a `test` on big numbers compares by exact value, spec 015
+// B3); parse cases give their data and diagnostics (L1).
 // Repair cases (012 T3): `repairLines(input)` gives `expected.jsonl` and `unrepaired.json` (L10).
-import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
+import type { JSONPatchDocument } from 'immutable-json-patch';
 import { describe, expect, it } from 'vitest';
 import {
   getAdapter,
@@ -11,6 +12,7 @@ import {
   repairLines,
   type PatchOperation,
 } from '../../packages/core/src/index.js';
+import { referencePatch } from './facts.js';
 import {
   loadJsonlCases,
   type JsonlParseCase,
@@ -41,8 +43,9 @@ describe.each(patchCases.map((c) => [c.name, c] as const))('patch %s', (_, c) =>
   it('applyPatch is byte-equal to expected', () => {
     expect(adapter.applyPatch(c.input, patch)).toBe(c.expected);
   });
-  it("parse(expected).data is immutable-json-patch's result on parse(input).data", () => {
-    const want = immutableJSONPatch(
+  it("parse(expected).data is immutable-json-patch's result on parse(input).data (B3: test by exact value)", () => {
+    // A `test` on big numbers compares by exact value (spec 015 B3).
+    const want = referencePatch(
       adapter.parse(c.input).data,
       c.patch as unknown as JSONPatchDocument,
     );
