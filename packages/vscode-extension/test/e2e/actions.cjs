@@ -162,7 +162,8 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
       console.log(`criterion 5: ${feature} writes expected.json byte for byte`);
     }
 
-    // The transform dialog lists the three query languages and links to JSONQuery's site.
+    // The transform dialog lists the four native query languages (JSONPath (RFC 9535) from 014 T3)
+    // and links to JSONQuery's site.
     {
       const { uri, document } = await open(path.join(FIXTURES, 'transform-jsonquery/input.json'));
       const [link, ...names] = await hooks.dom(uri.toString(), [
@@ -171,10 +172,11 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
         { click: '.jse-modal .jse-config' },
         { read: '.jse-query-language', text: 'JSONQuery' },
         { read: '.jse-query-language', text: 'JMESPath' },
+        { read: '.jse-query-language', text: 'JSONPath (RFC 9535)' },
         { read: '.jse-query-language', text: 'JSONPath (Goessner)' },
       ]);
       assert.match(link, /^https:\/\/jsonquerylang\.org/);
-      assert.equal(names.length, 3);
+      assert.equal(names.length, 4);
       const shown = await hooks.dom(uri.toString(), [{ read: '.jse-select-query-language' }]);
       assert.doesNotMatch(shown[0], /JavaScript|Lodash/, 'JavaScript or Lodash is offered');
       await finish(uri, document);
