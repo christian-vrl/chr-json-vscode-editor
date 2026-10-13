@@ -45,6 +45,7 @@ export interface RenderedProbe {
  * - `mousedown`: presses and releases the left button on it (the tree selects a node on press).
  * - `waitFor`: only waits; with `gone`, until no element matches.
  * - `read`: reads its text content, or the attribute `attr`, into the hook's answer.
+ * - `readAll`: reads the trimmed text content of every match, as one JSON array of strings.
  * - `select`: picks the option `value` of a `<select>` and fires `change`, as a person would.
  */
 export type DomStep =
@@ -54,6 +55,7 @@ export type DomStep =
   | { mousedown: string; text?: string }
   | { waitFor: string; text?: string; gone?: boolean }
   | { read: string; text?: string; attr?: string }
+  | { readAll: string }
   | { select: string; value: string };
 
 /** What the compare panel's `probe` reports about its page (007 T4, compareTestHooks.ts). */

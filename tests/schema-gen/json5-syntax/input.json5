@@ -1,0 +1,12 @@
+// JSON5 syntax: none of it reaches the schema (G7).
+{
+  unquoted: 'single',
+  hex: 0x1F,
+  big: +Infinity,
+  half: .5,
+  plus: +1,
+  'quoted key': "double",
+  multi: 'line \
+continued',
+  list: [1, 2,],
+}

@@ -44,7 +44,7 @@
   is recorded); criterion 13*
 
 ## Phase F — Large files (risk-free / additive)
-- [ ] **T6** Leave JavaScript and Lodash out of the list in a large-file tab (unlocked); e2e on 008's
+- [x] **T6** Leave JavaScript and Lodash out of the list in a large-file tab (unlocked); e2e on 008's
   6 MiB fixture. Needs UNK-049 resolved. — needs: 011 T5, 008 T3 — *gate: criterion 11 green in
   `pnpm test:e2e`*
 

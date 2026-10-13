@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "unquoted": {
+      "type": "string"
+    },
+    "hex": {
+      "type": "integer"
+    },
+    "big": {
+      "type": "number"
+    },
+    "half": {
+      "type": "number"
+    },
+    "plus": {
+      "type": "integer"
+    },
+    "quoted key": {
+      "type": "string"
+    },
+    "multi": {
+      "type": "string"
+    },
+    "list": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  },
+  "required": [
+    "unquoted",
+    "hex",
+    "big",
+    "half",
+    "plus",
+    "quoted key",
+    "multi",
+    "list"
+  ]
+}

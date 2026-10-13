@@ -91,3 +91,22 @@ describe('parserFor(format, large)', () => {
     expect(parserFor('jsonc', true)).not.toBe(parserFor('jsonc'));
   });
 });
+
+// JSON Lines (spec 012, 012 T4): the items as an array, never the `JSON.parse` reading of the text.
+describe("parserFor('jsonl')", () => {
+  it.each([
+    // A one-line file is valid JSON whose data is the item (plan 012 risk R2).
+    ['{"a":1}', [{ a: 1 }]],
+    ['{"a":1}\n', [{ a: 1 }]],
+    ['[1,2]\r\n\r\n"x"', [[1, 2], 'x']],
+    ['42', [42]],
+    ['', []],
+    ['  \n\t\n', []],
+  ])('reads %j as its items', (text, data) => {
+    expect(parserFor('jsonl').parse(text)).toEqual(data);
+  });
+
+  it('reads a text with bad lines as the items of the other lines (L1), without throwing', () => {
+    expect(parserFor('jsonl').parse('{"a":1}\n{"b":\n2\n{c}\n')).toEqual([{ a: 1 }, 2]);
+  });
+});

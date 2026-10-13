@@ -1,0 +1,6 @@
+{
+  "$ref": "#/definitions/x",
+  "type": "t",
+  "properties": { "required": [1, 2], "items": false },
+  "$schema": "s"
+}

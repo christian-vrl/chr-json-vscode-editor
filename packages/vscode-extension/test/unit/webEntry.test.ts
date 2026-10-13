@@ -8,7 +8,6 @@ import { build } from 'esbuild';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { browserEntryOptions } from '../../esbuild.web.mjs';
-import * as shim from '../../src/web/nodePath';
 
 const packageDir = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -40,7 +39,6 @@ async function bundle(testHooks: boolean): Promise<string> {
     logLevel: 'silent',
     // Workspace packages from source, as vitest.config.mts does, so no package build is needed.
     alias: {
-      ...options.alias,
       '@chr-json-editor/core': nodePath.join(packageDir, '../core/src/index.ts'),
       '@chr-json-editor/app-shell/protocol': nodePath.join(
         packageDir,
@@ -61,6 +59,11 @@ describe('browser entry (spec 013 criterion 1)', () => {
       expect(new Set(calls)).toEqual(new Set(['vscode']));
     }, 30_000);
   }
+
+  it('leaves out the Node-only code (spec 013 criterion 2: only the Node entry imports src/node/)', async () => {
+    // node/gitHeadVscode.ts is the only file that names VS Code's Git extension.
+    expect(await bundle(true)).not.toContain('vscode.git');
+  }, 30_000);
 
   it('counts require calls, not the word in strings (Ajv names its runtime in generated code)', () => {
     expect(
@@ -84,32 +87,4 @@ describe('browser entry (spec 013 criterion 1)', () => {
     const ignore = readFileSync(nodePath.join(packageDir, '.vscodeignore'), 'utf8').split('\n');
     expect(ignore).toContain('!dist/web/extension.js');
   });
-});
-
-describe('node:path stand-in for the browser build (013 T1, until T2)', () => {
-  const paths = [
-    '',
-    '/',
-    '//',
-    'a',
-    '/a',
-    '/a/',
-    '/a//',
-    '/a/b.json',
-    '/a/b.tar.gz',
-    '/a/.hidden',
-    '/a/b.',
-    '/a/..',
-    '/a/...',
-    'a/b',
-    '/folder with space/x.json5',
-  ];
-  for (const path of paths) {
-    it(`matches Node's path.posix for ${JSON.stringify(path)}`, () => {
-      expect(shim.posix.basename(path)).toBe(nodePath.posix.basename(path));
-      expect(shim.posix.extname(path)).toBe(nodePath.posix.extname(path));
-      expect(shim.posix.dirname(path)).toBe(nodePath.posix.dirname(path));
-      expect(shim.dirname(path)).toBe(nodePath.posix.dirname(path));
-    });
-  }
 });

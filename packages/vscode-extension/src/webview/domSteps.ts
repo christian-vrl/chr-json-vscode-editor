@@ -56,7 +56,12 @@ export async function runSteps(steps: DomStep[]): Promise<(string | null)[]> {
       field.value = step.value;
       field.dispatchEvent(new Event('change', { bubbles: true }));
     } else if ('waitFor' in step) await waitFor(step.waitFor, step.text, step.gone);
-    else {
+    else if ('readAll' in step) {
+      // Every match's trimmed text, as one JSON array (011 T6: the query languages listed).
+      await waitFor(step.readAll);
+      const elements = [...document.querySelectorAll<HTMLElement>(step.readAll)];
+      reads.push(JSON.stringify(elements.map((element) => element.textContent?.trim() ?? '')));
+    } else {
       const element = await waitFor(step.read, step.text);
       reads.push(step.attr ? element.getAttribute(step.attr) : (element.textContent ?? ''));
     }

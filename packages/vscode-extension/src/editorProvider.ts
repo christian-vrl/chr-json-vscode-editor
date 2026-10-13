@@ -41,9 +41,8 @@ import { DocumentSync, minimalReplacement } from './documentSync';
 import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
 import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
-import { webviewFormat } from './formatBadge';
 import type { FormatBadgeController } from './formatBadgeVscode';
-import { SchemaBinding } from './schemaBinding';
+import { SchemaBinding, schemaFileParts } from './schemaBinding';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
@@ -494,9 +493,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** The format the badge holds for the document: detected, or chosen by the user. */
   private formatOf(document: vscode.TextDocument): Format {
-    return webviewFormat(
+    return (
       this.formatBadge.format(document) ??
-        detect(document.uri.path, document.languageId, document.getText()).format,
+      detect(document.uri.path, document.languageId, document.getText()).format
     );
   }
 
@@ -757,15 +756,11 @@ function timeCalls<T extends object>(target: T, names: string[], add: (ms: numbe
   }
 }
 
-/** Reads a local schema: an open document's text (unsaved edits included), else the file. */
+/** Reads a local schema: an open document's text (unsaved edits included), else the file, on
+ *  whatever scheme the workspace uses (`file:`, or a virtual one on the web). */
 async function readSchemaFile(uri: string): Promise<string> {
   const open = vscode.workspace.textDocuments.find((d) => d.uri.toString(true) === uri);
   if (open) return open.getText();
-  // `uri` is the unencoded `toString(true)` spelling, so `Uri.parse` would read a `#`, `?` or `%`
-  // in the path as a fragment, query or escape; split it by hand instead.
-  const [, authority = '', path = '/'] = /^file:\/\/([^/]*)(\/.*)?$/i.exec(uri) ?? [];
-  const bytes = await vscode.workspace.fs.readFile(
-    vscode.Uri.from({ scheme: 'file', authority, path }),
-  );
+  const bytes = await vscode.workspace.fs.readFile(vscode.Uri.from(schemaFileParts(uri)));
   return new TextDecoder().decode(bytes);
 }

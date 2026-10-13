@@ -1,0 +1,32 @@
+{
+  "tags": [
+    "scalar-root",
+    "integer",
+    "big-number",
+    "number-merge",
+    "minus-zero",
+    "nan",
+    "infinity",
+    "mixed-types",
+    "nullable",
+    "required-all",
+    "required-partial",
+    "nested",
+    "array-of-arrays",
+    "empty-array",
+    "empty-object",
+    "object-or-scalar",
+    "key-order",
+    "proto-key",
+    "schema-keyword-key",
+    "unicode-key",
+    "jsonc-comments",
+    "json5-syntax",
+    "same-data",
+    "jsonl",
+    "jsonl-empty",
+    "too-deep",
+    "dialect-draft-07",
+    "dialect-2020-12"
+  ]
+}

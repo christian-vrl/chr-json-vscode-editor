@@ -16,12 +16,12 @@
   desktop `pnpm test:e2e` green*
 
 ## Phase B — Shared code (risk-free / additive)
-- [ ] **T2** Node-free shared host code: `activateShared(context, platform)`, Node-only code under
+- [x] **T2** Node-free shared host code: `activateShared(context, platform)`, Node-only code under
   `src/node/` (Git HEAD reader), `src/uriPath.ts` for `uri.path` names, the ESLint rule and its
   failing fixture, `!isWeb && !chrJsonEditor.webHost` on every desktop-only menu entry and the
   desktop-only message per UNK-053. — needs: 013 T1, 007 T4, 008 T2 — *gate: criteria 2 and 8
   green; desktop `pnpm test:e2e` green with no expected value changed*
-- [ ] **T3** Schema files on virtual schemes: `core` association resolves relative `$schema` and
+- [x] **T3** Schema files on virtual schemes: `core` association resolves relative `$schema` and
   settings URLs against the document's or folder's scheme and authority; `readSchemaFile` reads any
   non-remote URI. `parallel` with T2 — needs: 013 T1 — *gate: criterion 6 green; every existing
   association and validation test unchanged*
@@ -30,7 +30,8 @@
 - [ ] **T4** The web e2e suite: spec 003 open/edit/save/undo/live cases on the three formats, spec
   004 validation, convert, repair, compare (criterion 9), every other command on `main`;
   `test/web/coverage.json` and its unit test; the network check and its probe fixture (criterion
-  11). — needs: 013 T2, T3 — *gate: criteria 3–5, 7, 9, 11 green in CI*
+  11); criterion 8's palette check through the same browser page (T2 checks the menu entries in a
+  unit test and the message in the web e2e: the extension API cannot read the palette). — needs: 013 T2, T3 — *gate: criteria 3–5, 7, 8 (palette), 9, 11 green in CI*
 
 ## Phase D — Limits and docs (risk-free / additive)
 - [ ] **T5** Large files in the web host (starts last: 008 T3 is still open): on the CI route,

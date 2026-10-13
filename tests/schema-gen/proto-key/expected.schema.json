@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "__proto__": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x"
+        ]
+      },
+      "constructor": {
+        "type": "string"
+      },
+      "toString": {
+        "type": "null"
+      },
+      "hasOwnProperty": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "constructor"
+    ]
+  }
+}

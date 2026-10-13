@@ -233,6 +233,13 @@ describe('DocumentSync actions (003 T8)', () => {
     expect(doc.posted.at(-1)).toMatchObject({ type: 'error', code: 'stale-edit' });
   });
 
+  it('runs Repair Lines on a JSON Lines document as one edit (spec 012 L10)', async () => {
+    const doc = memoryDocument('{"a":1}\n{"b":\n2}\n3\n{c\n', 'jsonl');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repairLines' } }));
+    expect(doc.text).toBe('{"a":1}\n{"b":2}\n3\n{"c":null}\n');
+    expect(doc.posted).toEqual([expect.objectContaining({ type: 'update', origin: 'edit' })]);
+  });
+
   it('answers an action core refuses with patch-failed', async () => {
     const doc = memoryDocument('{"a": +Infinity}', 'jsonc');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));

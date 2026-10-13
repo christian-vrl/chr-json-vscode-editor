@@ -1,0 +1,4 @@
+{
+  "__proto__": 1, // an own key, not the prototype
+  "toString": "t",
+}
