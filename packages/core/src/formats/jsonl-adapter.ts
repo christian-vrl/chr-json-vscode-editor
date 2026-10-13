@@ -12,7 +12,8 @@ import { diff } from '../diff.js';
 import { compact as compactValue, itemOrder, sort as sortValue } from './actions.js';
 import { lastText } from './cache.js';
 import { applyOperation, equal } from './edit.js';
-import { openJson } from './jsonc-adapter.js';
+import { openJson, visitData } from './jsonc-adapter.js';
+import { jsonText, mayBeBig, mayHoldBigNumber, numberValue } from './numbers.js';
 import type { ParseDataResult } from './parse-data.js';
 import { parseIndex, parsePointer } from './pointer.js';
 import { stringify } from './stringify.js';
@@ -50,24 +51,37 @@ const UNREAD = Symbol('unread');
 export interface Lines {
   readonly bom: string;
   readonly lines: readonly Line[];
+  /** False when the text holds no big number (`mayHoldBigNumber`), so no line needs the exact path
+   *  (spec 015 B1); absent means it may. */
+  readonly mayHold?: boolean;
 }
 
 /** The 1-based message of L1 for a bad line. */
 const badLine = (number: number) => `Line ${number} is not valid JSON.`;
 
+/** An item line's data: `JSON.parse`'s, with big numbers as `LosslessNumber`s (spec 015 B1) when
+ *  the line may hold one (`mayHold`: the whole text may, so a text with none is not scanned per
+ *  line). Throws what `JSON.parse` throws. */
+function itemData(text: string, mayHold = true): unknown {
+  const data = JSON.parse(text) as unknown;
+  // `visitData` reads a strict JSON text to `JSON.parse`'s data (parse-data.ts), numbers exactly.
+  return mayHold && mayHoldBigNumber(text) ? visitData(text) : data;
+}
+
 /** What a line holds. `JSON.parse` reads exactly one RFC 8259 value and allows white space around
  *  it; a line has no LF, and a CR in it (a lone CR) makes it bad (§Terms). */
-export function classify(text: string): Pick<Line, 'kind' | 'data'> {
+export function classify(text: string, mayHold = true): Pick<Line, 'kind' | 'data'> {
   if (/^[ \t]*$/.test(text)) return { kind: 'blank' };
   if (text.includes('\r')) return { kind: 'bad' };
   try {
-    return { kind: 'item', data: JSON.parse(text) as unknown };
+    return { kind: 'item', data: itemData(text, mayHold) };
   } catch {
     return { kind: 'bad' };
   }
 }
 
 export function split(text: string): Lines {
+  const mayHold = mayHoldBigNumber(text);
   const bom = text.startsWith(BOM) ? BOM : '';
   const lines: Line[] = [];
   let start = bom.length;
@@ -75,10 +89,14 @@ export function split(text: string): Lines {
     const lf = text.indexOf('\n', start);
     const crlf = lf > start && text.charCodeAt(lf - 1) === 13;
     const content = text.slice(start, lf < 0 ? text.length : crlf ? lf - 1 : lf);
-    lines.push({ text: content, ending: lf < 0 ? '' : crlf ? '\r\n' : '\n', ...classify(content) });
+    lines.push({
+      text: content,
+      ending: lf < 0 ? '' : crlf ? '\r\n' : '\n',
+      ...classify(content, mayHold),
+    });
     start = lf < 0 ? text.length : lf + 1;
   }
-  return { bom, lines };
+  return { bom, lines, mayHold };
 }
 
 /** L2: the first line ending (`\n` when there is none); a final newline when the text ends with a
@@ -124,7 +142,7 @@ const valueOf = (text: string) => {
 /** L1: the items' data, a node per item with offsets into the whole text, one error per bad line
  *  spanning the line without its ending (on the first line, the BOM included: the BOM belongs to
  *  the first line, §Terms; README reading 5). */
-function parse(text: string, { bom, lines }: Lines): ParseResult {
+function parse(text: string, { bom, lines, mayHold }: Lines): ParseResult {
   const data: unknown[] = [];
   const children: FormatNode[] = [];
   const diagnostics: Diagnostic[] = [];
@@ -132,7 +150,10 @@ function parse(text: string, { bom, lines }: Lines): ParseResult {
   lines.forEach((line, index) => {
     if (line.kind === 'item') {
       data.push(line.data);
-      children.push(shifted(parseTree(line.text)!, offset));
+      const tree = parseTree(line.text)!;
+      children.push(
+        mayHold === false ? shifted(tree, offset) : shiftedExact(tree, offset, line.text),
+      );
     } else if (line.kind === 'bad') {
       const head = index === 0 ? bom.length : 0;
       diagnostics.push({
@@ -164,6 +185,24 @@ function shifted(node: Node, by: number): FormatNode {
   return out;
 }
 
+/** `shifted` for a line `text` that may hold a big number: a big number's value is its
+ *  `LosslessNumber` (spec 015 B1). Kept apart so lines of a text with none take `shifted` as it
+ *  was (spec 015 criterion 11). */
+function shiftedExact(node: Node, by: number, text: string): FormatNode {
+  const out: { -readonly [K in keyof FormatNode]: FormatNode[K] } = {
+    type: node.type,
+    offset: node.offset + by,
+    length: node.length,
+  };
+  if (node.value !== undefined)
+    out.value =
+      node.type === 'number' && mayBeBig(text, node.offset, node.offset + node.length)
+        ? numberValue(text.slice(node.offset, node.offset + node.length), node.value as number)
+        : node.value;
+  if (node.children) out.children = node.children.map((child) => shiftedExact(child, by, text));
+  return out;
+}
+
 /** The node at `tokens` under `root`, as the edit layer finds it (the last duplicate key wins). */
 function nodeAt(root: FormatNode, tokens: readonly string[]): FormatNode | undefined {
   let node: FormatNode | undefined = root;
@@ -189,9 +228,10 @@ function rest(pointer: string): string {
   return slash < 0 ? '' : pointer.slice(slash);
 }
 
-/** L3, L5: a value as `JSON.stringify` writes it, as the `json` adapter writes values (R8). */
+/** L3, L5: a value as `JSON.stringify` writes it, as the `json` adapter writes values (R8), big
+ *  numbers as their digits (spec 015 B2). */
 function write(value: unknown): string {
-  const json = JSON.stringify(value);
+  const json = jsonText(value);
   if (json === undefined) throw new PatchError('value is not JSON');
   return json;
 }
@@ -263,7 +303,7 @@ class Editor {
   private dataAt(index: number): unknown {
     const line = this.lines[index]!;
     if (line.data !== UNREAD) return line.data;
-    const data = JSON.parse(line.text) as unknown;
+    const data = itemData(line.text);
     this.lines[index] = { ...line, data };
     return data;
   }
@@ -294,7 +334,7 @@ class Editor {
     const tokens = parsePointer(path);
     if (tokens.length === 0) {
       // L8: the new items through `diff`, so lines of unchanged items keep their bytes.
-      const value = 'value' in piece ? piece.value : (JSON.parse(piece.bytes) as unknown);
+      const value = 'value' in piece ? piece.value : itemData(piece.bytes);
       if (!Array.isArray(value)) throw new PatchError(NOT_AN_ARRAY);
       for (const op of diff(this.data(), value)) this.apply(op);
       return;
@@ -414,6 +454,7 @@ class Editor {
 export function parseLinesData(text: string): ParseDataResult {
   const data: unknown[] = [];
   const length = text.length;
+  const mayHold = mayHoldBigNumber(text);
   let start = text.startsWith(BOM) ? 1 : 0;
   /** The next CR at or after `start`, or `length`. */
   let cr = text.indexOf('\r', start);
@@ -435,7 +476,7 @@ export function parseLinesData(text: string): ParseDataResult {
       while (i < end && (text.charCodeAt(i) === 32 || text.charCodeAt(i) === 9)) i++;
       if (i < end) {
         try {
-          data.push(JSON.parse(text.slice(start, end)) as unknown);
+          data.push(itemData(text.slice(start, end), mayHold));
         } catch {
           bad = true;
         }

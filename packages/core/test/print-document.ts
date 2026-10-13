@@ -4,7 +4,7 @@
 // comma; `leading` before the member on its line; comments in single-line and empty containers,
 // before a closing bracket and around the root), mixing single-line and multi-line containers.
 import fc from 'fast-check';
-import { stringify, type Format, type Style } from '../src/index.js';
+import { LosslessNumber, stringify, type Format, type Style } from '../src/index.js';
 
 const identifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
@@ -31,7 +31,8 @@ export function printDocument(
       : stringify(k, format, scalarStyle);
 
   function value(v: unknown, indent: string): string {
-    if (v === null || typeof v !== 'object') return stringify(v, format, scalarStyle);
+    if (v === null || typeof v !== 'object' || v instanceof LosslessNumber)
+      return stringify(v, format, scalarStyle);
     const isArray = Array.isArray(v);
     const [open, close] = isArray ? ['[', ']'] : ['{', '}'];
     const entries: [string | undefined, unknown][] = isArray

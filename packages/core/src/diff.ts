@@ -13,7 +13,9 @@
 // position (003 T8, 002 T9 review): still a correct patch, only a longer one.
 //
 // Equality is `node:util` `isDeepStrictEqual` on data: key order is ignored, `NaN` equals `NaN`,
-// `-0` differs from `0`.
+// `-0` differs from `0`. A big number (`LosslessNumber`, spec 015) is a scalar, equal to another
+// with the same digits.
+import { LosslessNumber } from './formats/numbers.js';
 import type { PatchOperation } from './formats/types.js';
 
 /**
@@ -276,6 +278,7 @@ function canonical(root: unknown, keys: Keys): string {
       case 'string':
         return JSON.stringify(x);
       case 'object':
+        if (x instanceof LosslessNumber) return `b${x.value}`;
         return keys.ids.get(x);
       default:
         // Not JSON data (undefined, a function): equal only to the same kind.
@@ -314,7 +317,7 @@ function canonical(root: unknown, keys: Keys): string {
 }
 
 function isObject(x: unknown): x is Record<string, unknown> {
-  return x !== null && typeof x === 'object' && !Array.isArray(x);
+  return x !== null && typeof x === 'object' && !Array.isArray(x) && !(x instanceof LosslessNumber);
 }
 
 function hasOwn(object: object, key: string): boolean {

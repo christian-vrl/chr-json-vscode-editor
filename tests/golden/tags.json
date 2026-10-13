@@ -19,7 +19,7 @@
     "trailingComma": ["yes", "no"],
     "quote": ["single", "double"],
     "keyStyle": ["quoted", "unquoted"],
-    "special": ["none", "hex", "infinity-nan", "multiline-string"]
+    "special": ["none", "hex", "infinity-nan", "multiline-string", "big-number"]
   },
   "convert": {
     "pairs": [
@@ -69,6 +69,7 @@
     "special": [
       "none",
       "key-order",
+      "big-number",
       "unquoted-key",
       "single-quote",
       "hex",

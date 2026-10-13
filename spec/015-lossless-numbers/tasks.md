@@ -13,7 +13,7 @@
   measured numbers; the fixture committed*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** Read and write exactly: `lossless-json` 4.3.1 in `core` (licenses, ADR-014),
+- [x] **T2** Read and write exactly: `lossless-json` 4.3.1 in `core` (licenses, ADR-014),
   `numberValue`, B1 in every adapter, the tree, `parseData` and `jsonl`; B2 in every writer;
   golden cases for criterion 1 except the `test` and `sort` ones; the big-number generator and
   criterion 2's property; bench rows (criterion 11, core part). It edits `parse-data.ts` and

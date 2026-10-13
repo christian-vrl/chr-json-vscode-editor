@@ -4,6 +4,7 @@
 // white space and line breaks included) with the same kinds as `tokens.ts`, so the edit layer and
 // `Style` detection read JSON5 the way they read JSONC.
 import { setMember } from './member.js';
+import { json5MayBeBig, json5NumberValue, type LosslessNumber } from './numbers.js';
 import { Kind, type Token } from './tokens.js';
 import type { Diagnostic, FormatNode } from './types.js';
 
@@ -350,12 +351,14 @@ class Parser {
     }
   }
 
-  /** JSON5Number: optional sign, then Infinity, NaN, hex, or a decimal with optional dot ends. */
-  private number(): number {
-    NUMBER.lastIndex = this.pos;
+  /** JSON5Number: optional sign, then Infinity, NaN, hex, or a decimal with optional dot ends. A
+   *  big number is its `LosslessNumber` (spec 015 B1). */
+  private number(): number | LosslessNumber {
+    const start = this.pos;
+    NUMBER.lastIndex = start;
     const m = NUMBER.exec(this.text);
     if (!m) this.fail('a value');
-    if (isIdPartAt(this.text, this.pos + m[0].length)) {
+    if (isIdPartAt(this.text, start + m[0].length)) {
       this.pos += m[0].length;
       this.fail('the end of the number');
     }
@@ -363,7 +366,8 @@ class Parser {
     const sign = m[0][0] === '-' ? -1 : 1;
     // `Number` reads hex, Infinity and decimals with a leading or trailing dot, but not with a sign
     // in front of hex, so the sign is applied separately.
-    return sign * Number(/^[+-]/.test(m[0]) ? m[0].slice(1) : m[0]);
+    const value = sign * Number(/^[+-]/.test(m[0]) ? m[0].slice(1) : m[0]);
+    return json5MayBeBig(this.text, start, this.pos) ? json5NumberValue(m[0], value) : value;
   }
 }
 
@@ -536,8 +540,9 @@ class DataParser {
     }
   }
 
-  /** A decimal or hex JSON5Number with an optional sign; Infinity and NaN go through `NUMBER`. */
-  private number(): number {
+  /** A decimal or hex JSON5Number with an optional sign; Infinity and NaN go through `NUMBER`. A
+   *  big number is its `LosslessNumber`, as in `Parser.number`. */
+  private number(): number | LosslessNumber {
     const t = this.text;
     const start = this.pos;
     let pos = start;
@@ -549,10 +554,13 @@ class DataParser {
     }
     const digits = pos;
     let value: number;
+    // Whether the token may be a big number (`json5MayBeBig`), decided as it is read.
+    let mayBeBig: boolean;
     if (c === 48 && (t.charCodeAt(pos + 1) | 0x20) === 120 && isHex(t.charCodeAt(pos + 2))) {
       pos += 3;
       while (isHex(t.charCodeAt(pos))) pos++;
       value = Number(t.slice(digits, pos));
+      mayBeBig = pos - digits - 2 > 13;
     } else if ((c >= 48 && c <= 57) || c === 46) {
       let integer = c !== 46;
       if (c === 48) c = t.charCodeAt(++pos);
@@ -568,12 +576,14 @@ class DataParser {
         if (pos === dot + 1 && dot === digits) throw GIVE_UP;
         integer = false;
       }
+      mayBeBig = pos - start > 15;
       if (c === 101 || c === 69) {
         c = t.charCodeAt(++pos);
         if (c === 45 || c === 43) c = t.charCodeAt(++pos);
         if (!(c >= 48 && c <= 57)) throw GIVE_UP;
         while (c >= 48 && c <= 57) c = t.charCodeAt(++pos);
         integer = false;
+        mayBeBig = true;
       }
       if (integer && pos - digits < 16) {
         value = 0;
@@ -585,10 +595,11 @@ class DataParser {
       if (!m) throw GIVE_UP;
       pos = start + m[0].length;
       value = Number(t.slice(digits, pos));
+      mayBeBig = json5MayBeBig(t, start, pos);
     }
     this.pos = pos;
     this.end();
-    return sign * value;
+    return mayBeBig ? json5NumberValue(t.slice(start, pos), sign * value) : sign * value;
   }
 }
 

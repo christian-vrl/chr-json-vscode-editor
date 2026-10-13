@@ -4,6 +4,7 @@
 // stream) as the edit layer, so they behave the same for JSON, JSONC and JSON5.
 import naturalCompare from 'natural-compare-lite';
 import { blockComment, dataOf, type Doc, type Open } from './edit.js';
+import { LosslessNumber } from './numbers.js';
 import { parseIndex, parsePointer } from './pointer.js';
 import { isComment, Kind, type Token } from './tokens.js';
 import { PatchError, type FormatNode, type SortOptions } from './types.js';
@@ -333,8 +334,11 @@ function text(v: unknown): string {
   }
 }
 
-/** The library's `createObjectComparator` for one direction (ascending). */
+/** The library's `createObjectComparator` for one direction (ascending). A big number compares as
+ *  its nearest number. */
 function compareValues(a: unknown, b: unknown): number {
+  if (a instanceof LosslessNumber) a = Number(a.value);
+  if (b instanceof LosslessNumber) b = Number(b.value);
   const rank: Record<string, number> = { boolean: 0, number: 1, string: 2, undefined: 4 };
   if (typeof a !== typeof b) {
     const ra = rank[typeof a] ?? 3;
