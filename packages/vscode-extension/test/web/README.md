@@ -23,7 +23,8 @@ network check counted.
 `tests/csv/`, the first ten golden patch cases of each format (as the desktop e2e picks them) and a
 `.vscode/settings.json` whose `json.schemas` and `json5.schemas` select `fixtures/inline/people.*`
 with urls relative to the folder. It also writes `large/`: ASCII JSON of exactly 5,242,880, 5,242,881,
-52,428,800 and 52,428,801 bytes (criterion 10). Each test edits copies under `work/`. One file per area:
+52,428,800 and 52,428,801 bytes, and `utf8-over-threshold.json` (5,242,881 bytes of UTF-8,
+5,242,880 UTF-16 code units: one `é`) (criterion 10). Each test edits copies under `work/`. One file per area:
 
 | File | Spec 013 criterion |
 |---|---|

@@ -121,6 +121,11 @@ function makeWorkspace(workspace) {
   for (const bytes of [THRESHOLD, THRESHOLD + 1, WEB_CEILING, WEB_CEILING + 1]) {
     writeFileSync(path.join(workspace, 'large', `${bytes}.json`), largeJson(bytes));
   }
+  // One byte over the threshold in UTF-8 only: one "a" becomes "é" (2 bytes, 1 UTF-16 code unit).
+  writeFileSync(
+    path.join(workspace, 'large', 'utf8-over-threshold.json'),
+    largeJson(THRESHOLD).replace('"alpha"', '"alphé"'),
+  );
 }
 
 /** An ASCII JSON array of exactly `bytes` bytes, padded with spaces before the closing bracket. */

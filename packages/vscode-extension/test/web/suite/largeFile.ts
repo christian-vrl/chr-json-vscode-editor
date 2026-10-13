@@ -2,7 +2,8 @@
 // test/e2e/largeFile.cjs and ceiling.cjs check them on desktop. run.mjs writes the files into
 // `large/` (ASCII JSON of exactly these sizes): spec 008's threshold, 5,242,880 bytes, and one
 // byte more; the web ceiling UNK-054 records (bench/web-ceiling.md: VS Code's ceiling, 52,428,800
-// bytes, as on desktop), and one byte more.
+// bytes, as on desktop), and one byte more; and `utf8-over-threshold.json`, one byte over the
+// threshold in UTF-8 only (spec 013 §Terms: size is the UTF-8 length of the text).
 /// <reference types="mocha" />
 import * as vscode from 'vscode';
 import type { TestHooks } from '../../../src/extension';
@@ -27,6 +28,9 @@ export const WEB_CEILING = 50 * MIB;
 /** The files run.mjs writes under `large/`, by size in bytes. */
 export const LARGE_FILES = [THRESHOLD, THRESHOLD + 1, WEB_CEILING, WEB_CEILING + 1];
 export const largeName = (bytes: number) => `${bytes}.json`;
+/** 5,242,881 bytes of UTF-8 but 5,242,880 UTF-16 code units: the threshold file with one "a"
+ *  replaced by "é" (two bytes in UTF-8, one code unit). */
+export const UTF8_OVER = 'utf8-over-threshold.json';
 
 const lockedBanner = (mib: string) => `Large file (${mib} MiB): read-only to stay fast.`;
 const ceilingMessage = (name: string, mib: string) =>
@@ -85,7 +89,7 @@ describe('large files in the web host (spec 013 criterion 10)', function () {
     hooks.ceiling(false);
     const at = fixture('large', largeName(THRESHOLD));
     await openWithCommand(hooks, at);
-    equal(view(hooks, at).largeFile, null, 'at the threshold: large-file mode');
+    equal(view(hooks, at).largeFile, null, 'at the threshold: not in large-file mode');
     await hooks.dom(at.toString(), [{ waitFor: '.toolbar' }, { waitFor: '.banner', gone: true }]);
 
     const over = fixture('large', largeName(THRESHOLD + 1));
@@ -97,6 +101,20 @@ describe('large files in the web host (spec 013 criterion 10)', function () {
     );
     equal(await banner(hooks, over), lockedBanner('5.0'), 'one byte over: banner');
     deepEqual(hooks.ceiling(false), [], 'ceiling messages');
+  });
+
+  it('the threshold counts UTF-8 bytes: 5,242,880 UTF-16 code units with one é open in large-file mode', async () => {
+    const hooks = await activateHooks();
+    const uri = fixture('large', UTF8_OVER);
+    await openWithCommand(hooks, uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+    equal(document.getText().length, THRESHOLD, `${UTF8_OVER}: UTF-16 code units`);
+    deepEqual(
+      view(hooks, uri).largeFile,
+      { bytes: THRESHOLD + 1, unlocked: false },
+      `${UTF8_OVER}: large-file mode by its UTF-8 length`,
+    );
+    equal(await banner(hooks, uri), lockedBanner('5.0'), `${UTF8_OVER}: banner`);
   });
 
   it("the web ceiling (UNK-054) opens in large-file mode, and one byte more shows spec 008's message", async () => {
@@ -120,6 +138,6 @@ describe('large files in the web host (spec 013 criterion 10)', function () {
       [ceilingMessage(largeName(WEB_CEILING + 1), '50.0')],
       'one byte over the ceiling: the message',
     );
-    equal(tabsFor(over).length, 0, 'one byte over the ceiling: an editor opened');
+    equal(tabsFor(over).length, 0, 'one byte over the ceiling: no editor opens');
   });
 });
