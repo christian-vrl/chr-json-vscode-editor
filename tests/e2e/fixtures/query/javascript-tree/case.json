@@ -1,0 +1,5 @@
+{
+  "language": "JavaScript",
+  "mode": "tree",
+  "query": "function query (data) {\n  return data.filter(item => item.age > 30)\n}"
+}

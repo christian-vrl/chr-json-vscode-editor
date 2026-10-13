@@ -31,7 +31,7 @@
   green (criterion 9)*
 
 ## Phase D — Large files (risk-free / additive)
-- [ ] **T5** Spec 008 integration: "Import CSV…" and "Replace Document Data" hidden in a locked tab
+- [x] **T5** Spec 008 integration: "Import CSV…" and "Replace Document Data" hidden in a locked tab
   and back after "Edit anyway"; export from a locked tab through `parseData`; e2e on a
   6 MiB fixture. — needs: 009 T4, 008 T3 — *gate: criterion 10 green in `pnpm test:e2e`*
 

@@ -42,16 +42,20 @@ export interface RenderedProbe {
  * - `click`: clicks it.
  * - `fill`: sets an input's or textarea's value and fires `input`, as typing would.
  * - `key`: fires `keydown` for `key` on it, with Ctrl or Shift held when asked.
+ * - `mousedown`: presses and releases the left button on it (the tree selects a node on press).
  * - `waitFor`: only waits; with `gone`, until no element matches.
  * - `read`: reads its text content, or the attribute `attr`, into the hook's answer.
+ * - `readAll`: reads the trimmed text content of every match, as one JSON array of strings.
  * - `select`: picks the option `value` of a `<select>` and fires `change`, as a person would.
  */
 export type DomStep =
   | { click: string; text?: string }
   | { fill: string; value: string }
   | { key: string; on: string; ctrl?: boolean; shift?: boolean }
+  | { mousedown: string; text?: string }
   | { waitFor: string; text?: string; gone?: boolean }
   | { read: string; text?: string; attr?: string }
+  | { readAll: string }
   | { select: string; value: string };
 
 /** What the compare panel's `probe` reports about its page (007 T4, compareTestHooks.ts). */

@@ -62,45 +62,183 @@ function detectEol(text: string): Style['eol'] {
 }
 
 /**
- * The dominant indent unit (R1). Each line that starts a token contributes its leading whitespace.
- * Tabs win when more of those lines start with a tab. For spaces, the unit is the most frequent
- * increase in width from one such line to the next (the smaller on a tie); with none, 2 (R1: a file
- * with no line breaks has indent unit 2 spaces).
+ * The dominant indent unit (R1). Tabs win when more of the lines that start a token start with a
+ * tab. For spaces, the unit comes from the lines whose indentation is exactly their nesting level
+ * times the unit even in a document whose columns are aligned (smart format, spec 010 criteria 4
+ * and 5, pads keys, table rows and right-aligned numbers after the indentation): a line that starts
+ * with a closing bracket, or with a comment that is not between a key and its value, at level 1 or
+ * deeper, and a line of several numbers of an array of numbers once the padding that aligns its
+ * first number by decimal point is taken off. The unit is their most frequent indentation per level
+ * (the smaller on a tie). With no such line, it is the most frequent increase in width from one
+ * line to the next (the smaller on a tie); with none, 2 (R1: a file with no line breaks has indent
+ * unit 2 spaces).
  */
 function detectIndent(text: string, tokens: readonly Token[]): Style['indent'] {
-  const indents: string[] = [];
-  for (let i = 0; i < tokens.length; i++) {
-    if (i > 0 && tokens[i - 1]!.kind !== Kind.LineBreak) continue;
-    const t = tokens[i]!;
-    if (t.kind === Kind.LineBreak) continue;
-    if (t.kind === Kind.Whitespace) {
-      const next = tokens[i + 1];
-      if (next !== undefined && next.kind !== Kind.LineBreak)
-        indents.push(text.slice(t.offset, t.end));
-    } else if (i > 0) {
-      indents.push('');
-    }
-  }
-  const tabs = indents.filter((s) => s.startsWith('\t')).length;
-  const spaces = indents.filter((s) => s.startsWith(' ')).length;
+  const lines = indentedLines(text, tokens);
+  const tabs = lines.filter((l) => l.indent.startsWith('\t')).length;
+  const spaces = lines.filter((l) => l.indent.startsWith(' ')).length;
   if (tabs > spaces) return '\t';
-  const counts = new Map<number, number>();
-  let previous = 0;
-  for (const s of indents) {
-    if (s.includes('\t')) continue;
-    if (s.length > previous)
-      counts.set(s.length - previous, (counts.get(s.length - previous) ?? 0) + 1);
-    previous = s.length;
+  const exact: number[] = [];
+  for (const l of lines) {
+    if (l.exact === undefined || l.level < 1 || l.indent.includes('\t')) continue;
+    const width = l.indent.length - l.exact;
+    if (width > 0 && width % l.level === 0) exact.push(width / l.level);
   }
-  let unit = 2;
+  if (exact.length > 0) return mostFrequent(exact);
+  const increases: number[] = [];
+  let previous = 0;
+  for (const { indent } of lines) {
+    if (indent.includes('\t')) continue;
+    if (indent.length > previous) increases.push(indent.length - previous);
+    previous = indent.length;
+  }
+  return increases.length > 0 ? mostFrequent(increases) : 2;
+}
+
+function mostFrequent(values: readonly number[]): number {
+  const counts = new Map<number, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let unit = 0;
   let best = 0;
-  for (const [step, count] of counts) {
-    if (count > best || (count === best && step < unit)) {
-      unit = step;
+  for (const [v, count] of counts) {
+    if (count > best || (count === best && v < unit)) {
+      unit = v;
       best = count;
     }
   }
   return unit;
+}
+
+const JSON_NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
+
+/**
+ * Each line after the first that starts a token: its leading white space, the nesting level of its
+ * first token, and, when its indentation is exact (see `detectIndent`), the padding to take off it.
+ */
+function indentedLines(
+  text: string,
+  tokens: readonly Token[],
+): { indent: string; level: number; exact: number | undefined }[] {
+  const pad = numberPadding(text, tokens);
+  const lines: { indent: string; level: number; exact: number | undefined }[] = [];
+  // A container that starts a line after its key's colon (its value moved to the next line, as smart
+  // format does after a multi-line comment between key and value) is one level deeper.
+  const steps: number[] = [];
+  let depth = 0;
+  let previous: Token | undefined; // the last token that is not trivia
+  let brokeSincePrevious = false;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]!;
+    const lineStart = i > 0 && tokens[i - 1]!.kind === Kind.LineBreak;
+    if (lineStart && t.kind !== Kind.LineBreak) {
+      let first = t;
+      let indent = '';
+      if (t.kind === Kind.Whitespace) {
+        indent = text.slice(t.offset, t.end);
+        first = tokens[i + 1] ?? t;
+      }
+      if (first.kind !== Kind.LineBreak && first.kind !== Kind.Whitespace) {
+        let exact: number | undefined;
+        let level = depth;
+        if (first.kind === Kind.CloseBrace || first.kind === Kind.CloseBracket) {
+          level = depth - 1;
+          exact = 0;
+        } else if (isComment(first) && previous?.kind !== Kind.Colon) exact = 0;
+        else exact = pad.get(first);
+        lines.push({ indent, level, exact });
+      }
+    }
+    if (t.kind === Kind.LineBreak) brokeSincePrevious = true;
+    if (t.kind === Kind.OpenBrace || t.kind === Kind.OpenBracket) {
+      const step = previous?.kind === Kind.Colon && brokeSincePrevious ? 2 : 1;
+      steps.push(step);
+      depth += step;
+    } else if (t.kind === Kind.CloseBrace || t.kind === Kind.CloseBracket)
+      depth -= steps.pop() ?? 1;
+    if (!isTrivia(t)) {
+      previous = t;
+      brokeSincePrevious = false;
+    }
+  }
+  return lines;
+}
+
+/**
+ * For each number that starts a line holding another item of the same array, in an array whose
+ * items are all JSON numbers or `null`: the spaces smart format writes before it to line it up by
+ * its decimal point or exponent (FracturedJson 5.1.0 `TableTemplate.FormatNumber`, Decimal), after
+ * the column of the comments some items have before them on their line.
+ */
+function numberPadding(text: string, tokens: readonly Token[]): Map<Token, number> {
+  interface NumberArray {
+    /** Widest integer part (sign included) of its items, or -1 once an item is not a number. */
+    widest: number;
+    hasNull: boolean;
+    /** Widest run of block comments before an item on its line. */
+    comment: number;
+    rows: Token[];
+  }
+  const before = (t: Token) => {
+    if (t.kind === Kind.NullKeyword) return 4;
+    const dot = text.slice(t.offset, t.end).search(/[.eE]/);
+    return dot > 0 ? dot : t.end - t.offset;
+  };
+  const arrays: NumberArray[] = [];
+  const stack: (NumberArray | undefined)[] = [];
+  let lineNumber: Token | undefined; // a number that starts the current line
+  let lineArray: NumberArray | undefined; // the array it is an item of
+  let prefix: { start: number; end: number } | undefined; // comments before the next item
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]!;
+    if (t.kind === Kind.LineBreak) {
+      const next = tokens[i + 1]?.kind === Kind.Whitespace ? tokens[i + 2] : tokens[i + 1];
+      lineNumber = next?.kind === Kind.NumericLiteral ? next : undefined;
+      lineArray = undefined;
+      prefix = undefined;
+      continue;
+    }
+    if (t.kind === Kind.BlockComment) {
+      if (prefix) prefix.end = t.end;
+      else prefix = { start: t.offset, end: t.end };
+      continue;
+    }
+    if (t.kind === Kind.Comma || t.kind === Kind.LineComment) prefix = undefined;
+    if (isTrivia(t) || t.kind === Kind.Comma || t.kind === Kind.Colon) continue;
+    if (t.kind === Kind.CloseBrace || t.kind === Kind.CloseBracket) {
+      stack.pop();
+      continue;
+    }
+    const top = stack[stack.length - 1];
+    if (top) {
+      const number =
+        t.kind === Kind.NullKeyword ||
+        (t.kind === Kind.NumericLiteral && JSON_NUMBER.test(text.slice(t.offset, t.end)));
+      if (!number) top.widest = -1;
+      else if (top.widest >= 0) top.widest = Math.max(top.widest, before(t));
+      if (t.kind === Kind.NullKeyword) top.hasNull = true;
+      if (prefix) top.comment = Math.max(top.comment, prefix.end - prefix.start);
+      if (t === lineNumber) lineArray = top;
+      else if (lineArray === top && lineNumber !== undefined) {
+        top.rows.push(lineNumber);
+        lineNumber = undefined;
+      }
+    }
+    prefix = undefined;
+    if (t.kind === Kind.OpenBrace) stack.push(undefined);
+    else if (t.kind === Kind.OpenBracket) {
+      const array: NumberArray = { widest: 0, hasNull: false, comment: 0, rows: [] };
+      arrays.push(array);
+      stack.push(array);
+    }
+  }
+  const pad = new Map<Token, number>();
+  for (const a of arrays) {
+    if (a.widest < 0) continue;
+    const widest = a.hasNull ? Math.max(a.widest, 4) : a.widest;
+    const comment = a.comment > 0 ? a.comment + 1 : 0;
+    for (const t of a.rows) pad.set(t, comment + widest - before(t));
+  }
+  return pad;
 }
 
 /** Whether some container ends with a comma (comments and line breaks between them allowed). */

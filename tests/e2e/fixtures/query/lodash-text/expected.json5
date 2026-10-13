@@ -1,0 +1,5 @@
+// People, as JSON5
+[
+  {name: 'Ada', age: 36, active: true}, // a mathematician
+  {name: 'Grace', age: 45, active: true, }, // an admiral
+]

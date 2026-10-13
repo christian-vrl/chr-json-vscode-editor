@@ -1,7 +1,7 @@
 // Reads a file's committed (Git HEAD) bytes for "Compare with HEAD" (spec 007 T2, criterion 5).
 // UNK-038 picked VS Code's built-in Git extension API over running `git` ourselves; both are local,
 // so nothing here touches the network. This file is free of `vscode` so the outcomes are unit-tested;
-// gitHeadVscode.ts binds it to the Git extension.
+// node/gitHeadVscode.ts binds it to the Git extension.
 
 /** What reading HEAD found for one file. */
 export type HeadResult =

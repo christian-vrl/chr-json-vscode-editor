@@ -149,7 +149,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/"
         },
         {
           "command": "chrJsonEditor.exportCsv",
@@ -157,7 +157,7 @@
         },
         {
           "command": "chrJsonEditor.importCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor"
+          "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked"
         },
         {
           "command": "chrJsonEditor.convertCsvToJson",
@@ -197,7 +197,7 @@
         },
         {
           "command": "chrJsonEditor.importCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor",
+          "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked",
           "group": "2_csv@2"
         },
         {
@@ -214,7 +214,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
           "group": "3_compare@21"
         }
       ],
@@ -236,7 +236,7 @@
         },
         {
           "command": "chrJsonEditor.compareWithHead",
-          "when": "resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
+          "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/ && !explorerResourceIsFolder && !listMultiSelection",
           "group": "3_compare@22"
         },
         {

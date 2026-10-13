@@ -324,6 +324,25 @@ test.describe('import', () => {
     await expect(table(page)).toBeVisible();
     await expect(button(page, 'Create JSON File')).toBeEnabled();
   });
+
+  test("I5's null cap counts every row: an import past the preview can hit it", async ({
+    page,
+  }) => {
+    // 009 T5: the first 100 rows fill no `null` items; rows 101 to 111 fill 100,000 each.
+    await openCsv(page, importOf('import/late-null-budget.csv'));
+    await expect(status(page)).toHaveText('First 100 rows');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await button(page, 'Create JSON File').click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Line 112: Missing array indices would add more than 1000000 null items; the CSV is not imported',
+    );
+    await expect(button(page, 'Create JSON File')).toBeDisabled();
+    expect(await page.evaluate(() => window.devCsvHost!.writes)).toEqual([]);
+    // Without nesting, `a[100000]` is a flat key and fills nothing.
+    await option(page, 'Nested objects from field names').uncheck();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(button(page, 'Create JSON File')).toBeEnabled();
+  });
 });
 
 // Criterion 9, theme part: with each captured VS Code theme, the CSV panel passes axe-core's
