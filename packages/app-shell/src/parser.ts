@@ -5,7 +5,15 @@
 // text always comes from the host (core's style-preserving `applyPatch`).
 // A large-file tab (spec 008 criterion 8) parses with core's data-only `parseData`, which builds the
 // data alone and keeps nothing in core's parse cache; strict JSON still goes through `JSON.parse`.
-import { getAdapter, parseData, type Format } from '@chr-json-editor/core';
+// Core reads big numbers as lossless-json `LosslessNumber`s (spec 015 B1). Until this parser
+// writes them back (015 T4), the editor gets their nearest numbers, as `JSON.parse` gives.
+import {
+  getAdapter,
+  mayHoldBigNumber,
+  nearestNumbers,
+  parseData,
+  type Format,
+} from '@chr-json-editor/core';
 
 /** The shape of vanilla-jsoneditor's `JSONParser` (index.d.ts, `interface JSONParser`). */
 export interface TextParser {
@@ -45,7 +53,7 @@ function createDataParser(format: Format): TextParser {
       }
       // Only text without a value (empty, whitespace, comments) reads as undefined.
       if (result.data === undefined) throw new SyntaxError('The document holds no value');
-      return result.data;
+      return nearest(text, result.data);
     },
     stringify,
   };
@@ -74,11 +82,15 @@ function createParser(format: Format): TextParser {
       const error = result.diagnostics.find((d) => d.severity === 'error');
       if (error) throw new SyntaxError(`${error.message} at position ${error.offset}`);
       if (result.tree === undefined) throw new SyntaxError('The document holds no value');
-      return result.data;
+      return nearest(text, result.data);
     },
     stringify,
   };
 }
+
+/** `data` with its big numbers as nearest numbers; a text that holds none is not walked. */
+const nearest = (text: string, data: unknown): unknown =>
+  mayHoldBigNumber(text) ? nearestNumbers(data) : data;
 
 const NOT_JSON = Symbol('not JSON');
 

@@ -44,6 +44,9 @@ importers:
       json5:
         specifier: 2.2.3
         version: 2.2.3
+      lossless-json:
+        specifier: 4.3.1
+        version: 4.3.1
       natural-compare-lite:
         specifier: 1.4.1
         version: 1.4.1
@@ -128,6 +131,9 @@ importers:
       jsonrepair:
         specifier: 3.15.0
         version: 3.15.0
+      lossless-json:
+        specifier: 4.3.1
+        version: 4.3.1
       natural-compare-lite:
         specifier: 1.4.1
         version: 1.4.1

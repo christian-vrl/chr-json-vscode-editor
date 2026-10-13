@@ -1,5 +1,5 @@
 // The library's `parser` prop backed by core (003 T5, criterion 10).
-import { getAdapter } from '@chr-json-editor/core';
+import { getAdapter, nearestNumbers } from '@chr-json-editor/core';
 import { describe, expect, it } from 'vitest';
 import { parserFor } from '../src/parser.js';
 
@@ -39,7 +39,8 @@ describe('parserFor', () => {
   ])('reads strict JSON as core does: %s', (text) => {
     for (const format of ['json', 'jsonc', 'json5'] as const) {
       const data = parserFor(format).parse(text);
-      expect(data, format).toStrictEqual(getAdapter(format).parse(text).data);
+      // Core reads big numbers exactly (spec 015 B1); the editor gets nearest numbers until 015 T4.
+      expect(data, format).toStrictEqual(nearestNumbers(getAdapter(format).parse(text).data));
       if (text.includes('__proto__')) {
         expect(Object.getPrototypeOf(data)).toBe(Object.prototype);
         expect(Object.keys(data as object)).toContain('__proto__');
@@ -73,6 +74,16 @@ describe('parserFor(format, large)', () => {
     ['jsonc', '  '],
   ] as const)('throws for %s that does not parse: %j', (format, text) => {
     expect(() => parserFor(format, true).parse(text)).toThrow(SyntaxError);
+  });
+
+  it('gives big numbers as nearest numbers until the editor reads them exactly (015 T4)', () => {
+    const text = '{"a": 12345678901234567890, /* c */ "b": [1e400, 0.1000000000000000000001]}';
+    for (const large of [false, true])
+      for (const format of ['jsonc', 'json5'] as const)
+        expect(parserFor(format, large).parse(text)).toStrictEqual({
+          a: 12345678901234567000,
+          b: [Infinity, 0.1],
+        });
   });
 
   it('is its own object per format, kept until asked for another', () => {

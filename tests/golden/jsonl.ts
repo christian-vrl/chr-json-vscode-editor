@@ -10,7 +10,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import vocabulary from './tags.json' with { type: 'json' };
 import { isBlank, splitLines } from './jsonl-reference.js';
-import { goldenRoot, type PatchOperation } from './load.js';
+import { goldenRoot, readPatch, type PatchOperation } from './load.js';
 
 export const jsonlRoot = path.join(goldenRoot, 'jsonl');
 export const jsonlRules: readonly string[] = vocabulary.jsonl.rules;
@@ -104,7 +104,7 @@ function loadCase(dir: string, name: string): JsonlCase {
   const base = { name, input, tags: tags as unknown as JsonlTags };
 
   if (kind === 'patch') {
-    const patch = readJson(dir, 'patch.json', where);
+    const patch = readPatch(dir, where);
     if (!Array.isArray(patch) || !patch.every(isPatchOperation)) {
       throw new Error(`${where}: patch.json must be an array of {op, path} operations`);
     }

@@ -7,6 +7,7 @@ import { compact, prettyPrint, sort } from './actions.js';
 import { lastText } from './cache.js';
 import { applyOperation, Doc, type Open, type Rebuild, type Writer } from './edit.js';
 import { setMember } from './member.js';
+import { jsonText, mayBeBig, numberValue } from './numbers.js';
 import { detectStyle } from './style.js';
 import { stringify } from './stringify.js';
 import { isComment, Kind, tokenize, type Token } from './tokens.js';
@@ -33,7 +34,26 @@ function analyze(text: string, format: Format): Analysis {
   const errors: ParseError[] = [];
   const root = parseTree(text, errors, parseOptions);
   const tokens = tokenize(text);
+  if (root) exactNumbers(text, root, tokens);
   return { root, errors, tokens, style: detectStyle(text, format, tokens) };
+}
+
+/** B1 in the tree: each big number node's value becomes its `LosslessNumber`. The tokens show
+ *  first whether any number may be big, so a document with none is not walked. */
+function exactNumbers(text: string, root: Node, tokens: readonly Token[]): void {
+  if (!tokens.some((t) => t.kind === Kind.NumericLiteral && mayBeBig(text, t.offset, t.end)))
+    return;
+  const stack: Node[] = [root];
+  for (let node = stack.pop(); node; node = stack.pop()) {
+    // A loop, not `push(...children)`: 100k+ arguments would overflow the call stack.
+    if (node.children) for (const child of node.children) stack.push(child);
+    else if (node.type === 'number' && mayBeBig(text, node.offset, node.offset + node.length))
+      // jsonc-parser's `Node` declares `value` read-only; the tree is ours (`analyze` built it).
+      (node as { value: unknown }).value = numberValue(
+        text.slice(node.offset, node.offset + node.length),
+        node.value as number,
+      );
+  }
 }
 
 function parse(analysis: Analysis, text: string, format: Format): ParseResult {
@@ -54,7 +74,8 @@ function parse(analysis: Analysis, text: string, format: Format): ParseResult {
 /**
  * The document's data, built like jsonc-parser's `parse` (same visitor, same error tolerance) except
  * that object members are defined as own properties. `parse` assigns them, so a `"__proto__"` key
- * set the object's prototype instead of becoming a member and its data was lost. `onError` gets
+ * set the object's prototype instead of becoming a member and its data was lost. A big number is
+ * its `LosslessNumber` (spec 015 B1), read from the token's text. `onError` gets
  * the errors `parseTree` reports (it runs the same visitor), in the same order.
  */
 export function visitData(
@@ -88,7 +109,12 @@ export function visitData(
       onObjectEnd: end,
       onArrayBegin: () => begin([]),
       onArrayEnd: end,
-      onLiteralValue: onValue,
+      onLiteralValue: (value: unknown, offset: number, length: number) =>
+        onValue(
+          typeof value === 'number' && mayBeBig(text, offset, offset + length)
+            ? numberValue(text.slice(offset, offset + length), value)
+            : value,
+        ),
       onError,
     },
     parseOptions,
@@ -126,11 +152,11 @@ function strictJsonWarnings(tokens: readonly Token[]): Diagnostic[] {
 }
 
 /** JSON and JSONC always write double quotes and quoted keys (R4), and values as `JSON.stringify`
- *  does (R8). */
+ *  does (R8), big numbers as their digits (spec 015 B2). */
 const writer: Writer = {
   key: (name) => JSON.stringify(name),
   value: (value, unit) => {
-    const json = JSON.stringify(value, null, unit);
+    const json = jsonText(value, unit);
     if (json === undefined) throw new PatchError('value is not JSON');
     return json;
   },

@@ -12,12 +12,14 @@ import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch
 import { describe, expect, it } from 'vitest';
 import {
   getAdapter,
+  nearestNumbers,
   parseData,
   PatchError,
   type PatchOperation,
   type Style,
 } from '../src/index.js';
 import { dataArbitrary, SEED } from './arbitraries.js';
+import { readBack } from './read-back.js';
 
 const RUNS = 10_000;
 const adapter = getAdapter('jsonl');
@@ -217,9 +219,13 @@ describe('criterion 3: JSON Lines texts × random patches', () => {
       fc.property(jsonlText, fc.gen(), (text, g) => {
         const input = adapter.parse(text);
         expect(input.diagnostics).toEqual([]);
-        const items = input.data as unknown[];
+        // The model and the reference read big numbers (spec 015) as nearest numbers; the values
+        // the patch gives core are read back the way core reads their text (read-back.ts), so
+        // `test` compares a big number with the big number its text holds.
+        const items = nearestNumbers(input.data) as unknown[];
         const steps = patchFor(items, g);
-        const patch = steps.map((s) => s.op);
+        const reference = steps.map((s) => s.op);
+        const patch = readBack(reference) as PatchOperation[];
         const failing = steps.some((s) => s.fails);
         if (failing) {
           // The last operation names a value that is not there, or tests a value that differs.
@@ -231,7 +237,8 @@ describe('criterion 3: JSON Lines texts × random patches', () => {
         const out = adapter.applyPatch(text, patch);
         const result = adapter.parse(out);
         expect(result.diagnostics).toEqual([]);
-        const want = immutableJSONPatch(items, patch as unknown as JSONPatchDocument);
+        // A whole number JavaScript writes as a big number reads back as one (read-back.ts).
+        const want = readBack(immutableJSONPatch(items, reference as unknown as JSONPatchDocument));
         expect(
           isDeepStrictEqual(result.data, want),
           JSON.stringify({ text, patch, out, want }),
@@ -302,7 +309,7 @@ describe('criterion 3: stringify round trip', () => {
         const text = adapter.stringify(a, s);
         const parsed = adapter.parse(text);
         expect(parsed.diagnostics).toEqual([]);
-        expect(isDeepStrictEqual(parsed.data, a), JSON.stringify({ text, a })).toBe(true);
+        expect(isDeepStrictEqual(parsed.data, readBack(a)), JSON.stringify({ text, a })).toBe(true);
         expect(parsed.style.eol).toBe(
           a.length > 1 || (a.length === 1 && s.finalNewline) ? s.eol : '\n',
         );

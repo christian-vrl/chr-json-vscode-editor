@@ -31,6 +31,7 @@ import {
   type JsonlPatchCase,
   type JsonlRepairCase,
 } from './jsonl.js';
+import { markBigData } from './facts.js';
 
 const cases = loadJsonlCases();
 const patchCases = cases.filter((c): c is JsonlPatchCase => c.kind === 'patch');
@@ -81,7 +82,7 @@ describe.each(patchCases.map((c) => [c.name, c] as const))('patch %s', (_, c) =>
   if (c.error) {
     it('is a failing test, a root that is not an array, or a text with a bad line (R9, L8, L9)', () => {
       const run = () =>
-        immutableJSONPatch<unknown>(input.items, c.patch as unknown as JSONPatchDocument);
+        immutableJSONPatch<unknown>(input.items, markBigData(c.patch) as JSONPatchDocument);
       if (input.bad.length > 0) {
         expect(c.tags.rules).toContain('L9');
         expect(c.error!.message).toBe(`Line ${input.bad[0]} is not valid JSON.`);
@@ -107,7 +108,7 @@ describe.each(patchCases.map((c) => [c.name, c] as const))('patch %s', (_, c) =>
   });
 
   it("expected's items are the patch applied to the input's items (criterion 1)", () => {
-    const want = immutableJSONPatch(input.items, c.patch as unknown as JSONPatchDocument);
+    const want = immutableJSONPatch(input.items, markBigData(c.patch) as JSONPatchDocument);
     expect(expected.items).toEqual(want);
     expect(ordered(expected.items)).toBe(ordered(want));
   });

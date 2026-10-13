@@ -3,21 +3,32 @@
 // (replace, add, remove, move) on `@chr-json-editor/core` in Node, with no editor around it, and
 // `parseData` next to `parse` (008 T1, spec 008 criterion 7). For jsonl it also times
 // `parseData('json')` on the same records written as one JSON array (spec 012 criterion 12).
+// `json-ids` is the json document with 19-digit ids (spec 015 criterion 11), parsed as json.
 // Writes the raw results as JSON; `bench/core/report.mjs` turns them into bench/RESULTS.md.
 // Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Each format and size
 // runs in its own Node process with `--expose-gc`, so every timed call starts from a collected heap.
 //
 //   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB)
+//
+// BENCH_CORE=<path to a core build's dist/index.js> measures that build instead (spec 015 criterion
+// 11: the bench job also builds the base commit's core); BENCH_FORMATS=json,jsonc limits the formats.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { fileURLToPath } from 'node:url';
-import { getAdapter, parseData } from '@chr-json-editor/core';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { documentText, LAST_MARKER, linesText, MIB } from '../generate.mjs';
 
+const { getAdapter, parseData } = await import(
+  process.env.BENCH_CORE
+    ? pathToFileURL(path.resolve(process.env.BENCH_CORE)).href
+    : '@chr-json-editor/core'
+);
+
 export const SIZES_MIB = [1, 10, 50];
-export const FORMATS = ['json', 'jsonc', 'json5', 'jsonl'];
+export const FORMATS = ['json', 'json-ids', 'jsonc', 'json5', 'jsonl'];
+/** The format core parses each benchmark document as. */
+const coreFormat = (format) => (format === 'json-ids' ? 'json' : format);
 export const RUNS = 3;
 
 const WORDS = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
@@ -99,8 +110,8 @@ function commentedText(bytes, element) {
 }
 
 export function benchDocument(format, bytes) {
-  if (format === 'json') {
-    const text = documentText(bytes);
+  if (format === 'json' || format === 'json-ids') {
+    const text = documentText(bytes, false, 'json', format === 'json-ids');
     // Every record of generate.mjs's file starts with `"id"` on its own line.
     return { text, records: text.split('\n    "id": ').length - 1 };
   }
@@ -159,12 +170,13 @@ function measureDataRetained(format, text, records, label) {
 }
 
 /** One format and size, in a process of its own (see below). */
-function measure(format, mib) {
+function measure(benchFormat, mib) {
   const bytes = mib * MIB;
-  const { text, records } = benchDocument(format, bytes);
+  const format = coreFormat(benchFormat);
+  const { text, records } = benchDocument(benchFormat, bytes);
   const adapter = getAdapter(format);
   // Warm the JIT on a small document so the first measured run is not the cold one.
-  const warm = benchDocument(format, MIB / 4);
+  const warm = benchDocument(benchFormat, MIB / 4);
   for (let i = 0; i < 3; i++) {
     adapter.parse(warm.text);
     parseData(format, warm.text);
@@ -181,7 +193,7 @@ function measure(format, mib) {
   let last = 0;
   const unparsed = () => texts[(last = 1 - last)];
   const result = {
-    format,
+    format: benchFormat,
     mib,
     bytes,
     records,
@@ -252,7 +264,8 @@ if (process.argv[2] === '--child') {
     ).trim(),
   );
   // One process per format and size, so the heap, the JIT and maxRSS of one cell never carry over.
-  const formats = FORMATS.map((format) => ({
+  const only = process.env.BENCH_FORMATS?.split(',');
+  const formats = FORMATS.filter((format) => !only || only.includes(format)).map((format) => ({
     format,
     sizes: sizes.map((mib) => {
       const stdout = execFileSync(
@@ -274,7 +287,14 @@ if (process.argv[2] === '--child') {
   writeFileSync(
     out,
     JSON.stringify(
-      { node: process.version, runs: RUNS, heapMiB: HEAP_MIB, defaultHeapLimitBytes, formats },
+      {
+        commit: process.env.BENCH_COMMIT || process.env.GITHUB_SHA || 'local',
+        node: process.version,
+        runs: RUNS,
+        heapMiB: HEAP_MIB,
+        defaultHeapLimitBytes,
+        formats,
+      },
       null,
       2,
     ) + '\n',
