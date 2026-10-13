@@ -96,6 +96,29 @@ for (const name of THEMES) {
       }
     }
 
+    // 012 T4 (spec 012 criterion 13): the JSON Lines bad-line banner, in both of its modes, with
+    // the notice "Repair Lines" leaves for a line it could not repair.
+    for (const mode of ['table', 'tree'] as const) {
+      test(`${mode} mode with the JSON Lines bad-line banner passes axe color-contrast`, async ({
+        page,
+      }) => {
+        await applyTheme(page, theme);
+        const text = '{"name":"Grace","language":"COBOL"}\n{"a":1} {"b":2}\n';
+        await page.goto(`/?format=jsonl&mode=${mode}&text=${encodeURIComponent(text)}`);
+        await expect(page.locator(MODE_ROOT[mode])).toContainText('COBOL');
+        const banner = page.getByRole('region', { name: 'Bad lines' });
+        await banner.getByRole('button', { name: 'Repair Lines' }).click();
+        await expect(page.locator('.notice')).toHaveText('Repair Lines could not repair line 2.');
+        await expect(banner).toContainText('Line 2 is not valid JSON (1 bad line).');
+        await expectContrast(page);
+        const results = await new AxeBuilder({ page })
+          .include('[aria-label="Bad lines"]')
+          .withRules(['color-contrast'])
+          .analyze();
+        expect(results.passes.flatMap((pass) => pass.nodes).length).toBeGreaterThan(0);
+      });
+    }
+
     test('the editor and toolbar take their colours from the theme', async ({ page }) => {
       await applyTheme(page, theme);
       await page.goto('/');

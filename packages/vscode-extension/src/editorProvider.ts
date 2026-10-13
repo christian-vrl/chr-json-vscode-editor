@@ -41,7 +41,6 @@ import { DocumentSync, minimalReplacement } from './documentSync';
 import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
 import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
-import { webviewFormat } from './formatBadge';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding } from './schemaBinding';
 import { collectSchemaScopes } from './schemaSettings';
@@ -494,9 +493,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** The format the badge holds for the document: detected, or chosen by the user. */
   private formatOf(document: vscode.TextDocument): Format {
-    return webviewFormat(
+    return (
       this.formatBadge.format(document) ??
-        detect(document.uri.path, document.languageId, document.getText()).format,
+      detect(document.uri.path, document.languageId, document.getText()).format
     );
   }
 

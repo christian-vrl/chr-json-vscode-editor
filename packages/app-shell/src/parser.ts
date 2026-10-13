@@ -5,6 +5,9 @@
 // text always comes from the host (core's style-preserving `applyPatch`).
 // A large-file tab (spec 008 criterion 8) parses with core's data-only `parseData`, which builds the
 // data alone and keeps nothing in core's parse cache; strict JSON still goes through `JSON.parse`.
+// JSON Lines (spec 012) never takes the `JSON.parse` fast path: a one-line JSON Lines text is valid
+// JSON whose data is the item, not the array of items (plan 012 risk R2). Its bad lines are no parse
+// error: the data is the items of the other lines (L1), shown read-only under the bad-line banner.
 import { getAdapter, parseData, type Format } from '@chr-json-editor/core';
 
 /** The shape of vanilla-jsoneditor's `JSONParser` (index.d.ts, `interface JSONParser`). */
@@ -61,6 +64,7 @@ function stringify(
 
 function createParser(format: Format): TextParser {
   const adapter = getAdapter(format);
+  if (format === 'jsonl') return { parse: (text) => adapter.parse(text).data, stringify };
   return {
     parse(text) {
       // Valid JSON is valid JSONC and JSON5 with the same data, and `JSON.parse` reads it many
