@@ -48,7 +48,7 @@ import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
 import { DocumentValidation } from './validation';
-import { createNonce, renderWebviewHtml } from './webviewHtml';
+import { createNonce, escapeHtml, renderWebviewHtml } from './webviewHtml';
 
 export const VIEW_TYPE = 'chrJsonEditor.editor';
 
@@ -189,7 +189,13 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       title: name,
       scripts: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js')).toString()],
       stylesheets: [webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css')).toString()],
-      body: '<main id="app"></main>',
+      // The query engine's entry, loaded by the page only when Transform first opens; its
+      // WebAssembly needs 'wasm-unsafe-eval', which only this editor's page gets (spec 011 T5,
+      // criterion 9; the panels keep 003's policy).
+      body: `<main id="app" data-query-engine="${escapeHtml(
+        webview.asWebviewUri(vscode.Uri.joinPath(dist, 'engine', 'engine.js')).toString(),
+      )}"></main>`,
+      wasm: true,
     });
     // Measured once: the mode stays whatever later edits do to the size (criterion 1).
     const largeFile = largeFileFor(document.getText());

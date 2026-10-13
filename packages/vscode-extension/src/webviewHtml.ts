@@ -14,6 +14,9 @@ export interface WebviewPage {
   stylesheets: readonly string[];
   /** Trusted HTML placed in `<body>` before the scripts. */
   body?: string;
+  /** Adds `'wasm-unsafe-eval'` to `script-src` (see `contentSecurityPolicy`); the CHR JSON editor
+   *  only. */
+  wasm?: boolean;
 }
 
 /** 128 random bits, base64: the CSP3 nonce length recommendation. Web Crypto, which Node 22 and
@@ -63,7 +66,7 @@ export function renderWebviewHtml(page: WebviewPage): string {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${escapeHtml(contentSecurityPolicy(page.cspSource, page.nonce))}">
+<meta http-equiv="Content-Security-Policy" content="${escapeHtml(contentSecurityPolicy(page.cspSource, page.nonce, { wasm: page.wasm }))}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(page.title)}</title>
 ${links.join('\n')}

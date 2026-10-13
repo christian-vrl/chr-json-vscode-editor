@@ -7,6 +7,9 @@
 // compiled out of release builds): `__CHR_TEST_HOOKS__` becomes true and `activate` returns
 // `testHooks`. Without it the hook code is removed as dead code.
 import { build } from 'esbuild';
+import { copyFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { browserEntryOptions } from './esbuild.web.mjs';
 
 const testHooks = process.env.CHR_TEST_HOOKS === '1';
@@ -66,3 +69,26 @@ await build({
   sourcemap: false,
   logLevel: 'info',
 });
+
+// The JavaScript and Lodash query engine (spec 011 T5): app-shell's dist/lib/engine.js and the
+// chunks it imports (QuickJS's single-file WebAssembly module, its loader and FFI) go to
+// dist/engine/ as they are, ES modules the editor webview loads with `import()` by their webview
+// URI when the Transform dialog first opens (011 T1 REPORT §3 route (a); src/webview/main.ts).
+// They are not bundled into webview.js, so opening a document does not parse them (criterion 10).
+const lib = path.dirname(createRequire(import.meta.url).resolve('@chr-json-editor/app-shell/ui'));
+const engineDir = 'dist/engine';
+rmSync(engineDir, { recursive: true, force: true });
+mkdirSync(engineDir, { recursive: true });
+const engineFiles = new Set();
+const copyModule = (file) => {
+  if (engineFiles.has(file)) return;
+  engineFiles.add(file);
+  const source = readFileSync(path.join(lib, file), 'utf8');
+  copyFileSync(path.join(lib, file), path.join(engineDir, file));
+  // Vite's ES output names its chunks with static `from"./x.js"` and dynamic `import("./x.js")`.
+  for (const [, chunk] of source.matchAll(/(?:from|import\(?)\s*["']\.\/([^"'/]+\.js)["']/g)) {
+    copyModule(chunk);
+  }
+};
+copyModule('engine.js');
+console.log(`esbuild: query engine copied to ${engineDir}: ${[...engineFiles].join(', ')}`);

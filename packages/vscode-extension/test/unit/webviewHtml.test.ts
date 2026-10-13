@@ -58,6 +58,13 @@ describe('renderWebviewHtml', () => {
     expect(html.indexOf('Content-Security-Policy')).toBeLessThan(html.indexOf('<link'));
   });
 
+  it("puts 'wasm-unsafe-eval' in the page's policy only when asked (spec 011 criterion 9)", () => {
+    expect(renderWebviewHtml(page)).not.toContain('wasm-unsafe-eval');
+    expect(renderWebviewHtml({ ...page, wasm: true })).toContain(
+      'script-src &#39;nonce-n0nce+/A==&#39; &#39;wasm-unsafe-eval&#39;;',
+    );
+  });
+
   it('rejects a nonce that could break out of the policy', () => {
     expect(() => renderWebviewHtml({ ...page, nonce: "x'; script-src *" })).toThrow(/base64/);
     expect(() => renderWebviewHtml({ ...page, nonce: '' })).toThrow(/base64/);
