@@ -8,19 +8,19 @@
 // Above the size limit (UNK-037, compareModel.ts) a command opens no panel: it offers VS Code's text
 // diff of the same two documents instead (criterion 10), a HEAD side served from memory by this
 // extension's own read-only `chr-json-head:` documents.
-import * as path from 'node:path';
 import * as vscode from 'vscode';
 import type { CompareSource, ComparePanels } from './comparePanel';
 import { compareTitle, COMPARE_LIMIT_BYTES, oversizedMessage, oversizedSide } from './compareModel';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { headMessage } from './gitHead';
-import { readHeadOf } from './gitHeadVscode';
+import { desktopOnlyMessage, type HostPlatform } from './platform';
+import { basename, dirname, extname } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
 export const COMPARE_WITH_COMMAND = 'chrJsonEditor.compareWith';
 export const COMPARE_SELECTED_COMMAND = 'chrJsonEditor.compareSelected';
-export const COMPARE_WITH_HEAD_COMMAND = 'chrJsonEditor.compareWithHead';
+export const COMPARE_WITH_HEAD_COMMAND = 'chrJsonEditor.compareWithHead' as const;
 
 export const HEAD_SCHEME = 'chr-json-head';
 const OPEN_TEXT_DIFF = 'Open Text Diff';
@@ -43,6 +43,7 @@ export const testCompare: {
 export function registerCompareCommands(
   panels: ComparePanels,
   badge: FormatBadgeController,
+  platform: HostPlatform,
 ): vscode.Disposable[] {
   const heads = new HeadTexts();
   const open = (left: CompareSource, right: CompareSource) =>
@@ -69,10 +70,16 @@ export function registerCompareCommands(
       },
     ),
     vscode.commands.registerCommand(COMPARE_WITH_HEAD_COMMAND, async (uri?: unknown) => {
+      // Desktop-only (UNK-053, spec 013 criterion 8): the web host has no Git HEAD reader.
+      const readHead = platform.readHead;
+      if (!readHead) {
+        show(desktopOnlyMessage(COMPARE_WITH_HEAD_COMMAND));
+        return undefined;
+      }
       const document = await target(badge, uri);
       if (!document) return undefined;
-      const name = path.posix.basename(document.uri.path) || 'Untitled';
-      const head = await readHeadOf(document.uri);
+      const name = basename(document.uri.path) || 'Untitled';
+      const head = await readHead(document.uri);
       const message = headMessage(name, head);
       if (message !== undefined || head.kind !== 'head') {
         show(message ?? `${name} is not in Git HEAD`);
@@ -89,7 +96,7 @@ export function registerCompareCommands(
 }
 
 function sourceName(source: CompareSource): string {
-  const name = path.posix.basename(source.uri.path) || 'Untitled';
+  const name = basename(source.uri.path) || 'Untitled';
   return source.kind === 'head' ? `${name} (HEAD)` : name;
 }
 
@@ -169,7 +176,7 @@ class HeadTexts implements vscode.TextDocumentContentProvider, vscode.Disposable
 }
 
 function isCompareFile(uri: vscode.Uri): boolean {
-  const extension = path.posix.extname(uri.path).slice(1).toLowerCase();
+  const extension = extname(uri.path).slice(1).toLowerCase();
   return EXTENSIONS.includes(extension);
 }
 
@@ -207,15 +214,13 @@ async function pickOther(self: vscode.Uri): Promise<vscode.Uri | undefined> {
   const items: FileItem[] = [
     browse,
     ...listed.map((uri) => ({
-      label: path.posix.basename(uri.path),
-      description: vscode.workspace.asRelativePath(
-        uri.with({ path: path.posix.dirname(uri.path) }),
-      ),
+      label: basename(uri.path),
+      description: vscode.workspace.asRelativePath(uri.with({ path: dirname(uri.path) })),
       uri,
     })),
   ];
   const item = await vscode.window.showQuickPick(items, {
-    title: `Compare ${path.posix.basename(self.path)} with`,
+    title: `Compare ${basename(self.path)} with`,
     placeHolder: 'Pick a JSON, JSONC or JSON5 file',
     matchOnDescription: true,
   });
