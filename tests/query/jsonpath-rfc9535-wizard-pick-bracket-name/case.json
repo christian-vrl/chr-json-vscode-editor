@@ -1,0 +1,9 @@
+{
+  "language": "jsonpath-rfc9535",
+  "tags": ["pick", "bracket-name"],
+  "wizard": {
+    "projection": {
+      "paths": [["home town"]]
+    }
+  }
+}

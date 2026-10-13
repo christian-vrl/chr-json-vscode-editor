@@ -1,0 +1,6 @@
+url: https://github.com/jsonpath-standard/jsonpath-compliance-test-suite
+commit: 9d1a415a53f5dfb291bc874823892e49174e38eb
+file: cts.json
+sha256: a49c3839659a6f5a0385c7704289d62305f3e198b1f19599d6165a0a0275b8bb
+tests: 706
+license: BSD-2-Clause (LICENSE, copied unchanged from the same commit)

@@ -1,0 +1,11 @@
+{
+  "language": "jsonpath-rfc9535",
+  "tags": ["filter"],
+  "wizard": {
+    "filter": {
+      "path": ["age"],
+      "relation": ">",
+      "value": "30"
+    }
+  }
+}

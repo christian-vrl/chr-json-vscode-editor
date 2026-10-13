@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Contract (risk-free / additive)
-- [ ] **T1** Vendor the CTS (`tests/query/jsonpath-cts/`: `cts.json` at commit
+- [x] **T1** Vendor the CTS (`tests/query/jsonpath-cts/`: `cts.json` at commit
   `9d1a415a53f5dfb291bc874823892e49174e38eb`, its `LICENSE`, a `SOURCE` file with the URL and
   commit); write the RFC 9535 cases in `tests/query/jsonpath-rfc9535-<case>/` (`query.jsonpath`
   instead of `query.js`; wizard cases' text from the library's `jsonpathQueryLanguage.createQuery`);
