@@ -90,7 +90,6 @@ export function markBigNumbers(text: string): string {
     const ch = text[i]!;
     let end = i;
     if (text.startsWith('//', i)) {
-      end = i;
       while (end < text.length && text[end] !== '\n') end++;
     } else if (text.startsWith('/*', i)) {
       const close = text.indexOf('*/', i + 2);

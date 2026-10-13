@@ -105,7 +105,8 @@ export function holdsBigNumber(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
   const stack: object[] = [value];
   for (let next = stack.pop(); next; next = stack.pop()) {
-    for (const member of Array.isArray(next) ? next : Object.values(next)) {
+    const members: unknown[] = Array.isArray(next) ? next : Object.values(next);
+    for (const member of members) {
       if (typeof member === 'bigint' || member instanceof LosslessNumber) return true;
       if (typeof member === 'object' && member !== null) stack.push(member);
     }

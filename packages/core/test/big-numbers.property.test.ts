@@ -115,7 +115,7 @@ const json5Leaf = fc
       token = decimal.replace(/[eE]/, '.$&');
     }
     const big = bigText(text);
-    return { token, data: big ? new LosslessNumber(big) : (JSON5.parse(token) as number) };
+    return { token, data: big ? new LosslessNumber(big) : JSON5.parse<number>(token) };
   });
 
 /** A document's shape: leaves, arrays and objects. */
@@ -161,6 +161,8 @@ function leavesOf(shape: Shape): Leaf[] {
   return shape.entries.flatMap(([, v]) => leavesOf(v));
 }
 
+const SEPARATORS = [', ', ',\n  ', ','];
+
 /** The shape as text in `format`, its layout and comments drawn from `g`. JSON Lines items stay on
  *  one line each. */
 function print(shape: Shape, format: Format, g: fc.GeneratorValue, oneLine = false): string {
@@ -168,7 +170,7 @@ function print(shape: Shape, format: Format, g: fc.GeneratorValue, oneLine = fal
     (format === 'jsonc' || format === 'json5') && g(fc.integer, { min: 1, max: 6 }) === 1
       ? ' /* c */ '
       : '';
-  const sep = oneLine ? ', ' : g(fc.constantFrom, ', ', ',\n  ', ',');
+  const sep = oneLine ? ', ' : SEPARATORS[g(fc.integer, { min: 0, max: SEPARATORS.length - 1 })]!;
   if (isLeaf(shape)) return shape.token;
   if (Array.isArray(shape))
     return `[${comment()}${shape.map((s) => print(s, format, g, oneLine) + comment()).join(sep)}]`;

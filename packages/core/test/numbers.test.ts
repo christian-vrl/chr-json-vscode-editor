@@ -135,7 +135,6 @@ describe('writeJson: JSON.stringify with big numbers', () => {
     fc.constant([1, undefined, () => 2]),
     fc.constant({ a: undefined, b: () => 1, c: Symbol('c'), d: 1 }),
     fc.constant({ toJSON: (key: string) => `key ${key}` }),
-    // eslint-disable-next-line no-new-wrappers
     fc.constant([new Number(1), new String('s'), new Boolean(false)]),
     fc.constant([NaN, Infinity, -0, 1e21]),
     fc.constant(JSON.parse('{"__proto__": [1]}') as unknown),
