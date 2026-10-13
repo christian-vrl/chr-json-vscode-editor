@@ -157,7 +157,7 @@
         },
         {
           "command": "chrJsonEditor.importCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor"
+          "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked"
         },
         {
           "command": "chrJsonEditor.convertCsvToJson",
@@ -197,7 +197,7 @@
         },
         {
           "command": "chrJsonEditor.importCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor",
+          "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked",
           "group": "2_csv@2"
         },
         {

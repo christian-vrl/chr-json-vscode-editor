@@ -490,7 +490,6 @@
     sendNext();
   }
 
-  /** What the editor holds now, for tests. */
   /** Selects the node at JSON Pointer `path` in tree mode, as a click on its row does (e2e test
    *  hooks, 009 T4). The library does not report its own `select` to `onSelect`, so the selection
    *  is kept here too. */
@@ -517,6 +516,7 @@
     return '';
   }
 
+  /** What the editor holds now, for tests. */
   export function content(): Content | undefined {
     return editor?.get();
   }

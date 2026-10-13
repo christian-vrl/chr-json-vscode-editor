@@ -169,7 +169,11 @@ exports.runCsv = async function runCsv({
     for (const menu of ['commandPalette', 'editor/title']) {
       assert.match(entry(menu, EXPORT), /activeCustomEditorId == chrJsonEditor\.editor/);
       assert.match(entry(menu, EXPORT), /textEditorFormat =~ \/\^\(json\|jsonc\|json5\)\$\//);
-      assert.equal(entry(menu, IMPORT), 'activeCustomEditorId == chrJsonEditor.editor');
+      // Not in a tab locked in large-file mode (criterion 10, csvLargeFile.cjs).
+      assert.equal(
+        entry(menu, IMPORT),
+        'activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked',
+      );
     }
     assert.match(entry('editor/title', CONVERT), /resourceExtname =~ \/\^\\\.csv\$\/i/);
     assert.match(entry('explorer/context', CONVERT), /resourceExtname =~ \/\^\\\.csv\$\/i/);

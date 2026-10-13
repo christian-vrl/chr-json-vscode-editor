@@ -59,6 +59,31 @@ describe('VscodeCsvHostAdapter', () => {
     expect(await opened).toEqual(source);
   });
 
+  it('hands a later source to onDidChangeSource listeners, not to open (009 T5)', async () => {
+    const { adapter, deliver } = fakeWebview();
+    const seen: unknown[] = [];
+    const listener = adapter.onDidChangeSource((source) => seen.push(source));
+    const source = {
+      mode: 'import',
+      name: 'a.csv',
+      preview: 'a\n1\n',
+      complete: true,
+      canReplace: false,
+    };
+    // Before `open`, a source is nobody's: the page asks with csvReady and gets the current one.
+    deliver({ ...envelope, type: 'csvSource', source });
+    expect(seen).toEqual([]);
+    const opened = adapter.open();
+    deliver({ ...envelope, type: 'csvSource', source });
+    expect(await opened).toEqual(source);
+    expect(seen).toEqual([]);
+    deliver({ ...envelope, type: 'csvSource', source: { ...source, canReplace: true } });
+    expect(seen).toEqual([{ ...source, canReplace: true }]);
+    listener.dispose();
+    deliver({ ...envelope, type: 'csvSource', source });
+    expect(seen).toHaveLength(1);
+  });
+
   it('answers each run with the outcome of the same request', async () => {
     const { adapter, posted, deliver } = fakeWebview();
     const options = {

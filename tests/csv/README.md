@@ -15,6 +15,9 @@ themselves is `tests/golden/csv/`; these files only drive the panel.
 - `import/open-quote.csv`: a quote left open on line 3 (I2 error).
 - `import/late-open-quote.csv`: 150 good rows, then a quote left open on line 152: past the preview,
   so only the full conversion finds it.
+- `import/late-null-budget.csv`: field names `id` and `a[100000]`; 100 rows give `id` alone, then 11
+  rows give both, and each fills 100,000 `null` items (I5). The 11th, on line 112, takes the total
+  past 1,000,000 (UNK-063): the preview shows 100 rows and no error, the full import fails (009 T5).
 - `replace/<case>/`: spec 009 criterion 4. "Replace Document Data" with `data.csv` on `before.*`
   gives `expected-after.*` byte for byte: core's `diff` applied with the format's `applyPatch`, so
   members that survive keep their comments. `jsonc-comments` changes a value and removes a row,
