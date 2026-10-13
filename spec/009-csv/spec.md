@@ -111,6 +111,7 @@ a message and, for import, a 1-based line number. Options and defaults are in §
 - **X5 Cells:** a string as written; a finite number as `JSON.stringify` writes it; `NaN`,
   `Infinity` and `-Infinity` as those words; `true`, `false`; `null` and a missing value as an empty
   cell.
+  *Amended by spec 015 B9 (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): a big number is written as its decimal text, unquoted.*
 - **X6 Quoting (RFC 4180):** a cell is quoted, with each `"` doubled, when it contains the delimiter,
   `"`, CR or LF, starts or ends with white space, is an empty string, or is a string that I7 would
   read as a number, `true`, `false` or `null` (`"7"`, `"true"`, `"null"`), so it imports back as text.
@@ -139,7 +140,13 @@ a message and, for import, a 1-based line number. Options and defaults are in §
   nested objects and arrays (`address.city`, `tags[0]`, `["a.b"]`); a name that is not valid notation,
   or that conflicts with an earlier one (`a` then `a.b`), stays a flat key, with a warning for each
   conflict. Array indices missing below the highest one given (`tags[2]` without `tags[0]`) become
-  `null`, as csv42 does. Off, every field name is a flat key.
+  `null`, as csv42 does. Off, every field name is a flat key. **Limits (UNK-063):** a name with an
+  index above 100,000 (`a[4294967294]`) stays a flat key, with a warning; and when the `null` items
+  for missing indices would come to more than 1,000,000 in all (counted over every row of the
+  import), the import is an error naming the line of the record that goes past it. A CSV this spec
+  exports never reaches the second limit (X4 writes every index); the cap changes only an array of
+  more than 100,001 items exported with "Flatten nested arrays" on, whose items past index 100,000
+  read back as flat keys, with the warning.
 - **I6 Rows:** each record becomes one object with its members in column order. A record with fewer
   fields than there are names leaves the missing members out; a record with more fields keeps the
   extra ones as `Field <n>` and gets a warning naming its line. The result is an array, empty when the
@@ -150,6 +157,7 @@ a message and, for import, a 1-based line number. Options and defaults are in §
   `007`, `1.50`, `1e3` and `12345678901234567890` stay strings); `true`, `false` or `null` for those
   words; `null` when empty; the value of its JSON text when it starts with `{` or `[` and parses;
   otherwise the string as written.
+  *Amended by spec 015 B9 per UNK-067 ★ "Exact number" (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): an unquoted cell that is an RFC 8259 number and a big number (spec 015 Terms) becomes that big number, its text kept, so `12345678901234567890` no longer stays a string; `007`, `1.50` and `1e3` still do.*
 
 ## Scope
 - **In:** `jsonToCsv` and `csvToJson` in `core` (our own code, csv42's notation), the golden

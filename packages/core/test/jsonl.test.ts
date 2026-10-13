@@ -4,10 +4,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   convert,
+  ConvertError,
   getAdapter,
   parseData,
   PatchError,
   repair,
+  repairLines,
   type FormatNode,
 } from '../src/index.js';
 
@@ -241,10 +243,65 @@ describe('parseData (spec 008 criterion 6 for JSON Lines)', () => {
   });
 });
 
-describe('until 012 T3', () => {
-  it('Repair JSON and conversion do not take JSON Lines', () => {
+describe('repairLines (L10, 012 T3)', () => {
+  it('returns a text with no bad line as it is', () => {
+    const text = `${BOM}1\r\n\r\n  [2] \r\n`;
+    expect(repairLines(text)).toEqual({ text, unrepaired: [] });
+  });
+
+  it('keeps a leading BOM first when the first line is repaired or a run with it collapses', () => {
+    expect(repairLines(`${BOM}{"a":1\n2\n`)).toEqual({
+      text: `${BOM}{"a":1}\n2\n`,
+      unrepaired: [],
+    });
+    expect(repairLines(`${BOM}{\r\n  "a": 1\r\n}\r\n`)).toEqual({
+      text: `${BOM}{"a":1}\r\n`,
+      unrepaired: [],
+    });
+  });
+
+  it('reads a line with a lone CR between tokens as one value, compacted', () => {
+    expect(repairLines('{"a":\r1}\n')).toEqual({ text: '{"a":1}\n', unrepaired: [] });
+  });
+
+  it('keeps a bad line it cannot repair, numbered in the result (README reading 6)', () => {
+    const text = '{\n"a": 1\n}\n\n// note\n{"b":2}\n';
+    expect(repairLines(text)).toEqual({ text: '{"a":1}\n\n// note\n{"b":2}\n', unrepaired: [3] });
+  });
+
+  it('repairs a last line with no line ending and writes none', () => {
+    expect(repairLines('1\n[2')).toEqual({ text: '1\n[2]', unrepaired: [] });
+  });
+});
+
+describe('convert with JSON Lines (J1, J2, 012 T3)', () => {
+  it('returns a JSON Lines text converted to JSON Lines as it is, and refuses one with a bad line', () => {
+    expect(convert(' 1 \r\n\r\n', 'jsonl', 'jsonl')).toEqual({ text: ' 1 \r\n\r\n', losses: [] });
+    expect(() => convert('1\n{\n', 'jsonl', 'jsonl')).toThrow(ConvertError);
+    expect(() => convert('1\n{\n', 'jsonl', 'json')).toThrow('Line 2 is not valid JSON.');
+  });
+
+  it('refuses a source with an error before reading its root (criterion 9)', () => {
+    expect(() => convert('{"a": }', 'json', 'jsonl')).toThrow(ConvertError);
+    expect(() => convert('{"a": }', 'json', 'jsonl')).not.toThrow('needs an array');
+    expect(() => convert('7', 'json5', 'jsonl')).toThrow('JSON Lines needs an array at the root.');
+  });
+
+  it('writes nested containers and a JSON5 item on one line each', () => {
+    const text = "[\n  {a: [1, {b: 'x\\\ny'}]},\n  [ ],\n  {},\n]";
+    expect(convert(text, 'json5', 'jsonl')).toEqual({
+      text: '{"a":[1,{"b":"xy"}]}\n[]\n{}\n',
+      losses: [],
+    });
+  });
+
+  it('keeps a string with a U+2028 on its line', () => {
+    expect(convert('["a\u2028b"]', 'json', 'jsonl').text).toBe('"a\u2028b"\n');
+  });
+});
+
+describe('Repair JSON on JSON Lines', () => {
+  it('is refused: JSON Lines has Repair Lines (criterion 6)', () => {
     expect(() => repair('1\n{', 'jsonl')).toThrow(PatchError);
-    expect(() => convert('1\n', 'jsonl', 'json')).toThrow('not available yet');
-    expect(() => convert('[1]', 'json', 'jsonl')).toThrow('not available yet');
   });
 });

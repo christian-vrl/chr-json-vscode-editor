@@ -5,6 +5,7 @@ export * from './schema/index.js';
 export { diff } from './diff.js';
 export { compare, copyDifference, type CompareSide, type Difference } from './compare.js';
 export { repair, type RepairResult } from './repair/repair.js';
+export { repairLines, type RepairLinesResult } from './repair/lines.js';
 export { detect, strictJsonDiagnostics } from './detect.js';
 export type { Detection, DetectionSource, StrictJsonDiagnostic } from './detect.js';
 export * from './csv/index.js';

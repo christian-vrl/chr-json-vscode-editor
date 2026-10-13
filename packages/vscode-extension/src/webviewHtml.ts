@@ -2,7 +2,6 @@
 // `vscode` import, so unit tests can call them. The page loads only the scripts and stylesheets it
 // is given, each tagged with the nonce; pointing the webview at the app-shell bundle (003 T2) means
 // passing its URIs here.
-import { randomBytes } from 'node:crypto';
 
 export interface WebviewPage {
   /** `webview.cspSource`: the origin VS Code serves `localResourceRoots` from. */
@@ -17,9 +16,11 @@ export interface WebviewPage {
   body?: string;
 }
 
-/** 128 random bits, base64: the CSP3 nonce length recommendation. */
+/** 128 random bits, base64: the CSP3 nonce length recommendation. Web Crypto, which Node 22 and
+ *  the web host both have as `crypto` (spec 013 T1), not `node:crypto`. */
 export function createNonce(): string {
-  return randomBytes(16).toString('base64');
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes));
 }
 
 /**
@@ -27,11 +28,19 @@ export function createNonce(): string {
  * `unsafe-inline`, no `unsafe-eval`); stylesheets from the webview source or with the nonce; no
  * network connections. Inline `style` attributes are blocked; styles set through the CSSOM
  * (`element.style.x = ...`) are not.
+ *
+ * `wasm` adds `'wasm-unsafe-eval'` to `script-src` and changes nothing else: the CHR JSON editor
+ * page compiles the query engine's WebAssembly with it (spec 011 criterion 9, UNK-048 ★); the
+ * panels never pass it.
  */
-export function contentSecurityPolicy(cspSource: string, nonce: string): string {
+export function contentSecurityPolicy(
+  cspSource: string,
+  nonce: string,
+  { wasm = false }: { wasm?: boolean } = {},
+): string {
   return [
     "default-src 'none'",
-    `script-src 'nonce-${nonce}'`,
+    `script-src 'nonce-${nonce}'${wasm ? " 'wasm-unsafe-eval'" : ''}`,
     `style-src ${cspSource} 'nonce-${nonce}'`,
     "connect-src 'none'",
     "base-uri 'none'",

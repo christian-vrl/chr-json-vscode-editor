@@ -1,0 +1,6 @@
+[
+  { name: 'Ana', age: 34, 'home town': 'Lisbon', address: { city: 'Lisbon', zip: '1100' } },
+  { name: 'Bruno', age: 27, 'home town': 'Porto', address: { city: 'Porto', zip: '4000' } },
+  { name: 'Carla', age: 41, 'home town': 'Lisbon', address: { city: 'Lisbon', zip: '1200' } },
+  { name: 'Davi', age: 27, 'home town': 'Braga', address: { city: 'Braga', zip: '4700' } },
+]

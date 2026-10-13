@@ -1,0 +1,11 @@
+{
+  "language": "jsonpath-rfc9535",
+  "tags": ["filter", "bracket-name"],
+  "wizard": {
+    "filter": {
+      "path": ["home town"],
+      "relation": "==",
+      "value": "Lisbon"
+    }
+  }
+}

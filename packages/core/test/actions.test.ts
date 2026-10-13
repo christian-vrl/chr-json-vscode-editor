@@ -168,6 +168,25 @@ describe('format (003 T8, prettyPrint)', () => {
     for (const format of formats)
       expect(() => getAdapter(format).prettyPrint('{"a": }')).toThrow(PatchError);
   });
+
+  it('takes linear time with a comment after every member', () => {
+    // Each same-line comment used to copy the whole output so far: 2 MiB took about 30 s, now
+    // under 1 s. The bound leaves room for a slow runner and still catches the old behavior.
+    for (const format of ['jsonc', 'json5'] as const) {
+      const key = (k: string) => (format === 'json5' ? k : `"${k}"`);
+      const lines: string[] = [];
+      for (let n = 0, size = 0; size < 2 * 1024 * 1024; n++) {
+        const line = `  ${key(`k${n}`)}: {${key('a')}: ${n}, ${key('b')}: [${n}, /* x */ 1]}, // c${n}\n`;
+        lines.push(line);
+        size += line.length;
+      }
+      const text = `{\n${lines.join('')}  ${key('end')}: 0\n}\n`;
+      const started = performance.now();
+      const output = getAdapter(format).prettyPrint(text);
+      expect(performance.now() - started).toBeLessThan(8_000);
+      expect(output).toContain(`}, // c${lines.length - 1}\n`);
+    }
+  });
 });
 
 // --- Criterion 8 over random commented documents ------------------------------------------------

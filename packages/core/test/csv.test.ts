@@ -1,6 +1,8 @@
 // 009 T2: cases of spec 009 the golden corpus cannot hold or leaves open (tests/golden/README.md
 // §CSV corpus): X5 words for NaN and the infinities, the readings T2 takes and UNK-057–UNK-062.
+// UNK-063: the index cap and the limit on null items (I5).
 import { describe, expect, it } from 'vitest';
+import { CSV_MAX_FILLED, CSV_MAX_INDEX } from '../src/csv/csvToJson.js';
 import { csvToJson, detectDelimiter, jsonToCsv } from '../src/index.js';
 
 const text = (data: unknown, options = {}) => {
@@ -152,6 +154,85 @@ describe('csvToJson', () => {
     expect(read('u.k,u[0]\r\n1,2\r\n').warnings).toEqual([
       { message: 'Field name "u[0]" conflicts with "u.k"; it is kept as a flat key', line: 1 },
     ]);
+  });
+});
+
+describe('csvToJson huge array indices (I5, UNK-063)', () => {
+  const over = (name: string) =>
+    `Field name "${name}" has an array index above 100000; it is kept as a flat key`;
+
+  it('caps indices at 100,000 and fills at most 1,000,000 nulls', () => {
+    expect(CSV_MAX_INDEX).toBe(100_000);
+    expect(CSV_MAX_FILLED).toBe(1_000_000);
+  });
+
+  it('builds an array at the cap, nulls below it', () => {
+    const { data, warnings } = read('a[100000]\r\nx\r\n');
+    expect(warnings).toEqual([]);
+    const a = (data[0] as { a: unknown[] }).a;
+    expect(a).toHaveLength(100_001);
+    expect(a[100_000]).toBe('x');
+    expect(a.slice(0, 100_000).every((item) => item === null)).toBe(true);
+  });
+
+  it.each(['a[100001]', 'a[4294967294]', 'a.b[0][100001].c', `a[${'9'.repeat(400)}]`])(
+    'keeps %s as a flat key, with a warning',
+    (name) => {
+      expect(read(`${name},b\r\n1,2\r\n`)).toEqual({
+        data: [{ [name]: 1, b: 2 }],
+        warnings: [{ message: over(name), line: 1 }],
+      });
+    },
+  );
+
+  it('keeps an over-cap name flat when nesting is off, with no warning', () => {
+    expect(read('a[4294967294]\r\n1\r\n', { nestedObjects: false })).toEqual({
+      data: [{ 'a[4294967294]': 1 }],
+      warnings: [],
+    });
+  });
+
+  it('renames an over-cap name whose flat key is taken, warning in column order', () => {
+    expect(read('a[100001],a[100001]\r\n1,2\r\n')).toEqual({
+      data: [{ 'a[100001]': 1, 'a[100001]_1': 2 }],
+      warnings: [
+        { message: over('a[100001]'), line: 1 },
+        {
+          message: 'Field name "a[100001]" is repeated; this column is named "a[100001]_1"',
+          line: 1,
+        },
+      ],
+    });
+  });
+
+  it('reads an exported array longer than the cap back as flat keys past it', () => {
+    const items = Array.from({ length: 100_002 }, (_, i) => i);
+    const { data, warnings } = read(text([{ a: items }], { flattenArrays: true }));
+    expect(warnings).toEqual([{ message: over('a[100001]'), line: 1 }]);
+    expect(Object.keys(data[0]!)).toEqual(['a', 'a[100001]']);
+    expect((data[0] as { a: number[] }).a).toEqual(items.slice(0, 100_001));
+  });
+
+  it('allows exactly 1,000,000 nulls, then stops with an error naming the line', () => {
+    const rows = (n: number) => 'a[100000]\r\n' + 'x\r\n'.repeat(n);
+    expect(read(rows(10)).data).toHaveLength(10);
+    expect(csvToJson(rows(11))).toEqual({
+      error: {
+        message:
+          'Missing array indices would add more than 1000000 null items; the CSV is not imported',
+        line: 12,
+      },
+    });
+  });
+
+  it('does not count indices a row gives, or rows that leave the array out', () => {
+    const names = Array.from({ length: 1_000 }, (_, i) => `t[${i}]`).join(',');
+    const items = Array.from({ length: 1_000 }, () => '1').join(',');
+    const csv = `b,${names}\r\n` + `2,${items}\r\n`.repeat(2_000) + '3\r\n'.repeat(2_000);
+    const { data, warnings } = read(csv);
+    expect(warnings).toEqual([]);
+    expect(data).toHaveLength(4_000);
+    expect(data[3_999]).toEqual({ b: 3 });
   });
 });
 
