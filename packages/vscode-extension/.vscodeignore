@@ -1,5 +1,5 @@
 # Only the bundles (extension host 001 T5; webview script and stylesheet 003 T5; compare panel
-# script and stylesheet 007 T4), the manifest,
+# script and stylesheet 007 T4; the query engine's ES modules 011 T5), the manifest,
 # README, LICENSE (001 T5) and the third-party notice (001 T7) go into the .vsix.
 **
 !dist/extension.js
@@ -7,6 +7,7 @@
 !dist/webview.css
 !dist/compare.js
 !dist/compare.css
+!dist/engine/*.js
 !package.json
 !README.md
 !LICENSE

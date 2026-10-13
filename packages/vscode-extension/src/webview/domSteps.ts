@@ -46,6 +46,11 @@ export async function runSteps(steps: DomStep[]): Promise<(string | null)[]> {
           cancelable: true,
         }),
       );
+    } else if ('mousedown' in step) {
+      const element = await waitFor(step.mousedown, step.text);
+      const init = { button: 0, buttons: 1, bubbles: true, cancelable: true, composed: true };
+      element.dispatchEvent(new MouseEvent('mousedown', init));
+      element.dispatchEvent(new MouseEvent('mouseup', { ...init, buttons: 0 }));
     } else if ('waitFor' in step) await waitFor(step.waitFor, step.text, step.gone);
     else {
       const element = await waitFor(step.read, step.text);

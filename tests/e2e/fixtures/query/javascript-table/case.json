@@ -1,0 +1,5 @@
+{
+  "language": "JavaScript",
+  "mode": "table",
+  "query": "function query (data) {\n  return data.filter(city => city.name !== 'Porto')\n}"
+}

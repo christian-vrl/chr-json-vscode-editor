@@ -1,0 +1,6 @@
+{
+  "language": "Lodash",
+  "mode": "tree",
+  "node": "items",
+  "query": "function query (data) {\n  return _.reject(data, item => item.value < 5)\n}"
+}
