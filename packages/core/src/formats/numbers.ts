@@ -185,3 +185,86 @@ export function nearestNumbers(data: unknown): unknown {
     });
   return copy;
 }
+
+// --- Equality and order by exact value (spec 015 B3, 015 T3) ---------------------------------------
+//
+// A number's exact value is the decimal value its text denotes (spec 015 §Terms). A big number's
+// text is its `value`; a plain number's is `String(n)`, which has the significant digits of the text
+// it was read from (a text whose digits `String(Number(text))` does not give back is a big number),
+// so both are read the same way here.
+
+/** An exact value as `digits × 10^exponent`: `digits` without leading or trailing zeros (empty for
+ *  zero, whose sign is then `''`). */
+interface Exact {
+  sign: '' | '-';
+  digits: string;
+  exponent: bigint;
+}
+
+const EXACT = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
+
+/** The exact value of a decimal text (RFC 8259 grammar, or `String(n)` of a finite number). */
+function exactOf(text: string): Exact {
+  const match = EXACT.exec(text);
+  if (!match) throw new Error(`not a decimal number: ${text}`);
+  const [, sign, whole, fraction = '', exponent = '0'] = match;
+  const all = whole! + fraction;
+  const first = all.search(/[1-9]/);
+  if (first < 0) return { sign: '', digits: '', exponent: 0n };
+  const last = all.length - /0*$/.exec(all)![0].length;
+  return {
+    sign: sign as '' | '-',
+    digits: all.slice(first, last),
+    exponent: BigInt(exponent) - BigInt(fraction.length) + BigInt(all.length - last),
+  };
+}
+
+/** -1, 0 or 1 as exact value `a` is below, equal to or above `b`. */
+function compareExact(a: Exact, b: Exact): number {
+  const signOf = (x: Exact) => (x.digits === '' ? 0 : x.sign === '-' ? -1 : 1);
+  const sa = signOf(a);
+  const sb = signOf(b);
+  if (sa !== sb) return sa > sb ? 1 : -1;
+  if (sa === 0) return 0;
+  // Same sign: compare magnitudes, the leading digit's power of ten first, then digit by digit.
+  const ma = a.exponent + BigInt(a.digits.length);
+  const mb = b.exponent + BigInt(b.digits.length);
+  const magnitude =
+    ma > mb ? 1 : ma < mb ? -1 : a.digits > b.digits ? 1 : a.digits < b.digits ? -1 : 0;
+  return sa * magnitude;
+}
+
+/**
+ * The key `diff` gives a big number (B3, plan R5): equal for numbers with equal exact values. A
+ * plain number keys as `d${n}`; a big number whose exact value is a plain number's (`1e20` for
+ * `100000000000000000000`) keys as that number, and any other one by its exact value (`b`, sign,
+ * digits, `e`, exponent), which no plain number's key equals.
+ */
+export function bigNumberKey(big: LosslessNumber): string {
+  const exact = exactOf(big.value);
+  const nearest = Number(big.value);
+  if (Number.isFinite(nearest) && compareExact(exactOf(String(nearest)), exact) === 0)
+    return `d${nearest}`;
+  return `b${exact.sign}${exact.digits}e${exact.exponent}`;
+}
+
+/**
+ * Orders two numbers, plain or big, by exact value (B3): -1, 0 or 1. Two plain numbers compare as
+ * floats, exactly as before (`-0` equals `0`; `NaN` is neither below nor above anything, so 0). A
+ * plain `Infinity` is above every big number and `-Infinity` below; `NaN` against a big number is 0.
+ */
+export function compareNumbers(a: number | LosslessNumber, b: number | LosslessNumber): number {
+  if (typeof a === 'number' && typeof b === 'number') return a > b ? 1 : a < b ? -1 : 0;
+  if (typeof a === 'number' && !Number.isFinite(a)) return Number.isNaN(a) ? 0 : a > 0 ? 1 : -1;
+  if (typeof b === 'number' && !Number.isFinite(b)) return Number.isNaN(b) ? 0 : b > 0 ? -1 : 1;
+  return compareExact(exactOf(String(a)), exactOf(String(b)));
+}
+
+/** Whether two numbers, plain or big, are equal by exact value: RFC 6902's "numbers by value" for
+ *  the `test` op (B3). Two plain numbers are equal exactly when `===` says so, as before. */
+export function equalNumbers(a: number | LosslessNumber, b: number | LosslessNumber): boolean {
+  if (typeof a === 'number' && typeof b === 'number') return a === b;
+  if (typeof a === 'number' && !Number.isFinite(a)) return false;
+  if (typeof b === 'number' && !Number.isFinite(b)) return false;
+  return compareNumbers(a, b) === 0;
+}

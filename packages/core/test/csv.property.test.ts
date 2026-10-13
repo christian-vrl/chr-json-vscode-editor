@@ -6,10 +6,16 @@
 // no warnings and `data` deep-equals the input, key order included. Strings whose text is a JSON
 // object or array (I7, CSV reading 9: starts with `{` or `[`, ends with `}` or `]`, and parses) are
 // excluded. Keys are any strings, empty and dotted ones included.
+//
+// Spec 015 criterion 10 extends the scalars with big numbers (B9: exported as their digits,
+// imported as the same big number, UNK-067 ★). A plain number whose written text is a big number
+// (`-9007199254740992`, `100000000000000000000`) comes back as that big number, as a JSON file
+// holding that text reads (B1), so the expected data holds it as one.
 import { isDeepStrictEqual } from 'node:util';
 import fc from 'fast-check';
+import { isSafeNumber } from 'lossless-json';
 import { describe, expect, it } from 'vitest';
-import { csvToJson, jsonToCsv, type CsvDelimiter } from '../src/index.js';
+import { csvToJson, jsonToCsv, LosslessNumber, type CsvDelimiter } from '../src/index.js';
 import { SEED } from './arbitraries.js';
 
 const RUNS = 10_000;
@@ -89,7 +95,40 @@ const text = fc
 const number = fc
   .oneof(fc.integer(), fc.double({ noNaN: true, noDefaultInfinity: true }))
   .filter((n) => !Object.is(n, -0));
-const scalar = fc.oneof(text, number, fc.boolean(), fc.constant(null));
+const digits = (min: number, max: number) =>
+  fc.string({ unit: fc.constantFrom(...'0123456789'), minLength: min, maxLength: max });
+/** Big numbers (spec 015 §Terms) as RFC 8259 texts: long integers, long decimals, big exponents. */
+const bigNumber = fc
+  .oneof(
+    fc
+      .tuple(fc.constantFrom('', '-'), fc.constantFrom(...'123456789'), digits(15, 30))
+      .map(([s, d, rest]) => `${s}${d}${rest}`),
+    fc
+      .tuple(fc.constantFrom('', '-'), digits(1, 3), digits(16, 30))
+      .map(([s, whole, fraction]) => `${s}${String(Number(whole))}.${fraction}1`),
+    fc
+      .tuple(
+        fc.constantFrom('', '-'),
+        fc.integer({ min: 1, max: 9 }),
+        fc.integer({ min: 309, max: 999 }),
+      )
+      .map(([s, d, e]) => `${s}${d}e${e}`),
+  )
+  .filter((t) => !isSafeNumber(t))
+  .map((t) => new LosslessNumber(t));
+const scalar = fc.oneof(text, number, bigNumber, fc.boolean(), fc.constant(null));
+
+/** `rows` as import reads them back: a plain number written as a big number's text is that big
+ *  number (B1, B9). */
+function readBack(value: unknown): unknown {
+  if (typeof value === 'number') {
+    const written = JSON.stringify(value);
+    return isSafeNumber(written) ? value : new LosslessNumber(written);
+  }
+  if (typeof value !== 'object' || value === null || value instanceof LosslessNumber) return value;
+  if (Array.isArray(value)) return value.map(readBack);
+  return objectOf(Object.entries(value).map(([k, v]) => [k, readBack(v)]));
+}
 
 type Shape = [string, string[] | null][];
 
@@ -149,8 +188,9 @@ describe('CSV round trip (spec 009 criterion 3)', () => {
         const imported = csvToJson(exported.text, { delimiter: d });
         if (!('data' in imported)) throw new Error(JSON.stringify(imported.error));
         expect(imported.warnings).toEqual([]);
-        expect(isDeepStrictEqual(imported.data, rows)).toBe(true);
-        expect(keyOrder(imported.data)).toEqual(keyOrder(rows));
+        const expected = readBack(rows);
+        expect(isDeepStrictEqual(imported.data, expected)).toBe(true);
+        expect(keyOrder(imported.data)).toEqual(keyOrder(expected));
       }),
       { seed: SEED, numRuns: RUNS },
     );

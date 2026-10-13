@@ -1,7 +1,13 @@
 // Checks that a case's tags describe its own input and patch (002 T1), so a case cannot cover a
 // grid cell it does not exercise. The scanner below only needs to tell strings, comments and other
 // code apart; it is not a parser for any format.
-import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
+import {
+  existsIn,
+  getIn,
+  immutableJSONPatch,
+  parseJSONPointer,
+  type JSONPatchDocument,
+} from 'immutable-json-patch';
 import JSON5 from 'json5';
 import { isSafeNumber, LosslessNumber } from 'lossless-json';
 import { wholeDocumentOps, type GoldenCase } from './load.js';
@@ -123,6 +129,86 @@ export function markBigData(data: unknown): unknown {
       configurable: true,
     });
   return copy;
+}
+
+/** Whether reference data holds a big number: a `BIG` string or a `LosslessNumber`. */
+export function holdsBig(value: unknown): boolean {
+  if (typeof value === 'string') return value.startsWith(BIG);
+  if (value instanceof LosslessNumber) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  return Object.values(value).some(holdsBig);
+}
+
+/** The decimal text of a number in reference data (spec 015 §Terms): a `BIG` string's digits, a
+ *  `LosslessNumber`'s `value`, a finite number's `String(n)`; undefined for anything else. */
+export function numberText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.startsWith(BIG) ? value.slice(BIG.length) : undefined;
+  if (value instanceof LosslessNumber) return value.value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+/** Whether `value` is a big number in reference data. */
+export const isBig = (value: unknown): boolean =>
+  (typeof value === 'string' && value.startsWith(BIG)) || value instanceof LosslessNumber;
+
+/** A decimal text's exact value as the fraction `n / d`, with BigInt arithmetic. */
+function fraction(text: string): { n: bigint; d: bigint } {
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(text);
+  if (!m) throw new Error(`not a decimal number: ${text}`);
+  const [, sign, whole, part = '', exponent = '0'] = m;
+  const n = BigInt(`${sign}${whole}${part}`);
+  const scale = Number(exponent) - part.length;
+  return scale >= 0 ? { n: n * 10n ** BigInt(scale), d: 1n } : { n, d: 10n ** BigInt(-scale) };
+}
+
+/** -1, 0 or 1 as decimal text `a`'s exact value is below, equal to or above `b`'s. */
+export function compareExact(a: string, b: string): number {
+  const x = fraction(a);
+  const y = fraction(b);
+  const left = x.n * y.d;
+  const right = y.n * x.d;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** RFC 6902's equality with numbers by exact value (spec 015 B3): `1e20` equals
+ *  `100000000000000000000`. */
+export function exactEqual(a: unknown, b: unknown): boolean {
+  const ta = numberText(a);
+  const tb = numberText(b);
+  if (ta !== undefined && tb !== undefined) return compareExact(ta, tb) === 0;
+  if (isBig(a) || isBig(b)) return false;
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return a === b;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return (
+    ka.length === kb.length &&
+    ka.every(
+      (k) =>
+        Object.hasOwn(b, k) &&
+        exactEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+    )
+  );
+}
+
+/** `immutableJSONPatch(data, patch)`, except that a `test` op whose value or target holds a big
+ *  number compares by exact value (`exactEqual`), as spec 015 B3 says the `test` op does. */
+export function referencePatch(data: unknown, patch: JSONPatchDocument): unknown {
+  let current = data;
+  for (const op of patch) {
+    if (op.op === 'test') {
+      const path = parseJSONPointer(op.path);
+      const actual = existsIn(current, path) ? getIn(current, path) : undefined;
+      if (holdsBig(op.value) || holdsBig(actual)) {
+        if (actual === undefined || !exactEqual(actual, op.value))
+          throw new Error(`Test failed, value differs (path: "${op.path}")`);
+        continue;
+      }
+    }
+    current = immutableJSONPatch(current, [op]);
+  }
+  return current;
 }
 
 /** The data of a text, read by the json5 package, with big numbers as `BIG` strings (spec 015);
