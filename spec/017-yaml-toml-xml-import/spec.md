@@ -55,7 +55,11 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
 - **A4 Keys:** every key is an own member, `__proto__` and `constructor` included. Key order is the
   order in the file (first occurrence), except where a rule below says otherwise.
 - **A5 Depth:** data nested more than 1,000 levels deep is an error ("The file is nested too deeply
-  to convert (more than 1,000 levels)"), with no stack overflow.
+  to convert (more than 1,000 levels)"), with no stack overflow. YAML data nested more than 500 levels
+  deep, and at most 1,000, is an error ("The YAML file is nested too deeply to convert (more than
+  500 levels)"): `yaml` 2.9.1's composer recurses about 1.3 KB of stack per level, overflows Node
+  22's default stack near 780 levels, and V8 can then abort the whole process while it compiles a
+  regular expression, so the importer checks the depth before the composer runs (017 T2).
 - **A6 Comments and layout** are not carried: JSON has none. No warning is given for them; the
   source file is never changed.
 
