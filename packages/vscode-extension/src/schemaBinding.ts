@@ -41,8 +41,11 @@ export interface SchemaSource {
  * (`vscode-vfs:` in github.dev) on the web (spec 013 criterion 6).
  */
 export function schemaFileParts(uri: string): { scheme: string; authority: string; path: string } {
-  const [, scheme = 'file', authority = '', path = '/'] =
-    /^([a-zA-Z][a-zA-Z0-9+.-]*):(?:\/\/([^/]*))?(\/.*)?$/.exec(uri) ?? [];
+  const match = /^([a-zA-Z][a-zA-Z0-9+.-]*):(?:\/\/([^/]*))?(\/.*)?$/.exec(uri);
+  // The association names only URIs with a scheme and a hierarchical path (013 T4: no `file:`
+  // fallback); anything else is refused, which shows as a schema that cannot be read.
+  if (!match) throw new Error(`not a schema file URI: ${uri}`);
+  const [, scheme = '', authority = '', path = '/'] = match;
   return { scheme, authority, path };
 }
 
