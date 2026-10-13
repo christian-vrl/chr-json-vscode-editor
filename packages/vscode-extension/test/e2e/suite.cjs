@@ -340,6 +340,17 @@ exports.run = async function run() {
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (009 T4, criteria 4, 5, 7, 8 and 9's CSP): the CSV panel and its commands (csv.cjs).
+  await closeAll();
+  await require('./csv.cjs').runCsv({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+    assertCriterion6,
+  });
+
   // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
   await closeAll();
   await require('./ceiling.cjs').runCeiling({ hooks, waitFor, closeAll, expectOnly, isCustom });

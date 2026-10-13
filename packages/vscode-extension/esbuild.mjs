@@ -44,9 +44,14 @@ await build(browserEntryOptions({ testHooks }));
 // any other; the CSS it imports (the editor's, with the library's moved out of JavaScript by
 // UNK-029's Vite plugin) goes to dist/webview.css, loaded from the webview source.
 // The compare panel's script (007 T4, src/webview/compareMain.ts) is built the same way into
-// dist/compare.js and dist/compare.css.
+// dist/compare.js and dist/compare.css, and the CSV panel's (009 T4, src/webview/csvMain.ts) into
+// dist/csv.js and dist/csv.css.
 await build({
-  entryPoints: { webview: 'src/webview/main.ts', compare: 'src/webview/compareMain.ts' },
+  entryPoints: {
+    webview: 'src/webview/main.ts',
+    compare: 'src/webview/compareMain.ts',
+    csv: 'src/webview/csvMain.ts',
+  },
   outdir: 'dist',
   bundle: true,
   format: 'iife',
