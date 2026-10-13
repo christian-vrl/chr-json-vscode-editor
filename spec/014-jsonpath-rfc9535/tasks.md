@@ -13,7 +13,7 @@
   — needs: 011 T2 — *gate: coverage test green; Reviewer PASS on P1–P7 per case*
 
 ## Phase B — Language (risk-free / additive)
-- [ ] **T2** `packages/app-shell/src/query/jsonpath-rfc9535.ts` per plan (engine with P6's
+- [x] **T2** `packages/app-shell/src/query/jsonpath-rfc9535.ts` per plan (engine with P6's
   options, P2 result, error mapping, `createQuery` from the library); `json-p3` 2.3.2 pinned;
   unit tests for criteria 1 and 2 and the fast-check suite for criterion 4 (seed committed,
   10 000 runs); `THIRD_PARTY_LICENSES.md`. — needs: 014 T1 — *gate: criteria 1, 2, 4 green;
