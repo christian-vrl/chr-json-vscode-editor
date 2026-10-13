@@ -1,0 +1,4 @@
+[
+  { "zeta": 1, "alpha": { "y": 1 } },
+  { "mid": true, "alpha": { "x": 2, "y": 3 }, "zeta": 4 }
+]

@@ -1,0 +1,5 @@
+[
+  { "name": "a", "parent": null },
+  { "name": "b", "parent": "a" },
+  { "name": "c", "parent": null }
+]

@@ -1,0 +1,1 @@
+{ nan: NaN, list: [1, NaN] }
