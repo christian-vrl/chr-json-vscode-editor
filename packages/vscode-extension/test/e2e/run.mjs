@@ -81,6 +81,25 @@ try {
         '--disable-backgrounding-occluded-windows',
       ],
     });
+    // Spec 016 criterion 7 (016 T3) needs a workspace folder, and adding the first folder to an
+    // open window restarts the extension host, so generateSchema.cjs runs in a second launch that
+    // opens one, with its own user data so the first launch's settings do not apply.
+    const workspace = path.join(scratch, 'workspace');
+    mkdirSync(workspace);
+    await runTests({
+      vscodeExecutablePath,
+      extensionDevelopmentPath: path.join(here, 'harness'),
+      extensionTestsPath: path.join(here, 'generateSchema.cjs'),
+      launchArgs: [
+        workspace,
+        `--extensions-dir=${extensionsDir}`,
+        `--user-data-dir=${path.join(profile, 'user-data-workspace')}`,
+        '--disable-gpu',
+        '--disable-background-timer-throttling',
+        '--disable-renderer-backgrounding',
+        '--disable-backgrounding-occluded-windows',
+      ],
+    });
     console.log('test:e2e: passed');
   }
 } catch (error) {

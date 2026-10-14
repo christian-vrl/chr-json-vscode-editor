@@ -91,7 +91,7 @@ export function textFormat(editor: vscode.TextEditor | undefined): Format | unde
  * The document the command converts: the one in the active CHR JSON Editor tab or text editor, or,
  * from an editor title menu, the one that menu belongs to (`uri`).
  */
-async function source(
+export async function commandSource(
   badge: FormatBadgeController,
   uri: vscode.Uri | undefined,
 ): Promise<Source | undefined> {
@@ -123,7 +123,7 @@ async function convertActive(
   to: Format,
   uri: vscode.Uri | undefined,
 ): Promise<vscode.Uri | undefined> {
-  const found = await source(badge, uri);
+  const found = await commandSource(badge, uri);
   if (!found) return undefined;
   const { document, format: from, custom } = found;
   const bom = await startsWithBom(document);

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import Ajv from 'ajv';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PROTOCOL_VERSION, type ValidationMessage } from '@chr-json-editor/app-shell/protocol';
+import { generateSchema, LosslessNumber, parseData } from '@chr-json-editor/core';
 import { DocumentValidation, compileSchema, validateText } from '../../src/validation';
 
 const fixtures = new URL('../../../../tests/e2e/fixtures/validation/', import.meta.url);
@@ -114,6 +115,37 @@ describe('spec 016 criterion 4: inherited keys', () => {
       { instancePath: '/constructor', keyword: 'type' },
       { instancePath: '/toString', keyword: 'type' },
     ]);
+  });
+});
+
+// 016 T3 (from the #115 re-review): an own `__proto__` key holding a big number. compileSchema
+// validates the data's nearest numbers (spec 015 B6); the copy it makes must keep `__proto__` an own
+// member, or `required` fails. The criterion 3 property suite makes no big numbers, so this is the
+// only test of the two together.
+describe('an own __proto__ key holding a big number', () => {
+  const parsed = parseData('json', '{"__proto__": 12345678901234567890, "constructor": 1}');
+  if (!('data' in parsed)) throw new Error(parsed.error.message);
+  const data = parsed.data as object;
+
+  it('is an own member holding a LosslessNumber', () => {
+    expect(Object.getOwnPropertyDescriptor(data, '__proto__')?.value).toBeInstanceOf(
+      LosslessNumber,
+    );
+  });
+
+  it('passes its generated schema, which requires it', () => {
+    const generated = generateSchema(data, 'draft-07');
+    expect(generated.required).toEqual(['__proto__', 'constructor']);
+    expect(validatorFor(generated)(data)).toEqual([]);
+  });
+
+  it('meets required and the sibling checks; its absence is a required error', () => {
+    const validate = validatorFor({
+      required: ['__proto__', 'constructor'],
+      properties: { constructor: { type: 'integer', maximum: 1 } },
+    });
+    expect(validate(data)).toEqual([]);
+    expect(validate({ constructor: 1 }).map((e) => e.keyword)).toEqual(['required']);
   });
 });
 
