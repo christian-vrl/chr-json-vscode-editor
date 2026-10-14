@@ -28,8 +28,10 @@
  *  15: an `edit`'s `add`, `replace` and `test` operations carry their value as JSON text in
  *      `valueText`, so big numbers keep their digits (spec 015 B5, 015 T4).
  *  16: adds the host → UI `getNode` request with its UI → host `node` answer, the host → UI
- *      `reveal` message, and the UI → host `copyText` and `revealInText` messages (018 T2). */
-export const PROTOCOL_VERSION = 16;
+ *      `reveal` message, and the UI → host `copyText` and `revealInText` messages (018 T2).
+ *  17: `init.settings` is the typed `EditorSettings`; adds the host → UI `settings` message (spec
+ *      019 A2, 019 T2). */
+export const PROTOCOL_VERSION = 17;
 
 /** AGENTS.md §Glossary "Format", and JSON Lines (spec 012). */
 export type Format = 'json' | 'jsonc' | 'json5' | 'jsonl';
@@ -42,8 +44,44 @@ export const MODES: readonly Mode[] = ['tree', 'text', 'table'];
 export type JsonValue =
   null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-/** Settings snapshot the host sends with `init`; keys are defined by spec 019. */
-export type EditorSettings = { readonly [key: string]: JsonValue };
+/** Transform's query languages by the page's ids (spec 019 Q1; App.svelte's `QUERY_LANGUAGES`). */
+export const QUERY_LANGUAGE_IDS = [
+  'jsonquery',
+  'jmespath',
+  'jsonpath-rfc9535',
+  'jsonpath',
+  'javascript',
+  'lodash',
+] as const;
+export type QueryLanguageChoice = (typeof QUERY_LANGUAGE_IDS)[number];
+
+/**
+ * The settings the page uses (spec 019 §Settings), sent with `init` and again in `settings` when
+ * they change (A2). The host reads VS Code's settings and sends the values; the page never sees a
+ * setting key.
+ * - `thresholdBytes`: T1's threshold in bytes, above which Transform lists no JavaScript, Lodash or
+ *   JSONPath (RFC 9535) (spec 011 criterion 11, 014 criterion 8; query/size-gate.ts).
+ * - `defaultQueryLanguage`: Q1, the language a tab's first Transform dialog starts with.
+ * - `flattenColumns`: D1, the library's `flattenColumns` in table mode.
+ * - `escapeControlCharacters`, `escapeUnicodeCharacters`: D2, the library's props of those names in
+ *   tree and table mode.
+ */
+export interface EditorSettings {
+  thresholdBytes: number;
+  defaultQueryLanguage: QueryLanguageChoice;
+  flattenColumns: boolean;
+  escapeControlCharacters: boolean;
+  escapeUnicodeCharacters: boolean;
+}
+
+/** Every page setting at spec 019's default: today's behavior. */
+export const DEFAULT_EDITOR_SETTINGS: Readonly<EditorSettings> = Object.freeze({
+  thresholdBytes: 5 * 1024 * 1024,
+  defaultQueryLanguage: 'jsonquery',
+  flattenColumns: true,
+  escapeControlCharacters: false,
+  escapeUnicodeCharacters: false,
+});
 
 /** One RFC 6902 operation. `path` and `from` are RFC 6901 JSON Pointers. A big number in `value`
  *  is a lossless-json `LosslessNumber` (spec 015 B1), which `JsonValue` does not spell out. */
@@ -170,6 +208,14 @@ export interface InitMessage extends Envelope<'init'> {
   settings: EditorSettings;
   /** Set when the document opened in large-file mode (spec 008), `null` for the normal editor. */
   largeFile: LargeFile | null;
+}
+/**
+ * The page's settings changed (spec 019 A2): the host sends them all to every open tab. They apply
+ * at once, with no change to the data, the text or the undo history; `docVersion` is the document's
+ * version when they were sent and plays no part.
+ */
+export interface SettingsMessage extends Envelope<'settings'> {
+  settings: EditorSettings;
 }
 /**
  * Large-file mode (spec 008, UNK-040): the host chose it when the tab opened, for a text of more
@@ -487,7 +533,8 @@ export type ToWebviewMessage =
   | FlushMessage
   | GetRowSourceMessage
   | GetNodeMessage
-  | RevealMessage;
+  | RevealMessage
+  | SettingsMessage;
 export type ToHostMessage =
   | ReadyMessage
   | EditMessage
@@ -560,7 +607,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
     text: str,
     format: oneOf(FORMATS),
     mode: oneOf(MODES),
-    settings: jsonObject,
+    settings: editorSettings,
     largeFile: largeFile,
   },
   update: { text: str, origin: oneOf(UPDATE_ORIGINS) },
@@ -572,6 +619,7 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   getRowSource: { request: count },
   getNode: { request: count },
   reveal: { path: nodePath },
+  settings: { settings: editorSettings },
 };
 
 const TO_HOST: Record<ToHostMessage['type'], Fields> = {
@@ -684,34 +732,6 @@ function pointer(v: unknown, name: string): string {
   return s;
 }
 
-function json(v: unknown, name: string): JsonValue {
-  if (v === null || typeof v === 'boolean' || typeof v === 'string') return v;
-  if (typeof v === 'number') {
-    if (!Number.isFinite(v)) throw new Invalid(`${name} must be a finite number`);
-    return v;
-  }
-  if (Array.isArray(v)) return v.map((item, i) => json(item, `${name}[${i}]`));
-  return jsonObject(v, name);
-}
-
-function jsonObject(v: unknown, name: string): { [key: string]: JsonValue } {
-  const raw = record(v, name);
-  const proto = Object.getPrototypeOf(raw) as unknown;
-  if (proto !== Object.prototype && proto !== null)
-    throw new Invalid(`${name} must be a plain object`);
-  const out: { [key: string]: JsonValue } = {};
-  for (const [key, item] of Object.entries(raw)) {
-    // defineProperty, not assignment, so a "__proto__" key stays data.
-    Object.defineProperty(out, key, {
-      value: json(item, `${name}.${key}`),
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
-  }
-  return out;
-}
-
 const PATCH_FIELDS: Record<WirePatchOperation['op'], Fields> = {
   add: { op: str, path: pointer, valueText: str },
   replace: { op: str, path: pointer, valueText: str },
@@ -765,6 +785,22 @@ function indexList(v: unknown, name: string): number[] {
 function patchList(v: unknown, name: string): WirePatchOperation[] {
   if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
   return v.map((op, i) => patchOperation(op, `${name}[${i}]`));
+}
+
+function editorSettings(v: unknown, name: string): EditorSettings {
+  const fields = {
+    thresholdBytes: positive,
+    defaultQueryLanguage: oneOf(QUERY_LANGUAGE_IDS),
+    flattenColumns: bool,
+    escapeControlCharacters: bool,
+    escapeUnicodeCharacters: bool,
+  };
+  return readFields(record(v, name), fields, name) as unknown as EditorSettings;
+}
+
+function positive(v: unknown, name: string): number {
+  if (count(v, name) === 0) throw new Invalid(`${name} must be a positive integer`);
+  return v as number;
 }
 
 function nodePath(v: unknown, name: string): NodePath {

@@ -11,6 +11,9 @@
 // actions (003 T8) run core's own action on the text, as the extension host does, so the page
 // shows what they do; a repair that would lose comments is applied without asking.
 //
+// Settings (spec 019) are an option of the document, every one left out at its default, and
+// `setSettings` plays the user changing one, as the extension host sends it to an open tab (A2).
+//
 // Large-file mode (spec 008) is a switch here (`largeFile`), as the extension host decides it by
 // the document's size: a locked document answers every change with a `read-only` error and ignores
 // undo and redo, as the extension host does; "Edit anyway" unlocks it. "Open as Text" is recorded
@@ -33,6 +36,7 @@ import type {
   OpenedDocument,
 } from './host-adapter.js';
 import {
+  DEFAULT_EDITOR_SETTINGS,
   PROTOCOL_VERSION,
   type CurrentNode,
   type DocumentAction,
@@ -59,7 +63,8 @@ export interface DevDocument {
   text: string;
   format: Format;
   mode: Mode;
-  settings?: EditorSettings;
+  /** The page's settings (spec 019); each one left out is at its default. */
+  settings?: Partial<EditorSettings>;
   /** Opens the document in large-file mode (spec 008); the normal editor when left out. */
   largeFile?: LargeFile | null;
 }
@@ -68,7 +73,7 @@ export class DevHostAdapter implements HostAdapter {
   #text: string;
   #format: Format;
   readonly #mode: Mode;
-  readonly #settings: EditorSettings;
+  #settings: EditorSettings;
   #largeFile: LargeFile | null;
   #docVersion = 1;
   #opened = false;
@@ -104,7 +109,7 @@ export class DevHostAdapter implements HostAdapter {
     this.#text = document.text;
     this.#format = document.format;
     this.#mode = document.mode;
-    this.#settings = document.settings ?? {};
+    this.#settings = { ...DEFAULT_EDITOR_SETTINGS, ...document.settings };
     this.#largeFile = document.largeFile ?? null;
   }
 
@@ -124,7 +129,7 @@ export class DevHostAdapter implements HostAdapter {
       text: this.#text,
       format: this.#format,
       mode: this.#mode,
-      settings: this.#settings,
+      settings: { ...this.#settings },
       largeFile: this.#largeFile && { ...this.#largeFile },
     });
   }
@@ -195,7 +200,19 @@ export class DevHostAdapter implements HostAdapter {
 
   getSettings(): EditorSettings {
     if (!this.#opened) throw new Error('DevHostAdapter: getSettings() before open()');
-    return this.#settings;
+    return { ...this.#settings };
+  }
+
+  /** Plays the user changing a setting (spec 019 A2): sends `settings` with every page setting,
+   *  `changes` over the current ones. */
+  setSettings(changes: Partial<EditorSettings>): void {
+    this.#settings = { ...this.#settings, ...changes };
+    this.#emit({
+      protocol: PROTOCOL_VERSION,
+      type: 'settings',
+      docVersion: this.#docVersion,
+      settings: { ...this.#settings },
+    });
   }
 
   showMessage(notice: HostNotice): void {

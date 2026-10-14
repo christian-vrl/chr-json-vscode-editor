@@ -44,7 +44,7 @@ import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding, schemaFileParts } from './schemaBinding';
-import { openingMode, type Settings } from './settings';
+import { openingMode, pageSettings, samePageSettings, type Settings } from './settings';
 import { affectsSettings, readSettings, smartFormatOptions } from './settingsVscode';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
@@ -353,9 +353,20 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         void session.schema.refresh();
       }
       // Spec 019 A1: settings apply without a reload. V1 reaches the open tab at once (A5).
+      // D1, D2, Q1 and T1's query-language list reach the open tab at once (A2).
       if (affectsSettings(event, document)) {
+        const before = pageSettings(session.settings);
         session.settings = readSettings(document);
         session.validation.enabledChanged();
+        const after = pageSettings(session.settings);
+        if (!samePageSettings(before, after)) {
+          this.post(session, {
+            protocol: PROTOCOL_VERSION,
+            type: 'settings',
+            docVersion: document.version,
+            settings: after,
+          });
+        }
       }
     });
     const viewState = panel.onDidChangeViewState(() => this.pausedItem.refresh());
@@ -396,7 +407,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           // M1 (spec 019): the mode chosen when the tab opened; JSON Lines opens in Table mode
           // (spec 012 criterion 6), also when the format became JSON Lines since.
           mode: this.formatOf(document) === 'jsonl' ? 'table' : session.openMode,
-          settings: {},
+          // The page's settings now (019 T2): a reloaded webview gets the latest.
+          settings: pageSettings(session.settings),
           largeFile: session.largeFile && { ...session.largeFile },
         });
         session.validation.run();
