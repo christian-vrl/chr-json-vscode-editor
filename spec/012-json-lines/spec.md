@@ -153,6 +153,7 @@ the array of items and whose edits follow §Line rules.
 - **J1 JSON Lines → JSON, JSONC or JSON5:** `[` + `eol` + each item's value bytes, indented by two
   spaces, joined by `,` + `eol`, then `eol` + `]` + `eol` (`eol` from L2); `[]` + `eol` with no
   item. No losses (every item is RFC 8259, valid in all three targets). A leading BOM is kept.
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-088: where this says 2 spaces, the indent unit is VS Code's `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays 2 spaces.*
 - **J2 JSON, JSONC or JSON5 → JSON Lines:** the source's root must be an array (else the error of
   criterion 9). The text is first converted to `json` by 006 (C1–C7, whose losses are this
   conversion's losses), then each item of the root array is written on its own line as 002 R12
