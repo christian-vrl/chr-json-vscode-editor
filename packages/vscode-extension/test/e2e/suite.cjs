@@ -199,7 +199,7 @@ exports.run = async function run() {
   assert.equal(editor.priority, 'option');
   assert.deepEqual(
     editor.selector.map((s) => s.filenamePattern),
-    FORMATS.map((f) => `*.${f}`),
+    [...FORMATS, 'jsonl', 'ndjson'].map((f) => `*.${f}`),
   );
   const titles = Object.fromEntries(
     (extension.packageJSON.contributes?.commands ?? []).map((c) => [c.command, c.title]),
@@ -371,6 +371,11 @@ exports.run = async function run() {
   // Gate (006 T3, criteria 6 and 7): the convert commands in both editors (convert.cjs).
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
+  // Gate (012 T5, spec 012 criteria 6-9): JSON Lines files in the editor and the convert commands
+  // (jsonLines.cjs).
+  await closeAll();
+  await require('./jsonLines.cjs').runJsonLines({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
   // Gate (010 T3, criteria 8, 9 and 10 in the text editor): "Smart Format" (smartFormat.cjs).
   await closeAll();

@@ -27,7 +27,8 @@ export interface FormatCore {
   parseData(format: Format, text: string): ParseDataResult;
 }
 
-export const FORMATS: readonly Format[] = ['json', 'jsonc', 'json5'];
+/** The "Change Format" picker's list, in this order (JSON Lines: spec 012 criterion 6). */
+export const FORMATS: readonly Format[] = ['json', 'jsonc', 'json5', 'jsonl'];
 
 export const FORMAT_LABELS: Readonly<Record<Format, string>> = {
   json: 'JSON',
