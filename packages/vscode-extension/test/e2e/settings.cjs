@@ -8,6 +8,11 @@
 //   next tab uses it.
 // - Criterion 8 (V1): off, a document that fails its schema shows no marks, no dialect notice and,
 //   at 12 MiB, no paused item; on with the tab open shows the errors; off again clears them.
+// - Criterion 7 (Q1, 019 T2): `"jmespath"` starts a tab's first Transform dialog with JMESPath;
+//   a language picked in a tab stays picked there when the value changes to `"lodash"`, a new tab
+//   starts with Lodash, and an open tab with no pick follows the change (A2: the host's `settings`
+//   message); with `"lodash"` a document above the threshold starts with JSONQuery. A tab stays
+//   shown while its pick is checked: a hidden tab's webview reloads from `init`.
 // - Criterion 11 (C1): "Open Settings" leaves the Settings editor active, searching for the
 //   extension.
 const assert = require('node:assert/strict');
@@ -198,6 +203,68 @@ exports.runSettings = async function runSettings({
     console.log('criterion 8: at 12 MiB, no paused item while validation is off');
   } finally {
     await set('validation.enable', undefined);
+    await closeAll();
+  }
+
+  // --- Criterion 7: the query language Transform starts with.
+  /** Opens Transform from the main menu, reads the selected language and closes it; with `pick`,
+   *  picks that language. Without, the list closes with Escape: clicking the selected language
+   *  would pick it, and a picked language no longer follows the setting. */
+  async function transform(uri, pick) {
+    const [selected] = await hooks.dom(uri.toString(), [
+      { click: '.jse-tree-mode .jse-transform' },
+      // A Transform that lists JavaScript waits for the engine to load and compile first.
+      { click: '.jse-modal .jse-config' },
+      { read: '.jse-query-language.selected' },
+      pick
+        ? { click: '.jse-query-language', text: pick }
+        : { key: 'Escape', on: '.jse-query-language.selected' },
+      { waitFor: '.jse-query-language', gone: true },
+      { click: '.jse-modal .jse-close' },
+      { waitFor: '.jse-modal', gone: true },
+    ]);
+    return selected.trim();
+  }
+  await closeAll();
+  await set('transform.defaultQueryLanguage', 'jmespath');
+  try {
+    const first = copy('open/sample.json', 'query-first.json');
+    await open(first);
+    await rendered(first, 'tree');
+    assert.equal(await transform(first, 'JSONPath (RFC 9535)'), 'JMESPath');
+    await set('transform.defaultQueryLanguage', 'lodash');
+    await sleep(SETTLE_MS);
+    assert.equal(await transform(first), 'JSONPath (RFC 9535)', 'the picked language moved');
+    const next = copy('open/sample.json', 'query-next.json');
+    await open(next);
+    await rendered(next, 'tree');
+    assert.equal(await transform(next), 'Lodash', 'a new tab with "lodash"');
+    console.log(
+      'criterion 7: "jmespath" starts with JMESPath; a picked language stays; a new tab starts with Lodash',
+    );
+
+    // An open tab with no language picked follows the change at once (A2).
+    await set('transform.defaultQueryLanguage', 'jmespath');
+    const deadline = Date.now() + 10000;
+    let selected;
+    while ((selected = await transform(next)) !== 'JMESPath') {
+      if (Date.now() > deadline) throw new Error(`the open tab still starts with ${selected}`);
+      await sleep(200);
+    }
+    console.log('criterion 7: an open tab with no pick follows the setting (A2)');
+
+    // Above the threshold Lodash is not listed: the dialog starts with JSONQuery.
+    await set('transform.defaultQueryLanguage', 'lodash');
+    await closeAll();
+    const big = write('query-large.json', documentText('json', SIX_MIB));
+    await open(big);
+    await rendered(big, 'tree');
+    await hooks.dom(big.toString(), [{ click: '.banner button', text: 'Edit anyway' }]);
+    await waitFor('the unlock', () => view(big).largeFile.unlocked);
+    assert.equal(await transform(big), 'JSONQuery', '"lodash" above the threshold');
+    console.log('criterion 7: "lodash" on a document above the threshold starts with JSONQuery');
+  } finally {
+    await set('transform.defaultQueryLanguage', undefined);
     await closeAll();
   }
 

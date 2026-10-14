@@ -3,10 +3,13 @@
 // language value over the plain one, and the default for every wrong type or out-of-range value).
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_EDITOR_SETTINGS } from '@chr-json-editor/app-shell/protocol';
 import {
   DEFAULT_SETTINGS,
   effectiveValue,
   openingMode,
+  pageSettings,
+  samePageSettings,
   SETTINGS,
   settingsFrom,
   type Inspected,
@@ -294,5 +297,44 @@ describe('openingMode (spec 019 M1)', () => {
     expect(openingMode({ defaultMode: 'table' }, false)).toBe('table');
     expect(openingMode({ defaultMode: 'text' }, true)).toBe('tree');
     expect(openingMode({ defaultMode: 'table' }, true)).toBe('table');
+  });
+});
+
+describe('pageSettings (019 T2)', () => {
+  it('gives the page today’s behavior at the defaults', () => {
+    expect(pageSettings(DEFAULT_SETTINGS)).toEqual(DEFAULT_EDITOR_SETTINGS);
+  });
+
+  it('sends the threshold in bytes and the query language and display settings as set', () => {
+    expect(
+      pageSettings({
+        ...DEFAULT_SETTINGS,
+        largeFileThreshold: 6,
+        'transform.defaultQueryLanguage': 'lodash',
+        'table.flattenColumns': false,
+        escapeControlCharacters: true,
+        escapeUnicodeCharacters: true,
+      }),
+    ).toEqual({
+      thresholdBytes: 6_291_456,
+      defaultQueryLanguage: 'lodash',
+      flattenColumns: false,
+      escapeControlCharacters: true,
+      escapeUnicodeCharacters: true,
+    });
+  });
+
+  it('sees no change when only a host setting changed', () => {
+    const before = pageSettings(DEFAULT_SETTINGS);
+    const hostOnly = pageSettings({
+      ...DEFAULT_SETTINGS,
+      defaultMode: 'text',
+      'validation.enable': false,
+      'smartFormat.maxLineLength': 60,
+      indent: '\t',
+    });
+    expect(samePageSettings(before, hostOnly)).toBe(true);
+    const changed = pageSettings({ ...DEFAULT_SETTINGS, escapeUnicodeCharacters: true });
+    expect(samePageSettings(before, changed)).toBe(false);
   });
 });
