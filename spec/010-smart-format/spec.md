@@ -99,6 +99,7 @@ point without rewriting them), except:
   width when FracturedJson measures line length and columns.
 - **L8 Options** are fixed (UNK-047, owner: fixed now): no setting changes them in this spec; spec 019 (Settings) may
   add line length and the others later.
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7): options are fixed except the line length, `chrJsonEditor.smartFormat.maxLineLength` (default 120, spec 019 F1).*
 
 ## Where we differ from jsoneditoronline.org
 - The site's Smart Format re-serializes data: with FracturedJson it can reorder keys inside table

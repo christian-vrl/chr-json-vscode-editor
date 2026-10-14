@@ -30,6 +30,7 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
 - **Output text:** `stringify(data, 'json', OUTPUT_STYLE)` (spec 002 R8, spec 015 B2), where
   `OUTPUT_STYLE` is 2-space indent, `\n` line endings, a final newline, double quotes, quoted keys
   and no trailing commas.
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-088: where this says 2 spaces, the indent unit is VS Code's `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays 2 spaces.*
 - **Big number, decimal text, big number value:** as spec 015 §Terms (ADR-014).
 - **Size, threshold, ceiling:** as spec 008: the UTF-8 length of the file's text when the command
   runs; 5 MiB (5,242,880 bytes, UNK-014); VS Code's 50 MB sync limit (008 criterion 9).

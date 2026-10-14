@@ -28,6 +28,7 @@ bytes opens, 52,428,801 does not, and a UTF-8 BOM in front of 52,428,800 opens b
 leaves the BOM out of the text). Criterion 9 uses the file's size on disk
 (a UTF-8 BOM included), because the command runs before VS Code loads the document; every other
 criterion uses the text size.
+*Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-087: "Threshold" is the `chrJsonEditor.largeFileThreshold` setting in bytes, 5 MiB = 5,242,880 by default; criterion 1 is checked at the default. Specs that use this threshold follow it.*
 
 1. **Threshold (e2e):** a document of exactly 5,242,880 bytes opens in the normal editor (spec 003);
    one of 5,242,881 bytes opens in large-file mode. The mode is chosen when the tab opens and kept
