@@ -5,12 +5,15 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeToHost,
   decodeToWebview,
+  encodeChange,
   PROTOCOL_VERSION,
+  type DocumentChange,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import type { Format } from '@chr-json-editor/core';
+import { LosslessNumber, valueText, type Format } from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
+import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
 /** A document like VS Code's: each replacement bumps the version and fires a change event. */
@@ -123,8 +126,14 @@ describeHostAdapterContract('VscodeHostAdapter over DocumentSync', (text) => {
   return { adapter, externalChange: (next) => doc.externalChange(next) };
 });
 
-const edit = (docVersion: number, change: Parameters<DocumentSync['edit']>[0]['change']) =>
-  ({ protocol: PROTOCOL_VERSION, type: 'edit', docVersion, change }) as const;
+/** An `edit` as the webview sends it: patch values as JSON text (protocol 15, spec 015 B5). */
+const edit = (docVersion: number, change: DocumentChange) =>
+  ({
+    protocol: PROTOCOL_VERSION,
+    type: 'edit',
+    docVersion,
+    change: encodeChange(change, valueText),
+  }) as const;
 
 describe('DocumentSync', () => {
   it('applies a patch with core, keeping comments and style', async () => {
@@ -160,6 +169,33 @@ describe('DocumentSync', () => {
     void doc.sync.edit(edit(1, { kind: 'text', text: '[2]' }));
     doc.externalChange('[3]');
     expect(doc.posted).toMatchObject([{ type: 'update', text: '[3]', origin: 'external' }]);
+  });
+
+  // Spec 015 B5: a patch value arrives as JSON text, read with core, big numbers exactly.
+  it('applies a patch value holding a big number and a look-alike object exactly', async () => {
+    const doc = memoryDocument('{"a": 1}\n', 'json');
+    const value = JSON.parse(
+      '{"big": 0, "neg": 0, "like": {"isLosslessNumber": true, "value": "1"}}',
+    ) as Record<string, unknown>;
+    value.big = new LosslessNumber('98765432109876543210');
+    value.neg = -0;
+    await doc.sync.edit(edit(1, { kind: 'patch', patch: [{ op: 'replace', path: '/a', value }] }));
+    // JSON writes -0 as 0, as JSON.stringify does (002 R8); the big number keeps its digits.
+    expect(doc.text).toBe(
+      '{"a": {"big":98765432109876543210,"neg":0,"like":{"isLosslessNumber":true,"value":"1"}}}\n',
+    );
+  });
+
+  it('answers a patch value that is not JSON with patch-failed', async () => {
+    const doc = memoryDocument('{"a": 1}\n', 'json');
+    await doc.sync.edit({
+      protocol: PROTOCOL_VERSION,
+      type: 'edit',
+      docVersion: 1,
+      change: { kind: 'patch', patch: [{ op: 'replace', path: '/a', valueText: 'NaN' }] },
+    });
+    expect(doc.text).toBe('{"a": 1}\n');
+    expect(doc.posted).toEqual([expect.objectContaining({ type: 'error', code: 'patch-failed' })]);
   });
 
   it('applies queued edits in order, each on the text the previous one left', async () => {
@@ -233,10 +269,52 @@ describe('DocumentSync actions (003 T8)', () => {
     expect(doc.posted.at(-1)).toMatchObject({ type: 'error', code: 'stale-edit' });
   });
 
+  it('runs Repair Lines on a JSON Lines document as one edit (spec 012 L10)', async () => {
+    const doc = memoryDocument('{"a":1}\n{"b":\n2}\n3\n{c\n', 'jsonl');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repairLines' } }));
+    expect(doc.text).toBe('{"a":1}\n{"b":2}\n3\n{"c":null}\n');
+    expect(doc.posted).toEqual([expect.objectContaining({ type: 'update', origin: 'edit' })]);
+  });
+
   it('answers an action core refuses with patch-failed', async () => {
     const doc = memoryDocument('{"a": +Infinity}', 'jsonc');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
     expect(doc.posted).toEqual([expect.objectContaining({ type: 'error', code: 'patch-failed' })]);
+  });
+});
+
+describe('DocumentSync smart format (010 T3)', () => {
+  const INPUT = '{\n  "a": [\n    1,\n    2\n  ], // two\n  "b": {"c": 3},\n}\n';
+
+  it('runs core smartFormat as one change, and answers an already formatted text without one', async () => {
+    const doc = memoryDocument(INPUT, 'jsonc');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [1, 2],  // two\n  "b": {"c": 3},\n}\n');
+    expect(doc.version).toBe(2);
+    await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.version).toBe(2);
+    expect(doc.posted.map((m) => m.type)).toEqual(['update', 'update']);
+  });
+
+  it("answers a document that does not parse with criterion 9's message", async () => {
+    const doc = memoryDocument('{"a": [1, 2,\n"b": 3}', 'json5');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.posted).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        code: 'patch-failed',
+        message: 'Smart Format needs valid JSON5. Fix the errors or run Repair JSON first.',
+      }),
+    ]);
+  });
+
+  it('refuses a JSON Lines document (spec 010 §Scope)', async () => {
+    const doc = memoryDocument('{"a": [\n1]}\n', 'jsonl');
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{"a": [\n1]}\n');
+    expect(doc.posted).toEqual([
+      expect.objectContaining({ type: 'error', code: 'patch-failed', message: JSONL_MESSAGE }),
+    ]);
   });
 });
 

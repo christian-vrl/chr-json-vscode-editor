@@ -9,8 +9,9 @@ export type { QueryEngineLoader, QueryEngineModule } from './query/run-query.js'
 /** The mounted editor UI. */
 export interface AppHandle extends Disposable {
   /** Sends operations as a tree or table edit would: the editor shows them at once, where it can,
-   *  and follows the host's answer (e2e test hooks). */
-  patch(operations: JsonPatchOperation[]): void;
+   *  and follows the host's answer (e2e test hooks). As JSON text, they are read with the editor's
+   *  parser, big numbers exactly (spec 015). */
+  patch(operations: JsonPatchOperation[] | string): void;
   /** What the editor library holds now: `{ text }` or `{ json }`, undefined before it mounts. */
   content(): { text: string } | { json: unknown } | undefined;
   /** Every change was answered and the editor shows the document (e2e test hooks, benchmark). */

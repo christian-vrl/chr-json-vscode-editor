@@ -1,10 +1,18 @@
 // Cell text to JSON values (spec 009 I7, UNK-043 ★ "Exact"), shared with export's quoting (X6).
+// Big numbers (spec 015 B9, UNK-067 ★ "Exact number"): an unquoted cell that is an RFC 8259 number
+// and a big number becomes that big number, its text kept; a JSON cell's big numbers keep their
+// digits.
+import { isSafeNumber } from 'lossless-json';
+import { LosslessNumber, mayHoldBigNumber } from '../formats/numbers.js';
+import { parseData } from '../formats/parse-data.js';
 
 const NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
 
-/** An unquoted cell that I7 reads as a number: RFC 8259 syntax and written back unchanged. */
-function asNumber(text: string): number | undefined {
+/** An unquoted cell that I7 reads as a number: RFC 8259 syntax and written back unchanged, or a
+ *  big number (`007`, `1.50` and `1e3` stay strings). */
+function asNumber(text: string): number | LosslessNumber | undefined {
   if (!NUMBER.test(text)) return undefined;
+  if (!isSafeNumber(text)) return new LosslessNumber(text);
   const value = Number(text);
   return JSON.stringify(value) === text ? value : undefined;
 }
@@ -23,11 +31,16 @@ function asContainer(text: string): object | undefined {
   const last = text.charCodeAt(text.length - 1);
   // `{` `[` and `}` `]`.
   if ((first !== 0x7b && first !== 0x5b) || (last !== 0x7d && last !== 0x5d)) return undefined;
+  let data: object;
   try {
-    return JSON.parse(text) as object;
+    data = JSON.parse(text) as object;
   } catch {
     return undefined;
   }
+  // Strict JSON that may hold a big number: core's reading keeps its digits (spec 015 B1).
+  if (!mayHoldBigNumber(text)) return data;
+  const exact = parseData('json', text);
+  return 'data' in exact ? (exact.data as object) : data;
 }
 
 /** I7: the value of a cell. */

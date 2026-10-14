@@ -6,7 +6,13 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { sortData } from '../../../tests/golden/sort-reference.js';
-import { getAdapter, PatchError, type Format, type SortOptions } from '../src/index.js';
+import {
+  getAdapter,
+  LosslessNumber,
+  PatchError,
+  type Format,
+  type SortOptions,
+} from '../src/index.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
 import { printDocument } from './print-document.js';
 
@@ -198,7 +204,8 @@ function commentTexts(text: string): string[] {
 
 /** JSON Pointers of every object and array in `data`. */
 function containers(data: unknown, path = ''): string[] {
-  if (data === null || typeof data !== 'object') return [];
+  // A big number (spec 015) is a `LosslessNumber`, a scalar.
+  if (data === null || typeof data !== 'object' || data instanceof LosslessNumber) return [];
   const entries = Array.isArray(data)
     ? data.map((v, i) => [String(i), v] as const)
     : Object.entries(data);
@@ -233,7 +240,7 @@ function itemProperties(container: unknown): string[] {
   for (const item of container as unknown[]) {
     if (Array.isArray(item)) {
       if (item.length > 0) keys.add('/0');
-    } else if (item !== null && typeof item === 'object') {
+    } else if (item !== null && typeof item === 'object' && !(item instanceof LosslessNumber)) {
       for (const k of Object.keys(item)) keys.add(`/${k.replace(/~/g, '~0').replace(/\//g, '~1')}`);
     }
   }

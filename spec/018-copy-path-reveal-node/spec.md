@@ -1,6 +1,6 @@
 # SPEC 018 — Copy path and reveal node
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidN1qNaM7s8jTteFZA9H9qaR, 2026-10-14)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -283,11 +283,11 @@ to look for it by hand.
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-080 | Which path notations the copy commands offer | S2, S5, criteria 3, 5, 7; T2, T3 | ★ JSONPath and JSON Pointer, two commands · JSONPath only · JSON Pointer only |
+| UNK-080 | Which path notations the copy commands offer | S2, S5, criteria 3, 5, 7; T2, T3 | resolved (owner): ★ both, "Copy JSONPath" and "Copy JSON Pointer" |
 | UNK-081 | JSONPath spelling: `.name` shorthand where allowed, or always `['name']` | P1, criteria 1–3; T1 | delegated: shorthand if criterion 3's engine check finds both forms give the same node (sandbox: they do) |
-| UNK-082 | Where a reveal shows the other editor | S5, criterion 8; T3 | ★ The document's open tab of that editor, else in place of the current tab · Beside, in a split |
+| UNK-082 | Where a reveal shows the other editor | S5, criterion 8; T3 | resolved (owner): ★ the document's open tab of that editor, else in place of the current tab |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved (UNK-081 is delegated and decided by criterion 3's engine check in T2)
+- [x] Human approval recorded

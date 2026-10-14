@@ -22,6 +22,7 @@
 // Error cases (error.json) are a JSON Lines source with a bad line, or a source to JSON Lines whose
 // root is not an array (spec 012 criterion 9).
 import JSON5 from 'json5';
+import { markBigNumbers } from './facts.js';
 import { describe, expect, it } from 'vitest';
 import { jsonlPairs, loadConvertCases, supersetPairs, type ConvertCase } from './convert.js';
 import {
@@ -49,9 +50,10 @@ function readLines(text: string): unknown[] {
 /** Reads a text the way its format allows, throwing on anything the format lacks. */
 function read(text: string, format: string): unknown {
   if (format === 'jsonl') return readLines(text);
-  if (format === 'json') return JSON.parse(text);
-  if (format === 'jsonc') return JSON.parse(jsoncAsJson(text));
-  return JSON5.parse(text);
+  // Big numbers (spec 015) as the golden corpus's marked strings (facts.ts), digits compared.
+  if (format === 'json') return JSON.parse(markBigNumbers(text));
+  if (format === 'jsonc') return JSON.parse(markBigNumbers(jsoncAsJson(text)));
+  return JSON5.parse(markBigNumbers(text));
 }
 
 /** Data with key order, so a reordered object differs (`toEqual` ignores key order). */
@@ -93,7 +95,7 @@ const eols = (text: string) => new Set(text.match(/\r\n|\r|\n/g) ?? []);
 
 /** The source's data: JSON Lines as its items, anything else as JSON5 reads it. */
 const sourceData = (c: ConvertCase): unknown =>
-  c.from === 'jsonl' ? readLines(c.input) : JSON5.parse(c.input);
+  c.from === 'jsonl' ? readLines(c.input) : JSON5.parse(markBigNumbers(c.input));
 
 /** A target that is strict JSON per value: comments and non-finite numbers are losses. */
 const strictTarget = (c: ConvertCase) => c.to === 'json' || c.to === 'jsonl';

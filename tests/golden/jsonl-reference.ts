@@ -2,6 +2,8 @@
 // so a typo in a hand-written case fails before the `jsonl` adapter exists (012 T2). Lines, blank
 // lines, items and bad lines are read exactly as spec 012 §Terms defines them.
 
+import { markBigNumbers } from './facts.js';
+
 const BOM = '﻿';
 
 export interface Line {
@@ -71,7 +73,8 @@ export function readJsonl(text: string): JsonlReading {
   const itemLines = lines.filter((line) => !isBlank(line) && isGoodLine(line));
   return {
     lines,
-    items: itemLines.map((line) => JSON.parse(valueBytes(line)) as unknown),
+    // Big numbers (spec 015) as the golden corpus's marked strings (facts.ts).
+    items: itemLines.map((line) => JSON.parse(markBigNumbers(valueBytes(line))) as unknown),
     itemLines,
     bad: lines.filter((line) => !isBlank(line) && !isGoodLine(line)).map((line) => line.number),
   };

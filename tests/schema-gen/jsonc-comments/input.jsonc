@@ -1,0 +1,6 @@
+// settings
+{
+  /* block */ "name": "x", // trailing
+  "list": [1, 2,], // trailing comma
+  "nested": { "on": true, },
+}

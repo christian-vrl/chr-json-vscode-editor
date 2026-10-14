@@ -4,8 +4,13 @@
 //
 // `open` sends `ready` and resolves with the host's `init`: the host posts nothing before `ready`,
 // so no message is lost while the script is still loading.
+//
+// `save` writes each patch value as JSON text (core's `valueText`, protocol 15), so big numbers
+// reach the host with their digits (spec 015 B5).
+import { valueText } from '@chr-json-editor/core';
 import {
   decodeToWebview,
+  encodeChange,
   PROTOCOL_VERSION,
   type DocumentChange,
   type EditorSettings,
@@ -49,7 +54,12 @@ export class VscodeHostAdapter implements HostAdapter {
   }
 
   save(docVersion: number, change: DocumentChange): void {
-    this.#post({ protocol: PROTOCOL_VERSION, type: 'edit', docVersion, change });
+    this.#post({
+      protocol: PROTOCOL_VERSION,
+      type: 'edit',
+      docVersion,
+      change: encodeChange(change, valueText),
+    });
   }
 
   onExternalChange(listener: (event: HostEvent) => void): Disposable {

@@ -178,7 +178,7 @@ with the fixture folder mounted on a virtual scheme.
 |---|---|---|---|
 | UNK-052 | What the README and listing say about the network on the web | criterion 14; T6 | ★ Ship, with the sentence in criterion 14 · Don't ship a web build (desktop only) — resolved: ★ |
 | UNK-053 | What "Compare with HEAD" does in the browser | criteria 7, 8; T2 | ★ Desktop-only: hidden on the web, a message if run · Shown, with the message only — resolved: ★ |
-| UNK-054 | Largest document that opens in the web host | criterion 10; T5 | delegated (T5 evidence) |
+| UNK-054 | Largest document that opens in the web host | criterion 10; T5 | delegated (T5 evidence) — resolved: VS Code's ceiling, 52,428,800 bytes, as on desktop (`bench/web-ceiling.md`) |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable

@@ -1,0 +1,19 @@
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-data"
+      Tags:
+        - Key: owner
+          Value: !Ref Owner
+Outputs:
+  Arn:
+    Value: !GetAtt Bucket.Arn
+  Name:
+    Value: !Ref Bucket
+  Domain:
+    Value: !GetAtt [Bucket, DomainName]
+Extra:
+  binary: !!binary aGVsbG8=
+  forced: !!str 123
+  count: !!int 7

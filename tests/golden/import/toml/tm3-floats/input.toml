@@ -1,0 +1,16 @@
+pi = 3.14
+negative-zero = -0.0
+exponent = 5e+22
+small = 6.626e-34
+precise = 0.1000000000000000000001
+underflow = 1e-400
+whole = 3.0
+grouped = 224_617.445_991
+overflow = 1e400
+
+[special]
+inf = inf
+plus-inf = +inf
+minus-inf = -inf
+nan = nan
+minus-nan = -nan

@@ -302,3 +302,136 @@ describe('fileMatchSelects (VS Code fileMatch rules)', () => {
     expect(globToRegExp('a.json').test('abjson')).toBe(false);
   });
 });
+
+// Gate test for 013 T3 (spec 013 criterion 6): schema files on virtual schemes (github.dev's
+// `vscode-vfs:`, the web test harness's `vscode-test-web:`) resolve against the document's or
+// folder's own scheme and authority. `file:` results are the rows above, unchanged.
+describe('virtual schemes (spec 013 criterion 6)', () => {
+  const VFS_DOC = 'vscode-vfs://github/o/r/data/a.json';
+  const VFS_FOLDER = { baseUri: 'vscode-vfs://github/o/r', folderUri: 'vscode-vfs://github/o/r' };
+
+  it.each([
+    ['./s.json', 'vscode-vfs://github/o/r/data/s.json'],
+    ['s.json', 'vscode-vfs://github/o/r/data/s.json'],
+    ['../schemas/s.json#/definitions/x', 'vscode-vfs://github/o/r/schemas/s.json'],
+    ['sub\\s.json', 'vscode-vfs://github/o/r/data/sub/s.json'],
+  ])('relative $schema %s → %s', (value, expected) => {
+    expect(resolveSchemaAssociation({ documentUri: VFS_DOC, documentSchema: value })).toEqual({
+      source: '$schema',
+      location: { kind: 'file', uri: expected },
+    });
+  });
+
+  // 013 T4: an absolute path names a file on the document's own scheme and authority, as VS Code's
+  // JSON service resolves it; on `file:` it stays `file:` (the rows above, unchanged).
+  it.each([
+    ['/s.json', VFS_DOC, 'vscode-vfs://github/s.json'],
+    ['/schemas/../s.json#/x', VFS_DOC, 'vscode-vfs://github/s.json'],
+    ['\\schemas\\s.json', VFS_DOC, 'vscode-vfs://github/schemas/s.json'],
+    [
+      '/fixtures/s.json',
+      'vscode-test-web://mount/work/a.json',
+      'vscode-test-web://mount/fixtures/s.json',
+    ],
+    ['/s.json', 'memfs:/work/a.json', 'memfs:/s.json'],
+    ['/s.json', 'file:///work/a.json', 'file:///s.json'],
+    ['/s.json', 'file://server/share/a.json', 'file:///s.json'],
+    ['/s.json', 'untitled:/work/a.json', 'file:///s.json'],
+  ])('absolute $schema %s on %s → %s', (value, documentUri, expected) => {
+    expect(localSchemaPath(value, documentUri)).toBe(expected);
+  });
+
+  it("keeps the test harness's scheme and authority", () => {
+    expect(localSchemaPath('./s.json', 'vscode-test-web://mount/validation/person.json')).toBe(
+      'vscode-test-web://mount/validation/s.json',
+    );
+  });
+
+  it('resolves against a scheme with no authority', () => {
+    expect(localSchemaPath('../s.json', 'memfs:/work/data/a.json')).toBe('memfs:/work/s.json');
+  });
+
+  it('ignores the query and fragment of the document URI', () => {
+    expect(localSchemaPath('./s.json', 'vscode-vfs://github/o/r/data/a.json?ref=main#x')).toBe(
+      'vscode-vfs://github/o/r/data/s.json',
+    );
+  });
+
+  it('does not resolve a relative $schema against an http(s) document, which stays remote', () => {
+    expect(localSchemaPath('./s.json', 'https://example.com/data/a.json')).toBeUndefined();
+    expect(localSchemaPath('./s.json', 'HTTP://example.com/data/a.json')).toBeUndefined();
+  });
+
+  it('does not resolve a relative $schema for an untitled document with a path', () => {
+    expect(localSchemaPath('./s.json', 'untitled:/work/a.json')).toBeUndefined();
+  });
+
+  it('resolves a json.schemas url relative to a virtual workspace folder', () => {
+    expect(
+      resolveSchemaAssociation({
+        documentUri: VFS_DOC,
+        jsonSchemas: [
+          { ...VFS_FOLDER, entries: [{ fileMatch: ['data/*.json'], url: './s.json' }] },
+        ],
+      }),
+    ).toEqual({
+      source: 'json.schemas',
+      location: { kind: 'file', uri: 'vscode-vfs://github/o/r/s.json' },
+    });
+    expect(
+      resolveSchemaAssociation({
+        documentUri: VFS_DOC,
+        json5Schemas: [
+          { ...VFS_FOLDER, entries: [{ fileMatch: ['a.json'], url: '/schemas/../s.json' }] },
+        ],
+      }),
+    ).toEqual({
+      source: 'json5.schemas',
+      location: { kind: 'file', uri: 'vscode-vfs://github/o/r/s.json' },
+    });
+  });
+
+  it('keeps http(s) setting urls remote on a virtual workspace', () => {
+    expect(
+      resolveSchemaAssociation({
+        documentUri: VFS_DOC,
+        jsonSchemas: [
+          {
+            ...VFS_FOLDER,
+            entries: [{ fileMatch: ['a.json'], url: 'https://example.com/s.json' }],
+          },
+        ],
+      }),
+    ).toEqual({
+      source: 'json.schemas',
+      location: { kind: 'remote', uri: 'https://example.com/s.json' },
+    });
+    expect(localSchemaPath('https://example.com/s.json', VFS_DOC)).toBeUndefined();
+  });
+
+  it('keeps a url relative to an http(s) settings location remote', () => {
+    expect(
+      resolveSchemaAssociation({
+        documentUri: 'https://example.com/w/a.json',
+        jsonSchemas: [
+          {
+            baseUri: 'https://example.com/w',
+            entries: [{ fileMatch: ['a.json'], url: './s.json' }],
+          },
+        ],
+      }),
+    ).toEqual({
+      source: 'json.schemas',
+      location: { kind: 'remote', uri: 'https://example.com/w/s.json' },
+    });
+  });
+
+  it("applies a virtual folder's entries only inside that folder", () => {
+    expect(
+      resolveSchemaAssociation({
+        documentUri: 'vscode-vfs://github/o/other/a.json',
+        jsonSchemas: [{ ...VFS_FOLDER, entries: [{ fileMatch: ['*.json'], url: './s.json' }] }],
+      }),
+    ).toEqual({ source: 'none' });
+  });
+});

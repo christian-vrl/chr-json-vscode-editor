@@ -13,19 +13,19 @@
   measured numbers; the fixture committed*
 
 ## Phase B — Core (risk-free / additive)
-- [ ] **T2** Read and write exactly: `lossless-json` 4.3.1 in `core` (licenses, ADR-014),
+- [x] **T2** Read and write exactly: `lossless-json` 4.3.1 in `core` (licenses, ADR-014),
   `numberValue`, B1 in every adapter, the tree, `parseData` and `jsonl`; B2 in every writer;
   golden cases for criterion 1 except the `test` and `sort` ones; the big-number generator and
   criterion 2's property; bench rows (criterion 11, core part). It edits `parse-data.ts` and
   `json5-parser.ts`, which the JSON5 speed-up (008 T1 reopened for UNK-064) also changes: whichever
   merges later updates from `main`, scratch-merges the other first, and re-runs 008 criterion 7
   — *gate: criteria 1 (minus `test` and `sort` cases), 2, 14; `pnpm test:golden` and 008 criterion 6 green*
-- [ ] **T3** Equal and ordered by value: `compareNumbers`, B3 in `diff`, `compare`, `test`, `sort`;
+- [x] **T3** Equal and ordered by value: `compareNumbers`, B3 in `diff`, `compare`, `test`, `sort`;
   the `test` and `sort` golden cases and criterion 3's tests; CSV export B9 and import per UNK-067
   with criterion 10's cases. — needs: 015 T2 — *gate: criteria 1, 3, 10 green*
 
 ## Phase C — Editor (risk-free / additive)
-- [ ] **T4** Editor page and host: `parser.ts` (pre-scan per T1, lossless `stringify`), `keyOf`,
+- [x] **T4** Editor page and host: `parser.ts` (pre-scan per T1, lossless `stringify`), `keyOf`,
   the sort comparator, the protocol's `valueText` and version bump, Ajv's nearest-number input,
   compare page and copy-across, the CSV panel's preview and replace-data messages (009 T4, on
   `main` or whichever of the two merges later); criterion 4's `.json`, `.jsonc` and `.json5`

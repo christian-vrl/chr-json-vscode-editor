@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "zeta": {
+        "type": "integer"
+      },
+      "alpha": {
+        "type": "object",
+        "properties": {
+          "y": {
+            "type": "integer"
+          },
+          "x": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "y"
+        ]
+      },
+      "mid": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "zeta",
+      "alpha"
+    ]
+  }
+}

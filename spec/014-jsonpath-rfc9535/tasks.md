@@ -20,13 +20,13 @@
   `pnpm check:licenses` green*
 
 ## Phase C — Dialog (risk-free / additive)
-- [ ] **T3** Add the language to `QUERY_LANGUAGES` between JMESPath and JSONPath (Goessner); the
+- [x] **T3** Add the language to `QUERY_LANGUAGES` between JMESPath and JSONPath (Goessner); the
   RFC link in `offline-allowlist.txt`; web tests for criteria 5, 6 and 9 in the dev host. — needs:
   014 T2 — *gate: criteria 5, 6 green in `pnpm test:web`; `pnpm check:offline` green with the
   Reviewer naming the new entry*
 
 ## Phase D — VS Code and size (risk-free / additive)
-- [ ] **T4** e2e write-back fixtures in `tests/e2e/fixtures/query/jsonpath-rfc9535-*` (criterion
+- [x] **T4** e2e write-back fixtures in `tests/e2e/fixtures/query/jsonpath-rfc9535-*` (criterion
   7); leave the language out above the threshold (criterion 8) on 008's 6 MiB fixture, sharing 011
   T6's set of size-gated language ids if it has merged; `bench/query/jsonpath-*.jsonpath` and the
   RFC 9535 and Goessner columns in `bench/RESULTS.md` (criterion 10). Needs UNK-065 resolved. —
@@ -41,3 +41,13 @@
 - Once spec 013 merges, its web test lists the language (criterion 9); 013's coverage map gains no
   new command, since this adds none.
 - Copy path as RFC 9535 normalized path belongs to 018; remembering the last language to 019.
+- Spec 020 or any host whose engine is not V8 (014 T2 review): P6's stack-overflow check in
+  `packages/app-shell/src/query/jsonpath-rfc9535.ts` (`isStackOverflow`) matches V8's
+  `RangeError` text ("Maximum call stack size exceeded"); Chrome, Chromium and VS Code's webview
+  all run V8. Firefox throws `InternalError: too much recursion`, so a non-V8 host widens the check.
+- json-p3 2.3.2 sets `minIntIndex` from `options.maxIntIndex` (a typo in its `JSONPathEnvironment`
+  constructor; 014 T2 review). Unreachable here, since `jsonpath-rfc9535.ts` passes neither option;
+  recheck it on a json-p3 upgrade or before passing either.
+- Follow-up (014 T3, not filed): in Chromium, tree mode cannot show data nested deeper than about
+  130 levels of arrays (165 to 180 of objects, per the 014 T3 review), and the Transform dialog cannot open on it in any mode (a stack overflow in the
+  library's Svelte tree). Criterion 6's too-deep case is therefore proven in the unit corpus only.

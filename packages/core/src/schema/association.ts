@@ -6,6 +6,9 @@
 //
 // URIs here are VS Code's `Uri.toString(true)` spelling (`file:///c:/dir/a b.json`: lowercase drive
 // letter, no percent-encoding), which is what VS Code's own JSON service matches `fileMatch` against.
+// Relative paths keep the scheme and authority of what they are relative to, so a workspace on a
+// virtual scheme (github.dev's `vscode-vfs://github/o/r/…`, spec 013 criterion 6) names its schema
+// files on that scheme; `http:` and `https:` are always remote.
 
 /** One entry of `json.schemas` or `json5.schemas`, as read from settings (unvalidated). */
 export interface SchemaSetting {
@@ -25,7 +28,7 @@ export interface SchemaSettingsScope {
 }
 
 export interface SchemaAssociationInput {
-  /** The document, as a `file:` URI. */
+  /** The document's URI (`file:` on desktop, a virtual scheme on the web). */
   documentUri: string;
   /** The value of the document's top-level `$schema` member, if it has one. */
   documentSchema?: unknown;
@@ -36,7 +39,7 @@ export interface SchemaAssociationInput {
 }
 
 export type SchemaLocation =
-  /** A local file to read. */
+  /** A local file to read: a `file:` URI, or one on the workspace's virtual scheme. */
   | { kind: 'file'; uri: string }
   /** A schema written inline in settings (`schema`); `uri` is the entry's `url`, if any. */
   | { kind: 'inline'; schema: unknown; uri?: string }
@@ -67,9 +70,11 @@ export function resolveSchemaAssociation(input: SchemaAssociationInput): SchemaA
 }
 
 /**
- * The `$schema` value as a local `file:` URI, or undefined when it is not a local path (a remote
- * URL such as a meta-schema id, another scheme, an empty or non-string value). Relative paths
- * resolve against the document's folder.
+ * The `$schema` value as a local URI, or undefined when it is not a local path (a remote URL such as
+ * a meta-schema id, another scheme, an empty or non-string value). Relative and absolute paths
+ * resolve on the document's own scheme and authority (an absolute one from its root), unless the
+ * document has no folder (untitled) or is itself remote; Windows paths and `file:` documents give
+ * `file:` URIs.
  */
 export function localSchemaPath(value: unknown, documentUri: string): string | undefined {
   if (typeof value !== 'string') {
@@ -91,9 +96,18 @@ export function localSchemaPath(value: unknown, documentUri: string): string | u
     return scheme.toLowerCase() === 'file' ? normalizeFileUri(path) : undefined;
   }
   if (path.startsWith('/') || path.startsWith('\\')) {
-    return fileUri(path.replace(/\\/g, '/'));
+    // An absolute path is on the document's own scheme and authority, from the authority's root:
+    // `/x` on `vscode-vfs://github/o/r/a.json` is `vscode-vfs://github/x`, and on the test
+    // harness's `vscode-test-web://mount/w/a.json` it is `vscode-test-web://mount/x` (013 T4).
+    // Whether github.dev's own JSON service resolves it the same way is not verified. `file:` for
+    // a `file:` document or one with no folder.
+    const absolute = path.replace(/\\/g, '/');
+    const prefix = HIERARCHICAL.exec(documentUri)?.[1];
+    return prefix !== undefined && hasFolder(documentUri) && !/^file:/i.test(prefix)
+      ? prefix + normalizeSegments(absolute)
+      : fileUri(absolute);
   }
-  if (!documentUri.startsWith('file:')) {
+  if (!hasFolder(documentUri)) {
     return undefined;
   }
   return joinUri(dirname(documentUri), path.replace(/\\/g, '/'));
@@ -168,39 +182,68 @@ function settingLocation(
 ): SchemaLocation | undefined {
   const url =
     typeof entry.url === 'string' && entry.url.trim() !== '' ? entry.url.trim() : undefined;
-  const uri = url === undefined ? undefined : settingUrl(url, baseUri);
+  const resolved = url === undefined ? undefined : settingUrl(url, baseUri);
+  const uri = resolved?.uri;
   if (isObject(entry.schema)) {
     return uri === undefined
       ? { kind: 'inline', schema: entry.schema }
       : { kind: 'inline', schema: entry.schema, uri };
   }
-  if (uri === undefined) {
+  if (resolved === undefined) {
     return undefined;
   }
-  return uri.startsWith('file:') ? { kind: 'file', uri } : { kind: 'remote', uri };
+  return resolved.local
+    ? { kind: 'file', uri: resolved.uri }
+    : { kind: 'remote', uri: resolved.uri };
 }
 
 /**
  * A settings `url`: `./x` and `/x` join the settings location when there is one (VS Code's
- * getSchemaId). A relative url with no settings location (user settings) has nothing to resolve
- * against, so it gives undefined and the entry is skipped.
+ * getSchemaId), on that location's scheme. A relative url with no settings location (user settings)
+ * has nothing to resolve against, so it gives undefined and the entry is skipped. `local` says
+ * whether the result is read from the workspace: a `file:` URI, or one joined onto a settings
+ * location that is not remote; any other scheme written out in full stays remote.
  */
-function settingUrl(url: string, baseUri: string | undefined): string | undefined {
+function settingUrl(
+  url: string,
+  baseUri: string | undefined,
+): { uri: string; local: boolean } | undefined {
   if (baseUri !== undefined && (url.startsWith('.') || url.startsWith('/'))) {
-    return joinUri(withTrailingSlash(stripQueryAndFragment(baseUri)), url.replace(/^\/+/, ''));
+    const base = withTrailingSlash(stripQueryAndFragment(baseUri));
+    return { uri: joinUri(base, url.replace(/^\/+/, '')), local: !isRemote(base) };
   }
   if (WINDOWS_DRIVE.test(url) || url.startsWith('/')) {
-    return fileUri((url.startsWith('/') ? '' : '/') + url.replace(/\\/g, '/'));
+    return {
+      uri: fileUri((url.startsWith('/') ? '' : '/') + url.replace(/\\/g, '/')),
+      local: true,
+    };
   }
   const scheme = SCHEME.exec(url)?.[1];
   if (scheme === undefined) {
     return undefined;
   }
-  return scheme.toLowerCase() === 'file' ? normalizeFileUri(url) : url;
+  return scheme.toLowerCase() === 'file'
+    ? { uri: normalizeFileUri(url), local: true }
+    : { uri: url, local: false };
 }
 
 const WINDOWS_DRIVE = /^[a-zA-Z]:[\\/]/;
 const SCHEME = /^([a-zA-Z][a-zA-Z0-9+.-]+):/;
+/** A URI with a hierarchical path: `scheme://authority/path` or `scheme:/path`. */
+const HIERARCHICAL = /^([a-zA-Z][a-zA-Z0-9+.-]*:(?:\/\/[^/]*)?)(\/.*)?$/;
+
+/** Schemes whose files would need the network: named, never read (offline). */
+function isRemote(uri: string): boolean {
+  return /^https?:/i.test(uri);
+}
+
+/**
+ * Whether relative paths can resolve against the URI's folder: it has a hierarchical path and is
+ * neither remote nor untitled (an untitled document's path is only a suggested save location).
+ */
+function hasFolder(uri: string): boolean {
+  return HIERARCHICAL.exec(uri)?.[2] !== undefined && !isRemote(uri) && !/^untitled:/i.test(uri);
+}
 
 function fileUri(absolutePath: string): string {
   return 'file://' + lowerDrive(normalizeSegments(absolutePath));
@@ -216,13 +259,18 @@ function lowerDrive(path: string): string {
   return path.replace(/^\/([A-Z]):/, (_, drive: string) => `/${drive.toLowerCase()}:`);
 }
 
-/** Joins a relative path onto a folder URI (which ends with `/`), resolving `.` and `..`. */
+/**
+ * Joins a relative path onto a folder URI (which ends with `/`), resolving `.` and `..`; the
+ * scheme and authority are kept as they are. Drive letters are lowercased in `file:` URIs only.
+ */
 function joinUri(folderUri: string, relative: string): string {
-  const match = /^([a-z][a-z0-9+.-]*:\/\/[^/]*)(.*)$/i.exec(folderUri);
+  const match = HIERARCHICAL.exec(folderUri);
   if (!match) {
     return folderUri + relative;
   }
-  return match[1] + lowerDrive(normalizeSegments((match[2] ?? '/') + relative));
+  const prefix = match[1] as string;
+  const path = normalizeSegments((match[2] ?? '/') + relative);
+  return prefix + (/^file:/i.test(prefix) ? lowerDrive(path) : path);
 }
 
 /** Removes `.` and `..` segments; `..` never climbs above the root (or a drive letter). */

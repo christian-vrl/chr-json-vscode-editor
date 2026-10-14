@@ -1,0 +1,7 @@
+{
+  // the record
+  "id": 7,
+  "name": "n",
+  "tags": ["a", "b",],
+  "meta": { "ok": true, "score": 1.5 }, /* last */
+}

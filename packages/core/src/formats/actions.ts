@@ -4,6 +4,7 @@
 // stream) as the edit layer, so they behave the same for JSON, JSONC and JSON5.
 import naturalCompare from 'natural-compare-lite';
 import { blockComment, dataOf, type Doc, type Open } from './edit.js';
+import { compareNumbers, LosslessNumber } from './numbers.js';
 import { parseIndex, parsePointer } from './pointer.js';
 import { isComment, Kind, type Token } from './tokens.js';
 import { PatchError, type FormatNode, type SortOptions } from './types.js';
@@ -333,15 +334,23 @@ function text(v: unknown): string {
   }
 }
 
-/** The library's `createObjectComparator` for one direction (ascending). */
+/** `typeof v`, with a big number a `number`. */
+const kind = (v: unknown) => (v instanceof LosslessNumber ? 'number' : typeof v);
+
+/** The library's `createObjectComparator` for one direction (ascending), with big numbers (spec 015
+ *  B3): a `LosslessNumber` is a number, and numbers compare by exact value (`compareNumbers`). */
 function compareValues(a: unknown, b: unknown): number {
+  const ta = kind(a);
+  const tb = kind(b);
   const rank: Record<string, number> = { boolean: 0, number: 1, string: 2, undefined: 4 };
-  if (typeof a !== typeof b) {
-    const ra = rank[typeof a] ?? 3;
-    const rb = rank[typeof b] ?? 3;
+  if (ta !== tb) {
+    const ra = rank[ta] ?? 3;
+    const rb = rank[tb] ?? 3;
     return ra > rb ? 1 : ra < rb ? -1 : 0;
   }
-  if (typeof a === 'number' || typeof a === 'boolean') return a > b! ? 1 : a < b! ? -1 : 0;
+  if (ta === 'number')
+    return compareNumbers(a as number | LosslessNumber, b as number | LosslessNumber);
+  if (typeof a === 'boolean') return a > b! ? 1 : a < b! ? -1 : 0;
   if (typeof a === 'object' && a !== null) return 0;
   return caseInsensitiveNaturalCompare(a, b);
 }

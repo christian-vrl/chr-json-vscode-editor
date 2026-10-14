@@ -58,7 +58,10 @@ const REMOTE_SCHEMAS: (object | boolean)[] = [
 describe('spec 004 criterion 2: dialect fixtures', () => {
   it('has fixtures for every supported dialect, in all three formats', () => {
     expect([...new Set(cases.map((c) => c.dialect))].sort()).toEqual([...SCHEMA_DIALECTS].sort());
-    expect([...new Set(cases.map((c) => c.format))].sort()).toEqual([...FORMATS].sort());
+    // JSON Lines is not validated against a schema (spec 012 §Scope).
+    expect([...new Set(cases.map((c) => c.format))].sort()).toEqual(
+      FORMATS.filter((f) => f !== 'jsonl').sort(),
+    );
   });
 
   it.each(cases.map((c) => [`${c.dialect}/${c.name} (${c.docFile})`, c] as const))(

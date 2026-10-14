@@ -1,8 +1,15 @@
 // Checks that a case's tags describe its own input and patch (002 T1), so a case cannot cover a
 // grid cell it does not exercise. The scanner below only needs to tell strings, comments and other
 // code apart; it is not a parser for any format.
-import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
+import {
+  existsIn,
+  getIn,
+  immutableJSONPatch,
+  parseJSONPointer,
+  type JSONPatchDocument,
+} from 'immutable-json-patch';
 import JSON5 from 'json5';
+import { isSafeNumber, LosslessNumber } from 'lossless-json';
 import { wholeDocumentOps, type GoldenCase } from './load.js';
 
 interface Scan {
@@ -43,17 +50,176 @@ function scan(text: string): Scan {
   return { code, comments, strings };
 }
 
+/** JSON5 number tokens in code (strings and comments taken out), not inside an identifier. */
+const NUMBER_TOKEN =
+  /(?<![\w$.])[+-]?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)(?![\w$])/g;
+
+/** Whether code holds a big number (spec 015 §Terms): lossless-json's `isSafeNumber` is false for
+ *  a number token's decimal text (hex as its decimal digits, no `+`, `.5` as `0.5`, `5.` as `5`). */
+export function hasBigNumber(code: string): boolean {
+  return [...code.matchAll(NUMBER_TOKEN)].some(([token]) => bigDecimal(token) !== undefined);
+}
+
 /** The comments of a text, as written. */
 export const commentsOf = (text: string): string[] => scan(text).comments;
 
-/** The data of a text, read by the json5 package; `undefined` for a text with no value: empty,
- *  white space or comments only (R15). */
+/** What a big number reads as in this corpus's reference data: a string holding its decimal text
+ *  after a mark no case's string holds, so the json5 package and `immutable-json-patch` keep its
+ *  digits and compare them exactly. */
+const BIG = '\u0000big:';
+
+/** A number token's decimal text when it is a big number (spec 015 §Terms: lossless-json's
+ *  `isSafeNumber` is false for it; hex as its decimal digits, no `+`, `.5` as `0.5`, `5.` as
+ *  `5`), else undefined. */
+function bigDecimal(token: string): string | undefined {
+  const sign = token.startsWith('-') ? '-' : '';
+  const body = token.replace(/^[+-]/, '');
+  const decimal =
+    sign +
+    (/^0x/i.test(body)
+      ? BigInt(body).toString()
+      : body.replace(/^\./, '0.').replace(/\.(?!\d)/, ''));
+  return isSafeNumber(decimal) ? undefined : decimal;
+}
+
+/** The text with each big number token written as a `BIG` string; strings and comments as they are. */
+export function markBigNumbers(text: string): string {
+  let out = '';
+  let i = 0;
+  const code = (part: string) =>
+    part.replace(NUMBER_TOKEN, (token) => {
+      const big = bigDecimal(token);
+      return big === undefined ? token : JSON.stringify(BIG + big);
+    });
+  let from = 0;
+  while (i < text.length) {
+    const ch = text[i]!;
+    let end = i;
+    if (text.startsWith('//', i)) {
+      while (end < text.length && text[end] !== '\n') end++;
+    } else if (text.startsWith('/*', i)) {
+      const close = text.indexOf('*/', i + 2);
+      end = close < 0 ? text.length : close + 2;
+    } else if (ch === '"' || ch === "'") {
+      end = i + 1;
+      while (end < text.length && text[end] !== ch) end += text[end] === '\\' ? 2 : 1;
+      end++;
+    } else {
+      i++;
+      continue;
+    }
+    out += code(text.slice(from, i)) + text.slice(i, end);
+    i = from = end;
+  }
+  return out + code(text.slice(from));
+}
+
+/** Data with each `LosslessNumber` (a patch value read by the golden loader, spec 015 B1) as the
+ *  corpus's `BIG` string, so it compares with `parseData`'s reading of a text. */
+export function markBigData(data: unknown): unknown {
+  if (data instanceof LosslessNumber) return BIG + data.value;
+  if (Array.isArray(data)) return data.map(markBigData);
+  if (data === null || typeof data !== 'object') return data;
+  const copy: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data))
+    Object.defineProperty(copy, key, {
+      value: markBigData(value),
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  return copy;
+}
+
+/** Whether reference data holds a big number: a `BIG` string or a `LosslessNumber`. */
+export function holdsBig(value: unknown): boolean {
+  if (typeof value === 'string') return value.startsWith(BIG);
+  if (value instanceof LosslessNumber) return true;
+  if (typeof value !== 'object' || value === null) return false;
+  return Object.values(value).some(holdsBig);
+}
+
+/** The decimal text of a number in reference data (spec 015 §Terms): a `BIG` string's digits, a
+ *  `LosslessNumber`'s `value`, a finite number's `String(n)`; undefined for anything else. */
+export function numberText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.startsWith(BIG) ? value.slice(BIG.length) : undefined;
+  if (value instanceof LosslessNumber) return value.value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+/** Whether `value` is a big number in reference data. */
+export const isBig = (value: unknown): boolean =>
+  (typeof value === 'string' && value.startsWith(BIG)) || value instanceof LosslessNumber;
+
+/** A decimal text's exact value as the fraction `n / d`, with BigInt arithmetic. */
+function fraction(text: string): { n: bigint; d: bigint } {
+  const m = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(text);
+  if (!m) throw new Error(`not a decimal number: ${text}`);
+  const [, sign, whole, part = '', exponent = '0'] = m;
+  const n = BigInt(`${sign}${whole}${part}`);
+  const scale = Number(exponent) - part.length;
+  return scale >= 0 ? { n: n * 10n ** BigInt(scale), d: 1n } : { n, d: 10n ** BigInt(-scale) };
+}
+
+/** -1, 0 or 1 as decimal text `a`'s exact value is below, equal to or above `b`'s. */
+export function compareExact(a: string, b: string): number {
+  const x = fraction(a);
+  const y = fraction(b);
+  const left = x.n * y.d;
+  const right = y.n * x.d;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/** RFC 6902's equality with numbers by exact value (spec 015 B3): `1e20` equals
+ *  `100000000000000000000`. */
+export function exactEqual(a: unknown, b: unknown): boolean {
+  const ta = numberText(a);
+  const tb = numberText(b);
+  if (ta !== undefined && tb !== undefined) return compareExact(ta, tb) === 0;
+  if (isBig(a) || isBig(b)) return false;
+  if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return a === b;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return (
+    ka.length === kb.length &&
+    ka.every(
+      (k) =>
+        Object.hasOwn(b, k) &&
+        exactEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+    )
+  );
+}
+
+/** `immutableJSONPatch(data, patch)`, except that a `test` op whose value or target holds a big
+ *  number compares by exact value (`exactEqual`), as spec 015 B3 says the `test` op does. */
+export function referencePatch(data: unknown, patch: JSONPatchDocument): unknown {
+  let current = data;
+  for (const op of patch) {
+    if (op.op === 'test') {
+      const path = parseJSONPointer(op.path);
+      const actual = existsIn(current, path) ? getIn(current, path) : undefined;
+      if (holdsBig(op.value) || holdsBig(actual)) {
+        if (actual === undefined || !exactEqual(actual, op.value))
+          throw new Error(`Test failed, value differs (path: "${op.path}")`);
+        continue;
+      }
+    }
+    current = immutableJSONPatch(current, [op]);
+  }
+  return current;
+}
+
+/** The data of a text, read by the json5 package, with big numbers as `BIG` strings (spec 015);
+ *  `undefined` for a text with no value: empty, white space or comments only (R15). */
 export function parseData(text: string): unknown {
+  const marked = markBigNumbers(text);
   try {
-    return JSON5.parse(text);
+    return JSON5.parse(marked);
   } catch (error) {
     // A text with no value is one after which a lone value parses.
-    if (JSON5.parse(`${text}\nnull`) === null) return undefined;
+    if (JSON5.parse(`${marked}\nnull`) === null) return undefined;
     throw error;
   }
 }
@@ -142,6 +308,7 @@ export function tagMismatches(c: GoldenCase): string[] {
       errors.push(`keyStyle: most keys are ${keyStyle}`);
     }
     const special = [
+      hasBigNumber(code) && 'big-number',
       /\b0x[0-9a-f]+/i.test(code) && 'hex',
       /\b(Infinity|NaN)\b/.test(code) && 'infinity-nan',
       strings.some((s) => /\\\r?\n/.test(s.body)) && 'multiline-string',
@@ -149,6 +316,8 @@ export function tagMismatches(c: GoldenCase): string[] {
     if (tags.special === 'none' ? special.length > 0 : !special.includes(tags.special!)) {
       errors.push(`special: input has ${special.join(', ') || 'none'}`);
     }
+  } else if ((tags.special === 'big-number') !== hasBigNumber(code)) {
+    errors.push(`special: input has ${hasBigNumber(code) ? 'big-number' : 'none'}`);
   }
   return errors;
 }

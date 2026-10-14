@@ -1,0 +1,5 @@
+{
+  "message": "Integer 9223372036854775808 is outside the 64-bit range TOML allows",
+  "line": 2,
+  "column": 11
+}

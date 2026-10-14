@@ -7,13 +7,14 @@ import {
   REMOTE_SCHEMA_REASON,
   SchemaBinding,
   parseSchema,
+  schemaFileParts,
   topLevelSchema,
 } from '../../src/schemaBinding';
 
 const DOC = 'file:///work/data/people.json';
 const PERSON = { type: 'object', required: ['name'] };
 
-function setup(text: string, files: Record<string, string> = {}) {
+function setup(text: string, files: Record<string, string> = {}, documentUri = DOC) {
   const state = {
     text,
     format: 'json' as Format,
@@ -28,7 +29,7 @@ function setup(text: string, files: Record<string, string> = {}) {
   const reads: string[] = [];
   const binding = new SchemaBinding(
     {
-      documentUri: () => DOC,
+      documentUri: () => documentUri,
       text: () => state.text,
       format: () => state.format,
       settings: () => ({ jsonSchemas: state.jsonSchemas, json5Schemas: state.json5Schemas }),
@@ -221,5 +222,80 @@ describe('topLevelSchema', () => {
 describe('parseSchema', () => {
   it('accepts a boolean schema', () => {
     expect(parseSchema('file:///s.json', 'true')).toEqual({ schema: true });
+  });
+});
+
+// 013 T3 (spec 013 criterion 6): schema files on the web workspace's virtual scheme.
+describe('schema files on a virtual scheme', () => {
+  it("loads a relative $schema from the document's own scheme and authority", async () => {
+    const schemaUri = 'vscode-vfs://github/o/r/data/s.json';
+    const { calls, reads, binding } = setup(
+      '{"$schema": "./s.json"}',
+      { [schemaUri]: JSON.stringify(PERSON) },
+      'vscode-vfs://github/o/r/data/a.json',
+    );
+    await binding.refresh();
+    expect(reads).toEqual([schemaUri]);
+    expect(calls).toEqual([['setSchema', PERSON, undefined]]);
+    expect(binding.schemaFile).toBe(schemaUri);
+  });
+
+  it('loads a json.schemas url relative to a virtual workspace folder', async () => {
+    const schemaUri = 'vscode-test-web://mount/schemas/s.json';
+    const { state, calls, reads, binding } = setup(
+      '{}',
+      { [schemaUri]: JSON.stringify(PERSON) },
+      'vscode-test-web://mount/data/a.json',
+    );
+    state.jsonSchemas = [
+      {
+        baseUri: 'vscode-test-web://mount/',
+        folderUri: 'vscode-test-web://mount/',
+        entries: [{ fileMatch: ['data/*.json'], url: './schemas/s.json' }],
+      },
+    ];
+    await binding.refresh();
+    expect(reads).toEqual([schemaUri]);
+    expect(calls).toEqual([['setSchema', PERSON, undefined]]);
+  });
+
+  it('still never reads an https: url', async () => {
+    const { state, calls, reads, binding } = setup('{}', {}, 'vscode-vfs://github/o/r/a.json');
+    state.jsonSchemas = [
+      {
+        baseUri: 'vscode-vfs://github/o/r',
+        entries: [{ fileMatch: ['a.json'], url: 'https://example.com/s.json' }],
+      },
+    ];
+    await binding.refresh();
+    expect(reads).toEqual([]);
+    expect(calls).toEqual([
+      ['setUnavailable', `${REMOTE_SCHEMA_REASON}: https://example.com/s.json`],
+    ]);
+  });
+});
+
+describe('schemaFileParts', () => {
+  it.each([
+    ['file:///work/s.json', { scheme: 'file', authority: '', path: '/work/s.json' }],
+    ['file:///c:/a b/s#1?.json', { scheme: 'file', authority: '', path: '/c:/a b/s#1?.json' }],
+    ['file://server/share/s.json', { scheme: 'file', authority: 'server', path: '/share/s.json' }],
+    [
+      'vscode-vfs://github/o/r/data/s.json',
+      { scheme: 'vscode-vfs', authority: 'github', path: '/o/r/data/s.json' },
+    ],
+    [
+      'vscode-test-web://mount/100%/s.json',
+      { scheme: 'vscode-test-web', authority: 'mount', path: '/100%/s.json' },
+    ],
+    ['memfs:/work/s.json', { scheme: 'memfs', authority: '', path: '/work/s.json' }],
+  ])('%s', (uri, expected) => {
+    expect(schemaFileParts(uri)).toEqual(expected);
+  });
+
+  it('refuses what is not a URI with a scheme and an absolute path, with no file: fallback', () => {
+    for (const uri of ['s.json', './s.json', '/work/s.json', 'vscode-vfs:s.json', '']) {
+      expect(() => schemaFileParts(uri), uri).toThrow(`not a schema file URI: ${uri}`);
+    }
   });
 });

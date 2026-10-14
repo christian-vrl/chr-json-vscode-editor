@@ -1,8 +1,12 @@
 // Gate for 003 T1: every protocol message survives the trip a webview message takes (JSON text and
 // structured clone) and decodes back to an equal value; malformed messages are rejected.
+import { LosslessNumber, parseData, valueText } from '@chr-json-editor/core';
 import { describe, expect, it } from 'vitest';
 import {
   PROTOCOL_VERSION,
+  decodeChange,
+  encodeChange,
+  type DocumentChange,
   decodeToCompareHost,
   decodeToComparePage,
   decodeToCsvHost,
@@ -49,6 +53,7 @@ const toWebview: ToWebviewMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 2, text: '{}', origin: 'edit' },
   { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 2, mode: 'table' },
   { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'json5' },
+  { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'jsonl' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'stale', message: 'Edit on 2' },
   {
     protocol: PROTOCOL_VERSION,
@@ -104,12 +109,12 @@ const toHost: ToHostMessage[] = [
     change: {
       kind: 'patch',
       patch: [
-        { op: 'add', path: '/b', value: { c: [1, 2.5, -3e2] } },
+        { op: 'add', path: '/b', valueText: '{"c":[1,2.5,-300]}' },
         { op: 'remove', path: '/a' },
-        { op: 'replace', path: '', value: null },
+        { op: 'replace', path: '', valueText: 'null' },
         { op: 'move', from: '/x', path: '/y' },
         { op: 'copy', from: '/x', path: '/z~1w' },
-        { op: 'test', path: '/k', value: 'v' },
+        { op: 'test', path: '/k', valueText: '"v"' },
       ],
     },
   },
@@ -119,7 +124,7 @@ const toHost: ToHostMessage[] = [
     docVersion: 0,
     change: { kind: 'text', text: '' },
   },
-  ...(['format', 'compact', 'repair'] as const).map((name): ToHostMessage => ({
+  ...(['format', 'compact', 'repair', 'repairLines'] as const).map((name): ToHostMessage => ({
     protocol: PROTOCOL_VERSION,
     type: 'edit',
     docVersion: 4,
@@ -684,5 +689,110 @@ describe('CSV panel messages (009 T4)', () => {
     const result = decodeToCsvPage(data);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toMatch(/\S/);
+  });
+});
+
+// Spec 015 criterion 5 (015 T4, B5): a patch's values travel as JSON text, written by core's
+// `valueText` and read by core's `parseData('json', …)`, as the webview and the host do.
+describe('patch values (spec 015 criterion 5)', () => {
+  const read = (text: string): unknown => {
+    const result = parseData('json', text);
+    if ('error' in result) throw new Error(result.error.message);
+    return result.data;
+  };
+  /** The trip an edit takes: encoded, posted (JSON text and structured clone), decoded. */
+  const trip = (change: DocumentChange) => {
+    const message = {
+      protocol: PROTOCOL_VERSION,
+      type: 'edit',
+      docVersion: 3,
+      change: encodeChange(change, valueText),
+    } as const;
+    return [JSON.parse(JSON.stringify(message)) as unknown, structuredClone(message)].map(
+      (data) => {
+        const decoded = decodeToHost(data);
+        if (!decoded.ok || decoded.message.type !== 'edit')
+          throw new Error(JSON.stringify(decoded));
+        return decodeChange(decoded.message.change, read);
+      },
+    );
+  };
+  const big = (digits: string) => new LosslessNumber(digits);
+  const lookAlike = JSON.parse('{"isLosslessNumber": true, "value": "1"}') as object;
+  const values: [string, unknown][] = [
+    ['a big integer', big('12345678901234567890')],
+    ['a big decimal', big('0.1000000000000000000001')],
+    ['an overflowing number', big('1e400')],
+    ['an underflowing number', big('-1E-400')],
+    ['a plain number', 9007199254740991],
+    ['a plain decimal', -1.5e-7],
+    ['-0', -0],
+    ['an object that looks like a big number', lookAlike],
+    [
+      'big numbers inside containers',
+      { ids: [big('9007199254740993'), 5, -0, null, 'x'], nested: { a: big('-1e-400'), b: true } },
+    ],
+    ['a __proto__ key', JSON.parse('{"__proto__": {"x": 1}, "n": 1}') as unknown],
+  ];
+
+  it.each(values)('%s arrives as it left', (_name, value) => {
+    const change: DocumentChange = {
+      kind: 'patch',
+      patch: [
+        { op: 'add', path: '/a', value: value as never },
+        { op: 'replace', path: '/b', value: value as never },
+        { op: 'test', path: '/c', value: value as never },
+        { op: 'remove', path: '/d' },
+        { op: 'move', from: '/e', path: '/f' },
+        { op: 'copy', from: '/g', path: '/h' },
+      ],
+    };
+    for (const decoded of trip(change)) {
+      expect(decoded).toStrictEqual(change);
+      if (decoded.kind !== 'patch') throw new Error('not a patch');
+      for (const op of decoded.patch.slice(0, 3)) {
+        const got = (op as { value: unknown }).value;
+        // toStrictEqual tells -0 from 0 and a LosslessNumber from a plain object.
+        expect(got instanceof LosslessNumber).toBe(value instanceof LosslessNumber);
+        if (value === lookAlike) expect(Object.getPrototypeOf(got)).toBe(Object.prototype);
+      }
+    }
+  });
+
+  it('leaves text and action changes as they are', () => {
+    const changes: DocumentChange[] = [
+      { kind: 'text', text: '{"a": 12345678901234567890}' },
+      { kind: 'action', action: { name: 'sort', path: '/ids', order: [1, 0] } },
+    ];
+    for (const change of changes)
+      for (const decoded of trip(change)) expect(decoded).toEqual(change);
+  });
+
+  it('writes a value JSON has no text for so that the reader refuses it', () => {
+    for (const value of [NaN, Infinity, -Infinity, [NaN]]) {
+      const text = valueText(value);
+      expect(() => read(text), text).toThrow();
+    }
+  });
+
+  it('is version 15, and a receiver of another version rejects the message', () => {
+    expect(PROTOCOL_VERSION).toBe(15);
+    const edit = {
+      protocol: PROTOCOL_VERSION,
+      type: 'edit',
+      docVersion: 1,
+      change: encodeChange(
+        { kind: 'patch', patch: [{ op: 'add', path: '/a', value: big('1e400') as never }] },
+        valueText,
+      ),
+    };
+    // A version 14 receiver checks `protocol` first; the version 14 shape (`value`) is refused here.
+    expect(decodeToHost({ ...edit, protocol: 14 })).toMatchObject({ ok: false });
+    expect(
+      decodeToHost({
+        ...edit,
+        change: { kind: 'patch', patch: [{ op: 'add', path: '/a', value: 1 }] },
+      }),
+    ).toMatchObject({ ok: false });
   });
 });

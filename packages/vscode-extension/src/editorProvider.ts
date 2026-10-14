@@ -41,9 +41,8 @@ import { DocumentSync, minimalReplacement } from './documentSync';
 import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
 import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
-import { webviewFormat } from './formatBadge';
 import type { FormatBadgeController } from './formatBadgeVscode';
-import { SchemaBinding } from './schemaBinding';
+import { SchemaBinding, schemaFileParts } from './schemaBinding';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
@@ -463,6 +462,16 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   }
 
   /**
+   * Has every ready tab of `document` hand over the typing it holds and the edits it sent, as before
+   * a save, so a command that reads the document's text next reads what the tabs show (spec 010
+   * criterion 8: "Smart Format" on a CHR JSON Editor tab in text mode).
+   */
+  async flushDocument(document: vscode.TextDocument): Promise<void> {
+    const ready = [...this.sessions.values()].filter((s) => s.document === document && s.ready);
+    await Promise.all(ready.map((session) => this.flush(session)));
+  }
+
+  /**
    * What "Export to CSV…" exports from `document`'s CHR JSON Editor tab (spec 009 criterion 7): the
    * JSON Pointer its webview names (the array table mode shows, the one value tree mode has
    * selected), or `''` for the document's data. Asks the active tab showing the document, else a
@@ -494,9 +503,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
 
   /** The format the badge holds for the document: detected, or chosen by the user. */
   private formatOf(document: vscode.TextDocument): Format {
-    return webviewFormat(
+    return (
       this.formatBadge.format(document) ??
-        detect(document.uri.path, document.languageId, document.getText()).format,
+      detect(document.uri.path, document.languageId, document.getText()).format
     );
   }
 
@@ -665,7 +674,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
   }
 
-  /** Test hook: has the webview of `uri` send `patch` as a tree edit would (criterion 1). */
+  /** Test hook: has the webview of `uri` send `patch` as a tree edit would (criterion 1): the
+   *  operations, or their JSON text, read as the editor reads typed text (big numbers exact, spec 015
+   *  criterion 4). */
   patch(uri: string, patch: unknown): boolean {
     if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
     const session = this.sessionFor(uri);
@@ -757,15 +768,11 @@ function timeCalls<T extends object>(target: T, names: string[], add: (ms: numbe
   }
 }
 
-/** Reads a local schema: an open document's text (unsaved edits included), else the file. */
+/** Reads a local schema: an open document's text (unsaved edits included), else the file, on
+ *  whatever scheme the workspace uses (`file:`, or a virtual one on the web). */
 async function readSchemaFile(uri: string): Promise<string> {
   const open = vscode.workspace.textDocuments.find((d) => d.uri.toString(true) === uri);
   if (open) return open.getText();
-  // `uri` is the unencoded `toString(true)` spelling, so `Uri.parse` would read a `#`, `?` or `%`
-  // in the path as a fragment, query or escape; split it by hand instead.
-  const [, authority = '', path = '/'] = /^file:\/\/([^/]*)(\/.*)?$/i.exec(uri) ?? [];
-  const bytes = await vscode.workspace.fs.readFile(
-    vscode.Uri.from({ scheme: 'file', authority, path }),
-  );
+  const bytes = await vscode.workspace.fs.readFile(vscode.Uri.from(schemaFileParts(uri)));
   return new TextDecoder().decode(bytes);
 }

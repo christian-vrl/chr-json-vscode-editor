@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "XM4",
+    "XM6"
+  ],
+  "tags": [
+    "xml-cdata"
+  ]
+}

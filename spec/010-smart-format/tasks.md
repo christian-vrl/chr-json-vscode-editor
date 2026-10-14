@@ -22,14 +22,14 @@
   owner UNKNOWN is recorded); `pnpm check:licenses` green*
 
 ## Phase C — VS Code (risk-free / additive)
-- [ ] **T3** "Smart format" in the text mode menu, the `smartFormat` action (protocol bump) in
+- [x] **T3** "Smart format" in the text mode menu, the `smartFormat` action (protocol bump) in
   app-shell, the dev host and the host's `runAction`; the `chrJsonEditor.smartFormat` command for the
   CHR JSON editor and the text editor; the broken-source message; the size guard of criterion 10
   (the command checks the text size before running, so no unguarded command ever ships), with e2e
   in the text editor on a 6 MiB fixture; fixtures in `tests/e2e/fixtures/smart-format/`; README
   credit for FracturedJson. — needs: 010 T2, 003 T8 — *gate: criterion 7 green in `pnpm test:web`;
   criteria 8, 9 and 10 (text editor) green in `pnpm test:e2e`; `pnpm check:offline` green*
-- [ ] **T4** Large-file tabs: e2e for criterion 10 in a large-file tab on 008's 6 MiB fixture, locked
+- [x] **T4** Large-file tabs: e2e for criterion 10 in a large-file tab on 008's 6 MiB fixture, locked
   and unlocked, and an unlocked tab edited down to 5 MiB or less that then smart-formats. — needs: 010 T3, 008 T3 — *gate: criterion 10 green in `pnpm test:e2e`*
 
 ## Off the critical path

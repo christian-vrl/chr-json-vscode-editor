@@ -29,8 +29,24 @@ export interface SchemaSource {
   dataOnly?(): boolean;
   /** `json.schemas` and `json5.schemas` levels, in VS Code's order (collectSchemaScopes). */
   settings(): { jsonSchemas: SchemaSettingsScope[]; json5Schemas: SchemaSettingsScope[] };
-  /** The text of a local schema file (`file:` URI, `toString(true)` spelling). */
+  /** The text of a local schema file (a `file:` or virtual-scheme URI, `toString(true)` spelling). */
   readFile(uri: string): Promise<string>;
+}
+
+/**
+ * The parts of a local schema file's URI, for `Uri.from`. The URI is in the unencoded
+ * `toString(true)` spelling (the association's query and fragment already dropped), so `Uri.parse`
+ * would read a `#`, `?` or `%` in the path as a fragment, query or escape; it is split by hand.
+ * Any scheme the association names as local: `file:` on desktop, the workspace's virtual scheme
+ * (`vscode-vfs:` in github.dev) on the web (spec 013 criterion 6).
+ */
+export function schemaFileParts(uri: string): { scheme: string; authority: string; path: string } {
+  const match = /^([a-zA-Z][a-zA-Z0-9+.-]*):(?:\/\/([^/]*))?(\/.*)?$/.exec(uri);
+  // The association names only URIs with a scheme and a hierarchical path (013 T4: no `file:`
+  // fallback); anything else is refused, which shows as a schema that cannot be read.
+  if (!match) throw new Error(`not a schema file URI: ${uri}`);
+  const [, scheme = '', authority = '', path = '/'] = match;
+  return { scheme, authority, path };
 }
 
 /** The reason shown when the schema that applies is not local. */

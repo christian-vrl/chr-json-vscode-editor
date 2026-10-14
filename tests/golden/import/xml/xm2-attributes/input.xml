@@ -1,0 +1,5 @@
+<book id="bk101" year="2001" price="44.95" available="true">
+  <title lang="en">XML Developer's Guide</title>
+  <author>Gambardella, Matthew</author>
+  <isbn type='13'/>
+</book>

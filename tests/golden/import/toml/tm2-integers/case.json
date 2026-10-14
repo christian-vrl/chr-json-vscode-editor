@@ -1,0 +1,10 @@
+{
+  "rules": [
+    "TM2",
+    "A2"
+  ],
+  "tags": [
+    "big-integer",
+    "hex-octal-binary"
+  ]
+}

@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { commonSubsequence } from '../src/diff.js';
 import { diff, getAdapter, stringify, type Format } from '../src/index.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
+import { readBack } from './read-back.js';
 
 const RUNS = 10_000;
 const TEXT_RUNS = RUNS;
@@ -141,8 +142,10 @@ describe('criterion 9: applying diff(a, b) to a gives b', () => {
             const result = adapter.parse(output);
             expect(result.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
             const same = format === 'json5' ? isDeepStrictEqual : sameData;
-            if (!same(result.data, b))
-              expect(result.data, `${JSON.stringify(patch)}\n${text}\n=>\n${output}`).toEqual(b);
+            // A whole number JavaScript writes as a big number reads back as one (read-back.ts).
+            const want = readBack(b);
+            if (!same(result.data, want))
+              expect(result.data, `${JSON.stringify(patch)}\n${text}\n=>\n${output}`).toEqual(want);
           },
         ),
         { seed: SEED, numRuns: TEXT_RUNS },
