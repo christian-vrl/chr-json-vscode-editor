@@ -443,6 +443,17 @@ exports.run = async function run() {
     isCustom,
   });
 
+  // Gate (012 T6, spec 012 criteria 10 and 11): JSON Lines in large-file mode and the CSV panel
+  // (jsonLinesLargeFile.cjs).
+  await closeAll();
+  await require('./jsonLinesLargeFile.cjs').runJsonLinesLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (009 T5, criterion 10): CSV in a tab locked in large-file mode (csvLargeFile.cjs).
   await closeAll();
   await require('./csvLargeFile.cjs').runCsvLargeFile({

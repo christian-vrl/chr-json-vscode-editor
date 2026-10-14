@@ -36,7 +36,7 @@ import {
   type ToWebviewMessage,
   type ValidationMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { detect, getAdapter, releaseParse } from '@chr-json-editor/core';
+import { detect, parseData, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
 import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
@@ -403,8 +403,13 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         return;
       case 'edit':
         if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.editsReceived++;
-        if (isLocked(session)) {
-          // The webview sends none while locked; the host still applies none (plan R3).
+        // "Repair Lines" is the one change a locked tab sends, from a large JSON Lines file's
+        // bad-line banner (spec 012 criterion 10, 012 T6); the tab stays locked after it.
+        if (
+          isLocked(session) &&
+          !(message.change.kind === 'action' && message.change.action.name === 'repairLines')
+        ) {
+          // The webview sends none other while locked; the host still applies none (plan R3).
           if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.readOnlyRefusals++;
           this.post(session, {
             protocol: PROTOCOL_VERSION,
@@ -825,10 +830,10 @@ async function readSchemaFile(uri: string): Promise<string> {
   return new TextDecoder().decode(bytes);
 }
 
-/** The offset of a JSON Lines text's first bad line (L1: each error diagnostic spans its line), or
- *  undefined when it has none. Core keeps the last parse per format, which the badge made too. */
+/** The offset of a JSON Lines text's first bad line (L1), or undefined when it has none. Read with
+ *  core's data-only `parseData`, which stops at that line and keeps no parse (spec 008 criterion 8
+ *  on a large file, 012 T6). */
 function firstBadLine(text: string): number | undefined {
-  return getAdapter('jsonl')
-    .parse(text)
-    .diagnostics.find((d) => d.severity === 'error')?.offset;
+  const result = parseData('jsonl', text);
+  return 'error' in result ? result.error.offset : undefined;
 }
