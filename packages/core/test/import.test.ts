@@ -77,24 +77,16 @@ describe('A5 depth', () => {
 });
 
 describe('criterion 4: bombs', () => {
-  // The fastest of three runs is timed, so a busy machine's scheduling does not count against the
-  // 1 s bound: one isolated sandbox run took 1.2 to 2.0 s under load (5 of 5) while the conversion
-  // itself takes about 0.65 s there (#122 review). The bound stays criterion 4's.
   it('stops nine levels of nine YAML aliases in under 1 s (Y6)', () => {
     const lines = ['a: &a ["lol", "lol", "lol", "lol", "lol", "lol", "lol", "lol", "lol"]'];
     for (const [prev, name] of [...'abcdefgh'].map((c, i) => [c, 'bcdefghi'[i]!]))
       lines.push(`${name}: &${name} [${Array(9).fill(`*${prev}`).join(', ')}]`);
-    const times: number[] = [];
-    for (let run = 0; run < 3; run++) {
-      const start = performance.now();
-      expect(error(lines.join('\n'), 'yaml')).toEqual({
-        message: "The YAML file's aliases expand too far",
-        line: 1,
-      });
-      times.push(performance.now() - start);
-      if (times[run]! < 1000) break;
-    }
-    expect(Math.min(...times)).toBeLessThan(1000);
+    const start = performance.now();
+    expect(error(lines.join('\n'), 'yaml')).toEqual({
+      message: "The YAML file's aliases expand too far",
+      line: 1,
+    });
+    expect(performance.now() - start).toBeLessThan(1000);
   });
 
   it('allows aliases that add up to 1,000,000 values, and no more', () => {
