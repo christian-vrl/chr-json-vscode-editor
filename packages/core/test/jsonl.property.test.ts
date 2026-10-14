@@ -15,6 +15,7 @@ import {
   nearestNumbers,
   parseData,
   PatchError,
+  readLines,
   type PatchOperation,
   type Style,
 } from '../src/index.js';
@@ -283,7 +284,7 @@ describe('criterion 3: stringify round trip', () => {
   }, 300_000);
 });
 
-describe("parseData('jsonl') agrees with parse (spec 008 criterion 6 for JSON Lines)", () => {
+describe("parseData('jsonl') and readLines agree with parse (spec 008 criterion 6 for JSON Lines)", () => {
   /** Lines that may be bad: JSON5 syntax, two values, a lone CR, half a record, a BOM. */
   const junk = fc.constantFrom('{a:1}', '1 2', '1\r2', ' \r', '{"a":', ']', '//c', "'s'", '﻿1');
   const text = fc
@@ -309,6 +310,11 @@ describe("parseData('jsonl') agrees with parse (spec 008 criterion 6 for JSON Li
         } else {
           expect('data' in result && isDeepStrictEqual(result.data, parsed.data)).toBe(true);
         }
+        // 012 T6: `readLines` reads every line, so a text with bad lines still has its items.
+        const read = readLines(t);
+        expect(isDeepStrictEqual(read.data, parsed.data)).toBe(true);
+        expect(read.bad).toEqual(parsed.diagnostics.map((d) => Number(/\d+/.exec(d.message)![0])));
+        expect(read.offset).toBe(first?.offset);
       }),
       { numRuns: RUNS, seed: SEED },
     );

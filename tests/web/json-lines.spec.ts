@@ -228,3 +228,60 @@ test('choosing JSON Lines in text mode switches to Table; leaving it keeps the b
   expect((await hostState(page)).text).toBe(LINES);
   expect((await hostState(page)).edits).toBe(0);
 });
+
+// 012 T6 (spec 012 criterion 10): a large JSON Lines document (`largeFile`, as the host chooses it
+// above the threshold) shows both banners with a bad line, the items of the other lines, "Edit
+// anyway" disabled until no bad line is left, and "Repair Lines" running on the locked tab.
+test.describe('a large JSON Lines document', () => {
+  const SIX_MIB = 6 * 2 ** 20;
+  const large = (page: Page) => page.getByRole('region', { name: 'Large file' });
+
+  test('with a bad line shows both banners and the other items', async ({ page }) => {
+    await open(page, BAD, `&largeFile=${SIX_MIB}`);
+    await expect(large(page)).toContainText('Large file (6.0 MiB): read-only to stay fast.');
+    await expect(banner(page)).toContainText('Line 2 is not valid JSON (2 bad lines).');
+    await expect(page.locator('.jse-table-mode')).toContainText('Ada');
+    await expect(modeButtons(page)).toHaveText(['Table', 'Tree']);
+    await modeButtons(page).getByText('Tree').click();
+    await expect(page.locator('.jse-tree-mode')).toContainText('1 item');
+  });
+
+  test('"Edit anyway" waits for no bad line; "Repair Lines" runs locked', async ({ page }) => {
+    await open(page, BAD, `&largeFile=${SIX_MIB}`);
+    const editAnyway = large(page).getByRole('button', { name: 'Edit anyway' });
+    await expect(editAnyway).toBeDisabled();
+    await editAnyway.click({ force: true });
+    await page.waitForTimeout(200);
+    expect((await hostState(page)).banner).toEqual([]);
+    await banner(page).getByRole('button', { name: 'Repair Lines' }).click();
+    await expect
+      .poll(() => page.evaluate(() => window.devHost!.text))
+      .toBe('{"name":"Ada","year":1843}\n{"name":"Grace"}\n\n{"name":"Barbara"}\n');
+    await expect(banner(page)).toHaveCount(0);
+    // Still locked: a patch sends nothing, and "Edit anyway" now unlocks.
+    await expect(large(page)).toContainText('read-only to stay fast.');
+    const edits = (await hostState(page)).edits;
+    await page.evaluate(() =>
+      window.devApp!.patch([{ op: 'replace', path: '/0/name', value: 'Lovelace' }]),
+    );
+    await page.waitForTimeout(300);
+    expect((await hostState(page)).edits).toBe(edits);
+    await expect(editAnyway).toBeEnabled();
+    await editAnyway.click();
+    await expect(large(page)).toContainText('edits may be slow.');
+    await page.evaluate(() =>
+      window.devApp!.patch([{ op: 'replace', path: '/0/name', value: 'Lovelace' }]),
+    );
+    await expect
+      .poll(() => page.evaluate(() => window.devHost!.text))
+      .toBe('{"name":"Lovelace","year":1843}\n{"name":"Grace"}\n\n{"name":"Barbara"}\n');
+  });
+
+  test('with no bad line shows no bad-line banner and unlocks', async ({ page }) => {
+    await open(page, LINES, `&largeFile=${SIX_MIB}`);
+    await expect(page.locator('.jse-table-mode')).toContainText('Grace');
+    await expect(banner(page)).toHaveCount(0);
+    await large(page).getByRole('button', { name: 'Edit anyway' }).click();
+    await expect(large(page)).toContainText('edits may be slow.');
+  });
+});

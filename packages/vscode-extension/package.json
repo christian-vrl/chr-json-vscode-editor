@@ -178,6 +178,11 @@
         "category": "CHR JSON Editor"
       },
       {
+        "command": "chrJsonEditor.generateSchema",
+        "title": "Generate JSON Schema",
+        "category": "CHR JSON Editor"
+      },
+      {
         "command": "chrJsonEditor.compareWith",
         "title": "Compare With…",
         "category": "CHR JSON Editor"
@@ -272,6 +277,10 @@
           "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat != jsonl) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
         },
         {
+          "command": "chrJsonEditor.generateSchema",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5)$/) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+        },
+        {
           "command": "chrJsonEditor.compareWith",
           "when": "resourceExtname =~ /^\\.(json|jsonc|json5)$/ || activeCustomEditorId == chrJsonEditor.editor || editorLangId =~ /^(json|jsonc|json5)$/"
         },
@@ -285,7 +294,7 @@
         },
         {
           "command": "chrJsonEditor.exportCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)"
         },
         {
           "command": "chrJsonEditor.importCsv",
@@ -332,8 +341,13 @@
           "group": "1_convert@4"
         },
         {
+          "command": "chrJsonEditor.generateSchema",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5)$/) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "group": "1_convert@5"
+        },
+        {
           "command": "chrJsonEditor.exportCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)",
           "group": "2_csv@1"
         },
         {

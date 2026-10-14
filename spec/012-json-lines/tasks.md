@@ -36,7 +36,7 @@
   012 T4, 006 T3 — *gate: criteria 6, 7, 8, 9 green in `pnpm test:e2e`; `pnpm check:offline` green*
 
 ## Phase D — Large files and CSV (risk-free / additive)
-- [ ] **T6** Spec 008 and 009 on JSON Lines: large-file mode in Table mode with both banners,
+- [x] **T6** Spec 008 and 009 on JSON Lines: large-file mode in Table mode with both banners,
   "Edit anyway" blocked while bad lines remain, `parseData('jsonl')` in the host and webview; CSV
   export and replace on `jsonl` tabs; e2e on a 6 MiB fixture and a small one. — needs: 012 T5,
   008 T3, 009 T4 — *gate: criteria 10, 11 green in `pnpm test:e2e`*

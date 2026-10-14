@@ -166,7 +166,9 @@ export class DevHostAdapter implements HostAdapter {
   }
 
   #answer(docVersion: number, change: DocumentChange): void {
-    if (this.#locked) {
+    // "Repair Lines" is the one change a locked JSON Lines document takes (spec 012 criterion 10).
+    const repairLines = change.kind === 'action' && change.action.name === 'repairLines';
+    if (this.#locked && !repairLines) {
       this.#emitError('read-only', 'This large file is read-only; choose "Edit anyway" to edit it');
       return;
     }
