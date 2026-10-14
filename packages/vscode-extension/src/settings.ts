@@ -9,6 +9,7 @@ import {
   type EditorSettings,
   type Mode,
 } from '@chr-json-editor/app-shell/protocol';
+import { thresholdBytes } from './largeFile';
 
 /** What a key holds, as `contributes.configuration` declares it (spec 019 §Settings). */
 type Rule =
@@ -190,14 +191,11 @@ export function openingMode(settings: Pick<Settings, 'defaultMode'>, largeFile: 
   return settings.defaultMode;
 }
 
-/** Bytes in a MiB: the threshold setting is in whole MiB (spec 019 Terms). */
-const MIB = 1024 * 1024;
-
 /** The settings the page uses (019 T2), sent in `init` and in `settings` when they change (A2):
  *  T1's threshold in bytes, Q1, D1 and D2. */
 export function pageSettings(settings: Settings): EditorSettings {
   return {
-    thresholdBytes: settings.largeFileThreshold * MIB,
+    thresholdBytes: thresholdBytes(settings),
     defaultQueryLanguage: settings['transform.defaultQueryLanguage'],
     flattenColumns: settings['table.flattenColumns'],
     escapeControlCharacters: settings.escapeControlCharacters,

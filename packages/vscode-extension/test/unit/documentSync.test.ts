@@ -14,7 +14,8 @@ import {
 import { LosslessNumber, valueText, type Format } from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
-import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
+import { LARGE_FILE_THRESHOLD } from '../../src/largeFile';
+import { JSONL_MESSAGE, tooLargeMessage } from '../../src/smartFormatPlan';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
 /** A document like VS Code's: each replacement bumps the version and fires a change event. */
@@ -39,6 +40,8 @@ function memoryDocument(initial: string, format: Format = 'json') {
     /** The answer to a repair that removes comments, and the comments each question named. */
     confirm: (() => Promise.resolve(true)) as (lostComments: readonly string[]) => Promise<boolean>,
     asked: [] as (readonly string[])[],
+    /** Spec 019 T1's threshold in bytes, read by each Smart Format run. */
+    threshold: LARGE_FILE_THRESHOLD,
     get text() {
       return text;
     },
@@ -81,6 +84,7 @@ function memoryDocument(initial: string, format: Format = 'json') {
       doc.asked.push(lostComments);
       return doc.confirm(lostComments);
     },
+    thresholdBytes: () => doc.threshold,
   });
   return doc;
 }
@@ -307,6 +311,28 @@ describe('DocumentSync smart format (010 T3)', () => {
         message: 'Smart Format needs valid JSON5. Fix the errors or run Repair JSON first.',
       }),
     ]);
+  });
+
+  it('reads the threshold when each run starts (spec 019 T1, A4)', async () => {
+    const MIB = 1024 * 1024;
+    // `[1]` padded to 1 MiB + 1 byte; smart-formatted it is `[1]\n`.
+    const over = `[${' '.repeat(MIB - 3)}1]\n`;
+    expect(Buffer.byteLength(over)).toBe(MIB + 1);
+    const doc = memoryDocument(over);
+    doc.threshold = MIB;
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe(over);
+    expect(doc.posted).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        code: 'patch-failed',
+        message: tooLargeMessage(MIB),
+      }),
+    ]);
+    expect(tooLargeMessage(MIB)).toContain('above 1 MiB');
+    doc.threshold = 2 * MIB;
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('[1]\n');
   });
 
   it('refuses a JSON Lines document (spec 010 §Scope)', async () => {

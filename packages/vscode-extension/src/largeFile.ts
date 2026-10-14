@@ -3,11 +3,35 @@
 // reads it with core's data-only `parseData` instead of the full `parse` that core caches (criterion
 // 8): the format badge, validation and the top-level `$schema` all take its data from `dataOf`.
 // No `vscode` import, so unit tests run it directly.
+// The threshold is the `chrJsonEditor.largeFileThreshold` setting (spec 019 T1, UNK-087 ★), read
+// when each check runs: `thresholdBytes` is the one place every host gate gets it from (plan R6),
+// and `LARGE_FILE_THRESHOLD` is its default.
 import type { LargeFile } from '@chr-json-editor/app-shell/protocol';
 import { parseData, type Format, type ParseDataResult } from '@chr-json-editor/core';
+import type { Settings } from './settings';
 
-/** 5 MiB (UNK-014): a text of more bytes than this opens in large-file mode. */
-export const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
+/** Bytes in a MiB: the threshold setting is in whole MiB (spec 019 Terms). */
+const MIB = 1024 * 1024;
+
+/** The threshold at its default, 5 MiB (UNK-014): a text of more bytes than this opens in
+ *  large-file mode when the setting is not set. */
+export const LARGE_FILE_THRESHOLD = 5 * MIB;
+
+/** Spec 019 T1: the threshold in bytes for a document's settings (MiB × 1,048,576). */
+export function thresholdBytes(settings: Pick<Settings, 'largeFileThreshold'>): number {
+  return settings.largeFileThreshold * MIB;
+}
+
+/** The threshold as the messages name it: "5 MiB" at the default. */
+export function thresholdLabel(threshold: number): string {
+  return `${threshold / MIB} MiB`;
+}
+
+/** Whether `text` is above `threshold` bytes, by its UTF-8 length. */
+export function aboveThreshold(text: string, threshold = LARGE_FILE_THRESHOLD): boolean {
+  // Every UTF-16 code unit is one to three bytes: skip the count when the length alone decides.
+  return text.length * 3 > threshold && utf8Length(text) > threshold;
+}
 
 /**
  * UNK-041 (spec 008 criterion 10): the largest large-file text, in UTF-8 bytes, whose schema
@@ -55,14 +79,14 @@ export function utf8Length(text: string): number {
   return bytes;
 }
 
-/** The large-file state of a tab that opens on `text`: locked when above the threshold, else
+/** The large-file state of a tab that opens on `text`: locked when above `threshold` bytes, else
  *  null (the normal editor). */
-export function largeFileFor(text: string): LargeFile | null {
+export function largeFileFor(text: string, threshold = LARGE_FILE_THRESHOLD): LargeFile | null {
   // Every UTF-16 code unit is at least one byte, and at most three per unit: skip the count when
   // the length alone decides.
-  if (text.length * 3 <= LARGE_FILE_THRESHOLD) return null;
+  if (text.length * 3 <= threshold) return null;
   const bytes = utf8Length(text);
-  return bytes > LARGE_FILE_THRESHOLD ? { bytes, unlocked: false } : null;
+  return bytes > threshold ? { bytes, unlocked: false } : null;
 }
 
 /** How long `dataOf` keeps its last result: the badge, the `$schema` lookup and validation read

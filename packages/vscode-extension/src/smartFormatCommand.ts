@@ -11,7 +11,8 @@ import { textFormat } from './convertCommand';
 import { minimalReplacement } from './documentSync';
 import type { JsonEditorProvider } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
-import { READ_ONLY_MESSAGE } from './largeFile';
+import { READ_ONLY_MESSAGE, thresholdBytes } from './largeFile';
+import { readSettings } from './settingsVscode';
 import { plan, tooLarge } from './smartFormatPlan';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -56,13 +57,15 @@ async function smartFormatActive(
   if (custom) await provider.flushDocument(document);
   if (document.isClosed) return false;
   const text = document.getText();
+  // The threshold when the run starts (spec 019 A4).
+  const threshold = thresholdBytes(readSettings(document));
   // A locked large-file tab takes no edit (spec 008 criterion 2): above the threshold it gets the
   // size message like any document, at or below it (changed by another editor) the read-only one.
-  if (custom && provider.isLocked(document.uri) && !tooLarge(text)) {
+  if (custom && provider.isLocked(document.uri) && !tooLarge(text, threshold)) {
     show('warning', READ_ONLY_MESSAGE);
     return false;
   }
-  const result = plan(text, format);
+  const result = plan(text, format, threshold);
   if (result.kind === 'refused') {
     show(result.reason === 'broken' ? 'error' : 'warning', result.message);
     return false;
