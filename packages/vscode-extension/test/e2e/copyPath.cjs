@@ -14,6 +14,12 @@
 // - criterion 9: with the cursor after a syntax error each command shows S6's first message, copies
 //   nothing and changes no tab; a node an edit removed shows S6's second message.
 // Also the page's own `copyText` (S2, S3), written to the clipboard by the host (018 T2 review).
+// 018 T4 adds:
+// - criterion 10 on lines.jsonl: the copy commands in the text editor (items, blank lines, a bad
+//   line) and in the CHR JSON Editor's Table mode, and both reveals landing on the same item and
+//   member; the text editor's context menu offers the commands for a .jsonl file too;
+// - "Reveal in Text Editor" from a CHR JSON Editor tab with unsaved edits, which "Reopen as Text"
+//   keeps open beside the text tab (018 T3 review, L4).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -148,6 +154,15 @@ exports.runCopyPath = async function runCopyPath({
     }
   }
 
+  /** Selects the table cell at JSON Pointer `select` as a click selects it. */
+  async function selectCell(uri, select) {
+    const cell = `.jse-table-mode td[data-path="${encodeURIComponent(select)}"] .jse-value-outer`;
+    await hooks.dom(uri.toString(), [
+      { mousedown: cell },
+      { waitFor: `${cell}.jse-selected-value` },
+    ]);
+  }
+
   function lineVisible(editor, line) {
     return editor.visibleRanges.some((range) => range.start.line <= line && line <= range.end.line);
   }
@@ -183,6 +198,7 @@ exports.runCopyPath = async function runCopyPath({
       ['sample.json', 'json'],
       ['sample.jsonc', 'jsonc'],
       ['sample.json5', 'json5'],
+      ['lines.jsonl', 'jsonl'],
       ['notes.txt', undefined],
     ]) {
       await closeAll();
@@ -420,6 +436,100 @@ exports.runCopyPath = async function runCopyPath({
       await vscode.commands.executeCommand('workbench.action.files.revert');
       await waitFor('the edit to revert', () => !document.isDirty);
       console.log('no node: a node removed since the selection shows S6');
+    }
+
+    // "Reveal in Text Editor" from a tab with unsaved edits: "Reopen as Text" keeps that tab open
+    // beside the text tab it opens, and the cursor still lands at the place (018 T3 review, L4).
+    {
+      await closeAll();
+      const document = await openCustom(long);
+      const edit = new vscode.WorkspaceEdit();
+      edit.insert(long, document.positionAt(document.getText().lastIndexOf('}')), ' ');
+      assert.equal(await vscode.workspace.applyEdit(edit), true);
+      await waitFor('the document to be dirty', () => document.isDirty);
+      await probeUntil(long, 'the edit in the editor', (p) => p.mode === 'tree' && !!p.content);
+      assert.equal(hooks.select(long.toString(), keyPointer), true);
+      await vscode.commands.executeCommand(REVEAL_IN_TEXT);
+      await waitFor('the text tab to be active', () => isText(activeTab()));
+      assert.equal(tabsFor(long).filter(isCustom).length, 1, 'the dirty CHR JSON Editor tab stays');
+      const editor = vscode.window.activeTextEditor;
+      assert.equal(editor?.document, document);
+      const place = document.getText().indexOf('"key"');
+      await waitFor('the cursor at the place', () => {
+        return document.offsetAt(editor.selection.active) === place;
+      });
+      await waitFor('the place in view', () =>
+        lineVisible(editor, document.positionAt(place).line),
+      );
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+      await waitFor('the edit to revert', () => !document.isDirty);
+      console.log('reveal in text: from a tab with unsaved edits, the cursor at the place');
+    }
+
+    // Criterion 10, JSON Lines: the item's index first, blank lines not counted.
+    const lines = fixture('lines.jsonl');
+    const linesCases = CASES['lines.jsonl'];
+    {
+      await closeAll();
+      const { document, editor } = await openText(lines);
+      const text = document.getText();
+      for (const { at, after = 0, jsonpath, pointer } of linesCases.text) {
+        const offset = text.indexOf(at) + after;
+        assert.ok(offset >= after, `lines.jsonl: ${JSON.stringify(at)} is in the fixture`);
+        putCursor(editor, offset);
+        await expectCopies(`lines.jsonl text editor at ${offset}`, document, jsonpath, pointer);
+      }
+      // A bad line: S6's first message with that line, nothing copied, no tab change.
+      const { at, line, column } = linesCases.bad;
+      putCursor(editor, text.indexOf(at));
+      const message =
+        "CHR JSON Editor: can't find the node: the document is not valid JSON Lines " +
+        `(error at line ${line}, column ${column}). Fix it or run "Repair Lines" first.`;
+      hooks.pathCommands();
+      for (const command of [COPY_PATH, COPY_POINTER, REVEAL_IN_EDITOR]) {
+        assert.equal(await copied(command), SENTINEL, `lines.jsonl ${command}: nothing copied`);
+        assert.deepEqual(hooks.pathCommands(), { messages: [message], status: [] }, command);
+        assert.equal(tabsFor(lines).length, 1, `lines.jsonl ${command}: one tab`);
+        assert.ok(isText(activeTab()), `lines.jsonl ${command}: the text tab stays`);
+      }
+      assert.equal(document.isDirty, false, 'lines.jsonl: not dirty');
+      console.log('copy path: lines.jsonl in the text editor, blank lines and a bad line');
+    }
+
+    // ...in the CHR JSON Editor's Table mode, the cell selected as a click selects it.
+    {
+      await closeAll();
+      const document = await openCustom(lines, 'table');
+      for (const { select, jsonpath, pointer } of linesCases.table) {
+        await selectCell(lines, select);
+        await expectCopies(`lines.jsonl table ${select}`, document, jsonpath, pointer);
+      }
+      console.log('copy path: lines.jsonl in Table mode');
+    }
+
+    // ...and both reveals land on the same item and member.
+    {
+      await closeAll();
+      const { document, editor } = await openText(lines);
+      const { version } = document;
+      putCursor(editor, document.getText().indexOf('"year":1906'));
+      await vscode.commands.executeCommand(REVEAL_IN_EDITOR);
+      await expectOnly(lines, 'custom', isCustom);
+      const cell = `.jse-table-mode td[data-path="${encodeURIComponent('/1/year')}"] .jse-value-outer`;
+      await hooks.dom(lines.toString(), [{ waitFor: `${cell}.jse-selected-value` }]);
+      hooks.pathCommands();
+      assert.equal(await copied(COPY_POINTER), '/1/year', 'the revealed cell is the current node');
+
+      await selectCell(lines, '/2/name');
+      await vscode.commands.executeCommand(REVEAL_IN_TEXT);
+      await expectOnly(lines, 'text', isText);
+      const place = document.getText().indexOf('"name":"Barbara"');
+      const shown = vscode.window.activeTextEditor;
+      assert.equal(shown?.document, document);
+      assert.equal(document.offsetAt(shown.selection.active), place, 'the cursor at the place');
+      assert.equal(document.version, version, 'lines.jsonl reveals: the version');
+      assert.equal(document.isDirty, false, 'lines.jsonl reveals: not dirty');
+      console.log('reveal: lines.jsonl, both ways on the same item and member');
     }
   } finally {
     await closeAll();

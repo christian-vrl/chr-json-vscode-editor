@@ -161,6 +161,8 @@ export interface TestHooks {
   /** 018 T3: the messages the copy path and reveal commands showed, and the status bar messages
    *  they set, since the previous call. */
   pathCommands(): { messages: string[]; status: string[] };
+  /** The progress notifications the copy path and reveal commands showed (018 T4). */
+  pathProgress(): string[];
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -321,6 +323,7 @@ export function activateShared(
           messages: testPathCommands.messages.splice(0),
           status: testPathCommands.status.splice(0),
         }),
+        pathProgress: () => testPathCommands.progress.splice(0),
         timeValidation: (uri) => provider.timeValidation(uri),
         hostMemory: () => process.memoryUsage(),
         webviewHeap: (uri) => provider.webviewHeap(uri),

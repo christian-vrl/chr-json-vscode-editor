@@ -413,43 +413,156 @@ const PUNCTUATION: Record<string, number> = {
  * says whether a member name may come next. Records no tokens and builds no tree.
  */
 export class Json5Lexer extends Parser {
-  constructor(text: string) {
+  /** `ascii` false reads every token with the parser's methods, without the ASCII fast path
+   *  (`ascii`): the tests check both read the same tokens. */
+  constructor(
+    text: string,
+    private readonly fast = true,
+  ) {
     super(text, true);
   }
 
   /** The next token: white space, a line break, a comment, punctuation, a member name (`key`) or a
    *  value's string, number or literal; `EOF` at the end. A member name is a `StringLiteral` when
    *  quoted, else `Unknown`, as in `parseJson5`'s tokens. */
+  /** The one token `next` returns, its fields replaced on each call: a walk over a large text
+   *  makes no object per token (spec 018 criterion 11). */
+  private readonly current: Json5Token = {
+    kind: Kind.EOF,
+    offset: 0,
+    end: 0,
+    name: undefined,
+    error: undefined,
+  };
+
+  /** The next token (the same object every time, see `current`). */
   next(key: boolean): Json5Token {
     const offset = this.pos;
-    if (offset >= this.text.length) return { kind: Kind.EOF, offset, end: offset };
+    if (offset >= this.text.length) return this.set(Kind.EOF, offset, undefined);
+    const fast = this.fast ? this.ascii(key, offset) : undefined;
+    if (fast !== undefined) return fast;
     try {
       const trivia = this.trivium();
-      if (trivia !== undefined) return { kind: trivia, offset, end: this.pos };
+      if (trivia !== undefined) return this.set(trivia, offset, undefined);
       const ch = this.text[offset]!;
       const punctuation = PUNCTUATION[ch];
       if (punctuation !== undefined) {
         this.pos++;
-        return { kind: punctuation, offset, end: this.pos };
+        return this.set(punctuation, offset, undefined);
       }
       if (key) {
         const quoted = ch === '"' || ch === "'";
         const name = quoted ? this.string() : this.identifier();
-        return { kind: quoted ? Kind.StringLiteral : Kind.Unknown, offset, end: this.pos, name };
+        return this.set(quoted ? Kind.StringLiteral : Kind.Unknown, offset, name);
       }
       const value = this.scalar();
-      return typeof value === 'string'
-        ? { kind: this.scalarKind, offset, end: this.pos, name: value }
-        : { kind: this.scalarKind, offset, end: this.pos };
+      return this.set(this.scalarKind, offset, typeof value === 'string' ? value : undefined);
     } catch (e) {
       if (!(e instanceof Json5SyntaxError)) throw e;
-      return {
-        kind: Kind.Unknown,
-        offset,
-        end: Math.max(this.pos, offset + 1),
-        error: { message: e.message, offset: e.offset },
-      };
+      const t = this.set(Kind.Unknown, offset, undefined);
+      t.end = Math.max(this.pos, offset + 1);
+      t.error = { message: e.message, offset: e.offset };
+      return t;
     }
+  }
+
+  /**
+   * The token at `offset` when it is one of the ASCII tokens large documents are made of, read
+   * from character codes: a run of white space and line breaks (one `Whitespace` token where the
+   * parser reads one token per line break and per white space run), punctuation, a string without
+   * escapes, an identifier member name, or a plain decimal number (no value is computed: the
+   * walker reads none).
+   * Undefined for anything else, which `next` then reads with the parser's own methods, so the
+   * tokens and errors are the parser's either way, but for how white space is cut into tokens.
+   */
+  private ascii(key: boolean, offset: number): Json5Token | undefined {
+    const t = this.text;
+    const c = t.charCodeAt(offset);
+    let pos = offset + 1;
+    switch (c) {
+      case 32:
+      case 9:
+      case 11:
+      case 12:
+      case 10:
+      case 13: {
+        // A run of ASCII white space and line breaks is one token: each part gives the same node
+        // (A4), and a document's indentation is most of its tokens otherwise.
+        let d = t.charCodeAt(pos);
+        while (d === 32 || d === 9 || d === 11 || d === 12 || d === 10 || d === 13)
+          d = t.charCodeAt(++pos);
+        this.pos = pos;
+        return this.set(Kind.Whitespace, offset, undefined);
+      }
+      case 123:
+        this.pos = pos;
+        return this.set(Kind.OpenBrace, offset, undefined);
+      case 125:
+        this.pos = pos;
+        return this.set(Kind.CloseBrace, offset, undefined);
+      case 91:
+        this.pos = pos;
+        return this.set(Kind.OpenBracket, offset, undefined);
+      case 93:
+        this.pos = pos;
+        return this.set(Kind.CloseBracket, offset, undefined);
+      case 44:
+        this.pos = pos;
+        return this.set(Kind.Comma, offset, undefined);
+      case 58:
+        this.pos = pos;
+        return this.set(Kind.Colon, offset, undefined);
+      case 34:
+      case 39: {
+        // A string without escapes and line breaks; any other `string` reads.
+        let d = t.charCodeAt(pos);
+        while (d !== c) {
+          if (d === 92 || d === 10 || d === 13 || Number.isNaN(d)) return undefined;
+          d = t.charCodeAt(++pos);
+        }
+        this.pos = pos + 1;
+        return this.set(Kind.StringLiteral, offset, t.slice(offset + 1, pos));
+      }
+    }
+    if (key) {
+      if (!isAsciiIdentifier(c, false)) return undefined;
+      let d = t.charCodeAt(pos);
+      while (isAsciiIdentifier(d, true)) d = t.charCodeAt(++pos);
+      // An escape or a non-ASCII character goes on the identifier: `identifier` reads it.
+      if (d === 92 || d >= 128) return undefined;
+      this.pos = pos;
+      return this.set(Kind.Unknown, offset, t.slice(offset, pos));
+    }
+    // A decimal integer, `-` allowed, with an optional fraction: `NUMBER` reads the same.
+    pos = offset;
+    if (c === 45) pos++;
+    let d = t.charCodeAt(pos);
+    if (d === 48) d = t.charCodeAt(++pos);
+    else if (d >= 49 && d <= 57) {
+      do d = t.charCodeAt(++pos);
+      while (d >= 48 && d <= 57);
+    } else return undefined;
+    if (d === 46) {
+      d = t.charCodeAt(++pos);
+      if (!(d >= 48 && d <= 57)) return undefined;
+      do d = t.charCodeAt(++pos);
+      while (d >= 48 && d <= 57);
+    }
+    // An identifier character right after it (an exponent, a hex number, digits after a leading
+    // 0, or an error), an escape, a non-ASCII character or a second dot: `number` reads those.
+    if (isAsciiIdentifier(d, true) || d === 92 || d === 46 || d >= 128) return undefined;
+    this.pos = pos;
+    return this.set(Kind.NumericLiteral, offset, undefined);
+  }
+
+  private set(kind: number, offset: number, name: string | undefined): Json5Token {
+    const t = this.current;
+    t.kind = kind;
+    t.offset = offset;
+    t.end = this.pos;
+    t.name = name;
+    t.error = undefined;
+    return t;
   }
 }
 

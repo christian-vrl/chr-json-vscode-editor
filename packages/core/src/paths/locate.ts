@@ -55,19 +55,56 @@ class ScannerSource implements Source {
     this.scanner = createScanner(text, false);
   }
 
+  /** The one token `next` returns, its fields replaced on each call (as `Json5Lexer`'s). */
+  private readonly current: Token = {
+    kind: Kind.EOF,
+    offset: 0,
+    end: 0,
+    name: undefined,
+    error: undefined,
+  };
+
   next(): Token {
     const s = this.scanner;
+    const t = this.current;
+    if (!this.strict) {
+      // A run of ASCII white space and line breaks is one token: each part gives the same node
+      // (A4), and a document's indentation is most of its tokens otherwise.
+      const text = this.text;
+      const start = s.getPosition();
+      let pos = start;
+      let c = text.charCodeAt(pos);
+      while (c === 32 || c === 9 || c === 10 || c === 13) c = text.charCodeAt(++pos);
+      if (pos > start) {
+        s.setPosition(pos);
+        t.kind = Kind.Whitespace;
+        t.offset = this.base + start;
+        t.end = this.base + pos;
+        t.name = undefined;
+        t.error = undefined;
+        return t;
+      }
+    }
     const kind: number = s.scan();
     const offset = this.base + s.getTokenOffset();
-    const end = offset + s.getTokenLength();
-    const error = (message: string): Token => ({ kind, offset, end, error: { message, offset } });
-    if (kind === Kind.EOF) return { kind, offset, end };
+    t.kind = kind;
+    t.offset = offset;
+    t.end = offset + s.getTokenLength();
+    t.name = undefined;
+    t.error = undefined;
+    const error = (message: string): Token => {
+      t.error = { message, offset };
+      return t;
+    };
+    if (kind === Kind.EOF) return t;
     const scanError: number = s.getTokenError();
     if (scanError !== 0) return error(SCAN_ERRORS[scanError]!);
     if (kind === Kind.Unknown) {
       // A leading BOM is outside the root (A5), as JSON5 and JSON Lines read it.
-      if (offset === 0 && end === 1 && this.text.charCodeAt(0) === BOM)
-        return { kind: Kind.Whitespace, offset, end };
+      if (offset === 0 && t.end === 1 && this.text.charCodeAt(0) === BOM) {
+        t.kind = Kind.Whitespace;
+        return t;
+      }
       return error(`unexpected ${JSON.stringify(s.getTokenValue())}`);
     }
     if (this.strict) {
@@ -76,9 +113,8 @@ class ScannerSource implements Source {
       if (kind === Kind.LineBreak || (kind === Kind.Whitespace && /[^ \t]/.test(s.getTokenValue())))
         return error('unexpected white space');
     }
-    return kind === Kind.StringLiteral
-      ? { kind, offset, end, name: s.getTokenValue() }
-      : { kind, offset, end };
+    if (kind === Kind.StringLiteral) t.name = s.getTokenValue();
+    return t;
   }
 }
 

@@ -48,6 +48,9 @@ const BASE_SIZE = 10;
 // Spec 017 criterion 10: TOML and XML at 5 MiB in at most this many milliseconds.
 const IMPORT_LIMIT_MS = 2000;
 const IMPORT_JUDGED_MIB = 5;
+// Spec 018 criterion 11: nodeAt's and placeOf's medians at most this share of parse's.
+const PATH_SHARE = 0.25;
+
 // UNK-077's candidates for the YAML limit, and the threshold it falls back to.
 const YAML_CANDIDATES_MIB = [5, 10, 20, 50];
 
@@ -74,8 +77,8 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
-  `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''}${results.imports?.length ? ' or `packages/core/src/import`' : ''} changes speed.`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}${results.paths?.length ? ', spec 018 criterion 11' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''}${results.imports?.length ? ' or `packages/core/src/import`' : ''}${results.paths?.length ? ' or `packages/core/src/paths`' : ''} changes speed.`,
   '',
   '## Run',
   '',
@@ -412,6 +415,41 @@ add(
         ? `Verdict: **the hypothesis does not hold**: a 5 MiB median is ${ms(SMART_LIMIT_MS)} ms or more, so an UNKNOWN goes to the owner (criterion 11).`
         : `Verdict: the hypothesis holds in this run (every 5 MiB median is under ${ms(SMART_LIMIT_MS)} ms).`,
 );
+
+if (results.paths?.length) {
+  add(
+    '',
+    '## Spec 018 criterion 11: locating a node beside parse',
+    '',
+    "`nodeAt(format, text, offset)` at the last record's last key (`note`, its first character) and",
+    '`placeOf(format, text, path)` of that path (018 T1), beside `getAdapter(format).parse(text)` of',
+    'the same document in the same process. Each `parse` call parses (two texts alternate, as above);',
+    `the path functions keep no cache. Each must take at most ${PATH_SHARE * 100}% of parse's median.`,
+    '',
+    '| Format | Size | parse | nodeAt | placeOf | nodeAt ÷ parse | placeOf ÷ parse |',
+    '|---|---|---|---|---|---|---|',
+  );
+  let pathMissed = false;
+  for (const f of results.paths) {
+    for (const s of f.sizes) {
+      const parse = median(s.parse);
+      const shares = [median(s.nodeAt) / parse, median(s.placeOf) / parse];
+      if (shares.some((share) => share > PATH_SHARE)) pathMissed = true;
+      const pct = (share) => `${(share * 100).toFixed(1)}%`;
+      add(
+        `| ${f.format} | ${s.mib} MiB | ${cell(s.parse)} | ${cell(s.nodeAt)} | ${cell(s.placeOf)} | ${pct(shares[0])} | ${pct(shares[1])} |`,
+      );
+    }
+  }
+  add(
+    '',
+    !runUrl
+      ? `Verdict: not judged (not the CI runner); every share is ${pathMissed ? '**not** ' : ''}at most ${PATH_SHARE * 100}% on this machine.`
+      : pathMissed
+        ? `Verdict: **the bound does not hold**: a share is above ${PATH_SHARE * 100}%, so an UNKNOWN goes to the owner before 018 T4 merges (tasks.md).`
+        : `Verdict: the bound holds in this run (every share is at most ${PATH_SHARE * 100}%).`,
+  );
+}
 
 if (results.imports?.length) {
   const rule = results.importRule;

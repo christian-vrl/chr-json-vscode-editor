@@ -29,7 +29,7 @@
   `pnpm test:e2e`*
 
 ## Phase D — JSON Lines and size (risk-free / additive)
-- [ ] **T4** The commands and reveals on `jsonl` documents in both editors (criterion 10); the
+- [x] **T4** The commands and reveals on `jsonl` documents in both editors (criterion 10); the
   locked large-file case on spec 008's fixture and the progress notification above the threshold;
   `nodeAt` and `placeOf` beside `parse` in the core bench and `bench/RESULTS.md` (criterion 11).
   — needs: 018 T3, 012 T5 — *gate: criteria 10, 11 green; criterion 11's bound holds in the
@@ -54,5 +54,13 @@
 - Criterion 9's second case: the library drops a selection whose node an external edit removed, so
   the palette's "Reveal in Text Editor" then names the root; the stale path reaches the host from the
   context menu's item, which keeps the selection the menu opened on (018 T3).
+- JSON Lines with a bad line (018 T4): A5 counts every non-blank line as an item, the bad one too,
+  while the CHR editor's table (spec 012) leaves a bad line out of its items, so for an item after a
+  bad line the text editor's `$[i]` and the table's row `i` name different items, and "Reveal in
+  CHR JSON Editor" lands one row on. The tab is read-only until "Repair Lines", and criterion 10's
+  fixture keeps its bad line last; a later task can align the two (or an UNKNOWN asks the owner).
+- "Reveal in Text Editor" from a tab with unsaved edits: "Reopen as Text" keeps that tab open, so the
+  command now takes the text tab from `showTextDocument` (018 T3 review, L4; covered in
+  `copyPath.cjs`).
 - Settings (a default notation, keybindings) belong to 019; the compare panel and CSV preview could
   reuse S2's menu items later.
