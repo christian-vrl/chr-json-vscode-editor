@@ -674,7 +674,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     });
   }
 
-  /** Test hook: has the webview of `uri` send `patch` as a tree edit would (criterion 1). */
+  /** Test hook: has the webview of `uri` send `patch` as a tree edit would (criterion 1): the
+   *  operations, or their JSON text, read as the editor reads typed text (big numbers exact, spec 015
+   *  criterion 4). */
   patch(uri: string, patch: unknown): boolean {
     if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
     const session = this.sessionFor(uri);

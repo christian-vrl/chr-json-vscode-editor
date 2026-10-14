@@ -5,7 +5,7 @@
 // only sorts) as core's `sort` with that order, so each member moves with its comments (R13);
 // anything else as core's `diff` of the old and new data, so every member that survives keeps its
 // comments (R14).
-import { diff } from '@chr-json-editor/core';
+import { bigNumberKey, diff, LosslessNumber } from '@chr-json-editor/core';
 import type { DocumentChange, JsonPatchOperation } from './protocol.js';
 
 /**
@@ -76,15 +76,21 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** Equal for two members exactly when they are the same data, key order included (a sort does not
  *  reorder inside members). Numbers JSON cannot write (JSON5's `NaN`, `Infinity`, `-0`) and
- *  `undefined` get their own markers so they do not pass for `null` or `0`. */
+ *  `undefined` get their own markers so they do not pass for `null` or `0`. A big number (spec 015)
+ *  keys by its exact value, as core's `diff` does (B3): as the plain number it equals, or by a
+ *  marker no plain number or object member gives (an object with `isLosslessNumber` and `value`
+ *  members stays an object). */
 function keyOf(value: unknown): string {
   return (
-    JSON.stringify(value, (_key, v: unknown) =>
-      v === undefined
-        ? '\u0000undefined'
-        : typeof v === 'number' && (!Number.isFinite(v) || Object.is(v, -0))
-          ? `\u0000${Object.is(v, -0) ? '-0' : String(v)}`
-          : v,
-    ) ?? '\u0000undefined'
+    JSON.stringify(value, (_key, v: unknown) => {
+      if (v === undefined) return '\u0000undefined';
+      if (typeof v === 'number' && (!Number.isFinite(v) || Object.is(v, -0)))
+        return `\u0000${Object.is(v, -0) ? '-0' : String(v)}`;
+      if (v instanceof LosslessNumber) {
+        const key = bigNumberKey(v);
+        return key.startsWith('d') ? Number(v.value) : `\u0000${key}`;
+      }
+      return v;
+    }) ?? '\u0000undefined'
   );
 }

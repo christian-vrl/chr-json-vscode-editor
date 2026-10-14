@@ -199,6 +199,46 @@ exports.runCompare = async function runCompare({ hooks, waitFor, closeAll, asser
   await waitFor('the edit to revert', () => !rightDocument.isDirty);
   await closeAll();
 
+  // --- Spec 015 criterion 6 (015 T4): big numbers differ by their exact value (an id differing in
+  // its 20th digit is a difference, 1e20 and 100000000000000000000 are not), and a copy across
+  // writes the digits byte for byte.
+  {
+    const bigExpected = JSON.parse(
+      fs.readFileSync(path.join(COMPARE, 'big-numbers/expected.json'), 'utf8'),
+    );
+    const bigCopies = JSON.parse(
+      fs.readFileSync(path.join(COMPARE, 'big-numbers/copies.json'), 'utf8'),
+    );
+    const bigUris = {
+      left: copyFixture('big-numbers/left.json'),
+      right: copyFixture('big-numbers/right.json'),
+    };
+    await vscode.commands.executeCommand(COMPARE_SELECTED, bigUris.left, [
+      bigUris.left,
+      bigUris.right,
+    ]);
+    const bigTitle = 'left.json ↔ right.json';
+    assert.deepEqual((await opened(bigTitle)).differences, bigExpected, 'big numbers: differences');
+    const counted = `${bigExpected.length} differences`;
+    await probeUntil(bigTitle, 'the big-number compare', (p) => p.counter === counted);
+    for (const copy of bigCopies) {
+      const document = await vscode.workspace.openTextDocument(bigUris[copy.to]);
+      const after = fs.readFileSync(path.join(COMPARE, 'big-numbers', copy.expected), 'utf8');
+      await copyFromPage(bigTitle, copy.difference, copy.to);
+      await waitFor(`the big-number copy into ${copy.to}`, () => document.getText() === after);
+      await vscode.window.showTextDocument(document, { preview: false });
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+      await waitFor(`${copy.to} to revert`, () => !document.isDirty);
+      await vscode.commands.executeCommand(COMPARE_SELECTED, bigUris.left, [
+        bigUris.left,
+        bigUris.right,
+      ]);
+      await probeUntil(bigTitle, 'the big-number compare again', (p) => p.counter === counted);
+      console.log(`compare: big-number copy into ${copy.to} = ${copy.expected}`);
+    }
+    await closeAll();
+  }
+
   // --- Compare With…: JSONC against JSON5, each in its own format (criteria 4 and 8).
   const formatsLeft = copyFixture('formats/left.jsonc');
   const formatsRight = copyFixture('formats/right.json5');

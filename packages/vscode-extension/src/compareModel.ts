@@ -11,7 +11,13 @@ import {
   type CompareSideMessage,
   type Format,
 } from '@chr-json-editor/app-shell/protocol';
-import { compare, copyDifference, getAdapter, type Difference } from '@chr-json-editor/core';
+import {
+  compare,
+  copyDifference,
+  getAdapter,
+  mayHoldBigNumber,
+  type Difference,
+} from '@chr-json-editor/core';
 
 /** One side as the panel read it. */
 export interface CompareSideInput {
@@ -35,12 +41,16 @@ export interface CompareModel {
 }
 
 /** Parses `text` as `format` the way the editor's parser does (app-shell parser.ts): strict JSON
- *  with `JSON.parse`, anything else with core; an error diagnostic fails it (criterion 8). */
+ *  with `JSON.parse` when it holds no big number (spec 015: core reads those exactly, so compare
+ *  sees an id differing in its 20th digit), anything else with core; an error diagnostic fails it
+ *  (criterion 8). */
 export function parseSide(text: string, format: Format): ParsedSide {
-  try {
-    return { kind: 'data', data: JSON.parse(text) as unknown };
-  } catch {
-    // Not strict JSON: comments, JSON5 syntax, or an error core reports with its position.
+  if (!mayHoldBigNumber(text)) {
+    try {
+      return { kind: 'data', data: JSON.parse(text) as unknown };
+    } catch {
+      // Not strict JSON: comments, JSON5 syntax, or an error core reports with its position.
+    }
   }
   const result = getAdapter(format).parse(text);
   const error = result.diagnostics.find((d) => d.severity === 'error');

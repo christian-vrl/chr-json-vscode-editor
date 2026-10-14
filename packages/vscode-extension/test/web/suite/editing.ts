@@ -40,7 +40,8 @@ describe('editing on the virtual scheme (spec 013 criterion 4)', () => {
         const from = fixture('golden', format, name);
         const uri = await copyToCase('golden', vscode.Uri.joinPath(from, `input.${format}`));
         const expected = await readText(vscode.Uri.joinPath(from, `expected.${format}`));
-        const patch: unknown = JSON.parse(await readText(vscode.Uri.joinPath(from, 'patch.json')));
+        // As text: the editor reads it, big numbers exactly (spec 015).
+        const patch = await readText(vscode.Uri.joinPath(from, 'patch.json'));
         const document = await openCustom(hooks, uri);
         const before = document.version;
         equal(hooks.patch(uri.toString(), patch), true, `${format}/${name}: patch`);

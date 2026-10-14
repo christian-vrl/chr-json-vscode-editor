@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest';
 import {
   decodeToHost,
   decodeToWebview,
+  encodeChange,
   PROTOCOL_VERSION,
+  type DocumentChange,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import type { Format } from '@chr-json-editor/core';
+import { LosslessNumber, valueText, type Format } from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
 import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
@@ -124,8 +126,14 @@ describeHostAdapterContract('VscodeHostAdapter over DocumentSync', (text) => {
   return { adapter, externalChange: (next) => doc.externalChange(next) };
 });
 
-const edit = (docVersion: number, change: Parameters<DocumentSync['edit']>[0]['change']) =>
-  ({ protocol: PROTOCOL_VERSION, type: 'edit', docVersion, change }) as const;
+/** An `edit` as the webview sends it: patch values as JSON text (protocol 15, spec 015 B5). */
+const edit = (docVersion: number, change: DocumentChange) =>
+  ({
+    protocol: PROTOCOL_VERSION,
+    type: 'edit',
+    docVersion,
+    change: encodeChange(change, valueText),
+  }) as const;
 
 describe('DocumentSync', () => {
   it('applies a patch with core, keeping comments and style', async () => {
@@ -161,6 +169,33 @@ describe('DocumentSync', () => {
     void doc.sync.edit(edit(1, { kind: 'text', text: '[2]' }));
     doc.externalChange('[3]');
     expect(doc.posted).toMatchObject([{ type: 'update', text: '[3]', origin: 'external' }]);
+  });
+
+  // Spec 015 B5: a patch value arrives as JSON text, read with core, big numbers exactly.
+  it('applies a patch value holding a big number and a look-alike object exactly', async () => {
+    const doc = memoryDocument('{"a": 1}\n', 'json');
+    const value = JSON.parse(
+      '{"big": 0, "neg": 0, "like": {"isLosslessNumber": true, "value": "1"}}',
+    ) as Record<string, unknown>;
+    value.big = new LosslessNumber('98765432109876543210');
+    value.neg = -0;
+    await doc.sync.edit(edit(1, { kind: 'patch', patch: [{ op: 'replace', path: '/a', value }] }));
+    // JSON writes -0 as 0, as JSON.stringify does (002 R8); the big number keeps its digits.
+    expect(doc.text).toBe(
+      '{"a": {"big":98765432109876543210,"neg":0,"like":{"isLosslessNumber":true,"value":"1"}}}\n',
+    );
+  });
+
+  it('answers a patch value that is not JSON with patch-failed', async () => {
+    const doc = memoryDocument('{"a": 1}\n', 'json');
+    await doc.sync.edit({
+      protocol: PROTOCOL_VERSION,
+      type: 'edit',
+      docVersion: 1,
+      change: { kind: 'patch', patch: [{ op: 'replace', path: '/a', valueText: 'NaN' }] },
+    });
+    expect(doc.text).toBe('{"a": 1}\n');
+    expect(doc.posted).toEqual([expect.objectContaining({ type: 'error', code: 'patch-failed' })]);
   });
 
   it('applies queued edits in order, each on the text the previous one left', async () => {
