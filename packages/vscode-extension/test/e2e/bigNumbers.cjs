@@ -345,6 +345,15 @@ exports.runBigNumbers = async function runBigNumbers({
             copied = await vscode.env.clipboard.readText();
           }
         }
+        if (copied !== SEARCHED) {
+          const read = (step) => hooks.dom(uri.toString(), [step]).then(([text]) => text, String);
+          const selected = await read({
+            read: '.jse-tree-mode [data-path][class*="jse-selected"]',
+            attr: 'data-path',
+          });
+          const bar = await read({ read: '.jse-tree-mode .jse-navigation-bar' });
+          console.log(`${name}: selected ${selected}, navigation bar "${bar}"`);
+        }
         assert.equal(copied, SEARCHED, `${name}: Copy put another text on the clipboard`);
 
         assert.equal(hooks.setMode(uri.toString(), 'table'), true);
