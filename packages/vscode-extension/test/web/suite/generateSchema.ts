@@ -67,7 +67,7 @@ describe('Generate JSON Schema on the virtual scheme (spec 016 criterion 10)', (
       await vscode.commands.executeCommand(COMMAND, source);
       deepEqual(
         hooks.generateSchema(undefined),
-        { saveAs: [beside.toString()], messages: [], notifications: [] },
+        { saveAs: [beside.toString()], messages: [], notifications: [], progress: [] },
         'Cancel: the prefilled dialog, and nothing shown after it',
       );
       equal(await readText(beside), '{}\n', 'Cancel changed the existing schema file');
