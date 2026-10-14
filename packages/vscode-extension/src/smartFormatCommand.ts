@@ -5,6 +5,8 @@
 // smart-formatted text gets no edit. The size guard runs first, from either editor (criterion 10).
 // A CHR JSON Editor tab first hands over the typing and edits it holds, as before a save, so the
 // command lays out what the tab shows; its webview gets the result as an external change.
+// The line length is `chrJsonEditor.smartFormat.maxLineLength` for the document's language, read
+// when the run starts (spec 019 F1, A4).
 import * as vscode from 'vscode';
 import type { SmartFormatFormat } from '@chr-json-editor/core';
 import { textFormat } from './convertCommand';
@@ -12,6 +14,7 @@ import { minimalReplacement } from './documentSync';
 import type { JsonEditorProvider } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { READ_ONLY_MESSAGE } from './largeFile';
+import { smartFormatOptions } from './settingsVscode';
 import { plan, tooLarge } from './smartFormatPlan';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -62,7 +65,7 @@ async function smartFormatActive(
     show('warning', READ_ONLY_MESSAGE);
     return false;
   }
-  const result = plan(text, format);
+  const result = plan(text, format, smartFormatOptions(document));
   if (result.kind === 'refused') {
     show(result.reason === 'broken' ? 'error' : 'warning', result.message);
     return false;
