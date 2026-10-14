@@ -1,0 +1,19 @@
+{
+  "layout": [
+    "expanded",
+    "compact-array",
+    "inline"
+  ],
+  "comments": [
+    "header",
+    "before",
+    "after"
+  ],
+  "trailingComma": "yes",
+  "special": [
+    "none"
+  ],
+  "style": [
+    "indent-4"
+  ]
+}
