@@ -15,9 +15,11 @@
 // becomes one, and copy puts the exact digits on the clipboard. Strict JSON with no big-number
 // candidate (core's `mayHoldBigNumber`, a scan of number-token shapes, spike 015 T1 REPORT §3)
 // keeps `JSON.parse`; strict JSON with one goes through lossless-json's parser (`readJsonExact`),
-// which reads it several times faster than core. A large-file tab still shows nearest numbers until
-// UNK-068 is settled (015 T6), and so does the parser that hands the library's validator its data
-// (`validationParserFor`): Ajv validates nearest numbers (B6).
+// which reads it several times faster than core. A large-file tab shows big numbers' digits too
+// (spec 015 criterion 12, UNK-068 ★ from 015 T6's bench, `bench/large-file.md`): its strict JSON
+// with a big-number candidate goes through `readJsonExact` as well, the rest through `parseData`.
+// Only the parser that hands the library's validator its data (`validationParserFor`) gives nearest
+// numbers, Ajv validating nearest numbers (B6); a large-file tab's is its parser, as before.
 import {
   getAdapter,
   jsonText,
@@ -59,6 +61,8 @@ export function parserFor(format: Format, large = false): TextParser {
  * only to hand the validator data; the host runs Ajv (ADR-010), on nearest numbers too.
  */
 export function validationParserFor(format: Format, large = false): TextParser {
+  // A large file's parser itself, so the library never reads a large text twice (008 criterion 11);
+  // the validator it gets reports the host's errors and reads no data (App.svelte `validatorFor`).
   if (large) return parserFor(format, true);
   return cached(`${format}:validation`, () => {
     const parser = parserFor(format);
@@ -75,17 +79,24 @@ function cached(key: string, create: () => TextParser): TextParser {
   return parser;
 }
 
-/** The large-file parser: the data alone, with the same errors as `createParser`'s. */
+/** The large-file parser: the data alone, with the same errors as `createParser`'s, big numbers as
+ *  `EditorNumber`s. Strict JSON with a big-number candidate is read by `readJsonExact`, as
+ *  `createParser` reads it, rather than by `parseData`'s walk (UNK-068's bench). */
 function createDataParser(format: Format): TextParser {
   return {
     parse(text) {
+      const big = mayHoldBigNumber(text);
+      if (big && format !== 'jsonl') {
+        const read = readJsonExact(text, editorNumber);
+        if (read) return read.data;
+      }
       const result = parseData(format, text);
       if ('error' in result) {
         throw new SyntaxError(`${result.error.message} at position ${result.error.offset}`);
       }
       // Only text without a value (empty, whitespace, comments) reads as undefined.
       if (result.data === undefined) throw new SyntaxError('The document holds no value');
-      return mayHoldBigNumber(text) ? nearestNumbers(result.data) : result.data;
+      return big ? editorNumbers(result.data) : result.data;
     },
     stringify,
   };

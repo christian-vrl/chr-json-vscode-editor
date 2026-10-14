@@ -297,7 +297,8 @@ exports.run = async function run() {
   await closeAll();
   await require('./actions.cjs').runActions({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
-  // Gate (015 T4, spec 015 criteria 4 and 7): big numbers in the editor (bigNumbers.cjs).
+  // Gate (015 T4 and T6, spec 015 criteria 4 and 7): big numbers in the editor, the `.jsonl`
+  // fixture in the JSON Lines editor too (bigNumbers.cjs).
   await closeAll();
   await require('./bigNumbers.cjs').runBigNumbers({
     hooks,
@@ -410,6 +411,17 @@ exports.run = async function run() {
   // Gate (008 T3, criteria 1–5 and 8): large-file mode in the host (largeFile.cjs).
   await closeAll();
   await require('./largeFile.cjs').runLargeFile({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
+  // Gate (015 T6, spec 015 criterion 12): big numbers in a locked large-file tab
+  // (bigNumbersLargeFile.cjs).
+  await closeAll();
+  await require('./bigNumbersLargeFile.cjs').runBigNumbersLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
 
   // Gate (011 T6, criterion 11): Transform's languages above 5 MiB (queryLargeFile.cjs).
   await closeAll();

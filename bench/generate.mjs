@@ -10,8 +10,11 @@
 // With `--formats` it writes, per size, the same records as JSON, JSONC and JSON5 (008 T5's
 // large-file benchmark): JSONC puts a line comment above each record, JSON5 writes keys unquoted,
 // strings in single quotes and a trailing comma in each object. Every file is exactly <size> MiB.
+// With `--formats --big-ids` it writes the same three formats with every record's id a 19-digit big
+// number (spec 015, UNK-068's evidence rule) as `<size>mib-ids.<format>`, bench formats `json-ids`,
+// `jsonc-ids` and `json5-ids`.
 //
-//   node bench/generate.mjs [--changed | --formats] [outDir] [sizes...]
+//   node bench/generate.mjs [--changed | --formats [--big-ids]] [outDir] [sizes...]
 //   default: bench/.data 1 5 10 50
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -56,6 +59,8 @@ const INDENT = '  ';
 
 /** The formats `--formats` writes, with their file extensions. */
 export const FORMATS = ['json', 'jsonc', 'json5'];
+/** The bench formats `--formats --big-ids` writes: each of FORMATS with big ids. */
+export const BIG_ID_FORMATS = FORMATS.map((format) => `${format}-ids`);
 
 /** One array element as JSON.stringify(record, null, 2) would print it inside the array; JSONC
  *  and JSON5 as described at the top. The benchmark's strings hold no quotes or backslashes. */
@@ -77,14 +82,14 @@ export const BIG_ID_BASE = 1_000_000_000_000_000_000n;
 
 /** The document text of exactly `bytes` bytes: `[\n<records>\n]\n`, padded inside the last note.
  *  With `changed`, the 007 T5 changed copy (same length, see changedRecord); `format` writes it
- *  as JSON, JSONC or JSON5. With `bigIds` (JSON only, spec 015 criterion 11) record `i`'s id is
+ *  as JSON, JSONC or JSON5. With `bigIds` (spec 015 criterion 11, UNK-068) record `i`'s id is
  *  written as the 19 digits of BIG_ID_BASE + i; the padding still makes the size exact. */
 export function documentText(bytes, changed = false, format = 'json', bigIds = false) {
   const element_ = bigIds
     ? (value) =>
         element(value, format).replace(
-          /"id": (\d+)/,
-          (_, id) => `"id": ${BIG_ID_BASE + BigInt(id)}`,
+          /^(\s*"?id"?): (\d+)/m,
+          (_, key, id) => `${key}: ${BIG_ID_BASE + BigInt(id)}`,
         )
     : (value) => element(value, format);
   const recordAt = changed ? changedRecord : record;
@@ -131,22 +136,28 @@ export function linesText(bytes) {
   return { text, records: lines.length };
 }
 
+/** The file of a bench format (`json`, …, `json5-ids`) and size. */
 export function fileName(mib, changed = false, format = 'json') {
-  return changed ? `${mib}mib-changed.json` : `${mib}mib.${format}`;
+  if (changed) return `${mib}mib-changed.json`;
+  const [extension, ids] = format.split('-');
+  return ids ? `${mib}mib-${ids}.${extension}` : `${mib}mib.${extension}`;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const args = process.argv.slice(2);
   const withChanged = args[0] === '--changed';
   const withFormats = args[0] === '--formats';
-  const [outDir = 'bench/.data', ...sizeArgs] = withChanged || withFormats ? args.slice(1) : args;
+  const bigIds = withFormats && args[1] === '--big-ids';
+  const [outDir = 'bench/.data', ...sizeArgs] = args.slice(
+    Number(withChanged || withFormats) + Number(bigIds),
+  );
   const sizes = sizeArgs.length ? sizeArgs.map(Number) : SIZES_MIB;
   mkdirSync(outDir, { recursive: true });
   for (const mib of sizes) {
     for (const changed of withChanged ? [false, true] : [false]) {
       for (const format of withFormats ? FORMATS : ['json']) {
-        const file = path.join(outDir, fileName(mib, changed, format));
-        writeFileSync(file, documentText(mib * MIB, changed, format));
+        const file = path.join(outDir, fileName(mib, changed, bigIds ? `${format}-ids` : format));
+        writeFileSync(file, documentText(mib * MIB, changed, format, bigIds));
         console.log(`bench: wrote ${file} (${mib * MIB} bytes)`);
       }
     }
