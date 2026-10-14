@@ -38,9 +38,15 @@
   (delegated) with the run linked*
 
 ## Phase E — Web (risk-free / additive)
-- [ ] **T5** One criterion 5 case per kind in the web e2e suite and the four commands in spec 013's
+- [x] **T5** One criterion 5 case per kind in the web e2e suite and the four commands in spec 013's
   coverage map. `parallel` with T4. — needs: 017 T3, 013 T4 — *gate: criterion 11 green in the
   web e2e suite*
+  - Delivered with T3 (#125): `packages/vscode-extension/test/web/suite/import.ts` runs one
+    criterion 5 case per kind on `vscode-test-web://mount/` (bytes equal `expected.json`, source
+    unchanged, opened in the CHR JSON editor) plus the import, and `test/web/coverage.json` maps
+    the four commands, which `test/unit/webCoverage.test.ts` checks. Both cases passed in the
+    "test:e2e:web (VS Code stable, web worker host)" CI job on #125's head 2a4cb50; T5 adds no
+    code and reads its gate on its own head's run of that job.
 
 ## Off the critical path
 - Naming: the spec PR is reviewed as "017-T1"; the corpus task's PR is the first real 017 T1, and

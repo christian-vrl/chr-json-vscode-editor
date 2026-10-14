@@ -44,6 +44,8 @@ import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding, schemaFileParts } from './schemaBinding';
+import { openingMode, type Settings } from './settings';
+import { affectsSettings, readSettings } from './settingsVscode';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
@@ -107,6 +109,12 @@ interface Session {
   rowSources: Map<number, (path: string) => void>;
   /** Large-file mode, chosen when the tab opened (spec 008); null for the normal editor. */
   largeFile: LargeFile | null;
+  /** The settings for the document (spec 019), read when the tab opened and again on each change
+   *  that affects them (A1). */
+  settings: Settings;
+  /** The mode the tab opens in (M1), chosen from the settings when it opened: a later change of
+   *  `chrJsonEditor.defaultMode` leaves an open tab's mode alone (A3). */
+  openMode: Mode;
 }
 
 /** A large-file tab the user has not chosen "Edit anyway" for. */
@@ -200,12 +208,14 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     // Measured once: the mode stays whatever later edits do to the size (criterion 1).
     const largeFile = largeFileFor(document.getText());
     const locked = () => isLocked(session);
+    const openedWith = readSettings(document);
 
     const validation = new DocumentValidation({
       snapshot: () => ({ text: document.getText(), docVersion: document.version }),
       format: () => this.formatOf(document),
       dataOnly: locked,
       paused: () => validationPaused(session.largeFile),
+      enabled: () => session.settings['validation.enable'],
       post: (message) => this.post(session, message),
       schemaChanged: () => this.pausedItem.refresh(),
     });
@@ -233,6 +243,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       flushes: new Map(),
       rowSources: new Map(),
       largeFile,
+      settings: openedWith,
+      openMode: openingMode(openedWith, largeFile !== null),
       validation,
       schema,
       sync: new DocumentSync({
@@ -339,6 +351,11 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       ) {
         void session.schema.refresh();
       }
+      // Spec 019 A1: settings apply without a reload. V1 reaches the open tab at once (A5).
+      if (affectsSettings(event, document)) {
+        session.settings = readSettings(document);
+        session.validation.enabledChanged();
+      }
     });
     const viewState = panel.onDidChangeViewState(() => this.pausedItem.refresh());
     panel.onDidDispose(() => {
@@ -375,8 +392,9 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
           docVersion: document.version,
           text: document.getText(),
           format: this.formatOf(document),
-          // JSON Lines opens in Table mode (spec 012 criterion 6).
-          mode: this.formatOf(document) === 'jsonl' ? 'table' : 'tree',
+          // M1 (spec 019): the mode chosen when the tab opened; JSON Lines opens in Table mode
+          // (spec 012 criterion 6), also when the format became JSON Lines since.
+          mode: this.formatOf(document) === 'jsonl' ? 'table' : session.openMode,
           settings: {},
           largeFile: session.largeFile && { ...session.largeFile },
         });

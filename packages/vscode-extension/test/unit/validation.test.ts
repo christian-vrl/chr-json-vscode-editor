@@ -1,6 +1,7 @@
 // Unit checks for 004 T2's host-side validation: Ajv's errors for a sample schema, documents that
 // cannot be validated, and that every posted result names the document version it describes.
 import { readFileSync } from 'node:fs';
+import Ajv from 'ajv';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PROTOCOL_VERSION, type ValidationMessage } from '@chr-json-editor/app-shell/protocol';
 import { DocumentValidation, compileSchema, validateText } from '../../src/validation';
@@ -88,6 +89,31 @@ describe('compileSchema', () => {
     // `dependencies` is a draft-07 keyword (2019-09 split it into dependentRequired/Schemas).
     const validate = validatorFor({ dependencies: { a: ['b'] } });
     expect(validate({ a: 1 }).map((e) => e.keyword)).toEqual(['dependencies']);
+  });
+});
+
+// Spec 016 criterion 4 (016 T2): the validator runs with `ownProperties: true` (004 criterion 2 as
+// amended), so a schema naming inherited members checks the document's own keys only. That every
+// tests/schema/ fixture keeps its expected errors with the option on is tests/schema/schema.test.ts.
+describe('spec 016 criterion 4: inherited keys', () => {
+  const schema = {
+    properties: { constructor: { type: 'null' }, toString: { type: 'string' } },
+    required: ['hasOwnProperty'],
+  };
+  const where = (errors: { instancePath: string; keyword: string }[]) =>
+    errors.map(({ instancePath, keyword }) => ({ instancePath, keyword }));
+
+  it('reports exactly one error, required at "", on {}', () => {
+    expect(where(validatorFor(schema)({}))).toEqual([{ instancePath: '', keyword: 'required' }]);
+  });
+
+  it("without ownProperties Ajv reads {}'s inherited members instead (the error it fixes)", () => {
+    const validate = new Ajv({ strict: false, allErrors: true }).compile(schema);
+    validate({});
+    expect(where(validate.errors ?? [])).toEqual([
+      { instancePath: '/constructor', keyword: 'type' },
+      { instancePath: '/toString', keyword: 'type' },
+    ]);
   });
 });
 
@@ -271,6 +297,91 @@ describe('DocumentValidation', () => {
       [1, null, { kind: 'skipped', reason: 'The schema file was not found' }],
       [2, null, { kind: 'skipped', reason: 'The schema file was not found' }],
     ]);
+  });
+
+  it('with validation off, posts nothing, never pauses, and clears or validates on a switch (spec 019 V1, A5)', () => {
+    vi.useFakeTimers();
+    const doc = { text: '{"name": "Ada", "age": -1}', docVersion: 1 };
+    const posted: ValidationMessage[] = [];
+    let enabled = false;
+    let changes = 0;
+    const validation = new DocumentValidation({
+      snapshot: () => ({ ...doc }),
+      format: () => 'json',
+      enabled: () => enabled,
+      paused: () => true,
+      post: (m) => posted.push(m),
+      schemaChanged: () => changes++,
+    });
+    validation.setSchema(schema);
+    validation.schedule();
+    validation.run();
+    validation.runOnce();
+    vi.runAllTimers();
+    expect(posted).toEqual([]);
+    // Off, no "Schema validation paused" item either (spec 008 criterion 10's item reads this).
+    expect(validation.paused).toBe(false);
+    // Nothing changed: no event, nothing posted.
+    validation.enabledChanged();
+    expect(posted).toEqual([]);
+    changes = 0;
+
+    // Turned on: the document validates at once, here as a paused large file does: not at all
+    // until the click, and the item shows.
+    enabled = true;
+    validation.enabledChanged();
+    expect(changes).toBe(1);
+    expect(validation.paused).toBe(true);
+    validation.runOnce();
+    expect(keys(posted.at(-1)!.result)).toEqual([{ instancePath: '/age', keyword: 'minimum' }]);
+
+    // Turned off: one `none` with no dialect, so the errors and the "assumed draft-07" notice go.
+    enabled = false;
+    validation.enabledChanged();
+    expect(changes).toBe(2);
+    expect(posted.at(-1)).toMatchObject({ dialect: null, result: { kind: 'none' } });
+    const count = posted.length;
+    validation.setSchema(undefined);
+    validation.setSchema(schema);
+    validation.setUnavailable('unreadable');
+    vi.runAllTimers();
+    expect(posted).toHaveLength(count);
+  });
+
+  it('does not ask whether validation is on while it is being built (the tab is not ready yet)', () => {
+    let ready = false;
+    const validation = new DocumentValidation({
+      snapshot: () => ({ text: '{}', docVersion: 1 }),
+      format: () => 'json',
+      enabled: () => {
+        if (!ready) throw new Error('asked before the tab was ready');
+        return true;
+      },
+      post: () => {},
+    });
+    ready = true;
+    validation.setSchema(schema);
+  });
+
+  it('validates at once when turned on with the tab open (spec 019 A5)', () => {
+    let enabled = false;
+    const posted: ValidationMessage[] = [];
+    const validation = new DocumentValidation({
+      snapshot: () => ({ text: '{"name": "Ada", "age": -1}', docVersion: 3 }),
+      format: () => 'json',
+      enabled: () => enabled,
+      post: (m) => posted.push(m),
+    });
+    validation.setSchema(schema);
+    expect(posted).toEqual([]);
+    enabled = true;
+    validation.enabledChanged();
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({
+      docVersion: 3,
+      dialect: { name: 'draft-07', assumed: true, switchable: true },
+    });
+    expect(keys(posted[0]!.result)).toEqual([{ instancePath: '/age', keyword: 'minimum' }]);
   });
 
   it('stops after dispose', () => {
