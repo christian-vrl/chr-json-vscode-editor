@@ -63,6 +63,18 @@
     },
     "chrJsonEditor.openSettings": {
       "test": "Open Settings opens the Settings editor on the extension’s settings"
+    },
+    "chrJsonEditor.copyJsonPath": {
+      "test": "Copy JSONPath, Copy JSON Pointer and both reveals show the node in either editor"
+    },
+    "chrJsonEditor.copyJsonPointer": {
+      "test": "Copy JSONPath, Copy JSON Pointer and both reveals show the node in either editor"
+    },
+    "chrJsonEditor.revealInEditor": {
+      "test": "Copy JSONPath, Copy JSON Pointer and both reveals show the node in either editor"
+    },
+    "chrJsonEditor.revealInText": {
+      "test": "Copy JSONPath, Copy JSON Pointer and both reveals show the node in either editor"
     }
   }
 }
