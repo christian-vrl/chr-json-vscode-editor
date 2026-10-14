@@ -45,7 +45,7 @@ import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding, schemaFileParts } from './schemaBinding';
 import { openingMode, pageSettings, samePageSettings, type Settings } from './settings';
-import { affectsSettings, readSettings } from './settingsVscode';
+import { affectsSettings, readSettings, smartFormatOptions } from './settingsVscode';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
@@ -273,6 +273,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         },
         post: (message) => this.post(session, message),
         confirmRepair,
+        smartFormatOptions: () => smartFormatOptions(document),
       }),
     };
     let snapshot: WebviewSnapshot | undefined;

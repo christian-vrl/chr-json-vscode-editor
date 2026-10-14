@@ -9,6 +9,18 @@ describe('Smart Format plan', () => {
     expect(plan('[\n  1,\n  2\n]\n', 'json')).toEqual({ kind: 'formatted', text: '[1, 2]\n' });
   });
 
+  it('lays out to the given line length (spec 019 F1)', () => {
+    const text = '{"a": [1, 2, 3, 4, 5, 6, 7, 8]}';
+    expect(plan(text, 'json')).toEqual({
+      kind: 'formatted',
+      text: '{ "a": [1, 2, 3, 4, 5, 6, 7, 8] }',
+    });
+    expect(plan(text, 'json', { maxLineLength: 20 })).toEqual({
+      kind: 'formatted',
+      text: '{\n  "a": [\n    1, 2, 3, 4, 5,\n    6, 7, 8\n  ]\n}',
+    });
+  });
+
   it('makes no edit on an already smart-formatted text or one with no value (criterion 8)', () => {
     expect(plan('[1, 2]\n', 'json')).toEqual({ kind: 'same' });
     expect(plan('// only a comment\n', 'jsonc')).toEqual({ kind: 'same' });

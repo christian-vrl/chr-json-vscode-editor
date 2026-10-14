@@ -273,8 +273,18 @@ which `input.json` cannot hold, are tested there too.
 
 ## Smart-format corpus (spec 010)
 
-`smart-format/<format>/<case>/` holds `input.<ext>`, `expected.<ext>` and `case.json`. A case
-passes when `smartFormat(input, format)` returns `expected` byte for byte (criterion 1, 010 T2).
+`smart-format/<format>/<case>/` holds `input.<ext>`, `expected.<ext>`, `case.json` and, for a case
+laid out with another line length than §Layout's 120 columns, `options.json`. A case passes when
+`smartFormat(input, format, options)` returns `expected` byte for byte (criterion 1, 010 T2).
+
+- `options.json` (spec 019 criterion 5, 019 T4): `{ "maxLineLength": <n> }`, core's
+  `SmartFormatOptions` for the case, `n` an integer from 20 to 1000 (the range of the
+  `chrJsonEditor.smartFormat.maxLineLength` setting); no other member. A case without it is laid
+  out at 120 columns, as every case from spec 010 is. The `max-line-length-60` and
+  `max-line-length-200` cases of each format share one input per format, so each pair shows the
+  same text at both lengths; their expected files were produced the same way as the others below,
+  with `MaxTotalLineLength` set to `n`, and the criterion 6 check of `smart-format-corpus.test.ts`
+  runs at `n` for them.
 Unlike the other corpora, the expected bytes were not written by hand: the layout is FracturedJson
 5.1.0's (`fracturedjsonjs`, MIT) with spec 010 §Layout's options, so each `expected.*` was produced
 by running it on the input (plan 010, step A) and then checked by hand against L1–L8: indent unit,

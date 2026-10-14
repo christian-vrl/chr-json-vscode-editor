@@ -1,0 +1,42 @@
+// Settings for the line-length cases (spec 019 F1).
+{
+    "name": "line-length",
+    // Ports the service listens on.
+    "ports" : [
+        8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087,
+        8088, 8089, 8090, 8091, 8092, 8093, 8094
+    ],
+    "server": {
+        "host": "localhost",
+        "port": 8080,
+        "tls" : {
+            "enabled": true,
+            "cert"   : "/etc/ssl/server.pem"
+        }
+    },  // the main one
+    "routes": [
+        {
+            "path"   : "/",
+            "handler": "index",
+            "methods": ["GET"]
+        },
+        {
+            "path"   : "/api/users",
+            "handler": "users",
+            "methods": ["GET", "POST"]
+        },
+        {
+            "path"   : "/api/users/:id",
+            "handler": "user",
+            "methods": ["GET", "PUT", "DELETE"]
+        },
+    ],
+    "matrix": [
+        [1, 0, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 1]
+    ],
+}
