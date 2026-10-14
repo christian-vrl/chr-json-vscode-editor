@@ -1,10 +1,17 @@
 // The library's `parser` prop backed by core (003 T5, criterion 10), with big numbers read as core
 // reads them and written as their digits (spec 015 B4, 015 T4).
-import { getAdapter, holdsBigNumber, LosslessNumber, nearestNumbers } from '@chr-json-editor/core';
+import {
+  cachedParseTexts,
+  getAdapter,
+  holdsBigNumber,
+  LosslessNumber,
+  nearestNumbers,
+  releaseParse,
+} from '@chr-json-editor/core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { EditorNumber, editorNumbers } from '../src/editor-numbers.js';
-import { parserFor, validationParserFor } from '../src/parser.js';
+import { badLinesOf, parserFor, validationParserFor } from '../src/parser.js';
 
 describe('parserFor', () => {
   it('reads JSONC comments and trailing commas as data', () => {
@@ -238,6 +245,31 @@ describe("parserFor('jsonl')", () => {
 
   it('reads a text with bad lines as the items of the other lines (L1), without throwing', () => {
     expect(parserFor('jsonl').parse('{"a":1}\n{"b":\n2\n{c}\n')).toEqual([{ a: 1 }, 2]);
+  });
+
+  // 012 T6 (spec 012 criterion 10): a large-file tab reads the same items with core's data-only
+  // `readLines`, bad lines included, and names the same bad lines.
+  it.each([
+    ['{"a":1}', [{ a: 1 }], []],
+    ['{"a":1}\n{"b":\n2\n{c}\n', [{ a: 1 }, 2], [2, 4]],
+    ['\uFEFF1\r\n\r\n1 2\r\n[3]', [1, [3]], [3]],
+    ['', [], []],
+  ])('reads %j in a large-file tab as the normal tab does', (text, data, bad) => {
+    expect(parserFor('jsonl', true)).not.toBe(parserFor('jsonl'));
+    expect(parserFor('jsonl', true).parse(text)).toEqual(data);
+    expect(parserFor('jsonl').parse(text)).toEqual(data);
+    expect(badLinesOf(text, true)).toEqual(bad);
+    expect(badLinesOf(text, false)).toEqual(bad);
+    // The second read of the same text (the parser after `badLinesOf`) gives the items again.
+    expect(parserFor('jsonl', true).parse(text)).toEqual(data);
+  });
+
+  it('keeps no full parse of a large-file text in core', () => {
+    const text = '{"large":1}\n{"bad"\n';
+    releaseParse();
+    expect(badLinesOf(text, true)).toEqual([2]);
+    expect(parserFor('jsonl', true).parse(text)).toEqual([{ large: 1 }]);
+    expect(cachedParseTexts()).not.toContain(text);
   });
 });
 

@@ -5,7 +5,9 @@
 // against `d`'s meta-schema (Ajv's `validateSchema`), and `data` passes it with no errors.
 // Tightness, same runs: deleting a key the schema lists in `required` from an object gives a
 // `required` error at that object's path, and putting `true` where the schema's `type` is
-// `"string"` gives a `type` error at that path.
+// `"string"` gives a `type` error at that path. The `required` lists those checks break are first
+// checked against G3 computed from the data alone (016 T3, #115 review M1), so a generator that
+// left a key out of `required` fails here instead of giving the check fewer places to try.
 //
 // UNK-085 (Ajv 8.20.0, the validator spec 004 ships): keys holding a lone surrogate are left out of
 // the data, since Ajv cannot compile a `properties` entry so named ("URI malformed"); and the
@@ -22,6 +24,7 @@ import Ajv2020 from 'ajv/dist/2020';
 import { expect, it } from 'vitest';
 import {
   generateSchema,
+  LosslessNumber,
   type GeneratedSchema,
   type GeneratedSchemaDialect,
 } from '@chr-json-editor/core';
@@ -98,6 +101,47 @@ function sites(value: unknown, schema: GeneratedSchema, path: Path, out: Site[])
   return out;
 }
 
+/** A schema position: a member's key, or 0 for an array's elements. */
+type Position = (string | 0)[];
+
+/** G3 from the data alone (#115 review M1): for each position holding objects, the keys every one
+ *  of them has, in the order keys are first met (document order, depth first); none when empty. */
+function requiredFromData(value: unknown): Map<string, string[]> {
+  const seen = new Map<string, { objects: number; counts: Map<string, number> }>();
+  const walk = (v: unknown, at: Position) => {
+    if (Array.isArray(v)) {
+      for (const item of v) walk(item, [...at, 0]);
+    } else if (v !== null && typeof v === 'object' && !(v instanceof LosslessNumber)) {
+      const id = JSON.stringify(at);
+      let entry = seen.get(id);
+      if (!entry) seen.set(id, (entry = { objects: 0, counts: new Map() }));
+      entry.objects++;
+      for (const key of Object.keys(v)) entry.counts.set(key, (entry.counts.get(key) ?? 0) + 1);
+      for (const key of Object.keys(v)) walk(own(v, key), [...at, key]);
+    }
+  };
+  walk(value, []);
+  const out = new Map<string, string[]>();
+  for (const [id, { objects, counts }] of seen) {
+    const required = [...counts].filter(([, n]) => n === objects).map(([key]) => key);
+    if (required.length) out.set(id, required);
+  }
+  return out;
+}
+
+/** Every `required` list in the schema, by position. */
+function requiredInSchema(
+  schema: GeneratedSchema,
+  at: Position = [],
+  out = new Map<string, string[]>(),
+): Map<string, string[]> {
+  if (schema.required) out.set(JSON.stringify(at), schema.required);
+  for (const key of Object.keys(schema.properties ?? {}))
+    requiredInSchema(own(schema.properties!, key) as GeneratedSchema, [...at, key], out);
+  if (schema.items) requiredInSchema(schema.items, [...at, 0], out);
+  return out;
+}
+
 /** A deep copy that keeps own `__proto__` members, `-0`, `NaN` and `±Infinity`. */
 function clone(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(clone);
@@ -163,6 +207,7 @@ export function schemaProperty(dialect: GeneratedSchemaDialect, shard: number): 
           const meta = metaValidators[dialect];
           expect(meta.validateSchema(schema), JSON.stringify(meta.errors)).toBe(true);
           expect(compiled.validate(value)).toEqual([]);
+          expect(requiredInSchema(schema)).toEqual(requiredFromData(value));
 
           const all = sites(value, schema, [], []);
           const required = all.filter((s) => s.kind === 'required');

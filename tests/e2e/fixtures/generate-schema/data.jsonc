@@ -1,0 +1,12 @@
+{
+  // The same data as data.json, written with JSONC's comments and trailing commas.
+  "name": "Ada",
+  "tags": ["math", "engines",],
+  "born": 1815, /* year */
+  "height": 1.65,
+  "notes": null,
+  "children": [
+    { "name": "Byron", "born": 1836 },
+    { "name": "Anne", "born": 1837, "married": true, },
+  ],
+}

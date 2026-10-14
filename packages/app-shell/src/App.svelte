@@ -43,7 +43,9 @@
   (criterion 8, UNK-051): "Open as Text" asks the host for its text editor, and "Repair Lines" is
   the one change the UI sends then (core's `repairLines`, run by the host). The banner and the
   read-only state follow the document's text, so an edit made elsewhere that leaves no bad line
-  makes the tab editable again.
+  makes the tab editable again. A large JSON Lines file (spec 012 criterion 10, 012 T6) shows
+  both banners: its items are read as on a normal tab, "Edit anyway" is offered only once no bad
+  line is left, and "Repair Lines" runs on the locked tab too (one edit; the tab stays locked).
 
   Copy path and reveal node (spec 018, 018 T2): the tree and table context menus offer "Copy
   JSONPath", "Copy JSON Pointer" and "Reveal in Text Editor" next to Copy (S2), for the node the
@@ -85,13 +87,13 @@
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { getAdapter, jsonPath, jsonPointer, nodeAt, placeOf } from '@chr-json-editor/core';
+  import { jsonPath, jsonPointer, nodeAt, placeOf } from '@chr-json-editor/core';
   import { compileJSONPointer, getIn, parseJSONPointer, type JSONPath } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer, reordering } from './data-change.js';
   import { editorNumber, editorNumbers } from './editor-numbers.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
-  import { parserFor, validationParserFor } from './parser.js';
+  import { badLinesOf, parserFor, validationParserFor } from './parser.js';
   import {
     libraryPath,
     PathTextError,
@@ -590,25 +592,12 @@
     queue({ kind: 'action', action: { name: 'repairLines' } });
   }
 
-  /** The document's bad lines when it is JSON Lines (criterion 8). Core's parse is the one the
-   *  library's parser reads the same text with (core keeps the last parse per format), so this
-   *  costs no second parse. Large JSON Lines files are 012 T6's (spec 012 criterion 10). */
+  /** The document's bad lines when it is JSON Lines (criterion 8), on a large-file tab too (spec
+   *  012 criterion 10), read as its parser reads them (parser.ts). */
   function findBadLines(): number[] | null {
     if (format !== 'jsonl') return null;
-    const errors = getAdapter('jsonl')
-      .parse(docText)
-      .diagnostics.filter((d) => d.severity === 'error');
-    if (errors.length === 0) return null;
-    // Each error spans its line (L1), in order: count the line feeds before each one.
-    let line = 1;
-    let lf = docText.indexOf('\n');
-    return errors.map(({ offset }) => {
-      while (lf >= 0 && lf < offset) {
-        line += 1;
-        lf = docText.indexOf('\n', lf + 1);
-      }
-      return line;
-    });
+    const bad = badLinesOf(docText, largeFile !== null);
+    return bad.length === 0 ? null : bad;
   }
 
   /** After "Repair Lines": the bad lines left are the ones it could not repair (L10). */
@@ -633,10 +622,11 @@
   /** "Edit anyway" in the large-file banner (criterion 4): editable until the tab closes. The host
    *  hears it before any change made after it, since messages keep their order. */
   function unlock(): void {
-    if (!largeFile || largeFile.unlocked) return;
+    // Not while a JSON Lines bad line is left (spec 012 criterion 10): the button is disabled then.
+    if (!largeFile || largeFile.unlocked || badLines) return;
     largeFile = { ...largeFile, unlocked: true };
     host.unlock(docVersion);
-    editor?.updateProps({ readOnly: false });
+    editor?.updateProps({ readOnly });
   }
 
   /** Text mode's transform: the library's dialog, with its result sent as data, not as text. */
@@ -673,10 +663,11 @@
 
   /** Queues `change` for the host; `shown` when the library already shows its result. */
   function queue(change: DocumentChange, shown = false): void {
-    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line but
-    // its repair (spec 012 criterion 8); the editor shows the document again.
-    if (locked) return;
-    if (badLines && !(change.kind === 'action' && change.action.name === 'repairLines')) return;
+    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line, but
+    // "Repair Lines" in either case (spec 012 criteria 8 and 10); the editor shows the document
+    // again.
+    const repair = change.kind === 'action' && change.action.name === 'repairLines';
+    if ((locked || badLines) && !(repair && badLines)) return;
     queued.push({ change, shown });
     sendNext();
   }
@@ -1451,7 +1442,12 @@
       </span>
       <button type="button" onclick={openAsText}>Open as Text</button>
       {#if locked}
-        <button type="button" onclick={unlock}>Edit anyway</button>
+        <button
+          type="button"
+          onclick={unlock}
+          disabled={badLines !== null}
+          title={badLines ? 'Repair or fix the bad lines first' : undefined}>Edit anyway</button
+        >
       {/if}
     </div>
   {/if}

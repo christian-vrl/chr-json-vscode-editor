@@ -168,7 +168,11 @@ exports.runCsv = async function runCsv({
       manifest.contributes.menus[menu].find((m) => m.command === command)?.when ?? '';
     for (const menu of ['commandPalette', 'editor/title']) {
       assert.match(entry(menu, EXPORT), /activeCustomEditorId == chrJsonEditor\.editor/);
-      assert.match(entry(menu, EXPORT), /textEditorFormat =~ \/\^\(json\|jsonc\|json5\)\$\//);
+      // JSON Lines too (spec 012 criterion 11, 012 T6).
+      assert.match(
+        entry(menu, EXPORT),
+        /textEditorFormat =~ \/\^\(json\|jsonc\|json5\|jsonl\)\$\//,
+      );
       // Not in a tab locked in large-file mode (criterion 10, csvLargeFile.cjs).
       assert.equal(
         entry(menu, IMPORT),
