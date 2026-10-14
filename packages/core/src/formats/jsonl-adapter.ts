@@ -448,11 +448,41 @@ class Editor {
 }
 
 /** `parseData('jsonl', text)` (spec 008 criterion 6 for JSON Lines, 012 T2): the items, or the first
- *  bad line's message and offset as `parse` reports them; keeps nothing. The same reading as
- *  `classify`, written for speed (criterion 12): CRs are found once per CR rather than per line,
- *  and only a line that starts with a space or a tab is checked for being blank. */
+ *  bad line's message and offset as `parse` reports them; keeps nothing. */
 export function parseLinesData(text: string): ParseDataResult {
+  const read = scanLines(text, true);
+  const first = read.bad[0];
+  if (first === undefined) return { data: read.data };
+  return { error: { message: badLine(first), offset: read.offset! } };
+}
+
+/** A JSON Lines text read for its data alone (`readLines`). */
+export interface LinesData {
+  /** The items of the lines that are not bad, in line order (L1). */
+  readonly data: unknown[];
+  /** The bad lines' 1-based numbers, in order; empty when there is none. */
+  readonly bad: number[];
+  /** Where the first bad line starts, as `parse`'s diagnostic for it says; undefined with none. */
+  readonly offset: number | undefined;
+}
+
+/**
+ * The data `parse` gives (L1: the items of the lines that are not bad) and every bad line, read
+ * without the tree, the style or core's parse cache (spec 012 criterion 10, 012 T6). A large-file
+ * tab shows these items under both banners, and the bad-line banner and "Open as Text" take their
+ * line from it, so no full parse of a large text is made or kept (spec 008 criterion 8).
+ */
+export function readLines(text: string): LinesData {
+  return scanLines(text, false);
+}
+
+/** `readLines`, stopping at the first bad line when `stop` is set (`parseLinesData`). The same
+ *  reading as `classify`, written for speed (criterion 12): CRs are found once per CR rather than
+ *  per line, and only a line that starts with a space or a tab is checked for being blank. */
+function scanLines(text: string, stop: boolean): LinesData {
   const data: unknown[] = [];
+  const bad: number[] = [];
+  let offset: number | undefined;
   const length = text.length;
   const mayHold = mayHoldBigNumber(text);
   let start = text.startsWith(BOM) ? 1 : 0;
@@ -463,29 +493,33 @@ export function parseLinesData(text: string): ParseDataResult {
     let lf = text.indexOf('\n', start);
     if (lf < 0) lf = length;
     let end = lf;
-    let bad = false;
+    let isBad = false;
     if (cr < lf) {
       // A CR right before the LF is the line ending; any other is a lone CR (§Terms).
       if (cr === lf - 1 && lf < length) end = cr;
-      else bad = true;
+      else isBad = true;
       cr = text.indexOf('\r', lf);
       if (cr < 0) cr = length;
     }
-    if (!bad) {
+    if (!isBad) {
       let i = start;
       while (i < end && (text.charCodeAt(i) === 32 || text.charCodeAt(i) === 9)) i++;
       if (i < end) {
         try {
           data.push(itemData(text.slice(start, end), mayHold));
         } catch {
-          bad = true;
+          isBad = true;
         }
       }
     }
-    if (bad) return { error: { message: badLine(number), offset: number === 1 ? 0 : start } };
+    if (isBad) {
+      offset ??= number === 1 ? 0 : start;
+      bad.push(number);
+      if (stop) break;
+    }
     start = lf + 1;
   }
-  return { data };
+  return { data, bad, offset };
 }
 
 function makeAdapter(): FormatAdapter {

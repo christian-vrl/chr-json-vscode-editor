@@ -7,7 +7,8 @@
 // data alone and keeps nothing in core's parse cache; strict JSON still goes through `JSON.parse`.
 // JSON Lines (spec 012) never takes the `JSON.parse` fast path: a one-line JSON Lines text is valid
 // JSON whose data is the item, not the array of items (plan 012 risk R2). Its bad lines are no parse
-// error: the data is the items of the other lines (L1), shown read-only under the bad-line banner.
+// error: the data is the items of the other lines (L1), shown read-only under the bad-line banner,
+// on a large-file tab too (spec 012 criterion 10, 012 T6), where core's `readLines` reads them.
 //
 // Big numbers (spec 015 B4, 015 T4): the editor's data holds them as core does (B1), as
 // `EditorNumber`s (editor-numbers.ts), and `stringify` writes their digits (B2), so the tree and
@@ -25,6 +26,7 @@ import {
   nearestNumbers,
   parseData,
   readJsonExact,
+  readLines,
   type Format,
 } from '@chr-json-editor/core';
 import { editorNumber, editorNumbers } from './editor-numbers.js';
@@ -75,8 +77,55 @@ function cached(key: string, create: () => TextParser): TextParser {
   return parser;
 }
 
-/** The large-file parser: the data alone, with the same errors as `createParser`'s. */
+/** The last large JSON Lines text read with `readLines`: `badLinesOf` and the large-file parser
+ *  read the same text one after the other when a tab opens or its text changes, so it is read once.
+ *  The parser takes the data (`data` is then dropped, the library holds it); the bad lines stay. */
+let lastLines: { text: string; bad: number[]; data?: unknown[] } | undefined;
+
+function linesOf(text: string): { text: string; bad: number[]; data?: unknown[] } {
+  if (lastLines?.text !== text) {
+    const { data, bad } = readLines(text);
+    lastLines = { text, bad, data };
+  }
+  return lastLines;
+}
+
+/**
+ * The 1-based numbers of a JSON Lines text's bad lines (spec 012 criterion 8), empty when there is
+ * none. A large-file tab reads them with core's data-only `readLines`, shared with its parser
+ * (spec 008 criterion 8: no full parse); a normal tab reads core's parse, the one its parser makes
+ * of the same text (core keeps the last parse per format), so neither costs a second read.
+ */
+export function badLinesOf(text: string, large: boolean): number[] {
+  if (large) return linesOf(text).bad;
+  const errors = getAdapter('jsonl')
+    .parse(text)
+    .diagnostics.filter((d) => d.severity === 'error');
+  // Each error spans its line (L1), in order: count the line feeds before each one.
+  let line = 1;
+  let lf = text.indexOf('\n');
+  return errors.map(({ offset }) => {
+    while (lf >= 0 && lf < offset) {
+      line += 1;
+      lf = text.indexOf('\n', lf + 1);
+    }
+    return line;
+  });
+}
+
+/** The large-file parser: the data alone, with the same errors as `createParser`'s. JSON Lines
+ *  gives the items of the lines that are not bad, as its normal parser does (L1, 012 T6). */
 function createDataParser(format: Format): TextParser {
+  if (format === 'jsonl')
+    return {
+      parse(text) {
+        const lines = linesOf(text);
+        const data = lines.data ?? readLines(text).data;
+        lines.data = undefined;
+        return mayHoldBigNumber(text) ? nearestNumbers(data) : data;
+      },
+      stringify,
+    };
   return {
     parse(text) {
       const result = parseData(format, text);
