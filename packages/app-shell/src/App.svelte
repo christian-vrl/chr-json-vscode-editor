@@ -903,6 +903,16 @@
     editor?.select(selection);
   }
 
+  /** Text mode's cursor at `offset` (e2e test hooks, spec 018 criterion 7). */
+  export function cursor(offset: number): void {
+    if (mode !== 'text') return;
+    selectInLibrary({
+      type: SelectionType.text,
+      ranges: [{ anchor: offset, head: offset }],
+      main: 0,
+    });
+  }
+
   /**
    * What "Export to CSV…" exports (spec 009 criterion 7), as a JSON Pointer: in table mode, the
    * array the table shows, which is always the document's root (the library's table mode shows

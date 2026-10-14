@@ -117,15 +117,15 @@ async function ceilingNotice(message: string): Promise<boolean> {
   return (await vscode.window.showWarningMessage(message, OPEN_AS_TEXT)) === OPEN_AS_TEXT;
 }
 
-function isTextTab(tab: vscode.Tab): boolean {
+export function isTextTab(tab: vscode.Tab): boolean {
   return tab.input instanceof vscode.TabInputText;
 }
 
-function isCustomTab(tab: vscode.Tab): boolean {
+export function isCustomTab(tab: vscode.Tab): boolean {
   return tab.input instanceof vscode.TabInputCustom && tab.input.viewType === VIEW_TYPE;
 }
 
-function tabUri(tab: vscode.Tab | undefined): vscode.Uri | undefined {
+export function tabUri(tab: vscode.Tab | undefined): vscode.Uri | undefined {
   const input = tab?.input;
   return input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom
     ? input.uri

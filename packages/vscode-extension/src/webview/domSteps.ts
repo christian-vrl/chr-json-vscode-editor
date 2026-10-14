@@ -55,6 +55,10 @@ export async function runSteps(steps: DomStep[]): Promise<(string | null)[]> {
       const field = (await waitFor(step.select)) as HTMLSelectElement;
       field.value = step.value;
       field.dispatchEvent(new Event('change', { bubbles: true }));
+    } else if ('inView' in step) {
+      const box = (await waitFor(step.inView)).getBoundingClientRect();
+      const inside = box.top >= 0 && box.bottom <= window.innerHeight;
+      reads.push(inside ? 'in view' : 'out of view');
     } else if ('waitFor' in step) await waitFor(step.waitFor, step.text, step.gone);
     else if ('fetch' in step) {
       try {
