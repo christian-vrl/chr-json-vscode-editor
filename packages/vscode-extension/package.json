@@ -278,7 +278,7 @@
         },
         {
           "command": "chrJsonEditor.generateSchema",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5)$/) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5|jsonl)$/) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)"
         },
         {
           "command": "chrJsonEditor.compareWith",
@@ -342,7 +342,7 @@
         },
         {
           "command": "chrJsonEditor.generateSchema",
-          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5)$/) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "when": "(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5|jsonl)$/) || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)",
           "group": "1_convert@5"
         },
         {

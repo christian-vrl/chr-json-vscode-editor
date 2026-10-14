@@ -13,7 +13,8 @@
 //                                                   always runs at 1 and 5 MiB
 //
 // It also times `importData` on the bench records written as YAML, TOML and XML (017 T4, spec 017
-// criterion 10, UNK-077's evidence rule): see IMPORT_SIZES_MIB.
+// criterion 10, UNK-077's evidence rule): see IMPORT_SIZES_MIB, and `generateSchema` beside
+// `parseData` on the json document at 5 and 50 MiB (016 T4, spec 016 criterion 9).
 // BENCH_CORE=<path to a core build's dist/index.js> measures that build instead, without smart
 // format or import (spec 015 criterion 11: the bench job also builds the base commit's core);
 // BENCH_FORMATS=json,jsonc limits the formats.
@@ -31,7 +32,7 @@ import {
   MIB,
 } from '../generate.mjs';
 
-const { getAdapter, importData, parseData, smartFormat } = await import(
+const { generateSchema, getAdapter, importData, parseData, smartFormat } = await import(
   process.env.BENCH_CORE
     ? pathToFileURL(path.resolve(process.env.BENCH_CORE)).href
     : '@chr-json-editor/core'
@@ -45,6 +46,8 @@ export const FORMATS = ['json', 'json-ids', 'jsonc', 'json5', 'jsonl'];
 const coreFormat = (format) => (format === 'json-ids' ? 'json' : format);
 // The formats smart format covers (spec 010 §Scope).
 export const SMART_FORMATS = ['json', 'jsonc', 'json5'];
+// Spec 016 criterion 9: the json document at the 5 MiB threshold and at 50 MiB.
+export const SCHEMA_SIZES_MIB = [5, 50];
 export const RUNS = 3;
 // Spec 017 criterion 10: TOML and XML at these sizes; YAML at these and 20 MiB, UNK-077's
 // candidates (5, 10, 20, 50 MiB), in order until the first that misses its rule (IMPORT_RULE): a
@@ -300,6 +303,36 @@ function measureSmart(format, mib) {
   return result;
 }
 
+/** `generateSchema` (016 T1, draft-07 as the command writes it) beside `parseData` on the json
+ *  document of `mib`, in a process of its own: 3 timed runs of each, `generateSchema` on the data
+ *  `parseData` gave, as the command calls it. */
+function measureSchema(mib) {
+  const bytes = mib * MIB;
+  const { text, records } = benchDocument('json', bytes);
+  const warm = parseData('json', benchDocument('json', MIB / 4).text).data;
+  for (let i = 0; i < 3; i++) generateSchema(warm, 'draft-07');
+  const result = { format: 'json', mib, bytes, records, parseData: [], generateSchema: [] };
+  let data;
+  for (let run = 0; run < RUNS; run++) {
+    const timed = time(() => parseData('json', text));
+    data = timed.result.data;
+    result.parseData.push(timed.ms);
+  }
+  if (!Array.isArray(data) || data.length !== records)
+    throw new Error(`json ${mib} MiB parseData: expected ${records} records`);
+  let schema;
+  for (let run = 0; run < RUNS; run++) {
+    const timed = time(() => generateSchema(data, 'draft-07'));
+    schema = timed.result;
+    result.generateSchema.push(timed.ms);
+  }
+  // Every record has the same keys, so all of them are required.
+  if (schema.type !== 'array' || schema.items?.required?.length !== Object.keys(data[0]).length)
+    throw new Error(`json ${mib} MiB: unexpected schema ${JSON.stringify(schema)}`);
+  result.schemaBytes = Buffer.byteLength(JSON.stringify(schema, null, 2) + '\n');
+  return result;
+}
+
 /** The records `importData` gives for the bench text of `kind` (generate.mjs `importText`). */
 function importedRecords(kind, data) {
   if (kind === 'yaml') return data;
@@ -357,6 +390,9 @@ if (process.argv[2] === '--child') {
 } else if (process.argv[2] === '--import-child') {
   const [kind, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measureImport(kind, Number(mib))) + '\n');
+} else if (process.argv[2] === '--schema-child') {
+  const [mib] = process.argv.slice(3);
+  process.stdout.write(JSON.stringify(measureSchema(Number(mib))) + '\n');
 } else if (process.argv[2] === '--smart-child') {
   const [format, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measureSmart(format, Number(mib))) + '\n');
@@ -422,6 +458,19 @@ if (process.argv[2] === '--child') {
       return result;
     }),
   }));
+  const schema = (process.env.BENCH_CORE ? [] : SCHEMA_SIZES_MIB).map((mib) => {
+    const stdout = execFileSync(
+      process.execPath,
+      ['--expose-gc', `--max-old-space-size=${HEAP_MIB}`, here, '--schema-child', String(mib)],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 20 },
+    );
+    const result = JSON.parse(stdout.trim().split('\n').pop());
+    const round = (runs) => runs.map(Math.round).join('/');
+    console.log(
+      `bench core: json ${mib} MiB generateSchema ${round(result.generateSchema)} ms, parseData ${round(result.parseData)} ms`,
+    );
+    return result;
+  });
   const imports = (process.env.BENCH_CORE ? [] : IMPORT_KINDS).map((kind) => {
     const measured = [];
     for (const mib of IMPORT_SIZES_MIB[kind]) {
@@ -459,6 +508,7 @@ if (process.argv[2] === '--child') {
         defaultHeapLimitBytes,
         formats,
         smart,
+        schema,
         imports,
         importRule: IMPORT_RULE,
       },

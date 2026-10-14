@@ -27,7 +27,7 @@
   5, 6, 7 green in `pnpm test:e2e`*
 
 ## Phase D — JSON Lines and size (risk-free / additive)
-- [ ] **T4** The command on `jsonl` documents (G8, no link button) in both editors; the locked
+- [x] **T4** The command on `jsonl` documents (G8, no link button) in both editors; the locked
   large-file case on spec 008's fixture and the progress notification above the threshold;
   `generateSchema` beside `parseData` in the bench and `bench/RESULTS.md` (criterion 9). — needs:
   016 T3, 012 T5 — *gate: criteria 8, 9 green; criterion 9's bound holds in the committed
@@ -50,6 +50,10 @@
   its verdict is read on its own head SHA.
 - Big numbers: whichever of 016 T1 and 015 T2 merges later adds a `big-number` corpus case (a
   19-digit id typed `integer`, `1e400` typed `number`, G1) and the tag to the coverage test.
+- 016 T4 (from the #133 review): the link e2e also runs for a folder path with spaces. Not
+  covered: a path with `#` or `?`, which `Uri.toString(true)` (what the resolver matches) still
+  escapes while the link's `fileMatch` is the decoded path; a later task can decide whether the
+  link should escape them.
 - README (spec 005): one line on the command and that the schema says only which keys exist and
   their types (G5).
 - Options (formats, enums, map detection, `$defs`) would be a later spec's dialog; settings

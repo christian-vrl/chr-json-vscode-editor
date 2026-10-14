@@ -9,6 +9,11 @@
 // After writing, a notification names the schema; when the document lies in a workspace folder and
 // no schema applies to it today (spec 004 criterion 1), it offers "Use for <name>" (UNK-070), which
 // appends a `json.schemas` entry to that folder's settings so spec 004 validates the document.
+//
+// 016 T4: JSON Lines documents give the schema of one line (G8, criterion 8), and a document above
+// spec 008's threshold, locked large-file tabs included, is generated under the progress
+// notification "Generating JSON Schema…" (criterion 9); the text is read with `parseData` alone, so
+// nothing is cached and the tab stays as it was.
 import * as vscode from 'vscode';
 import { resolveSchemaAssociation } from '@chr-json-editor/core';
 import { commandSource } from './convertCommand';
@@ -17,6 +22,7 @@ import type { FormatBadgeController } from './formatBadgeVscode';
 import {
   brokenSchemaMessage,
   generatedMessage,
+  GENERATING_TITLE,
   linkButton,
   planSchema,
   schemaLink,
@@ -26,6 +32,7 @@ import {
 } from './generateSchemaPlan';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
+import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
 import { basename } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -34,14 +41,22 @@ export const GENERATE_SCHEMA_COMMAND = 'chrJsonEditor.generateSchema';
 
 /** Test hooks only: the save dialog's answer and the link button's (true: click it, false: dismiss;
  *  undefined: show them), and what the command showed: messages, notifications with their button,
- *  and the save dialogs' prefilled URIs. */
+ *  the save dialogs' prefilled URIs and the progress notifications' titles. */
 export const testGenerateSchema: {
   saveAs: ((defaultUri: string) => string | undefined) | undefined;
   link: boolean | undefined;
   messages: string[];
   notifications: { message: string; button: string | undefined }[];
   asked: string[];
-} = { saveAs: undefined, link: undefined, messages: [], notifications: [], asked: [] };
+  progress: string[];
+} = {
+  saveAs: undefined,
+  link: undefined,
+  messages: [],
+  notifications: [],
+  asked: [],
+  progress: [],
+};
 
 export function registerGenerateSchemaCommand(badge: FormatBadgeController): vscode.Disposable {
   return vscode.commands.registerCommand(GENERATE_SCHEMA_COMMAND, (uri?: unknown) =>
@@ -58,7 +73,8 @@ async function generate(
   const found = await commandSource(badge, uri);
   if (!found) return undefined;
   const { document, format, custom } = found;
-  const result = planSchema(document.getText(), format);
+  const text = document.getText();
+  const result = await withProgress(text, () => planSchema(text, format));
   if (result.kind === 'broken') {
     const position = document.positionAt(result.offset);
     show(brokenSchemaMessage(format, position.line + 1, position.character + 1));
@@ -107,6 +123,25 @@ async function generate(
       : undefined;
   await notify(name, basename(target.path), folder, link);
   return target;
+}
+
+/**
+ * Criterion 9: `task` under the progress notification "Generating JSON Schema…" when the text is
+ * above spec 008's threshold, else at once. Generating holds the extension host, so the
+ * notification is given a moment to reach the window before it starts (as the import commands do).
+ */
+async function withProgress<T>(text: string, task: () => T): Promise<T> {
+  if (text.length * 3 <= LARGE_FILE_THRESHOLD || utf8Length(text) <= LARGE_FILE_THRESHOLD) {
+    return task();
+  }
+  if (__CHR_TEST_HOOKS__) testGenerateSchema.progress.push(GENERATING_TITLE);
+  return vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: GENERATING_TITLE },
+    async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return task();
+    },
+  );
 }
 
 /** Whether a schema applies to the document today: spec 004 criterion 1's resolver, as the CHR
