@@ -1,0 +1,18 @@
+{
+  "project": {
+    "@xmlns": "http://maven.apache.org/POM/4.0.0",
+    "groupId": "org.example",
+    "version": "1.50",
+    "count": 3,
+    "dependency": [
+      {
+        "@scope": "test",
+        "artifactId": "junit"
+      },
+      {
+        "artifactId": "slf4j"
+      }
+    ],
+    "empty": ""
+  }
+}

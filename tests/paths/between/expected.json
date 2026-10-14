@@ -1,0 +1,93 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 2,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 3,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 4,
+      "jsonpath": "$[0]",
+      "pointer": "/0"
+    },
+    {
+      "offset": 5,
+      "jsonpath": "$[0]",
+      "pointer": "/0"
+    },
+    {
+      "offset": 6,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 7,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 12,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 15,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 20,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 27,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 28,
+      "jsonpath": "$[1]",
+      "pointer": "/1"
+    },
+    {
+      "offset": 29,
+      "jsonpath": "$[1]",
+      "pointer": "/1"
+    },
+    {
+      "offset": 30,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 32,
+      "jsonpath": "$",
+      "pointer": ""
+    }
+  ],
+  "places": [
+    {
+      "pointer": "",
+      "offset": 0
+    },
+    {
+      "pointer": "/0",
+      "offset": 4
+    },
+    {
+      "pointer": "/1",
+      "offset": 28
+    }
+  ]
+}

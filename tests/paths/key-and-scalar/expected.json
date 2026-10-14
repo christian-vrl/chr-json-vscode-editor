@@ -1,0 +1,126 @@
+{
+  "nodes": [
+    {
+      "offset": 4,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 7,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 10,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 11,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 12,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 17,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 18,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 21,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 26,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 27,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 28,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 29,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 30,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 31,
+      "jsonpath": "$.age",
+      "pointer": "/age"
+    },
+    {
+      "offset": 41,
+      "jsonpath": "$.ok",
+      "pointer": "/ok"
+    },
+    {
+      "offset": 45,
+      "jsonpath": "$.ok",
+      "pointer": "/ok"
+    },
+    {
+      "offset": 57,
+      "jsonpath": "$.none",
+      "pointer": "/none"
+    },
+    {
+      "offset": 61,
+      "jsonpath": "$.none",
+      "pointer": "/none"
+    },
+    {
+      "offset": 62,
+      "jsonpath": "$",
+      "pointer": ""
+    },
+    {
+      "offset": 63,
+      "jsonpath": "$",
+      "pointer": ""
+    }
+  ],
+  "places": [
+    {
+      "pointer": "",
+      "offset": 0
+    },
+    {
+      "pointer": "/name",
+      "offset": 4
+    },
+    {
+      "pointer": "/age",
+      "offset": 21
+    },
+    {
+      "pointer": "/ok",
+      "offset": 35
+    },
+    {
+      "pointer": "/none",
+      "offset": 49
+    }
+  ]
+}

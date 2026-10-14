@@ -1,0 +1,39 @@
+{
+  "nodes": [
+    {
+      "offset": 27,
+      "jsonpath": "$.list[0]",
+      "pointer": "/list/0"
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/list/1",
+      "offset": 31
+    },
+    {
+      "pointer": "/missing",
+      "none": true
+    },
+    {
+      "pointer": "/list/5",
+      "none": true
+    },
+    {
+      "pointer": "/list/x",
+      "none": true
+    },
+    {
+      "pointer": "/obj/0",
+      "none": true
+    },
+    {
+      "pointer": "/obj/k/x",
+      "none": true
+    },
+    {
+      "pointer": "/n/0",
+      "none": true
+    }
+  ]
+}

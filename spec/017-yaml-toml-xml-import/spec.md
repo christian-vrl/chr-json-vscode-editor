@@ -290,8 +290,9 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
 - Output text: `stringify(data, format, style)` at `packages/core/src/formats/stringify.ts`
   (throws on non-finite numbers for JSON, hence A3).
 - Web host: ADR-013; spec 013 criterion 2 (no Node built-ins outside `src/node/**`); the three
-  libraries are plain ECMAScript with no Node built-in imports (checked by the browser bundle in
-  T3).
+  libraries are plain ECMAScript with no Node built-in imports, which spec 013 criterion 1's unit
+  test over the built browser entry (no `require(` but `require("vscode")`,
+  `packages/vscode-extension/test/unit/webEntry.test.ts`) checks once T3 bundles them.
 
 ## Changes to approved specs (AGENTS rule 7)
 None. Spec 006's §Scope Out already names spec 017 for YAML, TOML and XML.

@@ -1,0 +1,37 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$.a",
+      "pointer": "/a"
+    },
+    {
+      "offset": 7,
+      "jsonpath": "$.a[0]",
+      "pointer": "/a/0"
+    },
+    {
+      "offset": 14,
+      "jsonpath": "$.b",
+      "pointer": "/b"
+    },
+    {
+      "offset": 18,
+      "jsonpath": "$.b",
+      "pointer": "/b"
+    },
+    {
+      "offset": 19,
+      "error": {
+        "line": 1,
+        "column": 20
+      }
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/a/0",
+      "none": true
+    }
+  ]
+}

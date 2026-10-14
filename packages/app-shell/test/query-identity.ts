@@ -3,9 +3,14 @@
 // (fast-check, seeds committed, 10 000 runs per language). Each run is a fresh engine (spec Terms),
 // and Lodash's source takes about 16 ms to compile in each, so the Lodash runs are split over
 // query-identity.lodash-<n>.test.ts files that Vitest runs in parallel, each with its own seed.
+//
+// Spec 015 criterion 9 (015 T5): the same property over spec 015 criterion 2's big-number generator
+// (big-number-arbitrary.ts), which draws about half of each language's runs: big numbers go in as the
+// engine's `LosslessNumber`s and come back as the same big numbers, digits exact.
 import fc from 'fast-check';
 import { expect, it } from 'vitest';
 import { dataArbitrary } from '../../core/test/arbitraries.js';
+import { bigNumberData } from '../../core/test/big-number-arbitrary.js';
 import { orderedEqual } from '../../../tests/query/query.js';
 import { loadQueryEngine, runQuery, type QueryLanguageId } from '../src/query/run-query.js';
 
@@ -45,8 +50,12 @@ const deep = fc
     ),
   );
 
-/** JSON5 values (`-0`, `NaN`, `±Infinity`, any keys), and nesting to depth 64. */
-export const identityData: fc.Arbitrary<unknown> = fc.oneof(dataArbitrary('json5'), deep);
+/** JSON5 values (`-0`, `NaN`, `±Infinity`, any keys), nesting to depth 64, and (half the runs) data
+ *  with big numbers (spec 015 criterion 9). */
+export const identityData: fc.Arbitrary<unknown> = fc.oneof(dataArbitrary('json5'), deep, {
+  arbitrary: bigNumberData,
+  weight: 2,
+});
 
 /** Registers one property test: `runs` runs of the identity query in `language` from `seed`. */
 export function identityProperty(language: QueryLanguageId, seed: number, runs: number): void {

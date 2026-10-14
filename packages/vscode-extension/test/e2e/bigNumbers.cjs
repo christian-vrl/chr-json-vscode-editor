@@ -3,7 +3,8 @@
 // number's decimal text; a patch setting /a to the typed text 98765432109876543210 writes
 // expected-edit.*; "Copy" on a big number puts its digits on the clipboard; search finds
 // 12345678901234567890; sorting `ids` ascending, by the sort dialog and by the table header (in the
-// nested editor the table mode offers for an array in an object), writes expected-sort.*; tree →
+// nested editor the table mode offers for an array in an object), writes expected-sort.*, and
+// descending by the header (clicked twice) expected-sort-desc.* (015 T5); tree →
 // text → table → tree leaves the bytes unchanged. Criterion 7: an integer schema on big integers
 // reports no error, and validation does not throw. Criterion 6 is compare.cjs's. Each case works on
 // a copy in a temporary folder.
@@ -247,6 +248,35 @@ exports.runBigNumbers = async function runBigNumbers({
         );
         await finish(uri, document);
         console.log(`criterion 4: ${name} table shows big numbers; header sort = expected-sort`);
+      }
+
+      // The header clicked twice sorts `ids` descending: Apply writes expected-sort-desc.* (015 T5,
+      // from the 015 T4 review: the header sort was covered ascending only).
+      {
+        const { uri, document } = await open(source, 'table');
+        const expectedDesc = fs.readFileSync(
+          path.join(FIXTURES, `expected-sort-desc.${format}`),
+          'utf8',
+        );
+        await hooks.dom(uri.toString(), [
+          editArray(1),
+          { click: `${MODAL} .jse-column-header` },
+          { waitFor: `${MODAL} .jse-column-sort-icon[title*="ascending"]` },
+        ]);
+        await expectWrite(
+          uri,
+          document,
+          [
+            { click: `${MODAL} .jse-column-header` },
+            { waitFor: `${MODAL} .jse-column-sort-icon[title*="descending"]` },
+            { click: `${MODAL} button.jse-primary`, text: 'Apply' },
+            { waitFor: MODAL, gone: true },
+          ],
+          expectedDesc,
+          `${name}: the table header sort, descending`,
+        );
+        await finish(uri, document);
+        console.log(`criterion 4: ${name} header sort descending = expected-sort-desc`);
       }
     }
 

@@ -1,0 +1,38 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$.name",
+      "pointer": "/name"
+    },
+    {
+      "offset": 12,
+      "jsonpath": "$._x9",
+      "pointer": "/_x9"
+    },
+    {
+      "offset": 22,
+      "jsonpath": "$.Ab_c",
+      "pointer": "/Ab_c"
+    },
+    {
+      "offset": 30,
+      "jsonpath": "$.Ab_c",
+      "pointer": "/Ab_c"
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/name",
+      "offset": 1
+    },
+    {
+      "pointer": "/_x9",
+      "offset": 12
+    },
+    {
+      "pointer": "/Ab_c",
+      "offset": 22
+    }
+  ]
+}

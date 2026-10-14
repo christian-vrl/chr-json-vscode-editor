@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$['0']",
+      "pointer": "/0"
+    },
+    {
+      "offset": 6,
+      "jsonpath": "$['0']",
+      "pointer": "/0"
+    },
+    {
+      "offset": 7,
+      "jsonpath": "$['0'][0]",
+      "pointer": "/0/0"
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/0",
+      "offset": 1
+    },
+    {
+      "pointer": "/0/0",
+      "offset": 7
+    }
+  ]
+}

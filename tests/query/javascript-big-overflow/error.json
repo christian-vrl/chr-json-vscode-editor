@@ -1,0 +1,3 @@
+{
+  "message": "Cannot safely convert to number: the value '1e400' would overflow and become Infinity"
+}

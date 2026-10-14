@@ -50,8 +50,9 @@ to look for it by hand.
   `/people/1/name`, `/people/1/a.b`, `/a~1b`, `/m~0n`.
 - **P3 Reading a path text** (the navigation bar's edit box, S3): text that is, spaces around it
   aside, empty or `$` (the root); a JSONPath of `$` followed by `.name` (shorthand as P1), `['…']`
-  or `["…"]` (RFC 9535 string escapes) and `[i]` (an integer ≥ 0 without leading zeros) parts; or a
-  JSON Pointer starting with `/` (RFC 6901, `~` only before `0` or `1`). Anything else, including
+  or `["…"]` (RFC 9535 string escapes, and P1's `\uxxxx` for a lone surrogate) and `[i]` (an
+  integer ≥ 0 without leading zeros) parts; or a JSON Pointer starting with `/` (RFC 6901, `~` only
+  before `0` or `1`; spaces after it belong to its last name, so P4 holds for a name ending in one). Anything else, including
   wildcards, filters, slices, `..` and negative indices, is refused with "Not a path to one node:
   `<reason>`." A JSON Pointer step names an array index when the value it steps into is an array
   and the step is `0` or digits without a leading zero, else a member name (RFC 6901 §4).
@@ -141,7 +142,8 @@ to look for it by hand.
    hold (names of any string, lone surrogates included, nesting to depth 64) and any path of a node
    in it, reading its P1 text and its P2 text (P3, against that data) gives the path back (P4); P1
    and P2 match their grammars (RFC 9535 §2.7's normalized-path grammar with `.name` added for
-   shorthand names; RFC 6901 §3). Engine check, same runs: json-p3 2.3.2 (spec 014's RFC 9535 engine)
+   shorthand names and P1's `\uxxxx` for a lone surrogate, which that grammar cannot write; RFC 6901
+   §3). Engine check, same runs: json-p3 2.3.2 (spec 014's RFC 9535 engine)
    on the P1 text returns exactly the node's value, for every path whose names hold no lone
    surrogate and no U+0000–U+001F other than `\b` `\f` `\n` `\r` `\t` (json-p3 2.3.2 refuses those
    escapes, §Current evidence).
@@ -284,7 +286,7 @@ to look for it by hand.
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
 | UNK-080 | Which path notations the copy commands offer | S2, S5, criteria 3, 5, 7; T2, T3 | resolved (owner): ★ both, "Copy JSONPath" and "Copy JSON Pointer" |
-| UNK-081 | JSONPath spelling: `.name` shorthand where allowed, or always `['name']` | P1, criteria 1–3; T1 | delegated: shorthand if criterion 3's engine check finds both forms give the same node (sandbox: they do) |
+| UNK-081 | JSONPath spelling: `.name` shorthand where allowed, or always `['name']` | P1, criteria 1–3; T2 (T1 writes the shorthand, the outcome the sandbox evidence points to; if T2's check finds otherwise, T2 switches P1 and the corpus to the normalized form) | delegated: shorthand if criterion 3's engine check finds both forms give the same node (sandbox: they do) |
 | UNK-082 | Where a reveal shows the other editor | S5, criterion 8; T3 | resolved (owner): ★ the document's open tab of that editor, else in place of the current tab |
 
 ## Gate (this spec's Definition of Done)

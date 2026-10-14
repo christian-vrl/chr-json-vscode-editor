@@ -20,7 +20,7 @@
   `pnpm check:licenses` green*
 
 ## Phase C — Commands (risk-free / additive)
-- [ ] **T3** "Convert YAML to JSON", "Convert TOML to JSON", "Convert XML to JSON" and "Import
+- [x] **T3** "Convert YAML to JSON", "Convert TOML to JSON", "Convert XML to JSON" and "Import
   YAML, TOML or XML…" with their explorer, editor-title and palette entries (`when` clauses on
   `resourceExtname`), the file beside the source with the save-dialog and untitled fallbacks, the
   confirmation and 002 R14 replace, the error message, the warnings notification and output

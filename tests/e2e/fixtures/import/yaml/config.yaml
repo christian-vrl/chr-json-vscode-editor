@@ -1,0 +1,12 @@
+# A Compose-like file: anchors, a merge key and an `on:` key.
+x-base: &base
+  restart: always
+  image: app:1.0
+on: push
+services:
+  web:
+    <<: *base
+    image: app:2.0
+    ports: ["8080:80"]
+    replicas: 3
+    id: 12345678901234567890

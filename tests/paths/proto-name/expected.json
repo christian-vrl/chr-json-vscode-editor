@@ -1,0 +1,29 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$.__proto__",
+      "pointer": "/__proto__"
+    },
+    {
+      "offset": 15,
+      "jsonpath": "$.__proto__.constructor",
+      "pointer": "/__proto__/constructor"
+    },
+    {
+      "offset": 30,
+      "jsonpath": "$.__proto__.constructor",
+      "pointer": "/__proto__/constructor"
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/__proto__",
+      "offset": 1
+    },
+    {
+      "pointer": "/__proto__/constructor",
+      "offset": 15
+    }
+  ]
+}
