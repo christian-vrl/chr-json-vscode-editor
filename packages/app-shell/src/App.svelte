@@ -78,9 +78,11 @@
   import { compileJSONPointer, getIn, parseJSONPointer, type JSONPath } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer, reordering } from './data-change.js';
+  import { editorNumber, editorNumbers } from './editor-numbers.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
   import { parserFor, validationParserFor } from './parser.js';
   import { columnPath, exactOrder, onlyNestedPath, type SortRequest } from './sort-order.js';
+  import { exactNumbersLanguage } from './query/exact-numbers.js';
   import { jsonpathRfc9535QueryLanguage } from './query/jsonpath-rfc9535.js';
   import {
     isQueryEngineLoaded,
@@ -124,13 +126,14 @@
    *  criterion 5), in this order. The library's JSONPath is jsonpath-plus, Goessner's JSONPath;
    *  JSONPath (RFC 9535) is json-p3 (query/jsonpath-rfc9535.ts). JSONQuery's description
    *  links to jsonquerylang.org (004 T1 review). JavaScript and Lodash only with the host's engine
-   *  loader, read once at mount. */
+   *  loader, read once at mount. The four library languages keep big numbers exact by spec 015 B7
+   *  (query/exact-numbers.ts), JavaScript and Lodash by B8 (the engine bridge). */
   // svelte-ignore state_referenced_locally: the library takes the list once, when it mounts
   const QUERY_LANGUAGES: QueryLanguage[] = [
-    jsonQueryLanguage,
-    jmespathQueryLanguage,
-    jsonpathRfc9535QueryLanguage,
-    { ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' },
+    exactNumbersLanguage(jsonQueryLanguage, editorNumber),
+    exactNumbersLanguage(jmespathQueryLanguage, editorNumber),
+    exactNumbersLanguage(jsonpathRfc9535QueryLanguage, editorNumber),
+    exactNumbersLanguage({ ...jsonpathQueryLanguage, name: 'JSONPath (Goessner)' }, editorNumber),
     ...(queryEngineLoader
       ? [
           sealedLanguage(javascriptQueryLanguage, 'javascript'),
@@ -149,7 +152,8 @@
       executeQuery: (json, query) => {
         performance.mark('chr:query-run');
         try {
-          return runQuery(id, json, query);
+          // The result's big numbers as the page's (B8, editor-numbers.ts).
+          return editorNumbers(runQuery(id, json, query));
         } catch (error) {
           throw error instanceof QueryError ? new Error(error.message) : error;
         }
@@ -658,6 +662,16 @@
    * the sort dialog's Sort button (the array's path, its property and direction selects), or a
    * table column header (the column, and the direction the library turns it to). In a nested
    * dialog, paths are relative to its content, whose path the dialog shows.
+   *
+   * The library has no hook for this, so it reads vanilla-jsoneditor 3.13.0's markup (pinned
+   * exactly in package.json): ColumnHeader.svelte's `button.jse-column-header` (`jse-readonly` when
+   * read-only), its title "<column> (Click to sort the data by this column)" and its
+   * `.jse-column-sort-icon` titled "Currently sorted in <ascending|descending> order";
+   * SortModal.svelte's `.jse-sort-modal` with `input.jse-path`, its `button.jse-primary`, and its
+   * Property and Direction rows (svelte-select's hidden input holds the choice as JSON); and
+   * JSONEditorModal.svelte's `dialog.jse-jsoneditor-modal` with `input.jse-path`. A library upgrade
+   * that moves any of these fails test/sort-order.test.ts (the markup is still in the library's
+   * build) and the big-number e2e's dialog and header sorts (bigNumbers.cjs, both directions).
    */
   function recordSort(event: MouseEvent): void {
     const button = (event.target as Element | null)?.closest('button');

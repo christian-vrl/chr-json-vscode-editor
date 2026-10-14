@@ -16,8 +16,9 @@ in the standalone page's Transform dialog in both languages; every value of thei
 `"undefined"`. The loader skips it.
 `jsonpath-cts/` is not a case either: it holds the vendored JSONPath Compliance Test Suite (below).
 
-JSONPath (RFC 9535) cases (spec 014) are described in their own section below; the rest of this
-file up to there is about the JavaScript and Lodash cases.
+JSONPath (RFC 9535) cases (spec 014) and the big-number cases of every language (spec 015) are
+described in their own sections below; the rest of this file up to there is about the JavaScript and
+Lodash cases.
 
 ## Commands
 
@@ -43,6 +44,8 @@ file up to there is about the JavaScript and Lodash cases.
   gives every compliance test's result (or one of its results), key order checked, and throws for
   every invalid selector; it gives every RFC 9535 case's `expected.json5` or an error containing
   `error.json`'s text, and its `createQuery` throws the refused wizard cases' message.
+- `library-languages.test.ts` — spec 015 criterion 8 (015 T5): the JSONQuery, JMESPath and JSONPath
+  (Goessner) big-number cases, through `exactNumbersLanguage` (below).
 - `reference.test.ts` — the reference half of criterion 1: every case without `error.json` and
   without a Q2 tag gives `expected.json5` in the reference, key order checked; every error case
   without a Q2 tag makes the reference throw, with `error.json`'s text unless the case is marked
@@ -77,7 +80,8 @@ file up to there is about the JavaScript and Lodash cases.
 | `shared-reference` | the result reaches one object twice without a cycle (reading 3) |
 | `syntax-error`, `thrown-error`, `missing-query`, `chain-without-value` | the query fails (criterion 6); `chain-without-value` is Lodash's `_.chain(` without `.value()` |
 | `nan`, `infinity`, `minus-zero`, `proto-key` | **Q2:** that value passes in and out exactly |
-| `bigint-result`, `cyclic-result` | **Q2:** the result can't be written as JSON; the case has Q2's message |
+| `bigint-result` | **Q2** as amended by spec 015 B8: a `BigInt` in the result is written as its digits |
+| `cyclic-result` | **Q2:** the result can't be written as JSON; the case has Q2's message |
 | `date-result`, `function-result` | **Q2:** out of the engine the value follows `JSON.stringify` |
 
 A case with one of the eight Q2 tags is left out of the reference comparison (criterion 1): the
@@ -176,6 +180,52 @@ The error tags are `syntax-error`, `type-error`, `unknown-function`, `too-deep`,
    (P2): `$.store.book.length` and `$.constructor` give `[]`.
 5. **Depths.** `deep` uses 61 levels (60 objects around the leaf) and `too-deep` 100,001 (plan R5's
    60 and 100,000, plus the leaf object), both far from P6's 1,000.
+
+## Big-number cases (spec 015)
+
+Spec 015 criterion 8 adds cases for the library's query languages, each in its own folder
+`tests/query/<language>-big-<case>/` with its own query file: `jsonquery` (`query.jsonquery`),
+`jmespath` (`query.jmespath`), `jsonpath`, the library's JSONPath (Goessner) (`query.jsonpath`), and
+`jsonpath-rfc9535`. Like `query.jsonpath`, each of these files ends with one newline, which the
+loader takes off. Criterion 9 adds JavaScript and Lodash cases next to spec 011's. Every case carries
+one of the `big-*` tags below, and tags.json lists the cells each language needs (`library` for
+JSONQuery and JMESPath, `goessner` for JSONPath (Goessner), and the `big-*` entries of `rfc9535` and
+`required`).
+
+A big-number case's `input.json5` and `expected.json5` are read with core's JSON5 reader, so a
+number with more digits than a float holds is a `LosslessNumber` (spec 015 B1) on both sides, and
+the result must hold the same digits. Its expected data was written by hand from B7 and B8 of
+`spec/015-lossless-numbers/spec.md`. `library-languages.test.ts` runs the JSONQuery, JMESPath and
+JSONPath (Goessner) cases, `jsonpath-rfc9535.test.ts` the RFC 9535 ones, both through
+`exactNumbersLanguage` (app-shell `query/exact-numbers.ts`) with the editor's parser, as the
+Transform dialog runs them; `run-query.test.ts` runs the JavaScript and Lodash ones, and
+`reference.test.ts` leaves them out (the library runs on rounded numbers).
+
+| Tag | Meaning |
+|---|---|
+| `big-passthrough` | filtered, sorted, picked or selected big numbers come back with their digits (B7; B8 `filter`, `_.sortBy`, `map`) |
+| `big-aggregate` | `max` of big ids is the big id (B7; JSONQuery and JMESPath) |
+| `big-computed` | a number the query computes is written as JavaScript writes it (B7), or a `BigInt` as its digits (B8) |
+| `big-ambiguous` | a result number rounds from two different exact values: B7's message, so Transform is disabled |
+| `big-overflow` | `valueOf` of `1e400` or `-1E-400` throws lossless-json's message (B8) |
+| `big-mixed` | a big integer's `BigInt` plus a number is the engine's `TypeError` (B8; `engineMessage`) |
+
+### Readings
+
+1. **No aggregate or computed number in JSONPath.** A JSONPath result (Goessner or RFC 9535) is
+   always a list of nodes of the input, so it has no `max` and computes no number: those languages
+   need `big-passthrough` and `big-ambiguous` cases only.
+2. **"Written as JavaScript writes it."** A computed sum near 3.47 × 10^19 is the plain number
+   JavaScript writes as `34700365001723880000`. core's reader would take that text for a big
+   number, so `expected.json5` writes the same plain number as `3.470036500172388e19`.
+3. **The message for one number** is "1 number in this result can't be kept exact." (B7's
+   "`<n>` numbers …" with the noun in the singular).
+4. **Numbers equal by exact value** count as one value (spec 015 §Terms): a big
+   `100000000000000000000` next to a plain `1e20` is not ambiguous, and two spellings of one big id
+   restore to the first one in the input.
+5. **`1e400` in JSONQuery and JMESPath.** The library runs both on `JSON.parse` of its parser's
+   text, where the nearest number `Infinity` is `null`, as before spec 015, so no case relies on it
+   there; JSONPath (Goessner) and RFC 9535 see `Infinity` and restore `1e400`.
 
 ## JSONPath Compliance Test Suite (`jsonpath-cts/`)
 

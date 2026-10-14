@@ -1,6 +1,9 @@
 // B3's order for the library's sort dialog and table header sort (spec 015 B3, 015 T4): the
 // library's own order (its sort.ts comparator, reproduced here with natural-compare-lite as the
 // golden sort reference does) with numbers, plain and big, put in exact-value order.
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { compareNumbers, LosslessNumber } from '@chr-json-editor/core';
 import fc from 'fast-check';
 import { getIn, type JSONPath } from 'immutable-json-patch';
@@ -129,5 +132,39 @@ describe('the property a sort asks for', () => {
       'b',
     ]);
     expect(onlyNestedPath([])).toEqual([]);
+  });
+});
+
+// 015 T5 (from the 015 T4 review): App.svelte's recordSort reads the library's markup to learn
+// which sort was asked for. This pins what it reads to the library version it was written against,
+// so an upgrade fails here first, naming what to re-check.
+describe('the library markup recordSort reads (vanilla-jsoneditor 3.13.0)', () => {
+  const require = createRequire(import.meta.url);
+  const entry = require.resolve('vanilla-jsoneditor');
+  const library = readFileSync(entry, 'utf8');
+  const manifest = JSON.parse(
+    readFileSync(path.join(path.dirname(entry), 'package.json'), 'utf8'),
+  ) as { version: string };
+  const app = JSON.parse(
+    readFileSync(path.join(import.meta.dirname, '../package.json'), 'utf8'),
+  ) as { dependencies: Record<string, string> };
+
+  it('is pinned to 3.13.0', () => {
+    expect(app.dependencies['vanilla-jsoneditor']).toBe('3.13.0');
+    expect(manifest.version).toBe('3.13.0');
+  });
+
+  it.each([
+    'jse-column-header',
+    'jse-readonly',
+    ' (Click to sort the data by this column)',
+    'jse-column-sort-icon',
+    'Currently sorted in ',
+    'jse-sort-modal',
+    'jse-path',
+    'jse-primary',
+    'jse-jsoneditor-modal',
+  ])('still has %s', (markup) => {
+    expect(library).toContain(markup);
   });
 });

@@ -5,14 +5,20 @@
 // Spec 014 criterion 3 (014 T1): the same test covers the JSONPath (RFC 9535) cases: every tag of
 // criterion 3 has a case, each wizard case's query.jsonpath is the library's JSONPath `createQuery`
 // text, and each refused wizard case's error.json is the message `createQuery` throws (P7).
+//
+// Spec 015 criteria 8 and 9 (015 T5): every language has its big-number cells (tags.json `library`,
+// `goessner`, and the `big-*` tags of `required` and `rfc9535`), and a big-number case's input
+// holds a big number.
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { holdsBigNumber } from '../../packages/core/src/index.js';
 import {
   caseData,
   caseErrors,
   caseExpected,
+  hasBigTag,
   loadQueryCases,
   missingCells,
   refusedTags,
@@ -132,6 +138,13 @@ describe('query corpus coverage (spec 011 criterion 2)', () => {
     expect(fact(caseExpected(c))).toBe(true);
   });
 
+  it('holds a big number in the input of every big-number case (spec 015)', () => {
+    const plain = cases
+      .filter((c) => hasBigTag(c) && !holdsBigNumber(caseData(c)))
+      .map((c) => c.name);
+    expect(plain).toEqual([]);
+  });
+
   it('keeps an own __proto__ key in the input of proto-key cases', () => {
     const lost = cases
       .filter((c) => c.meta.tags.includes('proto-key') && !hasOwnProtoKey(caseData(c)))
@@ -181,14 +194,19 @@ describe('query coverage helpers', () => {
   it('tie error.json, path and wizard fields to their tags', () => {
     expect(caseErrors(make({ tags: ['map'] }, { error: 'x' }))).toEqual([
       'error.json needs exactly one of the tags syntax-error, thrown-error, missing-query, ' +
-        'chain-without-value, bigint-result, cyclic-result',
+        'chain-without-value, cyclic-result, big-overflow, big-mixed',
     ]);
     expect(caseErrors(make({ tags: ['thrown-error'] }))).toEqual([
       'tag "thrown-error" needs error.json',
     ]);
     expect(
       caseErrors(make({ tags: ['thrown-error'], engineMessage: true }, { error: 'x' })),
-    ).toEqual(['"engineMessage": true is only for JavaScript and Lodash syntax-error cases']);
+    ).toEqual([
+      '"engineMessage": true is only for JavaScript and Lodash syntax-error and big-mixed cases',
+    ]);
+    expect(caseErrors(make({ tags: ['big-mixed'], engineMessage: true }, { error: 'x' }))).toEqual(
+      [],
+    );
     expect(caseErrors(make({ tags: ['map'], path: '/a' }))).toEqual([
       '"path" and the tag "nested-root" go together',
     ]);
@@ -212,11 +230,13 @@ describe('query coverage helpers', () => {
     expect(caseErrors(make({ tags: ['child'] }))).toEqual(['tag "child" is not a javascript tag']);
     expect(caseErrors(rfc({ tags: ['child'] }, { error: 'x' }))).toEqual([
       'error.json needs exactly one of the tags syntax-error, sort-refused, multi-pick-refused, ' +
-        'type-error, unknown-function, too-deep, goessner-only',
+        'type-error, unknown-function, too-deep, goessner-only, big-ambiguous',
     ]);
     expect(
       caseErrors(rfc({ tags: ['syntax-error'], engineMessage: true }, { error: 'x' })),
-    ).toEqual(['"engineMessage": true is only for JavaScript and Lodash syntax-error cases']);
+    ).toEqual([
+      '"engineMessage": true is only for JavaScript and Lodash syntax-error and big-mixed cases',
+    ]);
   });
 
   it('tie JSONPath (RFC 9535) wizard fields to filter, pick and the refused tags', () => {
@@ -249,6 +269,27 @@ describe('query coverage helpers', () => {
     ]);
   });
 
+  const library = (language: string, tags: string[], result: { error?: string } = {}) => ({
+    ...make({ language, tags }, result),
+    name: `${language}-a`,
+    query: '.a',
+  });
+
+  it('keep the library languages to the big-number tags (spec 015 criterion 8)', () => {
+    expect(caseErrors(library('jsonquery', ['big-aggregate']))).toEqual([]);
+    expect(caseErrors(library('jmespath', ['big-ambiguous'], { error: 'x' }))).toEqual([]);
+    expect(caseErrors(library('jsonpath', ['big-aggregate']))).toEqual([
+      'tag "big-aggregate" is not a jsonpath tag',
+    ]);
+    expect(caseErrors(library('jsonquery', ['map']))).toEqual(['tag "map" is not a jsonquery tag']);
+    expect(caseErrors(make({ tags: ['big-aggregate'] }))).toEqual([
+      'tag "big-aggregate" is not a javascript tag',
+    ]);
+    expect(caseErrors(library('jmespath', ['big-ambiguous']))).toEqual([
+      'tag "big-ambiguous" needs error.json',
+    ]);
+  });
+
   it('list the cells no case covers', () => {
     expect(missingCells([make({ tags: ['map'] })])).toContain('filter in javascript');
     expect(missingCells([make({ tags: ['map'] })])).not.toContain('map in javascript');
@@ -257,6 +298,10 @@ describe('query coverage helpers', () => {
     expect(missingCells([])).toContain('goessner-only in jsonpath-rfc9535');
     expect(missingCells([rfc({ tags: ['child'] })])).not.toContain('child in jsonpath-rfc9535');
     expect(missingCells([])).not.toContain('sort in jsonpath-rfc9535');
+    expect(missingCells([])).toContain('big-computed in jmespath');
+    expect(missingCells([])).toContain('big-mixed in lodash');
+    expect(missingCells([])).toContain('big-ambiguous in jsonpath-rfc9535');
+    expect(missingCells([])).not.toContain('big-computed in jsonpath');
   });
 });
 
