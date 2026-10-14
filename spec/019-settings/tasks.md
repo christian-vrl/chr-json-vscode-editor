@@ -26,7 +26,7 @@
   green; 008, 010 and 011 large-file e2e unchanged and green at the default*
 
 ## Phase D — Smart Format (risk-free / additive)
-- [ ] **T4** `maxLineLength` as an option of core's `smartFormat`; golden cases with `options.json`
+- [x] **T4** `maxLineLength` as an option of core's `smartFormat`; golden cases with `options.json`
   at 60 and 200 per format (the corpus README names the file); the host passes F1's value. `parallel`
   with T2 and T3. — needs: 019 T1 — *gate: criterion 5 green; every existing smart-format golden
   case unchanged*

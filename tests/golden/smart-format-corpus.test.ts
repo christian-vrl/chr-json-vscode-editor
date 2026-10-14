@@ -13,7 +13,8 @@
 //   input's indent unit (2 spaces for a one-line input), then only the spaces that right-align a
 //   number at the start of a compact-array row.
 // - Criterion 6: a line longer than 120 characters (a tab counted as the indent width, 4 for tab
-//   indents) holds at most one key and one scalar value, plus comments.
+//   indents) holds at most one key and one scalar value, plus comments; for a case with
+//   options.json, longer than its `maxLineLength` (spec 019 criterion 5).
 // - Tags: `style`, `trailingComma`, `special` (json5's literal kinds, key-order and big numbers,
 //   spec 015 criterion 1) and the
 //   comment tags `none`, `with-warning`, `header`, `footer` and `multi-line-block` match the input.
@@ -178,10 +179,11 @@ describe.each(cases)('smart-format case $format/$name', (c) => {
     }
   });
 
-  it('puts at most one key and one scalar on a line longer than 120 (criterion 6)', () => {
+  const maxLineLength = c.options.maxLineLength ?? 120;
+  it(`puts at most one key and one scalar on a line longer than ${maxLineLength} (criterion 6)`, () => {
     const width = indentTag(c) === 'indent-tab' ? 4 : unitOf(indentTag(c)).length;
     for (const row of lines(c.expected)) {
-      if (row.text.replaceAll('\t', ' '.repeat(width)).length <= 120) continue;
+      if (row.text.replaceAll('\t', ' '.repeat(width)).length <= maxLineLength) continue;
       const significant = row.tokens.filter((t) => !isTrivia(t));
       const keys = significant.filter((t, i) => isValue(t) && significant[i + 1]?.text === ':');
       const scalars = significant.filter((t) => isValue(t) && !keys.includes(t));

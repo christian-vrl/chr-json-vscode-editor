@@ -34,9 +34,10 @@
   `bench/RESULTS.md`*
 
 ## Phase E — Web (risk-free / additive)
-- [ ] **T5** The criterion 5 `.json` case in the web e2e suite and the command in spec 013's
-  coverage map. `parallel` with T4. — needs: 016 T3, 013 T4 — *gate: criterion 10 green in the
-  web e2e suite*
+- [x] **T5** Criterion 5's "file exists" case (save dialog prefilled, then Cancel) in the web e2e
+  suite, beside the `.json` case and the coverage-map entry 016 T3 already added; criterion 7's
+  link in a path with spaces (desktop e2e and unit). `parallel` with T4. — needs: 016 T3, 013 T4
+  — *gate: criterion 10 green in the web e2e suite*
 
 ## Off the critical path
 - 016 T3 ran criterion 5's `.json` case on the web host too (`test/web/suite/generateSchema.ts`),
@@ -54,3 +55,8 @@
   their types (G5).
 - Options (formats, enums, map detection, `$defs`) would be a later spec's dialog; settings
   belong to 019.
+- Link paths (016 T5): spaces work, since `Uri.path` and `Uri.toString(true)` both keep them. Not
+  covered: a `#` or `?` in the folder or file name (`toString(true)` spells them `%23`/`%3F`, so
+  the entry's decoded `fileMatch` misses), and glob characters (`[`, `{`, `*`) in a name, which the
+  entry's `fileMatch` reads as a pattern. Both would need spec 004's resolver and VS Code's JSON
+  service checked together; a later 004/016 task, not a criterion change.

@@ -5,6 +5,7 @@ import {
   detectStyle,
   PatchError,
   smartFormat,
+  SMART_FORMAT_MAX_LINE_LENGTH,
   type SmartFormatFormat as Format,
 } from '../src/index.js';
 
@@ -131,6 +132,24 @@ describe('smartFormat', () => {
     expect(smartFormat('{\n  // x\n  "a": [1, 2,],\n  "b": 1,\n}\n', 'jsonc')).toBe(
       '{\n  // x\n  "a": [1, 2],\n  "b": 1,\n}\n',
     );
+  });
+  describe('maxLineLength (spec 019 F1)', () => {
+    const text = '{"a": [1, 2, 3, 4, 5, 6, 7, 8]}';
+
+    it('defaults to 120 columns', () => {
+      expect(SMART_FORMAT_MAX_LINE_LENGTH).toBe(120);
+      expect(smartFormat(text, 'json')).toBe(smartFormat(text, 'json', { maxLineLength: 120 }));
+      expect(smartFormat(text, 'json', {})).toBe('{ "a": [1, 2, 3, 4, 5, 6, 7, 8] }');
+    });
+
+    it('lays out to the given length', () => {
+      expect(smartFormat(text, 'json', { maxLineLength: 30 })).toBe(
+        '{\n  "a": [\n    1, 2, 3, 4, 5, 6, 7, 8\n  ]\n}',
+      );
+      expect(smartFormat(text, 'json', { maxLineLength: 20 })).toBe(
+        '{\n  "a": [\n    1, 2, 3, 4, 5,\n    6, 7, 8\n  ]\n}',
+      );
+    });
   });
 });
 

@@ -4,7 +4,11 @@
 // `GeneratedSchemaDialect` and app-shell's `SchemaDialect` stay separate types, as core cannot import
 // app-shell; this keeps them agreeing).
 import { describe, expect, it } from 'vitest';
-import { GENERATED_SCHEMA_URI, type GeneratedSchemaDialect } from '@chr-json-editor/core';
+import {
+  GENERATED_SCHEMA_URI,
+  resolveSchemaAssociation,
+  type GeneratedSchemaDialect,
+} from '@chr-json-editor/core';
 import { SCHEMA_DIALECTS, type SchemaDialect } from '@chr-json-editor/app-shell/protocol';
 import {
   brokenSchemaMessage,
@@ -110,6 +114,26 @@ describe('schemaLink and withSchemaLink (criterion 7)', () => {
     expect(schemaLink('/w', '/other/data.json', '/w/data.schema.json')).toBeUndefined();
     expect(schemaLink('/w', '/w/data.json', '/elsewhere/data.schema.json')).toBeUndefined();
     expect(schemaLink('/w', '/wx/data.json', '/wx/data.schema.json')).toBeUndefined();
+  });
+
+  it("keeps spaces unencoded, so spec 004's resolver matches the document (016 T5)", () => {
+    // The command passes decoded paths (`Uri.path`); the resolver matches `Uri.toString(true)`,
+    // which keeps spaces as they are.
+    const link = schemaLink('/w', '/w/my dir/my data.json', '/w/my dir/my data.schema.json');
+    expect(link).toEqual({
+      fileMatch: ['/my dir/my data.json'],
+      url: './my dir/my data.schema.json',
+    });
+    const folderUri = 'file:///w';
+    expect(
+      resolveSchemaAssociation({
+        documentUri: 'file:///w/my dir/my data.json',
+        jsonSchemas: [{ entries: [link], baseUri: folderUri, folderUri }],
+      }),
+    ).toEqual({
+      source: 'json.schemas',
+      location: { kind: 'file', uri: 'file:///w/my dir/my data.schema.json' },
+    });
   });
 
   it('appends the entry and keeps the existing ones', () => {
