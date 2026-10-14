@@ -23,6 +23,7 @@ export async function run(): Promise<void> {
   await import('./largeFile');
   await import('./bigNumbers');
   await import('./settings');
+  await import('./copyPath');
   await new Promise<void>((resolve, reject) => {
     mocha.run((failures) =>
       failures ? reject(new Error(`${failures} web e2e test(s) failed`)) : resolve(),

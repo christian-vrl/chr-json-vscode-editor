@@ -13,7 +13,7 @@
   unchanged and green*
 
 ## Phase B — The page (risk-free / additive)
-- [ ] **T2** Typed `EditorSettings` in `init.settings` and the `settings` host → page message (one
+- [x] **T2** Typed `EditorSettings` in `init.settings` and the `settings` host → page message (one
   protocol bump); `App.svelte`: D1 and D2 library props with `updateProps`, Q1's starting language,
   `size-gate.ts` reading `thresholdBytes`; the host posts `settings` to open tabs on change (A2); the
   dev host takes settings; `tests/web` cases. — needs: 019 T1 — *gate: criteria 7, 9 green; the
@@ -26,7 +26,7 @@
   green; 008, 010 and 011 large-file e2e unchanged and green at the default*
 
 ## Phase D — Smart Format (risk-free / additive)
-- [ ] **T4** `maxLineLength` as an option of core's `smartFormat`; golden cases with `options.json`
+- [x] **T4** `maxLineLength` as an option of core's `smartFormat`; golden cases with `options.json`
   at 60 and 200 per format (the corpus README names the file); the host passes F1's value. `parallel`
   with T2 and T3. — needs: 019 T1 — *gate: criterion 5 green; every existing smart-format golden
   case unchanged*

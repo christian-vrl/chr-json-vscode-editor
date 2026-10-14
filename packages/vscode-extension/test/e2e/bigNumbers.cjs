@@ -330,10 +330,10 @@ exports.runBigNumbers = async function runBigNumbers({
         assert.equal(count.trim(), `1/${LINE_SEARCH_HITS}`);
         await hooks.dom(uri.toString(), [{ click: '.jse-search-clear' }]);
 
-        // The switch to tree mode selects the node the table named (spec 018 S4): the root, as the
-        // table selects nothing. A click inside a selected root selects nothing (the library takes
-        // it for the start of a drag it can't do), so Escape clears it first, as a person would.
-        // The selection lands once the tree is drawn, maybe after the click: retry until it holds.
+        // The switch to tree mode shows the node the table named (spec 018 S4) once the tree is
+        // drawn, maybe after the click below: select and copy again until the copy holds. Escape
+        // first drops any selection, as a click inside a selected root selects nothing (the library
+        // takes it for the start of a drag); since 018 T3 the switch selects no root, so it is a guard.
         const deadline = Date.now() + 10000;
         let copied = '';
         while (copied !== SEARCHED && Date.now() < deadline) {

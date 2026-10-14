@@ -2,7 +2,13 @@
 // import so unit tests can call it; the webview's `smartFormat` action (documentSync.ts) and the
 // "Smart Format" command (smartFormatCommand.ts) both run it. The layout is core's `smartFormat`
 // (010 T2); this adds the size guard of criterion 10, checked first, and criterion 9's message.
-import { PatchError, smartFormat, type SmartFormatFormat } from '@chr-json-editor/core';
+// The line length comes from the caller (spec 019 F1: the setting, read when the run starts).
+import {
+  PatchError,
+  smartFormat,
+  type SmartFormatFormat,
+  type SmartFormatOptions,
+} from '@chr-json-editor/core';
 import { FORMAT_LABELS } from './convertPlan';
 import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
 
@@ -32,14 +38,19 @@ export function tooLarge(text: string): boolean {
 }
 
 /**
- * Smart Format on `text` read as `format`. "Size" is the UTF-8 length of the text now, whatever
- * mode its tab opened in (criterion 10), so a large-file tab edited down to the threshold runs.
+ * Smart Format on `text` read as `format`, laid out with `options` (spec 019 F1's line length).
+ * "Size" is the UTF-8 length of the text now, whatever mode its tab opened in (criterion 10), so a
+ * large-file tab edited down to the threshold runs.
  */
-export function plan(text: string, format: SmartFormatFormat): SmartFormatPlan {
+export function plan(
+  text: string,
+  format: SmartFormatFormat,
+  options: SmartFormatOptions = {},
+): SmartFormatPlan {
   if (tooLarge(text)) return { kind: 'refused', reason: 'too-large', message: TOO_LARGE_MESSAGE };
   let formatted: string;
   try {
-    formatted = smartFormat(text, format);
+    formatted = smartFormat(text, format, options);
   } catch (error) {
     if (!(error instanceof PatchError)) throw error;
     return { kind: 'refused', reason: 'broken', message: brokenMessage(format) };

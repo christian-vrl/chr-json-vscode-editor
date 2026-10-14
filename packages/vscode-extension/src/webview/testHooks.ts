@@ -16,6 +16,7 @@
 // clicks, fills in and presses keys on the page as a person would (003 T8; see DomStep).
 // `{ chrTest: 'send', message }` posts `message`, with the protocol version, to the host as it is,
 // past the editor's own checks (spec 008 plan R3: the host refuses a locked tab's `edit`).
+// `{ chrTest: 'cursor', offset }` puts text mode's cursor at `offset` (018 T3).
 import { decodeToWebview, PROTOCOL_VERSION } from '@chr-json-editor/app-shell/protocol';
 import type { AppHandle } from '@chr-json-editor/app-shell/ui';
 import type { DomStep, RenderedProbe } from '../testProbe';
@@ -211,6 +212,11 @@ export function installTestHooks(
     if (typeof message === 'object' && message !== null && message.chrTest === 'select') {
       const { path } = message as { path?: unknown };
       app()?.select(typeof path === 'string' ? path : '');
+      return true;
+    }
+    if (typeof message === 'object' && message !== null && message.chrTest === 'cursor') {
+      const { offset } = message as { offset?: unknown };
+      app()?.cursor(typeof offset === 'number' ? offset : 0);
       return true;
     }
     if (typeof message === 'object' && message !== null && message.chrTest === 'send') {

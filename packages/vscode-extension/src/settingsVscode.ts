@@ -2,6 +2,7 @@
 // for the document's URI and language, so folder, workspace, user and `[language]` values all
 // count, and the same calls work in the web extension host (spec 013).
 import * as vscode from 'vscode';
+import type { SmartFormatOptions } from '@chr-json-editor/core';
 import { SECTION, settingsFrom, type Settings } from './settings';
 
 /** The settings that apply to `document` now. */
@@ -13,6 +14,15 @@ export function readSettings(document: { uri: vscode.Uri; languageId: string }):
     (key) => ours.inspect(key),
     (key) => editor.inspect(key),
   );
+}
+
+/** Smart Format's options for `document` now (F1, A4: read when the run starts): the line length
+ *  for its language. The "Smart Format" command and the webview's action both use it. */
+export function smartFormatOptions(document: {
+  uri: vscode.Uri;
+  languageId: string;
+}): SmartFormatOptions {
+  return { maxLineLength: readSettings(document)['smartFormat.maxLineLength'] };
 }
 
 /** Whether `event` changes a setting `readSettings` reads for `document` (A1). */

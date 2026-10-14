@@ -1,0 +1,49 @@
+{
+  "$comment": "Spec 018 criterion 7 (018 T3), written by hand from P1, P2 and A1-A5. `text`: the cursor at the first character of `at` in the file (its first occurrence), in VS Code's text editor and in the CHR JSON Editor's text mode. `tree`: the node at JSON Pointer `select` selected in tree mode. `table` (rows.json): the cell at `select` selected in table mode.",
+  "sample.json": {
+    "text": [
+      { "at": "{\n  \"people\"", "jsonpath": "$", "pointer": "" },
+      { "at": "\"count\"", "jsonpath": "$.count", "pointer": "/count" },
+      { "at": "\"Bob\"", "jsonpath": "$.people[1].name", "pointer": "/people/1/name" },
+      { "at": "\"a.b\": 2", "jsonpath": "$.people[1]['a.b']", "pointer": "/people/1/a.b" },
+      { "at": "\"m~n\"", "jsonpath": "$['a/b']['m~n']", "pointer": "/a~1b/m~0n" },
+      { "at": "\"zero\"", "jsonpath": "$['0'][0]", "pointer": "/0/0" }
+    ],
+    "tree": [
+      { "select": "/people/1/name", "jsonpath": "$.people[1].name" },
+      { "select": "/people/1/a.b", "jsonpath": "$.people[1]['a.b']" },
+      { "select": "/a~1b/m~0n", "jsonpath": "$['a/b']['m~n']" },
+      { "select": "/0/0", "jsonpath": "$['0'][0]" }
+    ]
+  },
+  "sample.jsonc": {
+    "text": [
+      { "at": "// people", "jsonpath": "$", "pointer": "" },
+      { "at": "// first", "jsonpath": "$.people", "pointer": "/people" },
+      { "at": "\"Bob\"", "jsonpath": "$.people[1].name", "pointer": "/people/1/name" },
+      { "at": "\"count\"", "jsonpath": "$.count", "pointer": "/count" }
+    ],
+    "tree": [
+      { "select": "/people/0", "jsonpath": "$.people[0]" },
+      { "select": "/count", "jsonpath": "$.count" }
+    ]
+  },
+  "sample.json5": {
+    "text": [
+      { "at": "count", "jsonpath": "$.count", "pointer": "/count" },
+      { "at": "'Bob'", "jsonpath": "$.people[1].name", "pointer": "/people/1/name" },
+      { "at": "'a.b': 2", "jsonpath": "$.people[1]['a.b']", "pointer": "/people/1/a.b" },
+      { "at": "Infinity", "jsonpath": "$.big", "pointer": "/big" }
+    ],
+    "tree": [
+      { "select": "/people/1/a.b", "jsonpath": "$.people[1]['a.b']" },
+      { "select": "/big", "jsonpath": "$.big" }
+    ]
+  },
+  "rows.json": {
+    "table": [
+      { "select": "/1/language", "jsonpath": "$[1].language", "pointer": "/1/language" },
+      { "select": "/0/name", "jsonpath": "$[0].name", "pointer": "/0/name" }
+    ]
+  }
+}
