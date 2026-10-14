@@ -1,6 +1,7 @@
 // Smart-format corpus (spec 010, 010 T1). Each case is a folder
-// tests/golden/smart-format/<format>/<name>/ holding input.<ext>, expected.<ext> and case.json.
-// Criterion 1 (010 T2): `smartFormat(input, format)` is byte-equal to expected.<ext>. case.json
+// tests/golden/smart-format/<format>/<name>/ holding input.<ext>, expected.<ext>, case.json and, for
+// a case laid out with another line length than 120 (spec 019 F1, 019 T4), options.json.
+// Criterion 1 (010 T2): `smartFormat(input, format, options)` is byte-equal to expected.<ext>. case.json
 // holds the tags of criterion 2; the vocabulary is `smartFormat` in tags.json. Inputs and expected
 // outputs are read unchanged (a leading BOM included) so tests can compare bytes (D3).
 import { readdirSync, readFileSync } from 'node:fs';
@@ -23,6 +24,11 @@ export interface SmartFormatTags {
   style: string[];
 }
 
+/** options.json: core's `SmartFormatOptions` for the case; `{}` when the case has none. */
+export interface SmartFormatCaseOptions {
+  maxLineLength?: number;
+}
+
 export interface SmartFormatCase {
   format: GoldenFormat;
   name: string;
@@ -31,6 +37,7 @@ export interface SmartFormatCase {
   /** expected.<ext>, read unchanged. */
   expected: string;
   tags: SmartFormatTags;
+  options: SmartFormatCaseOptions;
 }
 
 /**
@@ -72,7 +79,7 @@ function loadCase(dir: string, format: GoldenFormat, name: string): SmartFormatC
   const where = `smart-format case ${format}/${name}`;
   const required = [`input.${format}`, `expected.${format}`, 'case.json'];
   const files = readdirSync(dir);
-  const extra = files.filter((file) => !required.includes(file)).sort();
+  const extra = files.filter((file) => !required.includes(file) && file !== 'options.json').sort();
   if (extra.length > 0) throw new Error(`${where}: unexpected file ${extra.join(', ')}`);
   const missing = required.filter((file) => !files.includes(file));
   if (missing.length > 0) throw new Error(`${where}: missing ${missing.join(', ')}`);
@@ -92,7 +99,32 @@ function loadCase(dir: string, format: GoldenFormat, name: string): SmartFormatC
     input: readText(dir, `input.${format}`, where),
     expected: readText(dir, `expected.${format}`, where),
     tags: tags as SmartFormatTags,
+    options: files.includes('options.json') ? readOptions(dir, where) : {},
   };
+}
+
+/** options.json: an object whose only member is `maxLineLength`, an integer from 20 to 1000 (the
+ *  range of `chrJsonEditor.smartFormat.maxLineLength`, spec 019 §Settings). */
+function readOptions(dir: string, where: string): SmartFormatCaseOptions {
+  let options: unknown;
+  try {
+    options = JSON.parse(readText(dir, 'options.json', where));
+  } catch (error) {
+    throw new Error(`${where}: options.json is not valid JSON`, { cause: error });
+  }
+  const length = (options as { maxLineLength?: unknown } | null)?.maxLineLength;
+  if (
+    typeof options !== 'object' ||
+    options === null ||
+    Array.isArray(options) ||
+    Object.keys(options).join() !== 'maxLineLength' ||
+    !Number.isInteger(length) ||
+    (length as number) < 20 ||
+    (length as number) > 1000
+  ) {
+    throw new Error(`${where}: options.json must be {"maxLineLength": <integer 20-1000>}`);
+  }
+  return { maxLineLength: length as number };
 }
 
 function readText(dir: string, file: string, where: string): string {

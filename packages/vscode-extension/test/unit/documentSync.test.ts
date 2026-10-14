@@ -11,7 +11,12 @@ import {
   type DocumentChange,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { LosslessNumber, valueText, type Format } from '@chr-json-editor/core';
+import {
+  LosslessNumber,
+  valueText,
+  type Format,
+  type SmartFormatOptions,
+} from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
 import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
@@ -39,6 +44,8 @@ function memoryDocument(initial: string, format: Format = 'json') {
     /** The answer to a repair that removes comments, and the comments each question named. */
     confirm: (() => Promise.resolve(true)) as (lostComments: readonly string[]) => Promise<boolean>,
     asked: [] as (readonly string[])[],
+    /** Smart Format's options, read at each run (spec 019 F1). */
+    smartFormatOptions: {} as SmartFormatOptions,
     get text() {
       return text;
     },
@@ -81,6 +88,7 @@ function memoryDocument(initial: string, format: Format = 'json') {
       doc.asked.push(lostComments);
       return doc.confirm(lostComments);
     },
+    smartFormatOptions: () => doc.smartFormatOptions,
   });
   return doc;
 }
@@ -295,6 +303,16 @@ describe('DocumentSync smart format (010 T3)', () => {
     await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'smartFormat' } }));
     expect(doc.version).toBe(2);
     expect(doc.posted.map((m) => m.type)).toEqual(['update', 'update']);
+  });
+
+  it('lays out to the line length read when the action runs (spec 019 F1)', async () => {
+    const doc = memoryDocument(INPUT, 'jsonc');
+    doc.smartFormatOptions = { maxLineLength: 20 };
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [\n    1,\n    2\n  ],  // two\n  "b": {"c": 3},\n}\n');
+    doc.smartFormatOptions = { maxLineLength: 25 };
+    await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [1, 2],  // two\n  "b": {"c": 3},\n}\n');
   });
 
   it("answers a document that does not parse with criterion 9's message", async () => {
