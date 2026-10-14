@@ -403,6 +403,17 @@ exports.run = async function run() {
   await closeAll();
   await require('./import.cjs').runImport({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (017 T4, criteria 8 and 9): sizes and locked tabs for the YAML, TOML and XML commands
+  // (importSize.cjs).
+  await closeAll();
+  await require('./importSize.cjs').runImportSize({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
   await closeAll();
   await require('./ceiling.cjs').runCeiling({ hooks, waitFor, closeAll, expectOnly, isCustom });
@@ -425,6 +436,17 @@ exports.run = async function run() {
   // (smartFormatLargeFile.cjs).
   await closeAll();
   await require('./smartFormatLargeFile.cjs').runSmartFormatLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
+  // Gate (012 T6, spec 012 criteria 10 and 11): JSON Lines in large-file mode and the CSV panel
+  // (jsonLinesLargeFile.cjs).
+  await closeAll();
+  await require('./jsonLinesLargeFile.cjs').runJsonLinesLargeFile({
     hooks,
     waitFor,
     closeAll,

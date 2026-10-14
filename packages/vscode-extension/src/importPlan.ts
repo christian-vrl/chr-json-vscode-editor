@@ -6,6 +6,7 @@ import {
   type ImportKind,
   type ImportWarning,
 } from '@chr-json-editor/core';
+import { mib, SYNC_LIMIT } from './sizeCeiling';
 import { basename, extname } from './uriPath';
 
 export const IMPORT_KINDS: readonly ImportKind[] = ['yaml', 'toml', 'xml'];
@@ -83,4 +84,34 @@ export function jsonLinesMessage(file: string, data: unknown): string {
                 ? 'a boolean'
                 : 'a number';
   return `CHR JSON Editor: JSON Lines needs an array; ${file} holds ${type}.`;
+}
+
+/**
+ * UNK-077 (spec 017 criterion 8): the largest YAML file, in UTF-8 bytes, the commands read. YAML
+ * parsing holds the extension host for its whole run. 10 MiB per UNK-077's evidence rule:
+ * `bench/RESULTS.md` (017 T4, run 38576746443) times `importData` at 4.5 / 8.5 / 17.2 s for 5 / 10
+ * / 20 MiB of YAML, retaining 15 / 30 / 60 MiB, so 10 MiB is the largest candidate under 10 s.
+ */
+export const YAML_LIMIT_BYTES = 10 * 1024 * 1024;
+
+/** The largest source of `kind` the commands read: the YAML limit, else spec 008's ceiling. */
+export function importLimit(kind: ImportKind): number {
+  return kind === 'yaml' ? YAML_LIMIT_BYTES : SYNC_LIMIT;
+}
+
+/**
+ * Criterion 8: a source above its kind's limit is not read. Its size is in MiB with one decimal
+ * rounded up, so a file one byte over the limit never reads as the limit itself.
+ */
+export function tooLargeMessage(file: string, kind: ImportKind, bytes: number): string {
+  const size = (Math.ceil((bytes * 10) / (1024 * 1024)) / 10).toFixed(1);
+  return (
+    `CHR JSON Editor: ${file} is too large to convert (${size} MiB; ` +
+    `the limit for ${KIND_LABELS[kind]} is ${mib(importLimit(kind))} MiB).`
+  );
+}
+
+/** Criterion 8: the progress notification over a conversion of a source above the threshold. */
+export function progressTitle(file: string): string {
+  return `Converting ${file}…`;
 }

@@ -7,6 +7,7 @@ import { registerCompareCommands, testCompare } from './compareCommands';
 import { COMPARE_LIMIT_BYTES } from './compareModel';
 import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
+import { registerGenerateSchemaCommand, testGenerateSchema } from './generateSchemaCommand';
 import { OPEN_COMMAND } from './commands';
 import { registerCsvCommands, testCsvCommands } from './csvCommands';
 import { registerImportCommands, testImport } from './importCommands';
@@ -72,6 +73,17 @@ export interface TestHooks {
     saveAs: string[];
     messages: string[];
     context: Record<string, string | undefined>;
+  };
+  /** 016 T3: answers every later save dialog of "Generate JSON Schema" with
+   *  `answers.saveAs(prefilled URI)` and its "Use for …" button with `answers.link` (true: click
+   *  it, false: dismiss); undefined shows them. Returns the save dialogs' prefilled URIs, the
+   *  messages and the notifications (with their button) shown since the previous call. */
+  generateSchema(
+    answers: { saveAs?: (defaultUri: string) => string | undefined; link?: boolean } | undefined,
+  ): {
+    saveAs: string[];
+    messages: string[];
+    notifications: { message: string; button: string | undefined }[];
   };
   /** 008 T4: answers every later ceiling message of "Open in CHR JSON Editor" (true: "Open as
    *  Text", false: dismiss; undefined: show it). Returns the messages shown since the previous call. */
@@ -185,6 +197,7 @@ export function activateShared(
     }),
     ...registerCommands(),
     ...registerConvertCommands(formatBadge),
+    registerGenerateSchemaCommand(formatBadge),
     ...registerCompareCommands(compares, formatBadge, platform),
     ...registerCsvCommands(csvPanels, formatBadge, provider),
     ...registerImportCommands(formatBadge, provider),
@@ -287,6 +300,15 @@ export function activateShared(
             saveAs,
             messages: testConvert.messages.splice(0),
             context: { ...testConvert.context },
+          };
+        },
+        generateSchema(answers) {
+          testGenerateSchema.saveAs = answers?.saveAs;
+          testGenerateSchema.link = answers?.link;
+          return {
+            saveAs: testGenerateSchema.asked.splice(0),
+            messages: testGenerateSchema.messages.splice(0),
+            notifications: testGenerateSchema.notifications.splice(0),
           };
         },
         validationLimit(bytes) {

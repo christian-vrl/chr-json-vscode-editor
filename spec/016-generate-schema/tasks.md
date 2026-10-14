@@ -19,7 +19,7 @@
   fixture unchanged*
 
 ## Phase C — Command (risk-free / additive)
-- [ ] **T3** `chrJsonEditor.generateSchema` "Generate JSON Schema": command palette and
+- [x] **T3** `chrJsonEditor.generateSchema` "Generate JSON Schema": command palette and
   editor-title menu (`when` clauses like the convert commands', for json, jsonc and json5), the
   schema file beside the source, the save-dialog and untitled fallbacks, the broken-source message,
   the notification and the link button per UNK-070; e2e fixtures in
@@ -39,6 +39,10 @@
   web e2e suite*
 
 ## Off the critical path
+- 016 T3 ran criterion 5's `.json` case on the web host too (`test/web/suite/generateSchema.ts`),
+  because spec 013's coverage test fails for a command with no web test; T5 adds the save-dialog
+  case and keeps criterion 10's gate. T3's e2e (`test/e2e/generateSchema.cjs`) runs in a second
+  VS Code launch with a workspace folder open (criterion 7's button needs one).
 - Gate review of the spec PR (lows carried here, criteria unchanged): T5 also runs criterion 5's
   "file exists" case (save dialog, then Cancel) on the web host; if criterion 9's bound misses on
   the CI runner, T4 records an owner UNKNOWN before it merges instead of relaxing the bound.
