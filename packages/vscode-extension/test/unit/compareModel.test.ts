@@ -38,19 +38,23 @@ describe('compare model', () => {
     expect(message.left.content).toEqual({ kind: 'text', text: c.left.text });
   });
 
-  it('copies match expected-after-copy.* byte for byte (criterion 6)', () => {
-    const c = compareCases().find((x) => x.name === 'comments')!;
-    const copies = JSON.parse(
-      readFileSync(path.join(COMPARE_DIR, 'comments', 'copies.json'), 'utf8'),
-    ) as { difference: number; to: 'left' | 'right'; expected: string }[];
-    expect(copies.length).toBeGreaterThan(0);
-    const model = buildCompare(1, input(c.left), input(c.right));
-    for (const copy of copies) {
-      const expected = readFileSync(path.join(COMPARE_DIR, 'comments', copy.expected), 'utf8');
-      const result = copyInto(model, model.differences[copy.difference]!, copy.to);
-      expect(result, copy.expected).toEqual({ kind: 'text', text: expected });
-    }
-  });
+  // Spec 015 criterion 6: big-numbers' copies write the digits of an id differing in its 20th.
+  it.each(['comments', 'big-numbers'])(
+    '%s: copies match expected-after-copy.* byte for byte (criterion 6)',
+    (name) => {
+      const c = compareCases().find((x) => x.name === name)!;
+      const copies = JSON.parse(
+        readFileSync(path.join(COMPARE_DIR, name, 'copies.json'), 'utf8'),
+      ) as { difference: number; to: 'left' | 'right'; expected: string }[];
+      expect(copies.length).toBeGreaterThan(0);
+      const model = buildCompare(1, input(c.left), input(c.right));
+      for (const copy of copies) {
+        const expected = readFileSync(path.join(COMPARE_DIR, name, copy.expected), 'utf8');
+        const result = copyInto(model, model.differences[copy.difference]!, copy.to);
+        expect(result, copy.expected).toEqual({ kind: 'text', text: expected });
+      }
+    },
+  );
 
   it('keeps JSON5 values a JSON message would lose', () => {
     const model = buildCompare(

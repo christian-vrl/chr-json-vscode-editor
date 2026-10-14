@@ -1,13 +1,13 @@
-// Gate for 011 T6 (spec 011 criterion 11, UNK-049 ★), run by suite.cjs inside VS Code on 008's
-// 6 MiB fixture (largeFile.cjs `documentText`). The size is the document text's UTF-8 length when
-// the Transform dialog opens, not the size the tab opened with:
+// Gate for 011 T6 (spec 011 criterion 11, UNK-049 ★) and 014 T4 (spec 014 criterion 8, UNK-065 ★),
+// run by suite.cjs inside VS Code on 008's 6 MiB fixture (largeFile.cjs `documentText`). The size
+// is the document text's UTF-8 length when the Transform dialog opens, not the size the tab opened
+// with:
 // - a locked large-file tab offers no Transform (008 criterion 2);
 // - unlocked with "Edit anyway", Transform lists the languages allowed above 5 MiB (JSONQuery,
-//   JMESPath, JSONPath) and neither JavaScript nor Lodash; once the text has shrunk to 5 MiB or less,
-//   all of them again;
+//   JMESPath, JSONPath (Goessner)) and none of JavaScript, Lodash and JSONPath (RFC 9535); once the
+//   text has shrunk to 5 MiB or less, all of them again;
 // - a normal tab at exactly 5 MiB lists all of them; once its text has grown one byte past the
-//   threshold, in tree and in text mode, JavaScript and Lodash are left out, and neither is
-//   selected.
+//   threshold, in tree and in text mode, the gated ones are left out, and none is selected.
 // The languages are read from the library's own dialog with the `dom` test hook. The fixtures are
 // written into run.mjs's scratch folder.
 const assert = require('node:assert/strict');
@@ -19,9 +19,10 @@ const { documentText } = require('./largeFile.cjs');
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const THRESHOLD = 5 * 1024 * 1024;
 const SIX_MIB = 6 * 1024 * 1024;
-/** The languages that run in the sealed engine, off above the threshold. */
-const GATED = ['JavaScript', 'Lodash'];
-/** The languages criterion 11 lists above the threshold. */
+/** The languages off above the threshold: the sealed engine's (011) and JSONPath (RFC 9535)
+ *  (014, UNK-065 ★). */
+const GATED = ['JavaScript', 'Lodash', 'JSONPath (RFC 9535)'];
+/** The languages 011 criterion 11 and 014 criterion 8 list above the threshold. */
 const ALLOWED = ['JSONQuery', 'JMESPath', 'JSONPath (Goessner)'];
 
 exports.runQueryLargeFile = async function runQueryLargeFile({
@@ -105,7 +106,7 @@ exports.runQueryLargeFile = async function runQueryLargeFile({
     return { listed: JSON.parse(listed), selected: selected.trim() };
   }
 
-  /** The list above the threshold: `all` without JavaScript and Lodash, criterion 11's three
+  /** The list above the threshold: `all` without the gated languages, the three allowed ones
    *  included, and a selected language that is listed. */
   function assertGated(shown, all, where) {
     assert.deepEqual(
@@ -117,14 +118,16 @@ exports.runQueryLargeFile = async function runQueryLargeFile({
     assert.ok(shown.listed.includes(shown.selected), `${where}: ${shown.selected} selected`);
   }
 
-  // A normal tab at the threshold lists every language; one byte more and the engine's are off.
+  // A normal tab at the threshold lists every language; one byte more and the gated ones are off.
   await closeAll();
   const normal = await open('at-threshold.json', documentText('json', THRESHOLD));
   assert.equal(view(normal.uri).largeFile, null, 'the tab at the threshold is a large-file tab');
   const atThreshold = await languages(normal.uri);
   const all = atThreshold.listed;
   for (const name of [...ALLOWED, ...GATED]) assert.ok(all.includes(name), `no ${name} listed`);
-  console.log(`criterion 11: at ${THRESHOLD} bytes Transform lists ${all.join(', ')}`);
+  console.log(
+    `criteria 11 (011), 8 (014): at ${THRESHOLD} bytes Transform lists ${all.join(', ')}`,
+  );
 
   const grown = await change(normal, '"marker": "start"', '"marker": "grown!"', 'grown!');
   assert.equal(grown, THRESHOLD + 1);
@@ -135,15 +138,15 @@ exports.runQueryLargeFile = async function runQueryLargeFile({
   await probeUntil(normal.uri, 'text mode', (p) => p.mode === 'text');
   assertGated(await languages(normal.uri, 'text'), all, 'normal tab grown, text mode');
   console.log(
-    `criterion 11: a normal tab grown to ${grown} bytes lists ${grownTree.listed.join(', ')} ` +
+    `criteria 11 (011), 8 (014): a normal tab grown to ${grown} bytes lists ${grownTree.listed.join(', ')} ` +
       'in tree and text mode',
   );
   // Scratch files: saved, so closing the tab asks nothing.
   await normal.document.save();
   await closeAll();
 
-  // A large-file tab: locked, no Transform; unlocked, the engine's languages are off until the
-  // text has shrunk to the threshold or less.
+  // A large-file tab: locked, no Transform; unlocked, the gated languages are off until the text
+  // has shrunk to the threshold or less.
   const large = await open('six.json', documentText('json', SIX_MIB));
   const largeKey = large.uri.toString();
   assert.deepEqual(view(large.uri).largeFile, { bytes: SIX_MIB, unlocked: false });
@@ -151,14 +154,14 @@ exports.runQueryLargeFile = async function runQueryLargeFile({
     { waitFor: '.jse-tree-mode .jse-menu' },
     { waitFor: '.jse-transform', gone: true },
   ]);
-  console.log('criterion 11: a locked large-file tab offers no Transform');
+  console.log('criteria 11 (011), 8 (014): a locked large-file tab offers no Transform');
 
   await hooks.dom(largeKey, [{ click: '.banner button', text: 'Edit anyway' }]);
   await waitFor('the unlock', () => view(large.uri).largeFile.unlocked);
   const unlocked = await languages(large.uri);
   assertGated(unlocked, all, 'large-file tab unlocked');
   console.log(
-    `criterion 11: unlocked at ${SIX_MIB} bytes Transform lists ${unlocked.listed.join(', ')}`,
+    `criteria 11 (011), 8 (014): unlocked at ${SIX_MIB} bytes Transform lists ${unlocked.listed.join(', ')}`,
   );
 
   const shrunk = await change(large, null, '[\n  {"marker": "small"}\n]\n', 'small');
@@ -169,7 +172,7 @@ exports.runQueryLargeFile = async function runQueryLargeFile({
   const probe = await hooks.probe(largeKey);
   assert.deepEqual(probe.violations, [], 'CSP violations');
   console.log(
-    `criterion 11: the unlocked tab shrunk to ${shrunk} bytes lists ${small.listed.join(', ')}`,
+    `criteria 11 (011), 8 (014): the unlocked tab shrunk to ${shrunk} bytes lists ${small.listed.join(', ')}`,
   );
 
   await large.document.save();

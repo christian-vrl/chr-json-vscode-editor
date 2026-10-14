@@ -1,0 +1,10 @@
+[
+  {
+    "message": "Key \"name\" is repeated; its last value is kept",
+    "line": 3
+  },
+  {
+    "message": "Key \"a\" is repeated; its last value is kept",
+    "line": 7
+  }
+]

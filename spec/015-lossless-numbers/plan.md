@@ -32,20 +32,28 @@ semantics (`valueOf`, `toString`) come for free.
   container cells read with core's parser instead of `JSON.parse`.
 
 **Webview (`packages/app-shell`):**
-- `parser.ts`: strict JSON keeps `JSON.parse` when a pre-scan finds no big-number candidate (a run
-  of 16 digits or dots, or an exponent of 3 or more digits, anywhere in the text: a false positive
-  in a string only costs the slower path); otherwise core's parse. `stringify` becomes
-  lossless-json's `stringify` (writes `LosslessNumber`s as digits, `JSON.stringify` otherwise).
+- `parser.ts`: strict JSON keeps `JSON.parse` when a pre-scan finds no big-number candidate (core's
+  `mayHoldBigNumber`, a scan of number-token shapes, T1 REPORT §3; the regex first planned here, a
+  run of 16 digits or dots or a long exponent anywhere, flagged every bench text, plain ones
+  included, so it never kept the fast path); a text with one goes through lossless-json's `parse` (`readJsonExact`, several times
+  faster than core's parse; a `__proto__` key or a duplicate key falls back to core), and anything
+  not strict JSON to core. Big numbers in the page's data are `EditorNumber`s, `LosslessNumber`s
+  whose `valueOf` does not throw on `1e400` (the library's sorts call it). `stringify` is core's
+  `jsonText` (lossless-json's duck-types `isLosslessNumber`, so a look-alike object would be
+  written as a number). The library's `validationParser` gives Ajv's input nearest numbers (B6).
 - `data-change.ts` `keyOf` writes big numbers by exact value (B3).
-- Sort: the library's `onSortModal` hook (`index.d.ts:342`, `SortModalCallback.onSort`) lets the
-  app run the sort itself with B3's comparator; the table header sort goes through the same path
-  (T1 confirms both; if the header sort cannot be hooked, the app re-sorts the library's result
-  with a stable B3 sort before `dataChange`, which only needs the order).
-- Protocol (B5): patch values travel as JSON text written by lossless-json `stringify` in a
-  `valueText` field, read by core's B1 reader on the host, so a document object that looks like a
-  `LosslessNumber` stays an object (it is written as an object, `{"isLosslessNumber":true,…}`, by
-  `stringify`, since only real `LosslessNumber` instances are numbers). `PROTOCOL_VERSION` takes the
-  next free number when T4 merges (#83 takes 12, 012 T4 bumps too).
+- Sort: the library has no hook for either sort (`onSortModal` is not a prop of the root editor,
+  T1 REPORT §4), so the app records what the user asked for (the array, property and direction,
+  from the sort dialog's Sort button or the table header clicked, in the nested editor too) and,
+  when the library hands its sorted result over, re-sorts it with a stable B3 sort
+  (`sort-order.ts`) before `dataChange`, which only needs the order. A sort in the nested editor
+  applies on Apply; an edit made in it after the sort and before Apply keeps the library's order.
+- Protocol (B5): patch values travel as JSON text written by core's `valueText` in a `valueText`
+  field, read by core's B1 reader on the host, so a document object that looks like a
+  `LosslessNumber` stays an object (only real `LosslessNumber` instances are numbers; `-0` is
+  written as `-0`, and `NaN` and `Infinity` as tokens the reader refuses). `PROTOCOL_VERSION` is 15
+  (T4). The app-shell page bundles import core rather than bundle it, so a page and its host
+  adapter share one `LosslessNumber` class.
 - Queries (B7): our `QUERY_LANGUAGES` wrap each library language's `executeQuery`: build a
   nearest-number map of the input's big numbers (nearest number → set of exact values), run the
   library on the rounded copy, then restore each result number per B7 or report the ambiguous count
@@ -84,7 +92,7 @@ convert and CSV already call core.
 | R2 The library mishandles a `LosslessNumber` somewhere (inline editor, table cell, enum or color detection) | T1 spike checks each view before T4; findings become T4 cases or a library-hook workaround |
 | R3 B7's restore marks a coincidental computed value exact (a `sum` that equals a big id's nearest number) | That number is the big id's nearest number, so writing the id's digits is closer than JavaScript's; recorded in the corpus as `big-aggregate` |
 | R4 Big ids colliding on one nearest number make B7 refuse a Transform | The message says so; JavaScript and Lodash (B8) keep digits without restoring, so the user has a way |
-| R5 `diff` keying by exact value slows data-level actions | Plain numbers key as today. A big number keys as the float it equals when its exact value is exactly a float's (`100000000000000000000` → the key of `1e20`; checked by comparing its decimal text with the exact expansion of `Number(text)`), else by its normalized exact value (sign, digits without leading or trailing zeros, exponent), which no float key can equal. So plain `1e20` equals big `100000000000000000000`, and plain `9007199254740992.0` equals plain `9007199254740992` as today |
+| R5 `diff` keying by exact value slows data-level actions | Plain numbers key as today. A big number keys as the plain number it equals when its exact value is that number's (`100000000000000000000` → the key of `1e20`; checked by comparing its exact value with that of `String(Number(text))`, the text a plain number's exact value is read from per spec §Terms; 015 T3), else by its normalized exact value (sign, digits without leading or trailing zeros, exponent), which no float key can equal. So plain `1e20` equals big `100000000000000000000`, and plain `9007199254740992.0` equals plain `9007199254740992` as today |
 | R6 PRs #83 (protocol 12) and 012 T4 bump the protocol | T4 takes the next free version when it merges |
 
 ## Definition of Done

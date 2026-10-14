@@ -1,0 +1,8 @@
+{
+  "r": {
+    "code": "if (a < b && c > d) { return \"x\"; }",
+    "joined": "pre <mid> post",
+    "spaced": "padded",
+    "number": 42
+  }
+}

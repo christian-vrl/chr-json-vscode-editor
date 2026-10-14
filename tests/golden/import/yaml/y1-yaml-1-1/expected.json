@@ -1,0 +1,21 @@
+{
+  "on": true,
+  "off": false,
+  "y": true,
+  "flags": [
+    true,
+    false,
+    true,
+    false,
+    true,
+    false,
+    true,
+    false
+  ],
+  "octal": 511,
+  "binary": 10,
+  "hex": 255,
+  "grouped": 1000,
+  "when": "2001-12-14t21:59:43.10-05:00",
+  "date": "2002-12-14"
+}

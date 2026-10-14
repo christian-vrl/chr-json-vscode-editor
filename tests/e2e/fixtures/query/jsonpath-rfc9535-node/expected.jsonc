@@ -1,0 +1,7 @@
+{
+  "title": "Readings", // kept as is
+  "items": [
+    { "id": 2, "value": 12 },
+    { "id": 3, "value": 7 } /* middle */
+  ]
+}

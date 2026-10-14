@@ -11,4 +11,15 @@ export { parseData, type ParseDataResult } from './parse-data.js';
 export { convert, ConvertError } from './convert.js';
 export { smartFormat, type SmartFormatFormat } from './smart-format.js';
 export type { ConversionLoss, ConvertResult } from './convert.js';
-export { LosslessNumber, mayHoldBigNumber, nearestNumbers } from './numbers.js';
+export {
+  bigNumberKey,
+  compareNumbers,
+  equalNumbers,
+  holdsBigNumber,
+  jsonText,
+  LosslessNumber,
+  mayHoldBigNumber,
+  nearestNumbers,
+  readJsonExact,
+  valueText,
+} from './numbers.js';

@@ -1,7 +1,8 @@
 // Checks the hand-written golden bytes against references that do not depend on our format code
 // (002 T1), so a typo in an expected.* file fails here before any adapter exists:
 // - data: parsing expected gives the data `immutable-json-patch` produces from the input's data
-//   (spec 002 criterion 2); a `test-fail` case's patch must throw and leave the bytes unchanged (R9);
+//   (spec 002 criterion 2), a `test` on big numbers comparing by exact value (spec 015 B3,
+//   `facts.ts` `referencePatch`); a `test-fail` case's patch must throw and leave the bytes unchanged (R9);
 // - R10: expected keeps the input's line endings and final newline (R15's exception aside);
 // - strict JSON stays strict JSON (R6, R4);
 // - the case.json tags describe the input and patch (facts.ts);
@@ -10,9 +11,9 @@
 //   gives the action's new data and keeps every comment it does not list as removed.
 // The json5 package reads all three formats as data (`parseData`): JSONC's comments and trailing
 // commas are JSON5; big numbers (spec 015) are read as marked strings holding their digits.
-import { immutableJSONPatch, type JSONPatchDocument } from 'immutable-json-patch';
+import type { JSONPatchDocument } from 'immutable-json-patch';
 import { describe, expect, it } from 'vitest';
-import { commentsOf, markBigData, parseData, tagMismatches } from './facts.js';
+import { commentsOf, markBigData, parseData, referencePatch, tagMismatches } from './facts.js';
 import { selectGoldenCases } from './filter.js';
 import { loadGoldenCases } from './load.js';
 import { sortData, type SortAction } from './sort-reference.js';
@@ -68,12 +69,12 @@ describe.each(cases.map((c) => [`${c.format}/${c.name}`, c] as const))('%s', (_,
     });
   } else if (c.tags.op === 'test-fail') {
     it('has a patch that fails and an unchanged expected (R9)', () => {
-      expect(() => immutableJSONPatch(parseData(c.input), patch)).toThrow();
+      expect(() => referencePatch(parseData(c.input), patch)).toThrow();
       expect(c.expected).toBe(c.input);
     });
   } else {
     it('expected data equals the reference patch applied to the input data', () => {
-      expect(parseData(c.expected)).toEqual(immutableJSONPatch(parseData(c.input), patch));
+      expect(parseData(c.expected)).toEqual(referencePatch(parseData(c.input), patch));
     });
   }
 

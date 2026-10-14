@@ -1,0 +1,17 @@
+# Docker Compose style defaults merged with <<.
+x-defaults: &defaults
+  restart: always
+  environment:
+    LOG: info
+x-limits: &limits
+  restart: on-failure
+  cpus: 2
+services:
+  web:
+    <<: *defaults
+    image: nginx
+    restart: unless-stopped
+  worker:
+    image: worker
+    cpus: 4
+    <<: [*limits, *defaults]

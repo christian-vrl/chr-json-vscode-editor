@@ -1,8 +1,9 @@
-// Web e2e (013 T4, spec 013 plan R6): Transform with JavaScript and with Lodash in the web host, as
-// test/e2e/query.cjs checks it on desktop (spec 011 criterion 7): the sealed QuickJS engine loads
-// and compiles in the webview under the editor's CSP (served through the webview service worker
-// on the CI route), each case in tests/e2e/fixtures/query/ writes its expected text, and one undo
-// restores the input. Each case works on a copy under work/.
+// Web e2e (013 T4, spec 013 plan R6): Transform with JavaScript, with Lodash and (014 T4) with
+// JSONPath (RFC 9535) in the web host, as test/e2e/query.cjs checks it on desktop (spec 011
+// criterion 7, spec 014 criterion 7): the sealed QuickJS engine loads and compiles in the webview
+// under the editor's CSP (served through the webview service worker on the CI route), each case in
+// tests/e2e/fixtures/query/ writes its expected text, and one undo restores the input. Each case
+// works on a copy under work/.
 /// <reference types="mocha" />
 import * as vscode from 'vscode';
 import type { DomStep } from '../../../src/testProbe';
@@ -23,7 +24,7 @@ import {
 } from './util';
 
 interface Case {
-  language: 'JavaScript' | 'Lodash';
+  language: 'JavaScript' | 'Lodash' | 'JSONPath (RFC 9535)';
   mode: 'tree' | 'text' | 'table';
   query: string;
   node?: string;
@@ -47,8 +48,8 @@ function transformSteps({ mode, node, language, query }: Case): DomStep[] {
   ];
 }
 
-describe('JavaScript and Lodash queries in the web host (spec 013 plan R6)', () => {
-  it('Transform with JavaScript and Lodash writes the expected text, undone in one step', async () => {
+describe('JavaScript, Lodash and JSONPath (RFC 9535) queries in the web host (spec 013 plan R6)', () => {
+  it('Transform with each language writes the expected text, undone in one step', async () => {
     const hooks = await activateHooks();
     const names = await list(fixture('fixtures', 'query'));
     ok(names.length > 0, 'no query cases');
@@ -81,7 +82,7 @@ describe('JavaScript and Lodash queries in the web host (spec 013 plan R6)', () 
       equal(document.getText(), before, `${name}: one undo did not restore the input`);
       await closeAll();
     }
-    for (const language of ['JavaScript', 'Lodash']) {
+    for (const language of ['JavaScript', 'Lodash', 'JSONPath (RFC 9535)']) {
       for (const where of ['tree', 'text', 'table', 'node']) {
         ok(covered.has(`${language} ${where}`), `no ${language} case in ${where}`);
       }

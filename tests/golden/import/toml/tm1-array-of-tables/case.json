@@ -1,0 +1,8 @@
+{
+  "rules": [
+    "TM1"
+  ],
+  "tags": [
+    "toml-array-of-tables"
+  ]
+}

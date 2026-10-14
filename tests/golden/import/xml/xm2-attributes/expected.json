@@ -1,0 +1,16 @@
+{
+  "book": {
+    "@id": "bk101",
+    "@year": 2001,
+    "@price": 44.95,
+    "@available": true,
+    "title": {
+      "@lang": "en",
+      "#text": "XML Developer's Guide"
+    },
+    "author": "Gambardella, Matthew",
+    "isbn": {
+      "@type": 13
+    }
+  }
+}

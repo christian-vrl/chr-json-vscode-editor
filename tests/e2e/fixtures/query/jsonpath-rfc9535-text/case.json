@@ -1,0 +1,5 @@
+{
+  "language": "JSONPath (RFC 9535)",
+  "mode": "text",
+  "query": "$[?@.active == true]"
+}

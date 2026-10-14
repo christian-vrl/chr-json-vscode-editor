@@ -311,24 +311,26 @@ describe('B2: every writer writes big numbers as their digits', () => {
   });
 });
 
-describe('until 015 T3: diff, sort and CSV treat a big number as a number', () => {
-  it('diff keeps a big number as one value: equal digits are equal, others replaced', () => {
+describe('015 T3: diff, sort and CSV treat a big number as a number (B3, B9)', () => {
+  it('diff keeps a big number as one value: equal values are equal, others replaced', () => {
     const a = { id: big('12345678901234567890'), n: 1 };
     expect(diff(a, { id: big('12345678901234567890'), n: 1 })).toEqual([]);
+    expect(diff(a, { id: big('12345678901234567890.000'), n: 1 })).toEqual([]);
     expect(diff(a, { id: big('12345678901234567891'), n: 1 })).toEqual([
       { op: 'replace', path: '/id', value: big('12345678901234567891') },
     ]);
+    expect(diff({ x: 1e20 }, { x: big('100000000000000000000') })).toEqual([]);
   });
 
-  it('sort orders big numbers by their nearest numbers among plain ones', () => {
-    expect(getAdapter('json').sort('[5, 1e400, "a", 12345678901234567890, 1]')).toBe(
-      '[1, 5, 12345678901234567890, 1e400, "a"]',
-    );
+  it('sort orders big numbers by exact value among plain ones', () => {
+    expect(
+      getAdapter('json').sort('[5, 1e400, "a", 12345678901234567891, 1, 12345678901234567890]'),
+    ).toBe('[1, 5, 12345678901234567890, 12345678901234567891, 1e400, "a"]');
   });
 
-  it('CSV export writes the nearest number', () => {
+  it('CSV export writes big numbers as their digits, in a JSON cell too', () => {
     expect(jsonToCsv([{ id: big('12345678901234567890'), x: [big('1e400')] }])).toEqual({
-      text: 'id,x\r\n12345678901234567000,[null]\r\n',
+      text: 'id,x\r\n12345678901234567890,[1e400]\r\n',
     });
   });
 

@@ -1,6 +1,7 @@
 // What the UI sends for new data over an object or array (003 T8): a pure reordering as core's
 // sort with that order (002 R13), anything else as core's diff under the container's path (R14).
 import { describe, expect, it } from 'vitest';
+import { LosslessNumber } from '@chr-json-editor/core';
 import { dataChange, reordering } from '../src/data-change.js';
 
 describe('dataChange', () => {
@@ -44,6 +45,26 @@ describe('dataChange', () => {
     expect(reordering([NaN, null], [null, NaN])).toEqual([1, 0]);
     expect(reordering([-0, 0], [0, -0])).toEqual([1, 0]);
     expect(reordering([Infinity, null], [null, null])).toBeUndefined();
+  });
+
+  // Spec 015 B3: big numbers key by exact value, as core's diff does.
+  it('keys big numbers by exact value, apart from an object that looks like one', () => {
+    const big = (v: string) => new LosslessNumber(v);
+    const a = big('12345678901234567890');
+    const b = big('12345678901234567891');
+    expect(reordering([a, b], [b, a])).toEqual([1, 0]);
+    expect(reordering([a, 5], [5, big('12345678901234567890')])).toEqual([1, 0]);
+    expect(reordering([a], [b])).toBeUndefined();
+    // Equal exact values: 1e20 is exactly 100000000000000000000, and 1e400 is not Infinity.
+    expect(reordering([big('100000000000000000000'), 1], [1, 1e20])).toEqual([1, 0]);
+    expect(reordering([big('1e400')], [Infinity])).toBeUndefined();
+    const lookAlike = { isLosslessNumber: true, value: '12345678901234567890' };
+    expect(reordering([a, lookAlike], [lookAlike, a])).toEqual([1, 0]);
+    expect(reordering([a], [lookAlike])).toBeUndefined();
+    expect(dataChange('/ids', [a, b], [b, a])).toEqual({
+      kind: 'action',
+      action: { name: 'sort', path: '/ids', order: [1, 0] },
+    });
   });
 
   it('reads an array and an object as different containers', () => {

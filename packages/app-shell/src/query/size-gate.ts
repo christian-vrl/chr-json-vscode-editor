@@ -1,5 +1,5 @@
-// Transform's query languages on large documents (spec 011 criterion 11, UNK-049 ★: "not above
-// 5 MiB"). The size is the document text's UTF-8 length when the Transform dialog opens, not the
+// Transform's query languages on large documents (spec 011 criterion 11, UNK-049 ★, and spec 014
+// criterion 8, UNK-065 ★: "not above 5 MiB"). The size is the document text's UTF-8 length when the Transform dialog opens, not the
 // size the tab opened with: an unlocked large-file tab whose text shrank gets every language back,
 // and a normal tab whose text grew past the threshold loses the gated ones. Pure functions over the
 // text, no DOM, so the page and unit tests share them.
@@ -11,10 +11,15 @@ export const QUERY_SIZE_LIMIT_BYTES = 5 * 1024 * 1024;
 /**
  * The ids of the languages left out of Transform above `QUERY_SIZE_LIMIT_BYTES`: the library's
  * JavaScript and Lodash (`javascriptQueryLanguage.id`, `lodashQueryLanguage.id`), which run in the
- * sealed engine (spec 011). Another language that must stay off large documents adds its id here
- * (014 T4: `'jsonpath-rfc9535'`); nothing else changes.
+ * sealed engine (spec 011), and JSONPath (RFC 9535) (`jsonpathRfc9535QueryLanguage.id`, spec 014),
+ * whose `..` searches are slower than JSONPath (Goessner)'s. Another language that must stay off
+ * large documents adds its id here; nothing else changes.
  */
-export const SIZE_GATED_QUERY_LANGUAGES: ReadonlySet<string> = new Set(['javascript', 'lodash']);
+export const SIZE_GATED_QUERY_LANGUAGES: ReadonlySet<string> = new Set([
+  'javascript',
+  'lodash',
+  'jsonpath-rfc9535',
+]);
 
 /**
  * Whether `text` is longer than `limit` bytes in UTF-8, counted without encoding it (a 50 MiB text

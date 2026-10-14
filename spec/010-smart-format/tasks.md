@@ -29,7 +29,7 @@
   in the text editor on a 6 MiB fixture; fixtures in `tests/e2e/fixtures/smart-format/`; README
   credit for FracturedJson. — needs: 010 T2, 003 T8 — *gate: criterion 7 green in `pnpm test:web`;
   criteria 8, 9 and 10 (text editor) green in `pnpm test:e2e`; `pnpm check:offline` green*
-- [ ] **T4** Large-file tabs: e2e for criterion 10 in a large-file tab on 008's 6 MiB fixture, locked
+- [x] **T4** Large-file tabs: e2e for criterion 10 in a large-file tab on 008's 6 MiB fixture, locked
   and unlocked, and an unlocked tab edited down to 5 MiB or less that then smart-formats. — needs: 010 T3, 008 T3 — *gate: criterion 10 green in `pnpm test:e2e`*
 
 ## Off the critical path

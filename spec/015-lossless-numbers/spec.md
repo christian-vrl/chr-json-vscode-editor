@@ -61,9 +61,10 @@ host, while files with no such number open as fast as today.
   `LosslessNumber` alike, in `diff` (and so compare, 002 R14 data-level actions and the webview's
   `dataChange`), the JSON Patch `test` op, `sort` (002 R13 and the order the webview sends), the
   library's sort dialog and table header sort, and compare's differences. Equal exact values give
-  equal keys: a big number whose exact value is exactly a float's (`100000000000000000000` is
-  exactly `1e20`) keys as that float does; any other big number keys by its normalized exact value,
-  which no float's key can equal.
+  equal keys: a big number equal (Terms) to its nearest number, that is whose exact value is the
+  exact value of the text JavaScript writes for its nearest number (`100000000000000000000` and
+  `1e20`), keys as that number does; any other big number keys by its normalized exact value,
+  which no plain number's key can equal.
 - **B4 Editor page:** the webview's parser gives the data core would (B1) and its `stringify`
   writes big numbers per B2. So the tree and table show a big number's decimal text, search finds
   it by its digits, a value typed or pasted with more digits than a float holds becomes a big
