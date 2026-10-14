@@ -1039,7 +1039,8 @@
 
   /**
    * Shows the node of `path` in the current mode, once that mode is mounted (S4, and the host's
-   * `reveal`): tree mode selects it, its parents expanded, and scrolls to it; table mode selects its
+   * `reveal`): tree mode selects it, its parents expanded, and scrolls to it (the root: nothing
+   * selected); table mode selects its
    * cell when the table shows one and otherwise nothing; text mode puts the cursor at its place
    * (R1) and scrolls to it.
    */
@@ -1061,8 +1062,14 @@
       selectInLibrary(editor.findElement(at) ? createValueSelection(at) : undefined);
       return;
     }
+    // The root is shown by selecting nothing (S1: no selection names the root). A selected root
+    // takes the next click inside it as the start of a drag, which selects nothing.
+    if (at.length === 0) {
+      selectInLibrary(undefined);
+      return;
+    }
     // `scrollTo` does not expand collapsed parents (plan 018 risk R4): `expand` opens the way.
-    if (at.length > 0) editor.expand(at.slice(0, -1));
+    editor.expand(at.slice(0, -1));
     selectInLibrary(createValueSelection(at));
     await editor.scrollTo(at);
   }
