@@ -64,6 +64,17 @@ describe('queryLanguagesFor', () => {
     ]);
   });
 
+  it('takes the threshold the page was given (spec 019 T1, thresholdBytes)', () => {
+    const mib = 1024 * 1024;
+    expect(queryLanguagesFor(ALL, 'a'.repeat(mib), mib)).toBe(ALL);
+    expect(queryLanguagesFor(ALL, 'a'.repeat(mib + 1), mib).map((l) => l.id)).toEqual([
+      'jsonquery',
+      'jmespath',
+      'jsonpath',
+    ]);
+    expect(queryLanguagesFor(ALL, 'a'.repeat(LIMIT + 1), 6 * mib)).toBe(ALL);
+  });
+
   it('returns a list without gated languages as it is', () => {
     const plain = ALL.filter((l) => !SIZE_GATED_QUERY_LANGUAGES.has(l.id));
     expect(queryLanguagesFor(plain, 'a'.repeat(LIMIT + 1))).toBe(plain);

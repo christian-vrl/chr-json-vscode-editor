@@ -34,8 +34,16 @@
   the query engine (mount.ts `MountOptions`). They are the library's own languages, with
   `executeQuery` running the query in the sealed QuickJS engine (query/run-query.ts), never in the
   page. The engine is loaded and compiled when a Transform dialog first opens, which waits for it
-  (criterion 10). Above 5 MiB, measured on the text when the dialog opens, they are not listed
-  (criterion 11, query/size-gate.ts), and the engine is not loaded for that dialog.
+  (criterion 10). Above the threshold (5 MiB by default, spec 019 T1), measured on the text when
+  the dialog opens, they are not listed (criterion 11, query/size-gate.ts), and the engine is not
+  loaded for that dialog.
+
+  Settings (spec 019, 019 T2) come from the host in `init` and again in a `settings` message when
+  they change (A2): the threshold for the query languages above (`thresholdBytes`, T1), the language
+  a tab's Transform dialog starts with until the user picks one (Q1), and the library's
+  `flattenColumns` (D1) and escape props (D2), which change only what tree and table mode show.
+  They are library props set with `updateProps`, so a change keeps the data, the text, the undo
+  history and the library's view.
 
   JSON Lines (spec 012) offers Table and Tree only, Table first (criterion 6): VS Code's text editor
   is the line editor, and format and compact are not offered (its lines are one record each). A
@@ -43,7 +51,9 @@
   (criterion 8, UNK-051): "Open as Text" asks the host for its text editor, and "Repair Lines" is
   the one change the UI sends then (core's `repairLines`, run by the host). The banner and the
   read-only state follow the document's text, so an edit made elsewhere that leaves no bad line
-  makes the tab editable again.
+  makes the tab editable again. A large JSON Lines file (spec 012 criterion 10, 012 T6) shows
+  both banners: its items are read as on a normal tab, "Edit anyway" is offered only once no bad
+  line is left, and "Repair Lines" runs on the locked tab too (one edit; the tab stays locked).
 
   Copy path and reveal node (spec 018, 018 T2): the tree and table context menus offer "Copy
   JSONPath", "Copy JSON Pointer" and "Reveal in Text Editor" next to Copy (S2), for the node the
@@ -85,13 +95,13 @@
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { getAdapter, jsonPath, jsonPointer, nodeAt, placeOf } from '@chr-json-editor/core';
+  import { jsonPath, jsonPointer, nodeAt, placeOf } from '@chr-json-editor/core';
   import { compileJSONPointer, getIn, parseJSONPointer, type JSONPath } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer, reordering } from './data-change.js';
   import { editorNumber, editorNumbers } from './editor-numbers.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
-  import { parserFor, validationParserFor } from './parser.js';
+  import { badLinesOf, parserFor, validationParserFor } from './parser.js';
   import {
     libraryPath,
     PathTextError,
@@ -115,12 +125,14 @@
   } from './query/run-query.js';
   import { queryLanguagesFor } from './query/size-gate.js';
   import {
+    DEFAULT_EDITOR_SETTINGS,
     isEditError,
     MODES,
     type CurrentNode,
     SCHEMA_DIALECTS,
     type DocumentAction,
     type DocumentChange,
+    type EditorSettings,
     type Format,
     type JsonPatchOperation,
     type LargeFile,
@@ -186,10 +198,59 @@
 
   /** A Transform dialog waiting for the engine to compile; a second request meanwhile is dropped. */
   let engineWait: Promise<void> | undefined;
-  /** The query language last picked in Transform, kept while a large document hides it. */
+  /** The host's settings for the page (spec 019): `init`'s, then each `settings` message's. */
+  let settings: EditorSettings = DEFAULT_EDITOR_SETTINGS;
+  /** The query language last picked in Transform, kept while a large document hides it; until the
+   *  user picks one, the setting's (Q1). */
   let chosenQueryLanguageId = QUERY_LANGUAGES[0]!.id;
-  /** The list the library holds now: all of QUERY_LANGUAGES, or the ones allowed above 5 MiB. */
+  /** The user picked a language in a Transform dialog of this tab: the setting no longer moves it
+   *  (Q1, A2). */
+  let queryLanguagePicked = false;
+  /** The list the library holds now: all of QUERY_LANGUAGES, or the ones allowed above the
+   *  threshold. */
   let shownQueryLanguages = QUERY_LANGUAGES;
+
+  /** Q1: the setting's language when Transform offers it on this page (JavaScript and Lodash need
+   *  the engine loader), else the first one, as today. */
+  function settingQueryLanguageId(): string {
+    const id = settings.defaultQueryLanguage;
+    return QUERY_LANGUAGES.some((language) => language.id === id) ? id : QUERY_LANGUAGES[0]!.id;
+  }
+
+  /** The library's display props for the settings (D1, D2) in `shownMode`. The library's text mode
+   *  escapes the text it shows too, so text mode gets them off: it shows the document as written
+   *  (D3, plan 019 risk R2). */
+  function displayProps(shownMode: Mode | undefined = mode): {
+    flattenColumns: boolean;
+    escapeControlCharacters: boolean;
+    escapeUnicodeCharacters: boolean;
+  } {
+    const escape = shownMode !== 'text';
+    return {
+      flattenColumns: settings.flattenColumns,
+      escapeControlCharacters: escape && settings.escapeControlCharacters,
+      escapeUnicodeCharacters: escape && settings.escapeUnicodeCharacters,
+    };
+  }
+
+  /**
+   * The host's new settings (A2). D1 and D2 reach the library at once; the threshold applies when a
+   * Transform dialog next opens (`showQueryLanguagesForSize`); Q1 moves the language only while the
+   * user has not picked one in this tab, and a language the list leaves out now is not selected.
+   */
+  function applySettings(next: EditorSettings): void {
+    settings = next;
+    if (!editor) return;
+    if (queryLanguagePicked) {
+      editor.updateProps(displayProps());
+      return;
+    }
+    chosenQueryLanguageId = settingQueryLanguageId();
+    const selected = shownQueryLanguages.some((language) => language.id === chosenQueryLanguageId)
+      ? chosenQueryLanguageId
+      : shownQueryLanguages[0]!.id;
+    editor.updateProps({ ...displayProps(), queryLanguageId: selected });
+  }
 
   /**
    * Gives the library the languages for the document's size now (criterion 11): the text as text
@@ -205,7 +266,7 @@
       const content = editor.get();
       if ('text' in content) text = content.text;
     }
-    const shown = queryLanguagesFor(QUERY_LANGUAGES, text);
+    const shown = queryLanguagesFor(QUERY_LANGUAGES, text, settings.thresholdBytes);
     if (shown.length !== shownQueryLanguages.length) {
       shownQueryLanguages = shown;
       const selected = shown.some((language) => language.id === chosenQueryLanguageId)
@@ -219,8 +280,8 @@
   /**
    * Opens a Transform dialog with `open` once the query engine is compiled (criterion 10): the first
    * time, it loads and compiles the engine first. If that fails, the dialog opens anyway and
-   * JavaScript and Lodash say the engine is not loaded. A document above 5 MiB lists no engine
-   * language (criterion 11), so its dialog opens without loading the engine.
+   * JavaScript and Lodash say the engine is not loaded. A document above the threshold lists no
+   * engine language (criterion 11), so its dialog opens without loading the engine.
    */
   function withQueryEngine(open: () => void): void {
     const engineListed = showQueryLanguagesForSize();
@@ -342,6 +403,8 @@
       docText = doc.text;
       format = doc.format;
       largeFile = doc.largeFile;
+      settings = doc.settings;
+      chosenQueryLanguageId = settingQueryLanguageId();
       badLines = findBadLines();
       // A mode not offered (text mode for a large file or JSON Lines) opens the first one offered.
       mode = modes.includes(doc.mode) ? doc.mode : modes[0];
@@ -357,8 +420,12 @@
           validationParser: validationParserFor(doc.format, doc.largeFile !== null),
           validator: validatorFor(validation),
           queryLanguages: QUERY_LANGUAGES,
-          queryLanguageId: QUERY_LANGUAGES[0]!.id,
-          onChangeQueryLanguage: (id: string) => (chosenQueryLanguageId = id),
+          queryLanguageId: chosenQueryLanguageId,
+          onChangeQueryLanguage: (id: string) => {
+            chosenQueryLanguageId = id;
+            queryLanguagePicked = true;
+          },
+          ...displayProps(),
           onRenderMenu: renderMenu,
           onRenderContextMenu: renderContextMenu,
           pathParser: PATH_PARSER,
@@ -590,25 +657,12 @@
     queue({ kind: 'action', action: { name: 'repairLines' } });
   }
 
-  /** The document's bad lines when it is JSON Lines (criterion 8). Core's parse is the one the
-   *  library's parser reads the same text with (core keeps the last parse per format), so this
-   *  costs no second parse. Large JSON Lines files are 012 T6's (spec 012 criterion 10). */
+  /** The document's bad lines when it is JSON Lines (criterion 8), on a large-file tab too (spec
+   *  012 criterion 10), read as its parser reads them (parser.ts). */
   function findBadLines(): number[] | null {
     if (format !== 'jsonl') return null;
-    const errors = getAdapter('jsonl')
-      .parse(docText)
-      .diagnostics.filter((d) => d.severity === 'error');
-    if (errors.length === 0) return null;
-    // Each error spans its line (L1), in order: count the line feeds before each one.
-    let line = 1;
-    let lf = docText.indexOf('\n');
-    return errors.map(({ offset }) => {
-      while (lf >= 0 && lf < offset) {
-        line += 1;
-        lf = docText.indexOf('\n', lf + 1);
-      }
-      return line;
-    });
+    const bad = badLinesOf(docText, largeFile !== null);
+    return bad.length === 0 ? null : bad;
   }
 
   /** After "Repair Lines": the bad lines left are the ones it could not repair (L10). */
@@ -633,10 +687,11 @@
   /** "Edit anyway" in the large-file banner (criterion 4): editable until the tab closes. The host
    *  hears it before any change made after it, since messages keep their order. */
   function unlock(): void {
-    if (!largeFile || largeFile.unlocked) return;
+    // Not while a JSON Lines bad line is left (spec 012 criterion 10): the button is disabled then.
+    if (!largeFile || largeFile.unlocked || badLines) return;
     largeFile = { ...largeFile, unlocked: true };
     host.unlock(docVersion);
-    editor?.updateProps({ readOnly: false });
+    editor?.updateProps({ readOnly });
   }
 
   /** Text mode's transform: the library's dialog, with its result sent as data, not as text. */
@@ -673,10 +728,11 @@
 
   /** Queues `change` for the host; `shown` when the library already shows its result. */
   function queue(change: DocumentChange, shown = false): void {
-    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line but
-    // its repair (spec 012 criterion 8); the editor shows the document again.
-    if (locked) return;
-    if (badLines && !(change.kind === 'action' && change.action.name === 'repairLines')) return;
+    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line, but
+    // "Repair Lines" in either case (spec 012 criteria 8 and 10); the editor shows the document
+    // again.
+    const repair = change.kind === 'action' && change.action.name === 'repairLines';
+    if ((locked || badLines) && !(repair && badLines)) return;
     queued.push({ change, shown });
     sendNext();
   }
@@ -1097,7 +1153,7 @@
     if (!modes.includes(next)) return;
     const node = editor && next !== mode ? currentNode() : undefined;
     mode = next;
-    editor?.updateProps({ mode: next as LibraryMode });
+    editor?.updateProps({ mode: next as LibraryMode, ...displayProps(next) });
     showDocument();
     if (node?.kind === 'path') void showNode(node.path);
     else if (node) selectInLibrary(undefined);
@@ -1111,6 +1167,7 @@
     }
     mode = next as Mode;
     textSortPending = false;
+    editor?.updateProps(displayProps());
     showDocument();
   }
 
@@ -1357,6 +1414,9 @@
       case 'setMode':
         selectMode(event.mode);
         return;
+      case 'settings':
+        applySettings(event.settings);
+        return;
       case 'setFormat':
         format = event.format;
         checkLines();
@@ -1451,7 +1511,12 @@
       </span>
       <button type="button" onclick={openAsText}>Open as Text</button>
       {#if locked}
-        <button type="button" onclick={unlock}>Edit anyway</button>
+        <button
+          type="button"
+          onclick={unlock}
+          disabled={badLines !== null}
+          title={badLines ? 'Repair or fix the bad lines first' : undefined}>Edit anyway</button
+        >
       {/if}
     </div>
   {/if}

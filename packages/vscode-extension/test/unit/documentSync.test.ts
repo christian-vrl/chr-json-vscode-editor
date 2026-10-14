@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   decodeToHost,
+  DEFAULT_EDITOR_SETTINGS,
   decodeToWebview,
   encodeChange,
   PROTOCOL_VERSION,
@@ -108,7 +109,7 @@ describeHostAdapterContract('VscodeHostAdapter over DocumentSync', (text) => {
             text: doc.text,
             format: 'json',
             mode: 'tree',
-            settings: {},
+            settings: { ...DEFAULT_EDITOR_SETTINGS },
             largeFile: null,
           });
         } else if (message.type === 'edit') {
