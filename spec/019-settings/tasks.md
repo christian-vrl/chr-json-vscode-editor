@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Host (risk-free / additive)
-- [ ] **T1** `contributes.configuration` with §Settings' keys; `src/settings.ts` (`readSettings`,
+- [x] **T1** `contributes.configuration` with §Settings' keys; `src/settings.ts` (`readSettings`,
   the pure `settingsFrom`, A6's fallbacks) and its unit table; M1 in `init.mode`; V1 in the
   validation controller (live, A5); `chrJsonEditor.openSettings` (C1) in `contributes.commands`,
   `menus.commandPalette`, `src/activate.ts`, `test/web/coverage.json` and a web e2e case; the

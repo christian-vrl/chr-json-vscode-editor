@@ -464,6 +464,11 @@ exports.run = async function run() {
     isCustom,
   });
 
+  // Gate (019 T1, spec 019 criteria 3, 8 and 11): default mode, validation switch and Open
+  // Settings (settings.cjs).
+  await closeAll();
+  await require('./settings.cjs').runSettings({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.

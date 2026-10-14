@@ -21,6 +21,7 @@ export async function run(): Promise<void> {
   await import('./query');
   await import('./largeFile');
   await import('./bigNumbers');
+  await import('./settings');
   await new Promise<void>((resolve, reject) => {
     mocha.run((failures) =>
       failures ? reject(new Error(`${failures} web e2e test(s) failed`)) : resolve(),
