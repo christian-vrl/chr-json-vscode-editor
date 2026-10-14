@@ -1,14 +1,18 @@
-// 017 T3: the names and texts of the YAML, TOML and XML commands (spec 017 criteria 5–7).
+// 017 T3 and T4: the names and texts of the YAML, TOML and XML commands (spec 017 criteria 5–8).
 import { LosslessNumber } from '@chr-json-editor/core';
 import { describe, expect, it } from 'vitest';
 import {
   errorMessage,
+  importLimit,
   jsonLinesMessage,
   jsonName,
   kindOf,
+  progressTitle,
   replaceQuestion,
+  tooLargeMessage,
   warningLines,
   warningsMessage,
+  YAML_LIMIT_BYTES,
 } from '../../src/importPlan';
 
 describe('importPlan (spec 017 T3)', () => {
@@ -69,5 +73,22 @@ describe('importPlan (spec 017 T3)', () => {
       expect(jsonLinesMessage('a.toml', data)).toBe(
         `CHR JSON Editor: JSON Lines needs an array; a.toml holds ${type}.`,
       );
+  });
+
+  it('reads YAML up to the YAML limit and the others up to the ceiling (criterion 8, UNK-077)', () => {
+    expect(YAML_LIMIT_BYTES).toBe(5 * 1024 * 1024);
+    expect(importLimit('yaml')).toBe(YAML_LIMIT_BYTES);
+    expect(importLimit('toml')).toBe(50 * 1024 * 1024);
+    expect(importLimit('xml')).toBe(50 * 1024 * 1024);
+  });
+
+  it('names a source above its limit with its size and the limit (criterion 8)', () => {
+    expect(tooLargeMessage('big.yaml', 'yaml', 5 * 1024 * 1024 + 1)).toBe(
+      'CHR JSON Editor: big.yaml is too large to convert (5.1 MiB; the limit for YAML is 5.0 MiB).',
+    );
+    expect(tooLargeMessage('big.toml', 'toml', 60 * 1024 * 1024)).toBe(
+      'CHR JSON Editor: big.toml is too large to convert (60.0 MiB; the limit for TOML is 50.0 MiB).',
+    );
+    expect(progressTitle('big.xml')).toBe('Converting big.xml…');
   });
 });

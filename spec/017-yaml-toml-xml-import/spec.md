@@ -186,8 +186,8 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
    criterion 11 does for CSV); any other value gives "JSON Lines needs an array; `<file>` holds
    `<type>`." and no change.
 7. **Errors and warnings (e2e):** for a malformed fixture of each kind, the error message is
-   "CHR JSON Editor: can't convert `<file>`: `<message>` (line `l`, column `c`)." and no file or
-   document changes. When the conversion has warnings, the notification "Converted `<file>` with
+   "CHR JSON Editor: can't convert `<file>`: `<message>` (line `l`, column `c`)." (or "(line
+   `l`)." when the error has no column, as for A1, A5 and Y6) and no file or document changes. When the conversion has warnings, the notification "Converted `<file>` with
    `<n>` warnings." has a "Show Warnings" button that opens the output channel "CHR JSON Editor"
    listing each as "`<file>`:`<line>`: `<message>`".
 8. **Size (e2e):** a TOML or XML file above the threshold converts in full under a progress
