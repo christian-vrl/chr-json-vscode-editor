@@ -294,7 +294,7 @@
         },
         {
           "command": "chrJsonEditor.exportCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)"
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)"
         },
         {
           "command": "chrJsonEditor.importCsv",
@@ -347,7 +347,7 @@
         },
         {
           "command": "chrJsonEditor.exportCsv",
-          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)",
           "group": "2_csv@1"
         },
         {

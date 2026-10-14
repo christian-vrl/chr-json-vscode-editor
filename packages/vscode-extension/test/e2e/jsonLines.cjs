@@ -16,6 +16,7 @@ const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
 const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
 const REPAIR_COMMAND = 'chrJsonEditor.repairJson';
 const EXPORT_CSV_COMMAND = 'chrJsonEditor.exportCsv';
+const SMART_FORMAT_COMMAND = 'chrJsonEditor.smartFormat';
 const GOLDEN = path.resolve(__dirname, '../../../../tests/golden/jsonl');
 const EXTENSIONS = ['jsonl', 'ndjson'];
 const FORMATS = ['json', 'jsonc', 'json5'];
@@ -155,6 +156,12 @@ exports.runJsonLines = async function runJsonLines({
     const langs = new RegExp(/editorLangId =~ \/(.*?)\//.exec(repair.when)[1]);
     assert.doesNotMatch('jsonl', langs);
 
+    // Smart Format (spec 010) is not offered for JSON Lines in either editor.
+    const [smart] = entries(SMART_FORMAT_COMMAND).filter((e) => e.menu === 'commandPalette');
+    assert.match(smart.when, /chrJsonEditor\.customEditorFormat != jsonl\b/);
+    const smartLangs = new RegExp(/textEditorFormat =~ \/(.*?)\//.exec(smart.when)[1]);
+    assert.doesNotMatch('jsonl', smartLangs);
+
     for (const ext of EXTENSIONS) {
       // "Open in CHR JSON Editor" from the text editor (palette: no URI; explorer: a URI) and
       // "Open With…": the tab opens in Table mode, with Table and Tree only.
@@ -185,7 +192,22 @@ exports.runJsonLines = async function runJsonLines({
         { waitFor: '.jse-table-mode .jse-menu .jse-search' },
         { waitFor: '.jse-format', gone: true },
         { waitFor: '.jse-compact', gone: true },
+        { waitFor: '.chr-smart-format', gone: true },
       ]);
+      // Copy is offered: the context menu of a selected row lists it, enabled.
+      assert.equal(hooks.select(uri.toString(), '/0'), true);
+      const [copyDisabled] = await dom(uri, [
+        { click: '.jse-table-mode .jse-menu button.jse-contextmenu' },
+        { read: '.jse-contextmenu button', text: 'Copy', attr: 'disabled' },
+      ]);
+      assert.equal(copyDisabled, null, `.${ext}: Copy is disabled`);
+      await dom(uri, [{ key: 'Escape', on: '.jse-contextmenu' }]);
+      // Run anyway, Smart Format leaves the document as it is.
+      hooks.smartFormatMessages();
+      const unformatted = document.version;
+      await vscode.commands.executeCommand(SMART_FORMAT_COMMAND);
+      assert.deepEqual(hooks.smartFormatMessages(), [], `.${ext}: Smart Format messages`);
+      assert.equal(document.version, unformatted, `.${ext}: Smart Format edited the document`);
       assert.equal(hooks.setMode(uri.toString(), 'text'), true);
       await new Promise((resolve) => setTimeout(resolve, 300));
       assert.equal((await hooks.probe(uri.toString())).mode, 'table', `.${ext}: no text mode`);
