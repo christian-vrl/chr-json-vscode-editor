@@ -96,8 +96,9 @@ but inside desktop VS Code. Only the CI route covers:
   pass it (no `WorkspaceTrust` in its `out/`), so the CI route's workspace is trusted, and the smoke
   test fails if it is not. The local route passes `--disable-workspace-trust`. **Not verified:**
   whether vscode.dev and github.dev pass `enableWorkspaceTrust`. That needs the real sites in a
-  browser, which neither a cloud sandbox nor CI can open (spec 013 §Where we differ: if either starts
-  in Restricted Mode, an owner UNKNOWN is raised before T5).
+  browser, which neither a cloud sandbox nor CI can open. It is recorded as owner question UNK-086
+  in `spec/UNKNOWNS.md`, open until the owner checks both sites before the v1 release (spec 013
+  §Where we differ).
 
 ## Known exposures (013 T2)
 
