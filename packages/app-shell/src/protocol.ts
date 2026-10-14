@@ -27,6 +27,8 @@
  *  14: adds the `smartFormat` whole-document action (010 T3).
  *  15: an `edit`'s `add`, `replace` and `test` operations carry their value as JSON text in
  *      `valueText`, so big numbers keep their digits (spec 015 B5, 015 T4).
+ *  16: adds the host → UI `getNode` request with its UI → host `node` answer, the host → UI
+ *      `reveal` message, and the UI → host `copyText` and `revealInText` messages (018 T2).
  *  17: `init.settings` is the typed `EditorSettings`; adds the host → UI `settings` message (spec
  *      019 A2, 019 T2). */
 export const PROTOCOL_VERSION = 17;
@@ -303,6 +305,53 @@ export interface RowSourceMessage extends Envelope<'rowSource'> {
   request: number;
   path: string;
 }
+/**
+ * A node's path (spec 018 §Terms): the steps from the root of the document's data, each a member
+ * name (any string) or an array index (an integer ≥ 0); `[]` is the root.
+ */
+export type NodePath = (string | number)[];
+/**
+ * The current node (spec 018 §Terms, S1): its `path`; `several` when tree or table mode has more
+ * than one node selected (S1); or, in text mode, where the text stops reading as its format before
+ * the cursor (A6), with `line` and `column` counted from 1.
+ */
+export type CurrentNode =
+  | { kind: 'path'; path: NodePath }
+  | { kind: 'several' }
+  | { kind: 'error'; message: string; line: number; column: number };
+/**
+ * "Copy JSONPath", "Copy JSON Pointer" or "Reveal in Text Editor" ran on this editor (spec 018 S5):
+ * the UI answers `node` with the same `request`, naming the current node.
+ */
+export interface GetNodeMessage extends Envelope<'getNode'> {
+  request: number;
+}
+/** The answer to `getNode`. */
+export interface NodeMessage extends Envelope<'node'> {
+  request: number;
+  node: CurrentNode;
+}
+/**
+ * Show the node of `path` (spec 018 S5, "Reveal in CHR JSON Editor"): the UI selects it and
+ * scrolls to it in its current mode, as a mode switch does (S4). No answer.
+ */
+export interface RevealMessage extends Envelope<'reveal'> {
+  path: NodePath;
+}
+/**
+ * Put `text` on the clipboard (spec 018 S2, S3): the page's "Copy JSONPath", "Copy JSON Pointer"
+ * and the navigation bar's copy button go through the host, never the page's clipboard. No answer.
+ */
+export interface CopyTextMessage extends Envelope<'copyText'> {
+  text: string;
+}
+/**
+ * "Reveal in Text Editor" in the context menu (spec 018 S2, S5): the host shows the node of `path`
+ * in its text editor. No answer.
+ */
+export interface RevealInTextMessage extends Envelope<'revealInText'> {
+  path: NodePath;
+}
 /** A failure the other side should show; `code` is machine-readable, `message` is for people. */
 export interface ErrorMessage extends Envelope<'error'> {
   code: string;
@@ -483,6 +532,8 @@ export type ToWebviewMessage =
   | ValidationMessage
   | FlushMessage
   | GetRowSourceMessage
+  | GetNodeMessage
+  | RevealMessage
   | SettingsMessage;
 export type ToHostMessage =
   | ReadyMessage
@@ -494,6 +545,9 @@ export type ToHostMessage =
   | OpenAsTextMessage
   | UnlockMessage
   | RowSourceMessage
+  | NodeMessage
+  | CopyTextMessage
+  | RevealInTextMessage
   | ErrorMessage;
 export type ProtocolMessage =
   | ToWebviewMessage
@@ -563,6 +617,8 @@ const TO_WEBVIEW: Record<ToWebviewMessage['type'], Fields> = {
   validation: { dialect: schemaDialect, result: validationResult },
   flush: { request: count },
   getRowSource: { request: count },
+  getNode: { request: count },
+  reveal: { path: nodePath },
   settings: { settings: editorSettings },
 };
 
@@ -576,6 +632,9 @@ const TO_HOST: Record<ToHostMessage['type'], Fields> = {
   openAsText: {},
   unlock: {},
   rowSource: { request: count, path: pointer },
+  node: { request: count, node: currentNode },
+  copyText: { text: str },
+  revealInText: { path: nodePath },
   error: { code: str, message: str },
 };
 
@@ -742,6 +801,23 @@ function editorSettings(v: unknown, name: string): EditorSettings {
 function positive(v: unknown, name: string): number {
   if (count(v, name) === 0) throw new Invalid(`${name} must be a positive integer`);
   return v as number;
+}
+
+function nodePath(v: unknown, name: string): NodePath {
+  if (!Array.isArray(v)) throw new Invalid(`${name} must be an array`);
+  return v.map((step, i) => (typeof step === 'string' ? step : count(step, `${name}[${i}]`)));
+}
+
+function currentNode(v: unknown, name: string): CurrentNode {
+  const raw = record(v, name);
+  if (raw.kind === 'path')
+    return readFields(raw, { kind: str, path: nodePath }, name) as CurrentNode;
+  if (raw.kind === 'several') return readFields(raw, { kind: str }, name) as CurrentNode;
+  if (raw.kind === 'error') {
+    const fields = { kind: str, message: str, line: count, column: count };
+    return readFields(raw, fields, name) as unknown as CurrentNode;
+  }
+  throw new Invalid(`${name}.kind must be path, several or error`);
 }
 
 function largeFile(v: unknown, name: string): LargeFile | null {

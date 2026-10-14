@@ -111,6 +111,9 @@ const toWebview: ToWebviewMessage[] = [
   },
   { protocol: PROTOCOL_VERSION, type: 'flush', docVersion: 8, request: 3 },
   { protocol: PROTOCOL_VERSION, type: 'getRowSource', docVersion: 8, request: 4 },
+  { protocol: PROTOCOL_VERSION, type: 'getNode', docVersion: 8, request: 5 },
+  { protocol: PROTOCOL_VERSION, type: 'reveal', docVersion: 8, path: [] },
+  { protocol: PROTOCOL_VERSION, type: 'reveal', docVersion: 8, path: ['people', 1, '0', ''] },
 ];
 
 const toHost: ToHostMessage[] = [
@@ -157,6 +160,29 @@ const toHost: ToHostMessage[] = [
   { protocol: PROTOCOL_VERSION, type: 'unlock', docVersion: 5 },
   { protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion: 5, request: 4, path: '' },
   { protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion: 5, request: 5, path: '/a~1b/0' },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'node',
+    docVersion: 5,
+    request: 5,
+    node: { kind: 'path', path: ['a', 0, '__proto__'] },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'node',
+    docVersion: 5,
+    request: 6,
+    node: { kind: 'several' },
+  },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'node',
+    docVersion: 5,
+    request: 7,
+    node: { kind: 'error', message: 'unexpected `}`', line: 3, column: 1 },
+  },
+  { protocol: PROTOCOL_VERSION, type: 'copyText', docVersion: 5, text: "$['it\\'s']" },
+  { protocol: PROTOCOL_VERSION, type: 'revealInText', docVersion: 5, path: [0, 'a.b'] },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 5, code: 'parse', message: 'Bad' },
 ];
 
@@ -174,7 +200,7 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2; getRowSource, rowSource: 009 T4; settings: 019 T2)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2; getRowSource, rowSource: 009 T4; getNode, node, reveal, copyText, revealInText: 018 T2; settings: 019 T2)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
       [
@@ -183,6 +209,11 @@ describe('protocol round trip', () => {
         'flush',
         'flushed',
         'getRowSource',
+        'getNode',
+        'node',
+        'reveal',
+        'copyText',
+        'revealInText',
         'init',
         'openAsText',
         'ready',
@@ -370,6 +401,15 @@ describe('protocol rejects malformed messages', () => {
       { ...toWebview[0], largeFile: { bytes: 6, unlocked: 1 } },
     ],
     ['a largeFile that is a number', { ...toWebview[0], largeFile: 6 }],
+    ['a getNode without request', { protocol: PROTOCOL_VERSION, type: 'getNode', docVersion: 1 }],
+    [
+      'a reveal whose path holds a boolean',
+      { protocol: PROTOCOL_VERSION, type: 'reveal', docVersion: 1, path: [true] },
+    ],
+    [
+      'a copyText (webview → host only)',
+      { protocol: PROTOCOL_VERSION, type: 'copyText', docVersion: 1, text: '$' },
+    ],
   ])('host → webview: %s', (_why, data) => {
     const result = decodeToWebview(data);
     expect(result.ok).toBe(false);
@@ -444,6 +484,59 @@ describe('protocol rejects malformed messages', () => {
     [
       'a getRowSource (host → webview only)',
       { protocol: PROTOCOL_VERSION, type: 'getRowSource', docVersion: 1, request: 1 },
+    ],
+    [
+      'a node whose path holds a negative index',
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'node',
+        docVersion: 1,
+        request: 1,
+        node: { kind: 'path', path: ['a', -1] },
+      },
+    ],
+    [
+      'a node whose path holds a fractional index',
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'node',
+        docVersion: 1,
+        request: 1,
+        node: { kind: 'path', path: [1.5] },
+      },
+    ],
+    [
+      'a node with an unknown kind',
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'node',
+        docVersion: 1,
+        request: 1,
+        node: { kind: 'none' },
+      },
+    ],
+    [
+      'a node error without its column',
+      {
+        protocol: PROTOCOL_VERSION,
+        type: 'node',
+        docVersion: 1,
+        request: 1,
+        node: { kind: 'error', message: 'x', line: 1 },
+      },
+    ],
+    [
+      'a node from protocol 15',
+      { protocol: 15, type: 'node', docVersion: 1, request: 1, node: { kind: 'several' } },
+    ],
+    ['a copyText without text', { protocol: PROTOCOL_VERSION, type: 'copyText', docVersion: 1 }],
+    [
+      'a revealInText whose path is a JSON Pointer',
+      { protocol: PROTOCOL_VERSION, type: 'revealInText', docVersion: 1, path: '/a' },
+    ],
+    [
+      'a reveal (host → webview only)',
+      { protocol: PROTOCOL_VERSION, type: 'reveal', docVersion: 1, path: [] },
     ],
   ])('webview → host: %s', (_why, data) => {
     const result = decodeToHost(data);
@@ -813,8 +906,10 @@ describe('patch values (spec 015 criterion 5)', () => {
     }
   });
 
-  it('is version 17, and a receiver of another version rejects the message', () => {
-    expect(PROTOCOL_VERSION).toBe(17);
+  it('is version 15 or later, and a receiver of another version rejects the message', () => {
+    // 16 adds spec 018's messages (018 T2) and 17 the page's settings (019 T2); both keep
+    // version 15's `valueText`.
+    expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(15);
     const edit = {
       protocol: PROTOCOL_VERSION,
       type: 'edit',
