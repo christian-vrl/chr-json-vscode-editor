@@ -330,16 +330,20 @@ exports.runBigNumbers = async function runBigNumbers({
         assert.equal(count.trim(), `1/${LINE_SEARCH_HITS}`);
         await hooks.dom(uri.toString(), [{ click: '.jse-search-clear' }]);
 
-        await vscode.env.clipboard.writeText('');
-        await hooks.dom(uri.toString(), [
-          { mousedown: `.jse-tree-mode [data-path="${encodeURIComponent('/5/id')}"] .jse-value` },
-          { key: 'c', ctrl: true, on: '.jse-tree-mode .jse-hidden-input' },
-        ]);
-        const deadline = Date.now() + 5000;
+        // The switch to tree mode selects the node the table named (spec 018 S4) once the tree is
+        // drawn, which can land after the click below: select and copy again until the copy holds.
+        const deadline = Date.now() + 10000;
         let copied = '';
         while (copied !== SEARCHED && Date.now() < deadline) {
-          await sleep(100);
-          copied = await vscode.env.clipboard.readText();
+          await vscode.env.clipboard.writeText('');
+          await hooks.dom(uri.toString(), [
+            { mousedown: `.jse-tree-mode [data-path="${encodeURIComponent('/5/id')}"] .jse-value` },
+            { key: 'c', ctrl: true, on: '.jse-tree-mode .jse-hidden-input' },
+          ]);
+          for (let i = 0; i < 10 && copied !== SEARCHED; i++) {
+            await sleep(100);
+            copied = await vscode.env.clipboard.readText();
+          }
         }
         assert.equal(copied, SEARCHED, `${name}: Copy put another text on the clipboard`);
 
