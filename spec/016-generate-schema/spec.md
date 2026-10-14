@@ -29,6 +29,7 @@ validates it from then on.
   source data.
 - **Schema file:** the generated schema as text: `JSON.stringify(schema, null, 2)` followed by
   `\n`.
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-088: where this says 2 spaces, the indent unit is VS Code's `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays 2 spaces.*
 - **Threshold** and **ceiling:** spec 008's 5 MiB (5,242,880 bytes of UTF-8 text when the command
   runs) and 52,428,800 UTF-16 code units.
 
