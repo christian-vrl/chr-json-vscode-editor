@@ -30,7 +30,7 @@
   `pnpm test:e2e`; criterion 12 green*
 
 ## Phase D — Size and JSON Lines (risk-free / additive)
-- [ ] **T4** Size checks and the progress notification (criterion 8), the locked-tab case
+- [x] **T4** Size checks and the progress notification (criterion 8), the locked-tab case
   (criterion 9) on spec 008's fixture, the JSON Lines case of criterion 6; YAML, TOML and XML bench
   documents from the bench generator, `importData` in the bench and `bench/RESULTS.md`
   (criterion 10); resolve UNK-077 from that run and set the YAML limit in the code. — needs:
