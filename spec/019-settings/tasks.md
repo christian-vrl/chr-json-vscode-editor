@@ -48,8 +48,5 @@
   head SHA.
 - README (spec 005): the settings section of the plan's Definition of Done, written by 005 T1 if it
   runs after T1, else by T1.
-- If UNK-087 is answered "fixed", T3 is dropped, `largeFileThreshold` leaves §Settings and
-  criteria 4 and 10 lose their threshold cases; if UNK-088 is answered "own setting", T5 adds
-  `chrJsonEditor.indentation` instead of reading `editor.*`; if "fixed", T5 is dropped.
 - Later threshold gates (016 T4, 017 T4, 018 T4) take the threshold from `largeFile.ts`'s function
   whether or not T3 has merged.

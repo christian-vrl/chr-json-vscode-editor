@@ -1,0 +1,39 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$['']",
+      "pointer": "/"
+    },
+    {
+      "offset": 6,
+      "jsonpath": "$['']['']",
+      "pointer": "//"
+    },
+    {
+      "offset": 10,
+      "jsonpath": "$['']['']",
+      "pointer": "//"
+    },
+    {
+      "offset": 11,
+      "jsonpath": "$['']['']",
+      "pointer": "//"
+    },
+    {
+      "offset": 12,
+      "jsonpath": "$['']",
+      "pointer": "/"
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/",
+      "offset": 1
+    },
+    {
+      "pointer": "//",
+      "offset": 6
+    }
+  ]
+}

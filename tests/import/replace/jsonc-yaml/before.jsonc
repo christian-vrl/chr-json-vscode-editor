@@ -1,0 +1,7 @@
+{
+  // The service name.
+  "name": "web",
+  "port": 8080, // the port
+  /* Removed by the import. */
+  "debug": true,
+}

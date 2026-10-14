@@ -34,7 +34,7 @@
   changed*
 
 ## Phase D — Queries (risk-free / additive)
-- [ ] **T5** Query rules: B7's restoring wrapper on JSONQuery, JMESPath, JSONPath (and RFC 9535 if
+- [x] **T5** Query rules: B7's restoring wrapper on JSONQuery, JMESPath, JSONPath (and RFC 9535 if
   014 T2 is on `main`), the preview message; B8 in the 011 engine bridge per UNK-066; the 011 Q2
   `bigint-result` cases updated as §Changes to approved specs says; criteria 8 and 9. — needs:
   015 T4, 011 T4 — *gate: criteria 8, 9 green; 011's corpus and property suite green*

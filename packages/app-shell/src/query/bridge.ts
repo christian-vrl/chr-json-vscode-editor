@@ -2,16 +2,26 @@
 // of the engine as JSON text plus a list of the numbers JSON text can't hold (`-0`, `NaN`,
 // `Infinity`, `-Infinity`), each with the path of keys where it sits; the text holds `null` there
 // (`0` for `-0`, as `JSON.stringify` writes it).
+// Big numbers (spec 015 B8, UNK-066 ★) cross the same way, as `[path, 'big', decimal text]`: a
+// `LosslessNumber` of the data goes in as the engine's own number-like object, and that object or a
+// `BigInt` in the result comes back as its digits, a big number or (a small `BigInt`) a plain one.
 // The engine's half is ENGINE_HELPERS in engine-source.ts, which uses the same list format.
+import { LosslessNumber as CoreLosslessNumber, numberValue } from '@chr-json-editor/core';
+
+/** Core's class, held here: the walk below runs until the page's stack runs out on deep data, and
+ *  must then fail with a RangeError (DEPTH_MESSAGE), not inside a module-namespace getter. */
+const LosslessNumber = CoreLosslessNumber;
 
 /** A number JSON text can't hold, by name. */
 export type SpecialCode = 'NaN' | 'Infinity' | '-Infinity' | '-0';
 
-/** Where a special number sits (keys from the root; array indexes as strings) and which it is. */
-export type Special = [path: string[], code: SpecialCode];
+/** Where a special number sits (keys from the root; array indexes as strings) and which it is; a
+ *  big number (or, out of the engine, a `BigInt`) with its decimal text. */
+export type Special =
+  [path: string[], code: SpecialCode] | [path: string[], code: 'big', text: string];
 
 export interface Encoded {
-  /** JSON text with `null` (or `0`, for `-0`) where each special number sits. */
+  /** JSON text with `null` (or `0`, for `-0`) where each special number or big number sits. */
   text: string;
   /** JSON text of the `Special[]` list; `[]` in the usual case. */
   specials: string;
@@ -40,8 +50,12 @@ const specialValues: Readonly<Record<SpecialCode, number>> = {
 export function encodeData(data: unknown): Encoded {
   const specials: Special[] = [];
   const path: string[] = [];
+  let big = false;
   const walk = (value: unknown): void => {
-    if (typeof value === 'number') {
+    if (value instanceof LosslessNumber) {
+      big = true;
+      specials.push([[...path], 'big', value.value]);
+    } else if (typeof value === 'number') {
       const code = specialCode(value);
       if (code) specials.push([[...path], code]);
     } else if (Array.isArray(value)) {
@@ -59,23 +73,35 @@ export function encodeData(data: unknown): Encoded {
     }
   };
   walk(data);
-  return { text: JSON.stringify(data) ?? 'null', specials: JSON.stringify(specials) };
+  const text = big ? JSON.stringify(data, withoutBigNumbers) : JSON.stringify(data);
+  return { text: text ?? 'null', specials: JSON.stringify(specials) };
+}
+
+/** A `JSON.stringify` replacer writing `null` for each big number (its digits travel in the list). */
+function withoutBigNumbers(_key: string, value: unknown): unknown {
+  return value instanceof LosslessNumber ? null : value;
 }
 
 /**
  * The result in the page: the engine's JSON text parsed (`JSON.parse` makes a `__proto__` key an
- * own key, as core's parsers do) and each special number put back at its path.
+ * own key, as core's parsers do) and each special number put back at its path. A big number's or a
+ * `BigInt`'s digits become core's data for them (B1, B8): a `LosslessNumber`, or a plain number when
+ * the digits fit one (`5n` is `5`).
  */
 export function decodeResult(text: string, specials: string): unknown {
   let root: unknown = JSON.parse(text);
-  for (const [path, code] of JSON.parse(specials) as Special[]) {
-    root = setAt(root, path, specialValues[code]);
+  for (const [path, code, text] of JSON.parse(specials) as Special[]) {
+    root = setAt(
+      root,
+      path,
+      code === 'big' ? numberValue(text, Number(text)) : specialValues[code],
+    );
   }
   return root;
 }
 
 /** Sets the value at `path` (which the text already holds as `null`); returns the new root. */
-function setAt(root: unknown, path: readonly string[], value: number): unknown {
+function setAt(root: unknown, path: readonly string[], value: unknown): unknown {
   if (path.length === 0) return value;
   let holder = root as Record<string, unknown>;
   for (let i = 0; i < path.length - 1; i++) holder = holder[path[i]!] as Record<string, unknown>;

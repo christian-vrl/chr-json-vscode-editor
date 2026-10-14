@@ -20,6 +20,7 @@ export {
   LosslessNumber,
   mayHoldBigNumber,
   nearestNumbers,
+  numberValue,
   readJsonExact,
   valueText,
 } from './numbers.js';

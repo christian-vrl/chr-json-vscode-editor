@@ -30,6 +30,7 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
 - **Output text:** `stringify(data, 'json', OUTPUT_STYLE)` (spec 002 R8, spec 015 B2), where
   `OUTPUT_STYLE` is 2-space indent, `\n` line endings, a final newline, double quotes, quoted keys
   and no trailing commas.
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-088: where this says 2 spaces, the indent unit is VS Code's `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays 2 spaces.*
 - **Big number, decimal text, big number value:** as spec 015 §Terms (ADR-014).
 - **Size, threshold, ceiling:** as spec 008: the UTF-8 length of the file's text when the command
   runs; 5 MiB (5,242,880 bytes, UNK-014); VS Code's 50 MB sync limit (008 criterion 9).
@@ -55,7 +56,11 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
 - **A4 Keys:** every key is an own member, `__proto__` and `constructor` included. Key order is the
   order in the file (first occurrence), except where a rule below says otherwise.
 - **A5 Depth:** data nested more than 1,000 levels deep is an error ("The file is nested too deeply
-  to convert (more than 1,000 levels)"), with no stack overflow.
+  to convert (more than 1,000 levels)"), with no stack overflow. YAML data nested more than 500 levels
+  deep, and at most 1,000, is an error ("The YAML file is nested too deeply to convert (more than
+  500 levels)"): `yaml` 2.9.1's composer recurses about 1.3 KB of stack per level, overflows Node
+  22's default stack near 780 levels, and V8 can then abort the whole process while it compiles a
+  regular expression, so the importer checks the depth before the composer runs (017 T2).
 - **A6 Comments and layout** are not carried: JSON has none. No warning is given for them; the
   source file is never changed.
 
@@ -286,8 +291,9 @@ with every number kept exactly (spec 015) and a warning for each thing JSON cann
 - Output text: `stringify(data, format, style)` at `packages/core/src/formats/stringify.ts`
   (throws on non-finite numbers for JSON, hence A3).
 - Web host: ADR-013; spec 013 criterion 2 (no Node built-ins outside `src/node/**`); the three
-  libraries are plain ECMAScript with no Node built-in imports (checked by the browser bundle in
-  T3).
+  libraries are plain ECMAScript with no Node built-in imports, which spec 013 criterion 1's unit
+  test over the built browser entry (no `require(` but `require("vscode")`,
+  `packages/vscode-extension/test/unit/webEntry.test.ts`) checks once T3 bundles them.
 
 ## Changes to approved specs (AGENTS rule 7)
 None. Spec 006's §Scope Out already names spec 017 for YAML, TOML and XML.

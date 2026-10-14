@@ -13,14 +13,14 @@
   — *gate: criterion 2 green; Reviewer PASS on each `expected.json` against the rules*
 
 ## Phase B — Importer (risk-free / additive)
-- [ ] **T2** `yaml` 2.9.1, `smol-toml` 1.9.0 and `saxes` 6.0.0 as `core` dependencies (exact
+- [x] **T2** `yaml` 2.9.1, `smol-toml` 1.9.0 and `saxes` 6.0.0 as `core` dependencies (exact
   versions); `importData(text, kind)` in `packages/core/src/import/` per the plan, exported from
   core; the golden test (criterion 1), the round-trip property suite (criterion 3, seed committed)
   and the hostile-input tests (criterion 4). — needs: 017 T1, 015 T2 — *gate: criteria 1–4 green;
   `pnpm check:licenses` green*
 
 ## Phase C — Commands (risk-free / additive)
-- [ ] **T3** "Convert YAML to JSON", "Convert TOML to JSON", "Convert XML to JSON" and "Import
+- [x] **T3** "Convert YAML to JSON", "Convert TOML to JSON", "Convert XML to JSON" and "Import
   YAML, TOML or XML…" with their explorer, editor-title and palette entries (`when` clauses on
   `resourceExtname`), the file beside the source with the save-dialog and untitled fallbacks, the
   confirmation and 002 R14 replace, the error message, the warnings notification and output

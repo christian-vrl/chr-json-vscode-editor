@@ -11,6 +11,7 @@ import {
   caseData,
   caseExpected,
   goessnerQuery,
+  hasBigTag,
   hasQ2Tag,
   isRfc9535Case,
   loadQueryCases,
@@ -21,7 +22,8 @@ import {
 } from './query.js';
 
 const all = loadQueryCases();
-const cases = quickJsCases(all).filter((c) => !hasQ2Tag(c));
+// Big-number cases (spec 015) are left out too: the reference runs on rounded numbers.
+const cases = quickJsCases(all).filter((c) => !hasQ2Tag(c) && !hasBigTag(c));
 const rfc9535 = all.filter(isRfc9535Case);
 
 describe('query corpus against the reference (spec 011 criterion 1)', () => {

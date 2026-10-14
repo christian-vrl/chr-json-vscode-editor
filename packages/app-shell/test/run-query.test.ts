@@ -1,9 +1,10 @@
 // 011 T3: runQuery's own rules beyond the corpus (spec 011 Q1–Q4, the limits and errors of criteria
-// 5 and 6 as far as Node shows them; the dialog's side is 011 T4's web tests).
-import { describe, expect, it } from 'vitest';
+// 5 and 6 as far as Node shows them; the dialog's side is 011 T4's web tests), and spec 015 B8's big
+// numbers in the engine (015 T5).
+import { LosslessNumber } from '@chr-json-editor/core';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { decodeResult, encodeData } from '../src/query/bridge.js';
 import {
-  BIGINT_MESSAGE,
   DEPTH_MESSAGE,
   CHAIN_MESSAGE,
   isQueryEngineLoaded,
@@ -112,8 +113,11 @@ describe('runQuery (spec 011)', () => {
     expect(runQuery('javascript', 1, query('return Symbol("s")'))).toBeNull();
   });
 
-  it('Q2: a BigInt anywhere and a value that contains itself are QueryErrors', () => {
-    expect(failure('javascript', 1, query('return [{ a: 1n }]')).message).toBe(BIGINT_MESSAGE);
+  it('Q2 as amended by spec 015 B8: a BigInt is its digits; a value that contains itself is a QueryError', () => {
+    expect(runQuery('javascript', 1, query('return [{ a: 1n }]'))).toEqual([{ a: 1 }]);
+    expect(runQuery('javascript', 1, query('return -12345678901234567890n'))).toEqual(
+      new LosslessNumber('-12345678901234567890'),
+    );
     expect(failure('javascript', 1, query('const a = []; a.push([a]); return a')).message).toBe(
       'The result refers to itself.',
     );
@@ -264,5 +268,137 @@ describe('the page half of the value bridge', () => {
     expect(encodeData(-Infinity)).toEqual({ text: 'null', specials: '[[[],"-Infinity"]]' });
     expect(decodeResult('null', '[[[],"-Infinity"]]')).toBe(-Infinity);
     expect(encodeData(undefined)).toEqual({ text: 'null', specials: '[]' });
+  });
+});
+
+describe('the value bridge with big numbers (spec 015 B8)', () => {
+  const big = (text: string) => new LosslessNumber(text);
+  const own = (key: string, value: unknown) => {
+    const object: Record<string, unknown> = {};
+    Object.defineProperty(object, key, {
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    return object;
+  };
+
+  it('lists big numbers with their digits, and puts them back as big numbers', () => {
+    const data = {
+      id: big('12345678901234567890'),
+      n: [big('1e400'), 5],
+      p: own('__proto__', big('0.1000000000000000000001')),
+    };
+    const encoded = encodeData(data);
+    expect(encoded.text).toBe('{"id":null,"n":[null,5],"p":{"__proto__":null}}');
+    expect(JSON.parse(encoded.specials)).toEqual([
+      [['id'], 'big', '12345678901234567890'],
+      [['n', '0'], 'big', '1e400'],
+      [['p', '__proto__'], 'big', '0.1000000000000000000001'],
+    ]);
+    expect(decodeResult(encoded.text, encoded.specials)).toEqual(data);
+    expect(encodeData(big('-1e-400'))).toEqual({
+      text: 'null',
+      specials: '[[[],"big","-1e-400"]]',
+    });
+  });
+
+  it('reads digits that fit a float as a plain number', () => {
+    expect(
+      decodeResult('[null,null]', '[[["0"],"big","5"],[["1"],"big","-9007199254740991"]]'),
+    ).toEqual([5, -9007199254740991]);
+  });
+
+  it("keeps an object that looks like lossless-json's LosslessNumber an object", () => {
+    const lookalike = { isLosslessNumber: true, value: '12345678901234567890' };
+    expect(encodeData(lookalike).specials).toBe('[]');
+    expect(runQuery('javascript', lookalike, query('return data'))).toEqual(lookalike);
+  });
+});
+
+describe('big numbers in the engine (spec 015 B8, UNK-066)', () => {
+  beforeAll(() => loadQueryEngine(loadEngine));
+  const big = (text: string) => new LosslessNumber(text);
+  const ids = [{ id: big('12345678901234567891') }, { id: 7 }, { id: big('12345678901234567890') }];
+
+  it.each(languages)('%s: a big number is a LosslessNumber with its text and value', (language) => {
+    const result = runQuery(
+      language,
+      [big('12345678901234567890'), big('0.1000000000000000000001'), big('1e400')],
+      query(
+        'const [a, b, c] = data; return [a.isLosslessNumber, a.value, String(a), `${b}`, typeof a.valueOf(), a.valueOf() === 12345678901234567890n, b.valueOf(), a.constructor.name, Object.isFrozen(c)]',
+      ),
+    );
+    expect(result).toEqual([
+      true,
+      '12345678901234567890',
+      '12345678901234567890',
+      '0.1000000000000000000001',
+      'bigint',
+      true,
+      0.1,
+      'LosslessNumber',
+      true,
+    ]);
+  });
+
+  it.each(languages)('%s: <, > and + use its value; it comes back exact', (language) => {
+    expect(
+      runQuery(language, ids, query('return data.filter(d => d.id > 5).map(d => d.id)')),
+    ).toEqual([big('12345678901234567891'), 7, big('12345678901234567890')]);
+    expect(
+      runQuery(language, ids, query('return data[0].id > data[2].id && data[1].id < data[0].id')),
+    ).toBe(true);
+    expect(runQuery(language, ids, query('return data[2].id + 1n'))).toEqual(
+      big('12345678901234567891'),
+    );
+  });
+
+  it('Lodash sorts by its value', () => {
+    expect(runQuery('lodash', ids, query("return _.sortBy(data, 'id')"))).toEqual([
+      ids[1],
+      ids[2],
+      ids[0],
+    ]);
+  });
+
+  it.each(languages)("%s: overflow and underflow throw lossless-json's message", (language) => {
+    expect(failure(language, { big: big('1e400') }, query('return data.big + 1')).message).toBe(
+      "Cannot safely convert to number: the value '1e400' would overflow and become Infinity",
+    );
+    expect(
+      failure(language, { small: big('-1E-400') }, query('return data.small * 2')).message,
+    ).toBe("Cannot safely convert to number: the value '-1E-400' would underflow and become 0");
+  });
+
+  it.each(languages)('%s: mixing its BigInt with a number is the engine TypeError', (language) => {
+    expect(failure(language, ids, query('return data[0].id + 1')).message).toMatch(/^TypeError: /);
+  });
+
+  it.each(languages)('%s: its digits are fixed; the class checks what it is given', (language) => {
+    expect(
+      runQuery(
+        language,
+        [big('12345678901234567890')],
+        query(
+          '"use strict"; try { data[0].value = "1" } catch (e) { return [String(e.name), data[0]] }',
+        ),
+      ),
+    ).toEqual(['TypeError', big('12345678901234567890')]);
+    expect(
+      failure(
+        language,
+        [big('12345678901234567890')],
+        query('return new data[0].constructor("abc")'),
+      ).message,
+    ).toBe('Invalid number (value: "abc")');
+    expect(
+      runQuery(
+        language,
+        [big('12345678901234567890')],
+        query('return new data[0].constructor("98765432109876543210")'),
+      ),
+    ).toEqual(big('98765432109876543210'));
   });
 });

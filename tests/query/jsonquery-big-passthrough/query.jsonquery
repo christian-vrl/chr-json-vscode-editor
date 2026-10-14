@@ -1,0 +1,1 @@
+filter(.id > 5) | sort(.id) | pick(.name, .id)

@@ -75,6 +75,7 @@ function makeWorkspace(workspace) {
     recursive: true,
   });
   cpSync(path.join(repo, 'tests', 'csv'), path.join(workspace, 'csv'), { recursive: true });
+  cpSync(path.join(repo, 'tests', 'import'), path.join(workspace, 'import'), { recursive: true });
   // The first golden patch cases of each format, as the desktop e2e picks them (sync.cjs).
   const golden = {};
   for (const format of ['json', 'jsonc', 'json5']) {

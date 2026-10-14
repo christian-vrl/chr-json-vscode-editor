@@ -1,0 +1,78 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$.unquoted",
+      "pointer": "/unquoted"
+    },
+    {
+      "offset": 9,
+      "jsonpath": "$.unquoted",
+      "pointer": "/unquoted"
+    },
+    {
+      "offset": 14,
+      "jsonpath": "$.single",
+      "pointer": "/single"
+    },
+    {
+      "offset": 24,
+      "jsonpath": "$.single",
+      "pointer": "/single"
+    },
+    {
+      "offset": 29,
+      "jsonpath": "$.hex",
+      "pointer": "/hex"
+    },
+    {
+      "offset": 36,
+      "jsonpath": "$.hex",
+      "pointer": "/hex"
+    },
+    {
+      "offset": 45,
+      "jsonpath": "$.inf",
+      "pointer": "/inf"
+    },
+    {
+      "offset": 53,
+      "jsonpath": "$.inf",
+      "pointer": "/inf"
+    },
+    {
+      "offset": 56,
+      "jsonpath": "$.list",
+      "pointer": "/list"
+    },
+    {
+      "offset": 66,
+      "jsonpath": "$.list[1]",
+      "pointer": "/list/1"
+    },
+    {
+      "offset": 68,
+      "jsonpath": "$.list",
+      "pointer": "/list"
+    },
+    {
+      "offset": 70,
+      "jsonpath": "$",
+      "pointer": ""
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/hex",
+      "offset": 29
+    },
+    {
+      "pointer": "/list/1",
+      "offset": 66
+    },
+    {
+      "pointer": "/inf",
+      "offset": 40
+    }
+  ]
+}

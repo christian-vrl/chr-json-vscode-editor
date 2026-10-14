@@ -1,6 +1,6 @@
 # SPEC 019 — Settings
 
-> **Status:** `draft`
+> **Status:** `approved (owner: Chris, thread decision card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14)`
 > The spec is the source of truth. Plan and tasks derive from it. Desired behavior changed?
 > Change the spec first, not the code.
 
@@ -266,7 +266,7 @@ In Restricted Mode VS Code would give listed keys their user value only; that de
 - vscode.dev (code.visualstudio.com/docs/setup/vscode-web, fetched 2026-10-14): installed extensions
   are "saved in the browser's local storage"; the page does not say where settings are kept.
 
-## Changes to approved specs (AGENTS rule 7; to be approved with this spec on the approval card)
+## Changes to approved specs (AGENTS rule 7; approved with this spec on the approval card, which named the old and new wording)
 - **008 Terms and criterion 1:** "'Threshold' is 5 MiB = 5,242,880 bytes (UNK-014)" → "'Threshold' is
   the `chrJsonEditor.largeFileThreshold` setting in bytes, 5 MiB = 5,242,880 by default (spec 019
   T1)"; criterion 1 is checked at the default. The specs that use 008's threshold (009, 010
@@ -274,7 +274,7 @@ In Restricted Mode VS Code would give listed keys their user value only; that de
   wording change, since they define it as 008's.
 - **010 L8:** "Options are fixed … spec 019 may add line length and the others later" → "Options are
   fixed except the line length, `chrJsonEditor.smartFormat.maxLineLength` (default 120, spec 019 F1)".
-- **Only if UNK-088 is ★:** 002 R1 "A file with no line breaks has indent unit 2 spaces" and R15
+- **UNK-088 ★ (owner):** 002 R1 "A file with no line breaks has indent unit 2 spaces" and R15
   "`JSON.stringify(value, null, 2)`", 012 J1 "indented by two", 016 Terms "`JSON.stringify(schema,
   null, 2)`" and 017 Terms "`OUTPUT_STYLE` is 2-space indent" → "the indent unit of VS Code's
   `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays
@@ -283,10 +283,10 @@ In Restricted Mode VS Code would give listed keys their user value only; that de
 ## UNKNOWNS (record in UNKNOWNS.md; escalate, do not decide)
 | ID | Unknown | Blocks | Options (awaiting human) |
 |---|---|---|---|
-| UNK-087 | Whether the large-file threshold becomes a setting | T1, criterion 4; T3 | owner: ★ a setting, 1–50 MiB, default 5 · fixed at 5 MiB |
-| UNK-088 | Where the indent of new text comes from | I1, criterion 6; T5 | owner: ★ VS Code's `editor.tabSize`/`editor.insertSpaces` · our own setting, default 2 spaces · fixed 2 spaces |
+| UNK-087 | Whether the large-file threshold becomes a setting | T1, criterion 4; T3 | resolved (owner): ★ a setting, 1–50 MiB, default 5 |
+| UNK-088 | Where the indent of new text comes from | I1, criterion 6; T5 | resolved (owner): ★ VS Code's `editor.tabSize`/`editor.insertSpaces` |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
-- [ ] Result-affecting UNKNOWNS resolved
-- [ ] Human approval recorded
+- [x] Result-affecting UNKNOWNS resolved
+- [x] Human approval recorded

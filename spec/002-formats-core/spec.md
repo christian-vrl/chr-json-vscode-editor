@@ -35,6 +35,7 @@ as minimal text edits that leave every byte outside the edited spans unchanged.
 
 ## Style rules (golden cases encode these)
 - **R1 Indent:** new lines use the nearest sibling's indentation; with no sibling, the parent's indent plus the file's dominant indent unit (tabs or N spaces). A file with no line breaks has indent unit 2 spaces for any new multi-line container.
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-088: where this says 2 spaces, the indent unit is VS Code's `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays 2 spaces.*
 - **R2 Placement:** `add` to `/-` or a new key appends after the last member; an array index inserts at that index.
 - **R3 Single-line containers:** a container written on one line stays on one line; new members are joined with `, ` (or the separator already used).
 - **R4 Quotes (JSON5):** new keys are unquoted when identifier-safe and most existing keys in that object are unquoted; strings use the file's majority quote character. JSON/JSONC always double quotes.
@@ -46,6 +47,7 @@ as minimal text edits that leave every byte outside the edited spans unchanged.
 - **R9 Atomicity:** a failing `test` op or an invalid path returns an error and leaves the text unchanged.
 - **R10 Line endings and final newline** are preserved as detected.
 - **R15 Empty document** (UNK-026, owner decision): on a text with no value (empty, white space or comments only), `add` or `replace` at `""` writes the value as `JSON.stringify(value, null, 2)` (R4's quotes in JSON5) after any comments, with the text's line ending and final newline when it has a line break, else `\n` and a final newline (the one exception to R10); every other operation is an error (R9).
+  *Amended by spec 019 (owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcidLLV2o7v38WLuAiuBG8p2cr, 2026-10-14; AGENTS rule 7), UNK-088: where this says 2 spaces, the indent unit is VS Code's `editor.tabSize` and `editor.insertSpaces` for the language (spec 019 I1); core's default stays 2 spaces.*
 - **R12 Compact with comments:** whitespace between tokens is removed; each `//` comment becomes `/* … */` (a `*/` inside its text becomes `*\/`); block comments stay as written. Strict JSON has no comments, so plain compaction applies.
 - **R13 Sort with comments:** each member moves together with the comments attached to it by R5; comments attached to no member (file header, before a closing bracket) keep their place relative to the container.
   *Amended by spec 015 B3 (spec 015, owner approval card cmsg_01Wz9SKzwQD2da69nuNGPcid8rBEjWhoBBUYvqqGxPwYhU, 2026-10-12; AGENTS rule 7): numbers are ordered by exact value, so big numbers sort among plain ones by value; plain-number order is unchanged.*

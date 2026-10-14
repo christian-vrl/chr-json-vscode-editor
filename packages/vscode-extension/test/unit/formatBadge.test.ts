@@ -3,7 +3,14 @@
 // same in VS Code, plus that choosing a format leaves the document's bytes unchanged.
 import { describe, expect, it } from 'vitest';
 import { detect, getAdapter, parseData } from '@chr-json-editor/core';
-import { badge, initialState, reparse, withFormat, type FormatCore } from '../../src/formatBadge';
+import {
+  badge,
+  FORMATS,
+  initialState,
+  reparse,
+  withFormat,
+  type FormatCore,
+} from '../../src/formatBadge';
 
 const core: FormatCore = { detect, getAdapter, parseData };
 const JSONC = '{\n  // a comment\n  "a": 1,\n}\n';
@@ -22,6 +29,20 @@ describe('initialState', () => {
       source: 'fileName',
       outcome: { kind: 'parsed', errors: 0, warnings: 0 },
     });
+  });
+
+  it('detects JSON Lines from its language and extensions (spec 012 criterion 6)', () => {
+    for (const [path, languageId] of [
+      ['/w/a.jsonl', 'jsonl'],
+      ['/w/a.ndjson', 'plaintext'],
+    ]) {
+      const state = initialState(core, path!, languageId!, '{"a":1}\n[2]\n');
+      expect(state).toMatchObject({ format: 'jsonl', outcome: { errors: 0 } });
+      expect(badge(state).text).toBe('JSON Lines');
+    }
+    expect(FORMATS).toEqual(['json', 'jsonc', 'json5', 'jsonl']);
+    const bad = initialState(core, '/w/a.jsonl', 'jsonl', '{"a":1}\n{"b":\n');
+    expect(badge(bad).text).toBe('$(error) JSON Lines');
   });
 
   it('json5 parses with the JSON5 adapter (002 T5)', () => {

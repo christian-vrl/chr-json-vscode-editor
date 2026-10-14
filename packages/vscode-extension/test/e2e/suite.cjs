@@ -199,7 +199,7 @@ exports.run = async function run() {
   assert.equal(editor.priority, 'option');
   assert.deepEqual(
     editor.selector.map((s) => s.filenamePattern),
-    FORMATS.map((f) => `*.${f}`),
+    [...FORMATS, 'jsonl', 'ndjson'].map((f) => `*.${f}`),
   );
   const titles = Object.fromEntries(
     (extension.packageJSON.contributes?.commands ?? []).map((c) => [c.command, c.title]),
@@ -372,6 +372,11 @@ exports.run = async function run() {
   await closeAll();
   await require('./convert.cjs').runConvert({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (012 T5, spec 012 criteria 6-9): JSON Lines files in the editor and the convert commands
+  // (jsonLines.cjs).
+  await closeAll();
+  await require('./jsonLines.cjs').runJsonLines({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (010 T3, criteria 8, 9 and 10 in the text editor): "Smart Format" (smartFormat.cjs).
   await closeAll();
   await require('./smartFormat.cjs').runSmartFormat({
@@ -392,6 +397,11 @@ exports.run = async function run() {
     isCustom,
     assertCriterion6,
   });
+
+  // Gate (017 T3, criteria 5, 6 and 7, and 12's bundles): the YAML, TOML and XML commands
+  // (import.cjs).
+  await closeAll();
+  await require('./import.cjs').runImport({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
   // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
   await closeAll();

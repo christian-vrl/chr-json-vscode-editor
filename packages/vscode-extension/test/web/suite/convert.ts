@@ -168,4 +168,62 @@ describe('convert commands on the virtual scheme (spec 013 criterion 7)', () => 
       hooks.convert(undefined);
     }
   });
+
+  // Spec 012 criterion 9 (012 T5), as test/e2e/jsonLines.cjs checks it on desktop.
+  it('Convert to JSON Lines writes one item per line, and JSON Lines converts back', async () => {
+    const hooks = await activateHooks();
+    const titles = Object.fromEntries(manifest().contributes.commands.map((c) => [c.command, c]));
+    equal(titles['chrJsonEditor.convertToJsonl']?.title, 'Convert to JSON Lines', 'title');
+    try {
+      for (const custom of [false, true]) {
+        const where = custom ? 'CHR JSON Editor' : 'text editor';
+        const { uri, document } = await open(
+          hooks,
+          'data.json',
+          '[\n  {"a": 1},\n  2\n]\n',
+          custom,
+        );
+        const key = custom ? 'chrJsonEditor.customEditorFormat' : 'chrJsonEditor.textEditorFormat';
+        await waitFor(`json (${where}): context key`, () => {
+          return hooks.convert(undefined).context[key] === 'json';
+        });
+        hooks.confirm(() => {
+          throw new Error(`json → jsonl (${where}): asked with no losses`);
+        });
+        await vscode.commands.executeCommand('chrJsonEditor.convertToJsonl');
+        deepEqual(hooks.confirm(undefined), [], `json → jsonl (${where}): question`);
+        const lines = vscode.Uri.joinPath(dirname(uri), 'data.jsonl');
+        await waitFor(`json → jsonl (${where}): the new file`, () => exists(lines));
+        equal(await readText(lines), '{"a":1}\n2\n', `json → jsonl (${where}): bytes`);
+        equal(document.isDirty, false, `json → jsonl (${where}): source dirty`);
+        await expectOnly(lines, custom ? 'custom' : 'text');
+        await closeAll();
+        // Back from JSON Lines, in the same kind of editor.
+        const back = await open(hooks, 'data.jsonl', '{"a":1}\n2\n', custom);
+        await waitFor(`jsonl (${where}): context key`, () => {
+          return hooks.convert(undefined).context[key] === 'jsonl';
+        });
+        await vscode.commands.executeCommand(COMMANDS.json5);
+        const json5 = vscode.Uri.joinPath(dirname(back.uri), 'data.json5');
+        await waitFor(`jsonl → json5 (${where}): the new file`, () => exists(json5));
+        equal(await readText(json5), '[\n  {"a":1},\n  2\n]\n', `jsonl → json5 (${where}): bytes`);
+        await expectOnly(json5, custom ? 'custom' : 'text');
+        deepEqual(hooks.convert(undefined).messages, [], `${where}: messages`);
+        await closeAll();
+      }
+      // A root that is not an array is not converted to JSON Lines.
+      const { uri } = await open(hooks, 'object.json', '{"a": 1}\n', false);
+      await vscode.commands.executeCommand('chrJsonEditor.convertToJsonl');
+      deepEqual(
+        hooks.convert(undefined).messages,
+        ['CHR JSON Editor: JSON Lines needs an array at the root.'],
+        'not an array: message',
+      );
+      deepEqual(await list(dirname(uri)), ['object.json'], 'not an array: files');
+      await closeAll();
+    } finally {
+      hooks.confirm(undefined);
+      hooks.convert(undefined);
+    }
+  });
 });
