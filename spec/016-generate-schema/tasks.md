@@ -12,7 +12,7 @@
   — *gate: criteria 1, 2 green; Reviewer PASS on G1–G9 per case*
 
 ## Phase B — Validator (mutation of an approved behavior; covered by the spec approval)
-- [ ] **T2** `ownProperties: true` in `compileSchema` (`packages/vscode-extension/src/validation.ts`)
+- [x] **T2** `ownProperties: true` in `compileSchema` (`packages/vscode-extension/src/validation.ts`)
   (spec 004 criterion 2 as amended); the criterion 4 unit test; the fast-check suite for criterion 3
   (seed committed, 10 000 runs per dialect) in `packages/vscode-extension`, using `compileSchema`
   and Ajv's `validateSchema`. — needs: 016 T1 — *gate: criteria 3, 4 green; every `tests/schema/`
