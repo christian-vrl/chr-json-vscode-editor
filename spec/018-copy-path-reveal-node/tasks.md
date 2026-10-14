@@ -55,10 +55,11 @@
   the palette's "Reveal in Text Editor" then names the root; the stale path reaches the host from the
   context menu's item, which keeps the selection the menu opened on (018 T3).
 - JSON Lines with a bad line (018 T4): A5 counts every non-blank line as an item, the bad one too,
-  while the CHR editor's table (spec 012) leaves a bad line out of its items, so for an item after a
-  bad line the text editor's `$[i]` and the table's row `i` name different items, and "Reveal in
-  CHR JSON Editor" lands one row on. The tab is read-only until "Repair Lines", and criterion 10's
-  fixture keeps its bad line last; a later task can align the two (or an UNKNOWN asks the owner).
+  while the CHR editor's table (spec 012 L1) leaves a bad line out of its rows. Both reveals map the
+  item to the row and back (`pathPlan.ts` `tablePath`, `textPath`; `middle.jsonl` in
+  `copyPath.cjs`), so they land on the same item. The copy commands still write each editor's own
+  index: after a bad line, the text editor's `$[i]` and the table's `$[i-1]` name the same item
+  until "Repair Lines" makes the bad line an item.
 - "Reveal in Text Editor" from a tab with unsaved edits: "Reopen as Text" keeps that tab open, so the
   command now takes the text tab from `showTextDocument` (018 T3 review, L4; covered in
   `copyPath.cjs`).

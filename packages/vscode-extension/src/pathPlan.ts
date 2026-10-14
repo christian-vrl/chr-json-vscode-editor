@@ -2,7 +2,14 @@
 // VS Code: the node at a text editor's cursor, the status bar message after a copy, and the
 // messages for a node they cannot find. The e2e suite (test/e2e/copyPath.cjs) runs the same
 // through the commands.
-import { jsonPath, jsonPointer, nodeAt, type Format, type Path } from '@chr-json-editor/core';
+import {
+  jsonPath,
+  jsonPointer,
+  nodeAt,
+  readLines,
+  type Format,
+  type Path,
+} from '@chr-json-editor/core';
 import type { CurrentNode } from '@chr-json-editor/app-shell/protocol';
 import { FORMAT_LABELS } from './convertPlan';
 
@@ -60,4 +67,48 @@ export function nodeOutcome(
   if (node.kind === 'path') return { path: node.path };
   if (node.kind === 'several') return { message: SEVERAL_NODES_MESSAGE, severity: 'info' };
   return { message: brokenMessage(format, node.line, node.column), severity: 'error' };
+}
+
+/**
+ * JSON Lines with bad lines: the item indices, as A5 counts items (every non-blank line, a bad one
+ * too), of the bad lines. The CHR JSON Editor's table leaves bad lines out of its items (spec 012
+ * L1), so a path's first step names a different item in each editor after a bad line (018 T4).
+ */
+export function badItems(text: string): number[] {
+  const { bad } = readLines(text);
+  if (bad.length === 0) return [];
+  const items: number[] = [];
+  let next = 0;
+  let item = 0;
+  let start = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  for (let line = 1; next < bad.length; line++) {
+    const lf = text.indexOf('\n', start);
+    const end = lf < 0 ? text.length : lf;
+    if (line === bad[next]) {
+      items.push(item);
+      next++;
+    }
+    if (!/^[ \t]*\r?$/.test(text.slice(start, end))) item++;
+    if (lf < 0) break;
+    start = lf + 1;
+  }
+  return items;
+}
+
+/** A text editor path in JSON Lines as the CHR JSON Editor's table names it: the item's row
+ *  leaves out the bad lines before it. */
+export function tablePath(path: Path, bad: readonly number[]): Path {
+  const [first, ...rest] = path;
+  if (typeof first !== 'number') return path;
+  return [first - bad.filter((b) => b < first).length, ...rest];
+}
+
+/** A path of the CHR JSON Editor's table in JSON Lines as the text names it (A5): the row's item
+ *  counts the bad lines before it. */
+export function textPath(path: Path, bad: readonly number[]): Path {
+  const [first, ...rest] = path;
+  if (typeof first !== 'number') return path;
+  let item = first;
+  for (const b of bad) if (b <= item) item++;
+  return [item, ...rest];
 }

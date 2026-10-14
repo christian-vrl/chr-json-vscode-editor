@@ -31,6 +31,9 @@ import {
   nodeOutcome,
   notInDocumentMessage,
   pathText,
+  tablePath,
+  textPath,
+  badItems,
   type Notation,
 } from './pathPlan';
 
@@ -157,6 +160,11 @@ async function revealInEditor(provider: JsonEditorProvider): Promise<void> {
   const path = pathOf(located);
   if (!located || !path) return;
   const { document } = located;
+  // JSON Lines: the table's row leaves out the bad lines before the item (spec 012 L1).
+  const shown =
+    located.format === 'jsonl'
+      ? tablePath(path, await finding(document.getText(), () => badItems(document.getText())))
+      : path;
   const open = otherTab(document.uri, isCustomTab);
   if (open) {
     await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, {
@@ -167,7 +175,7 @@ async function revealInEditor(provider: JsonEditorProvider): Promise<void> {
     // Checks VS Code's sync limit first, as from the editor title (spec 008 criterion 9).
     await vscode.commands.executeCommand(OPEN_COMMAND, document.uri);
   }
-  await provider.reveal(document, path);
+  await provider.reveal(document, shown);
 }
 
 /** "Reveal in Text Editor" from the palette: the CHR JSON Editor's current node in the text. */
@@ -181,10 +189,14 @@ async function revealInText(
   await showInText(located.document, located.format, path);
 }
 
-/** Shows the node of `path` in VS Code's text editor on `document`, or says it is not there. */
+/** Shows the node of `path` (as the CHR JSON Editor names it) in VS Code's text editor on
+ *  `document`, or says it is not there. */
 async function showInText(document: vscode.TextDocument, format: Format, path: Path) {
   const text = document.getText();
-  const place = await finding(text, () => placeOf(format, text, path));
+  const place = await finding(text, () =>
+    // JSON Lines: the item counts the bad lines the table leaves out (spec 012 L1).
+    placeOf(format, text, format === 'jsonl' ? textPath(path, badItems(text)) : path),
+  );
   if (place === undefined) {
     show('error', notInDocumentMessage(path));
     return;

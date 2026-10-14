@@ -413,7 +413,7 @@ const PUNCTUATION: Record<string, number> = {
  * says whether a member name may come next. Records no tokens and builds no tree.
  */
 export class Json5Lexer extends Parser {
-  /** `ascii` false reads every token with the parser's methods, without the ASCII fast path
+  /** `fast` false reads every token with the parser's methods, without the ASCII fast path
    *  (`ascii`): the tests check both read the same tokens. */
   constructor(
     text: string,
@@ -422,9 +422,6 @@ export class Json5Lexer extends Parser {
     super(text, true);
   }
 
-  /** The next token: white space, a line break, a comment, punctuation, a member name (`key`) or a
-   *  value's string, number or literal; `EOF` at the end. A member name is a `StringLiteral` when
-   *  quoted, else `Unknown`, as in `parseJson5`'s tokens. */
   /** The one token `next` returns, its fields replaced on each call: a walk over a large text
    *  makes no object per token (spec 018 criterion 11). */
   private readonly current: Json5Token = {
@@ -435,7 +432,9 @@ export class Json5Lexer extends Parser {
     error: undefined,
   };
 
-  /** The next token (the same object every time, see `current`). */
+  /** The next token: white space, a line break, a comment, punctuation, a member name (`key`) or a
+   *  value's string, number or literal; `EOF` at the end. A member name is a `StringLiteral` when
+   *  quoted, else `Unknown`, as in `parseJson5`'s tokens. The same object every time (`current`). */
   next(key: boolean): Json5Token {
     const offset = this.pos;
     if (offset >= this.text.length) return this.set(Kind.EOF, offset, undefined);

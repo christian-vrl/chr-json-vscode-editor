@@ -2,6 +2,7 @@
 // S5, S6). The e2e suite (test/e2e/copyPath.cjs) runs the same through the commands.
 import { describe, expect, it } from 'vitest';
 import {
+  badItems,
   brokenMessage,
   copiedMessage,
   nodeAtCursor,
@@ -9,6 +10,8 @@ import {
   notInDocumentMessage,
   pathText,
   SEVERAL_NODES_MESSAGE,
+  tablePath,
+  textPath,
 } from '../../src/pathPlan';
 
 describe('pathPlan', () => {
@@ -70,5 +73,22 @@ describe('pathPlan', () => {
     expect(notInDocumentMessage(['count'])).toBe(
       "CHR JSON Editor: can't find the node: $.count is not in the document.",
     );
+  });
+
+  it('maps JSON Lines items between the text and the table, which leaves bad lines out (018 T4)', () => {
+    // Items (A5): 0 Ada, 1 bad, 2 Grace, (blank lines), 3 bad, 4 Linus.
+    const text = '{"n":"Ada"}\n{bad\n{"n":"Grace"}\r\n\n  \n{x}\n{"n":"Linus"}\n';
+    const bad = badItems(text);
+    expect(bad).toEqual([1, 3]);
+    expect(tablePath([0, 'n'], bad)).toEqual([0, 'n']);
+    expect(tablePath([2, 'n'], bad)).toEqual([1, 'n']);
+    expect(tablePath([4], bad)).toEqual([2]);
+    expect(textPath([0, 'n'], bad)).toEqual([0, 'n']);
+    expect(textPath([1, 'n'], bad)).toEqual([2, 'n']);
+    expect(textPath([2], bad)).toEqual([4]);
+    expect(tablePath([], bad)).toEqual([]);
+    expect(textPath([], bad)).toEqual([]);
+    expect(badItems('{"a":1}\n\n{"b":2}\n')).toEqual([]);
+    expect(badItems('\ufeff{x}\n{"a":1}\n')).toEqual([0]);
   });
 });

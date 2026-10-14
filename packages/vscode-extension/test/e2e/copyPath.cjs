@@ -17,7 +17,8 @@
 // 018 T4 adds:
 // - criterion 10 on lines.jsonl: the copy commands in the text editor (items, blank lines, a bad
 //   line) and in the CHR JSON Editor's Table mode, and both reveals landing on the same item and
-//   member; the text editor's context menu offers the commands for a .jsonl file too;
+//   member, past a bad line too (middle.jsonl: the table leaves bad lines out of its rows); the
+//   text editor's context menu offers the commands for a .jsonl file too;
 // - "Reveal in Text Editor" from a CHR JSON Editor tab with unsaved edits, which "Reopen as Text"
 //   keeps open beside the text tab (018 T3 review, L4).
 const assert = require('node:assert/strict');
@@ -530,6 +531,31 @@ exports.runCopyPath = async function runCopyPath({
       assert.equal(document.version, version, 'lines.jsonl reveals: the version');
       assert.equal(document.isDirty, false, 'lines.jsonl reveals: not dirty');
       console.log('reveal: lines.jsonl, both ways on the same item and member');
+    }
+
+    // ...also past a bad line, which the table leaves out of its rows: the text's item 2 (Grace,
+    // after the bad line 2 and a blank line) is the table's row 1, both ways.
+    {
+      await closeAll();
+      const middle = fixture('middle.jsonl');
+      const { document, editor } = await openText(middle);
+      putCursor(editor, document.getText().indexOf('1906'));
+      await vscode.commands.executeCommand(REVEAL_IN_EDITOR);
+      await expectOnly(middle, 'custom', isCustom);
+      const cell = `.jse-table-mode td[data-path="${encodeURIComponent('/1/year')}"] .jse-value-outer`;
+      await hooks.dom(middle.toString(), [{ waitFor: `${cell}.jse-selected-value` }]);
+
+      await selectCell(middle, '/2/name');
+      await vscode.commands.executeCommand(REVEAL_IN_TEXT);
+      await expectOnly(middle, 'text', isText);
+      const shown = vscode.window.activeTextEditor;
+      assert.equal(
+        document.offsetAt(shown.selection.active),
+        document.getText().indexOf('"name":"Barbara"'),
+        'the cursor at the place of the row past the bad line',
+      );
+      assert.equal(document.isDirty, false, 'middle.jsonl: not dirty');
+      console.log('reveal: middle.jsonl, past a bad line both ways');
     }
   } finally {
     await closeAll();
