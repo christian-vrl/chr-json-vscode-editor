@@ -177,8 +177,11 @@ export interface ValidationTarget {
   /** Whether validation is paused (a large-file tab above UNK-041's size, spec 008 criterion 10):
    *  it then runs only on `runOnce`. False when absent. */
   paused?(): boolean;
+  /** Whether validation is on (spec 019 V1, `chrJsonEditor.validation.enable`); true when absent.
+   *  Off, nothing compiles, runs or is posted; call `enabledChanged` when it changes. */
+  enabled?(): boolean;
   post(message: ValidationMessage): void;
-  /** Called after the schema was set, changed or removed. */
+  /** Called after the schema was set, changed or removed, or validation turned on or off. */
   schemaChanged?(): void;
 }
 
@@ -188,13 +191,58 @@ export interface ValidationTarget {
  * the text and version together, so a result always names the version it describes.
  */
 export class DocumentValidation {
-  private compiled: CompiledSchema | undefined;
+  /** The schema that applies, or why it cannot be used; compiled on first use, so a tab with
+   *  validation off never runs Ajv (spec 019 V1). */
+  private source:
+    | { schema: object | boolean; dialect: SchemaDialect | undefined }
+    | { reason: string }
+    | undefined;
+  private compiledSource: CompiledSchema | undefined;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  /** `target.enabled()` as first read, then as `enabledChanged` last saw it. Not read in the
+   *  constructor: the target may not be ready to answer yet. */
+  private wasEnabled: boolean | undefined;
 
   constructor(
     private readonly target: ValidationTarget,
     private readonly delayMs = 100,
   ) {}
+
+  private get compiled(): CompiledSchema | undefined {
+    const source = this.source;
+    if (!source) return undefined;
+    this.compiledSource ??=
+      'reason' in source
+        ? { ok: false, dialect: null, reason: source.reason }
+        : compileSchema(source.schema, source.dialect);
+    return this.compiledSource;
+  }
+
+  private get enabled(): boolean {
+    const enabled = this.target.enabled?.() ?? true;
+    this.wasEnabled ??= enabled;
+    return enabled;
+  }
+
+  /**
+   * Call after `target.enabled()` may have changed (spec 019 A5). Turned off, the webview is told
+   * once (`none`) so it drops the errors and the dialect notice it shows; turned on, the document
+   * validates at once.
+   */
+  enabledChanged(): void {
+    const before = this.wasEnabled;
+    const enabled = this.enabled;
+    this.wasEnabled = enabled;
+    // Never read before: nothing was validated or posted, so there is nothing to change.
+    if (before === undefined || enabled === before) return;
+    if (enabled) {
+      this.run();
+    } else {
+      this.dispose();
+      if (this.hasSchema) this.post(null, { kind: 'none' });
+    }
+    this.target.schemaChanged?.();
+  }
 
   /**
    * Sets the schema and validates at once. `dialect` is the user's switch for a schema without
@@ -202,39 +250,41 @@ export class DocumentValidation {
    * the schema: the webview is told once (`none`) so it drops the errors it shows.
    */
   setSchema(schema: object | boolean | undefined, dialect?: SchemaDialect): void {
+    this.compiledSource = undefined;
     if (schema === undefined) {
       const had = this.hasSchema;
-      this.compiled = undefined;
+      this.source = undefined;
       this.dispose();
-      if (had) this.post(null, { kind: 'none' });
+      if (had && this.enabled) this.post(null, { kind: 'none' });
       if (had) this.target.schemaChanged?.();
       return;
     }
-    this.compiled = compileSchema(schema, dialect);
+    this.source = { schema, dialect };
     this.run();
     this.target.schemaChanged?.();
   }
 
   /** A schema applies but cannot be used (unreadable, not JSON, remote): every run says why. */
   setUnavailable(reason: string): void {
-    this.compiled = { ok: false, dialect: null, reason };
+    this.source = { reason };
+    this.compiledSource = undefined;
     this.run();
     this.target.schemaChanged?.();
   }
 
   get hasSchema(): boolean {
-    return this.compiled !== undefined;
+    return this.source !== undefined;
   }
 
   schedule(): void {
-    if (!this.hasSchema || this.paused) return;
+    if (!this.hasSchema || !this.enabled || this.paused) return;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.run(), this.delayMs);
   }
 
   /** Whether a usable schema applies but validation is paused (spec 008 criterion 10). */
   get paused(): boolean {
-    return this.compiled?.ok === true && this.target.paused?.() === true;
+    return this.enabled && this.compiled?.ok === true && this.target.paused?.() === true;
   }
 
   /**
@@ -244,7 +294,7 @@ export class DocumentValidation {
   run(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
-    if (this.paused) return;
+    if (!this.enabled || this.paused) return;
     this.validate(this.target.dataOnly?.());
   }
 
@@ -252,6 +302,7 @@ export class DocumentValidation {
   runOnce(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
+    if (!this.enabled) return;
     this.validate(true);
   }
 
