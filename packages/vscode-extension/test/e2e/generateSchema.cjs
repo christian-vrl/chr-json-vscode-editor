@@ -17,6 +17,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vscode = require('vscode');
+const { CRITERION_6, DEFAULT_UNIT, reindent, withIndent } = require('./indent.cjs');
 
 const EXTENSION_ID = 'christian-vrl.chr-json-editor';
 const VIEW_TYPE = 'chrJsonEditor.editor';
@@ -101,7 +102,12 @@ exports.run = async function run() {
   const [folder] = vscode.workspace.workspaceFolders ?? [];
   assert.ok(folder, 'run.mjs opens a workspace folder for this suite');
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'chr-schema-outside-'));
-  const expected = fs.readFileSync(path.join(FIXTURES, 'expected.schema.json'), 'utf8');
+  // The schema file takes VS Code's indent for JSON (spec 019 I1, 4 spaces by default); the fixture
+  // is written with 2.
+  const expected = reindent(
+    fs.readFileSync(path.join(FIXTURES, 'expected.schema.json'), 'utf8'),
+    DEFAULT_UNIT,
+  );
   let cases = 0;
 
   /** Copies fixture `name` (or writes `text`) into a new folder under `parent`, and opens it. */
@@ -163,6 +169,23 @@ exports.run = async function run() {
     console.log(
       'Generate JSON Schema: json, jsonc and json5 in both editors, palette and title menu',
     );
+
+    // Spec 019 criterion 6: the schema file takes "[json]"'s indent, 4 spaces or a tab.
+    for (const [values, unit] of CRITERION_6) {
+      await withIndent(waitFor, ['json'], values, async () => {
+        const { dir } = await open('data.json', { custom: false });
+        hooks.generateSchema({ link: false });
+        await vscode.commands.executeCommand(COMMAND);
+        assert.equal(
+          fs.readFileSync(path.join(dir, 'data.schema.json'), 'utf8'),
+          reindent(fs.readFileSync(path.join(FIXTURES, 'expected.schema.json'), 'utf8'), unit),
+          `schema with ${JSON.stringify(values)}: bytes`,
+        );
+        hooks.generateSchema({ link: false });
+        await closeAll();
+      });
+    }
+    console.log('criterion 6: "Generate JSON Schema" writes "[json]"\'s 4 spaces or a tab');
 
     // Criterion 5 (UNK-035): the schema file exists, so a save dialog prefilled with it opens;
     // "Cancel" writes nothing, and a picked name is written there.

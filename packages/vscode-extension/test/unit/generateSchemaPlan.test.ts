@@ -19,6 +19,20 @@ import {
 import { compileSchema } from '../../src/validation';
 
 describe('planSchema', () => {
+  it('indents the schema file by the indent it is given (spec 019 I1)', () => {
+    const plan = (indent?: '\t' | number) => {
+      const result = planSchema('{"a": 1}', 'json', indent);
+      return result.kind === 'schema' ? result.text : '';
+    };
+    expect(plan()).toBe(plan(2));
+    expect(plan(4)).toBe(
+      '{\n    "$schema": "http://json-schema.org/draft-07/schema#",\n    "type": "object",\n' +
+        '    "properties": {\n        "a": {\n            "type": "integer"\n        }\n    },\n' +
+        '    "required": [\n        "a"\n    ]\n}\n',
+    );
+    expect(plan('\t')).toBe(plan(4).replace(/ {4}/g, '\t'));
+  });
+
   it('writes the draft-07 schema file (UNK-069): two-space JSON and a final newline', () => {
     expect(COMMAND_DIALECT).toBe('draft-07');
     expect(planSchema('{"a": 1, "b": [true]}', 'json')).toEqual({

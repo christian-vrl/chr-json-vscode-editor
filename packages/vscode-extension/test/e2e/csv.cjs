@@ -11,6 +11,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vscode = require('vscode');
+const { CRITERION_6, withIndent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const EXPORT = 'chrJsonEditor.exportCsv';
@@ -32,14 +33,15 @@ const PEOPLE_CSV_SEMICOLON =
   'Ada;London;NW1;"[""math"",""poetry""]";\r\n' +
   'Grace;New York;;"[""navy""]";\r\n' +
   'Linus, Jr.;;;[];{}\r\n';
-/** csvToJson of tests/csv/import/people.csv (`;` detected), as "Create JSON File" writes it. */
+/** csvToJson of tests/csv/import/people.csv (`;` detected), as "Create JSON File" writes it: with
+ *  VS Code's indent for JSON (spec 019 I1), 4 spaces by default. */
 const PEOPLE_JSON = `${JSON.stringify(
   [
     { name: 'Ada', address: { city: 'London', zip: 'NW1' }, tags: ['math', 'poetry'] },
     { name: 'Grace', address: { city: 'New York', zip: null }, tags: ['navy', null] },
   ],
   null,
-  2,
+  4,
 )}\n`;
 
 function isCsvPanel(tab) {
@@ -390,6 +392,23 @@ exports.runCsv = async function runCsv({
       assert.deepEqual(fs.readdirSync(path.dirname(csv)).sort(), ['people.csv', 'people.json']);
       assert.equal(fs.readFileSync(csv, 'utf8'), csvText, 'the CSV file changed');
       await closeAll();
+
+      // Spec 019 criterion 6: the new file takes "[json]"'s indent, 4 spaces or a tab.
+      for (const [values, unit] of CRITERION_6) {
+        await withIndent(waitFor, ['json'], values, async () => {
+          const source = copy('import/people.csv');
+          const panel = await panelFrom(CONVERT, vscode.Uri.file(source));
+          await clickAndWait(panel.snapshot, 'Create JSON File');
+          const json = path.join(path.dirname(source), 'people.json');
+          assert.equal(
+            fs.readFileSync(json, 'utf8'),
+            PEOPLE_JSON.replace(/^(?: {4})+/gm, (s) => unit.repeat(s.length / 4)),
+            `Create JSON File with ${JSON.stringify(values)}`,
+          );
+          await closeAll();
+        });
+      }
+      console.log('criterion 6: "Create JSON File" writes "[json]"\'s 4 spaces or a tab');
 
       // From the editor title of a .csv file in the text editor, and an error preview.
       const broken = copy('import/open-quote.csv');

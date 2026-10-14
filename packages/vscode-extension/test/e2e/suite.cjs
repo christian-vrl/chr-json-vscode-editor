@@ -479,6 +479,18 @@ exports.run = async function run() {
     isCustom,
   });
 
+  // Gate (019 T5, spec 019 criterion 6): the indentation of new text from VS Code's settings
+  // (indentSettings.cjs; the commands' cases are in csv.cjs, jsonLines.cjs, import.cjs and
+  // generateSchema.cjs).
+  await closeAll();
+  await require('./indentSettings.cjs').runIndentSettings({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse
   // arrives with 003 T5.

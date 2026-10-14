@@ -17,13 +17,15 @@ import {
   stringify,
   type Format,
   type Style,
+  type WriteOptions,
 } from '@chr-json-editor/core';
 import { csvPreviewText, previewRows } from '@chr-json-editor/app-shell/csv-preview';
 import { FORMAT_LABELS } from './convertPlan';
 import { mib } from './sizeCeiling';
 
 /** How a JSON file "Create JSON File" writes is laid out: as a new document gets it (core
- *  `stringify`), like the dev host's (app-shell's dev-csv-host-adapter.ts). */
+ *  `stringify`), like the dev host's (app-shell's dev-csv-host-adapter.ts). The extension writes
+ *  with VS Code's indent for JSON instead of this 2 (spec 019 I1, `newJsonText`). */
 export const NEW_JSON_STYLE: Style = {
   indent: 2,
   eol: '\n',
@@ -139,27 +141,32 @@ export function importData(
   return 'error' in result ? { error: result.error } : { data: result.data };
 }
 
-/** "Create JSON File"'s text. */
-export function newJsonText(data: unknown): string {
-  return stringify(data, 'json', NEW_JSON_STYLE);
+/** "Create JSON File"'s text, indented by `indent` (spec 019 I1: VS Code's for the new file). */
+export function newJsonText(
+  data: unknown,
+  indent: Style['indent'] = NEW_JSON_STYLE.indent,
+): string {
+  return stringify(data, 'json', { ...NEW_JSON_STYLE, indent });
 }
 
 /**
  * "Replace Document Data" (criterion 4, UNK-042): the document's text with its data replaced by
  * `data`, as `diff(old, new)` applied by the format's `applyPatch` (002 R14), so every member that
  * survives keeps its comments and layout. `error` gives the offset of the parse error that keeps
- * the document from being changed.
+ * the document from being changed. `options` lays out new text where the document has no
+ * indentation to follow (spec 019 I1).
  */
 export function replacedText(
   text: string,
   format: Format,
   data: unknown,
+  options: WriteOptions = {},
 ): { text: string } | { error: { offset: number } } {
   const old = parseData(format, text);
   if ('error' in old) return { error: { offset: old.error.offset } };
   const patch = diff(old.data, data);
   if (patch.length === 0) return { text };
-  return { text: getAdapter(format).applyPatch(text, patch) };
+  return { text: getAdapter(format).applyPatch(text, patch, options) };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

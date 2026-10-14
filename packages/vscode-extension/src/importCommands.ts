@@ -45,6 +45,7 @@ import {
   warningsMessage,
 } from './importPlan';
 import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
+import { newFileIndent, writeOptions } from './settingsVscode';
 import { basename } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -138,7 +139,9 @@ async function convertFile(
   const shown = read.untitled ? 'Untitled' : name;
   const done = await progress(shown, read.bytes, () => {
     const converted = convert(read.text, kind, shown);
-    return converted && { converted, text: stringify(converted.data, 'json', IMPORT_OUTPUT_STYLE) };
+    // Spec 019 I1: the new file is indented as VS Code indents JSON beside the source.
+    const style = { ...IMPORT_OUTPUT_STYLE, indent: newFileIndent(source, 'json') };
+    return converted && { converted, text: stringify(converted.data, 'json', style) };
   });
   if (!done) return undefined;
   const { converted, text } = done;
@@ -210,7 +213,7 @@ async function importFile(
   if (!(await confirm(replaceQuestion(target, name), 'Replace'))) return false;
   if (document.isClosed) return false;
   const text = document.getText();
-  const replaced = replacedText(text, format, converted.data);
+  const replaced = replacedText(text, format, converted.data, writeOptions(document));
   if ('error' in replaced) {
     const position = document.positionAt(replaced.error.offset);
     show('error', brokenTargetMessage(format, position.line + 1, position.character + 1));

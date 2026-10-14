@@ -62,6 +62,17 @@ describe('plan', () => {
     });
   });
 
+  it('indents JSON Lines → JSON by the indent it is given (spec 019 I1)', () => {
+    expect(plan('{"a":1}\n2\n', 'jsonl', 'json', false, { indent: 4 })).toEqual({
+      kind: 'converted',
+      text: '[\n    {"a":1},\n    2\n]\n',
+      losses: [],
+    });
+    expect(plan('1\n', 'jsonl', 'json5', false, { indent: '\t' })).toMatchObject({
+      text: '[\n\t1\n]\n',
+    });
+  });
+
   it('refuses a root that is not an array as JSON Lines, apart from a broken source', () => {
     expect(plan('{"a": 1}', 'json', 'jsonl')).toEqual({ kind: 'not-array' });
     expect(plan('{a: 1} // c', 'json5', 'jsonl')).toEqual({ kind: 'not-array' });

@@ -15,6 +15,7 @@ import {
   valueText,
   type Format,
   type SmartFormatOptions,
+  type WriteOptions,
 } from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
@@ -45,6 +46,8 @@ function memoryDocument(initial: string, format: Format = 'json') {
     asked: [] as (readonly string[])[],
     /** Smart Format's options, read at each run (spec 019 F1). */
     smartFormatOptions: {} as SmartFormatOptions,
+    /** How new text is indented, read at each edit (spec 019 I1). */
+    writeOptions: {} as WriteOptions,
     get text() {
       return text;
     },
@@ -88,6 +91,7 @@ function memoryDocument(initial: string, format: Format = 'json') {
       return doc.confirm(lostComments);
     },
     smartFormatOptions: () => doc.smartFormatOptions,
+    writeOptions: () => doc.writeOptions,
   });
   return doc;
 }
@@ -288,6 +292,36 @@ describe('DocumentSync actions (003 T8)', () => {
     const doc = memoryDocument('{"a": +Infinity}', 'jsonc');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'repair' } }));
     expect(doc.posted).toEqual([expect.objectContaining({ type: 'error', code: 'patch-failed' })]);
+  });
+});
+
+describe('DocumentSync indentation of new text (spec 019 I1)', () => {
+  const NESTED = { a: { b: 1 } };
+
+  it('indents edits on a one-line document by the options read at each edit', async () => {
+    const doc = memoryDocument('{"x": 1}', 'json');
+    doc.writeOptions = { indent: 4 };
+    await doc.sync.edit(
+      edit(1, { kind: 'patch', patch: [{ op: 'replace', path: '', value: NESTED }] }),
+    );
+    expect(doc.text).toBe('{\n    "a": {\n        "b": 1\n    }\n}');
+    // A document with indentation keeps following it (002 R1).
+    doc.writeOptions = { indent: '\t' };
+    await doc.sync.edit(edit(2, { kind: 'patch', patch: [{ op: 'add', path: '/c', value: [2] }] }));
+    expect(doc.text).toBe('{\n    "a": {\n        "b": 1\n    },\n    "c": [\n        2\n    ]\n}');
+  });
+
+  it("writes an empty document's first edit (R15) and Format with the options", async () => {
+    const doc = memoryDocument('', 'json');
+    doc.writeOptions = { indent: '\t' };
+    await doc.sync.edit(
+      edit(1, { kind: 'patch', patch: [{ op: 'add', path: '', value: NESTED }] }),
+    );
+    expect(doc.text).toBe('{\n\t"a": {\n\t\t"b": 1\n\t}\n}\n');
+    const line = memoryDocument('{"a": {"b": 1}}', 'jsonc');
+    line.writeOptions = { indent: 3 };
+    await line.sync.edit(edit(1, { kind: 'action', action: { name: 'format' } }));
+    expect(line.text).toBe('{\n   "a": {\n      "b": 1\n   }\n}');
   });
 });
 

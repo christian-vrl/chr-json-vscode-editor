@@ -3,7 +3,9 @@
 // writes no comments (data has none). Spec 006 (conversion) does not use it: it keeps the file's
 // layout (UNK-033) and rewrites tokens instead.
 //
-// Layout: like `JSON.stringify(data, null, indent)` with the style's line ending, and a final line
+// Layout: like `JSON.stringify(data, null, indent)` (the style's indent, or `options.indent` for a
+// style detected from a text with no indentation, `indentFound: false`, spec 019 I1) with the style's
+// line ending, and a final line
 // ending when `finalNewline`. `indent: 0` writes everything on one line with no spaces. Empty
 // containers are `{}` and `[]`. A trailing comma follows the last member of a multi-line container
 // when `trailingCommas` (R6); a one-line container never gets one.
@@ -23,7 +25,8 @@
 // A value the format cannot hold (a non-finite number in JSON or JSONC, `undefined`, a function or
 // a symbol) throws a `TypeError` rather than being dropped or changed.
 import { LosslessNumber } from './numbers.js';
-import type { Format, Style } from './types.js';
+import { indentUnit } from './style.js';
+import type { Format, Style, WriteOptions } from './types.js';
 
 /** Keys JSON5 can write without quotes: an ES5 IdentifierName. Limited to ASCII so the check does
  *  not depend on a Unicode version; other keys are quoted. */
@@ -31,13 +34,19 @@ const identifier = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 const escapeLineSeparator = (c: string): string => `\\u${c.charCodeAt(0).toString(16)}`;
 
-export function stringify(data: unknown, format: Format, style: Style): string {
+export function stringify(
+  data: unknown,
+  format: Format,
+  style: Style,
+  options: WriteOptions = {},
+): string {
   if (format === 'jsonl') return stringifyLines(data, style);
   const json5 = format === 'json5';
   const quote = json5 ? style.quote : '"';
   const unquotedKeys = json5 && style.unquotedKeys;
   const trailingCommas = format !== 'json' && style.trailingCommas;
-  const unit = style.indent === '\t' ? '\t' : ' '.repeat(style.indent);
+  const indent = indentUnit(style, options.indent);
+  const unit = indent === '\t' ? '\t' : ' '.repeat(indent);
   const eol = style.eol;
 
   const string = (s: string): string => {

@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vscode = require('vscode');
+const { CRITERION_6, withIndent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
@@ -51,9 +52,10 @@ const TO_LINES = {
   },
 };
 /** J1: `LINES`-like items as one array, the items' bytes kept. */
+// J1's items take VS Code's indent for the new file's language (spec 019 I1): 4 spaces by default.
 const FROM_LINES = {
   text: '{"a":1}\n{"b": [2, 3]}\n',
-  array: '[\n  {"a":1},\n  {"b": [2, 3]}\n]\n',
+  array: '[\n    {"a":1},\n    {"b": [2, 3]}\n]\n',
 };
 
 /**
@@ -436,6 +438,29 @@ exports.runJsonLines = async function runJsonLines({
           assert.deepEqual(hooks.convert(undefined).messages, []);
           await closeAll();
         }
+      }
+      // Spec 019 criterion 6: "Convert to JSON" takes "[json]"'s indent, 4 spaces or a tab.
+      for (const [values, unit] of custom ? [] : CRITERION_6) {
+        await withIndent(waitFor, ['json'], values, async () => {
+          const { file, uri } = write('data.jsonl', FROM_LINES.text);
+          await openText(uri);
+          await waitFor('jsonl: context key', () => {
+            return hooks.convert(undefined).context[key(false)] === 'jsonl';
+          });
+          await vscode.commands.executeCommand(COMMANDS.json);
+          const target = path.join(path.dirname(file), 'data.json');
+          await waitFor(`jsonl → json with ${JSON.stringify(values)}`, () => fs.existsSync(target));
+          assert.equal(
+            fs.readFileSync(target, 'utf8'),
+            FROM_LINES.array.replace(/^ {4}/gm, unit),
+            `jsonl → json with ${JSON.stringify(values)}`,
+          );
+          await closeAll();
+        });
+        if (unit === '\t')
+          console.log(
+            'criterion 6: "Convert to JSON" on .jsonl writes "[json]"\'s 4 spaces or a tab',
+          );
       }
       // The document's own format: nothing to do.
       {

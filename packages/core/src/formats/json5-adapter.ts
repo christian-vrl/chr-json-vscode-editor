@@ -104,10 +104,10 @@ export function open(text: string): Doc {
 export const json5Adapter: FormatAdapter = {
   format: 'json5',
   parse,
-  applyPatch: (text, patch) =>
-    patch.reduce((current, op) => applyOperation(current, op, open), text),
-  stringify: (data, style) => stringify(data, 'json5', style),
+  applyPatch: (text, patch, options) =>
+    patch.reduce((current, op) => applyOperation(current, op, open, options), text),
+  stringify: (data, style, options) => stringify(data, 'json5', style, options),
   compact: (text) => compact(text, open),
   sort: (text, options) => sort(text, open, options),
-  prettyPrint: (text) => prettyPrint(text, open),
+  prettyPrint: (text, options) => prettyPrint(text, open, options),
 };

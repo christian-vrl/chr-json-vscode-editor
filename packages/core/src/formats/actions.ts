@@ -7,7 +7,7 @@ import { blockComment, dataOf, type Doc, type Open } from './edit.js';
 import { compareNumbers, LosslessNumber } from './numbers.js';
 import { parseIndex, parsePointer } from './pointer.js';
 import { isComment, Kind, type Token } from './tokens.js';
-import { PatchError, type FormatNode, type SortOptions } from './types.js';
+import { PatchError, type FormatNode, type SortOptions, type WriteOptions } from './types.js';
 
 /** R12: every token kept in order with no white space or line break between tokens; a `//` comment
  *  becomes a block comment (a `*\/` in its text escaped). Line breaks inside strings and block
@@ -26,7 +26,8 @@ export function compact(text: string, open: Open): string {
 /**
  * Format (003 T8, spec 003 criterion 10): the text laid out as `JSON.stringify(data, null, unit)`
  * lays out data, keeping every token as written (quotes, keys, numbers, trailing commas) and every
- * comment. `unit` is the document's indent unit (R1; 2 spaces for a text with no line breaks), the
+ * comment. `unit` is the document's indent unit (R1; for a text with no indentation, `options.indent`,
+ * spec 019 I1, else 2 spaces), the
  * line ending and final newline stay as detected (R10). Comments:
  * - one that started its own line still does, at the indent of what follows it;
  * - one that shared its line with the token before it stays after that token on the same line
@@ -36,11 +37,11 @@ export function compact(text: string, open: Open): string {
  *   attached to a member by UNK-008 stay attached and those attached to none stay unattached.
  * An empty container (no members, no comments) is written `{}` or `[]`.
  */
-export function prettyPrint(text: string, open: Open): string {
+export function prettyPrint(text: string, open: Open, options: WriteOptions = {}): string {
   // A byte order mark stays where it is. JSON5 reads it as white space and JSONC as an error;
   // either way it is not part of the layout.
-  if (text.startsWith('\uFEFF')) return '\uFEFF' + prettyPrint(text.slice(1), open);
-  const doc = open(text);
+  if (text.startsWith('\uFEFF')) return '\uFEFF' + prettyPrint(text.slice(1), open, options);
+  const doc = open(text).withIndent(options.indent);
   const { tokens, style } = doc;
   const unit = doc.unit;
   const eol = style.eol;

@@ -30,7 +30,8 @@ import { json5Tokens } from './json5-adapter.js';
 import { parsedTokens } from './jsonc-adapter.js';
 import { parseJson5 } from './json5-parser.js';
 import { isComment, Kind, type Token } from './tokens.js';
-import { PatchError, type Format } from './types.js';
+import { indentUnit } from './style.js';
+import { PatchError, type Format, type WriteOptions } from './types.js';
 
 /** The formats smart format lays out (spec 010 §Scope): not JSON Lines. */
 export type SmartFormatFormat = Exclude<Format, 'jsonl'>;
@@ -42,18 +43,22 @@ export interface SmartFormatOptions {
   /** FracturedJson's `MaxTotalLineLength`, in columns (a tab counted as 4); spec 019 F1. Default
    *  `SMART_FORMAT_MAX_LINE_LENGTH`. */
   maxLineLength?: number;
+  /** The indent unit for a text with no indentation to follow (spec 019 I1, `WriteOptions`): a
+   *  text with indentation keeps its own (L1). Default 2 spaces. */
+  indent?: WriteOptions['indent'];
 }
 
 /**
  * `text` laid out by FracturedJson 5.1.0 with spec 010 §Layout's options, changing only white space,
  * line breaks and commas (criterion 3). Throws a `PatchError` when the text has a parse `error`
  * diagnostic (criterion 9); a text with no value (empty, white space or comments only) comes back
- * unchanged (criterion 5). `options.maxLineLength` replaces the 120-column line length (spec 019 F1).
+ * unchanged (criterion 5). `options.maxLineLength` replaces the 120-column line length (spec 019 F1),
+ * and `options.indent` is the indent unit of a text with no indentation (spec 019 I1).
  */
 export function smartFormat(
   text: string,
   format: SmartFormatFormat,
-  { maxLineLength = SMART_FORMAT_MAX_LINE_LENGTH }: SmartFormatOptions = {},
+  { maxLineLength = SMART_FORMAT_MAX_LINE_LENGTH, indent }: SmartFormatOptions = {},
 ): string {
   const bom = text.startsWith('\uFEFF') ? '\uFEFF' : '';
   const body = text.slice(bom.length);
@@ -72,7 +77,7 @@ export function smartFormat(
 
   const bridged = bridge(body, tokens, format);
   const formatter = new Formatter();
-  formatter.Options = options(style.indent, style.eol, maxLineLength);
+  formatter.Options = options(indentUnit(style, indent), style.eol, maxLineLength);
   const { widths, marker } = bridged;
   const width = (s: string) =>
     widths.get(s) ?? columns(s.includes(marker) ? bridged.restore(s) : s);
