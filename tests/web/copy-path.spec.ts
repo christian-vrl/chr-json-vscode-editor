@@ -223,6 +223,21 @@ test.describe('a mode switch keeps the place (criterion 6)', () => {
     expect(await currentNode(page)).toEqual({ kind: 'path', path: [1, 'language'] });
   });
 
+  test('table to tree with nothing selected selects nothing, and the next click selects', async ({
+    page,
+  }) => {
+    await open(page, ROWS, '&mode=table');
+    await expect(page.locator('.jse-table-mode')).toContainText('COBOL');
+    await switchTo(page, 'Tree');
+    await expect(page.locator('.jse-tree-mode')).toBeVisible();
+    const selected = '.jse-selected, .jse-selected-value, .jse-selected-key';
+    await expect(page.locator(`.jse-tree-mode .jse-contents`).locator(selected)).toHaveCount(0);
+    expect(await currentNode(page)).toEqual({ kind: 'path', path: [] });
+    await node(page, '/1/language').locator('.jse-value').first().click();
+    await expect(node(page, '/1/language')).toHaveClass(/jse-selected/);
+    expect(await currentNode(page)).toEqual({ kind: 'path', path: [1, 'language'] });
+  });
+
   test('a broken text selects nothing', async ({ page }) => {
     await open(page, '{"a": [1, }', '&mode=text');
     await expect(page.locator('.jse-text-mode')).toBeVisible();

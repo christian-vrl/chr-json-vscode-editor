@@ -28,9 +28,11 @@ import * as vscode from 'vscode';
 import {
   decodeToHost,
   PROTOCOL_VERSION,
+  type CurrentNode,
   type Format,
   type LargeFile,
   type Mode,
+  type NodePath,
   type SchemaError,
   type ToHostMessage,
   type ToWebviewMessage,
@@ -107,6 +109,8 @@ interface Session {
   flushes: Map<number, () => void>;
   /** `getRowSource` requests waiting for the webview's `rowSource`, by request number (009 T4). */
   rowSources: Map<number, (path: string) => void>;
+  /** `getNode` requests waiting for the webview's `node`, by request number (018 T3). */
+  nodes: Map<number, (node: CurrentNode | undefined) => void>;
   /** Large-file mode, chosen when the tab opened (spec 008); null for the normal editor. */
   largeFile: LargeFile | null;
   /** The settings for the document (spec 019), read when the tab opened and again on each change
@@ -135,6 +139,10 @@ let nextFlush = 1;
  *  before it exports the document's data instead. */
 const ROW_SOURCE_TIMEOUT_MS = 1000;
 
+/** How long the copy and reveal commands wait for the webview to name its current node (spec 018
+ *  S5), or for a tab that just opened to be ready for `reveal`, before they give up. */
+const NODE_TIMEOUT_MS = 5000;
+
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Filled only when `__CHR_TEST_HOOKS__` is true. */
   readonly snapshots = new Map<vscode.WebviewPanel, WebviewSnapshot>();
@@ -152,6 +160,14 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Fires with a document's URI when a tab of it opens, closes or is unlocked: whether the
    *  document is locked (`isLocked`) may have changed (spec 009 criterion 10). */
   readonly onDidChangeLocks = this.lockChanges.event;
+  private readonly readies = new vscode.EventEmitter<vscode.TextDocument>();
+  private readonly textReveals = new vscode.EventEmitter<{
+    document: vscode.TextDocument;
+    path: NodePath;
+  }>();
+  /** Fires when a tab's "Reveal in Text Editor" menu item asks to show a node (spec 018 S2, S5);
+   *  pathCommands.ts shows it. */
+  readonly onDidRequestRevealInText = this.textReveals.event;
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
@@ -182,6 +198,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider),
         provider.pausedItem,
         provider.lockChanges,
+        provider.readies,
+        provider.textReveals,
       ),
     };
   }
@@ -242,6 +260,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       ready: false,
       flushes: new Map(),
       rowSources: new Map(),
+      nodes: new Map(),
       largeFile,
       settings: openedWith,
       openMode: openingMode(openedWith, largeFile !== null),
@@ -379,6 +398,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       viewState.dispose();
       for (const resolve of session.flushes.values()) resolve();
       for (const resolve of session.rowSources.values()) resolve('');
+      for (const resolve of session.nodes.values()) resolve(undefined);
       session.schema.dispose();
       session.validation.dispose();
       this.sessions.delete(panel);
@@ -414,6 +434,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         });
         session.validation.run();
         this.pausedItem.refresh();
+        this.readies.fire(document);
         return;
       case 'edit':
         if (__CHR_TEST_HOOKS__) this.snapshots.get(session.panel)!.editsReceived++;
@@ -460,8 +481,12 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         void vscode.env.clipboard.writeText(message.text);
         return;
       case 'node':
+        session.nodes.get(message.request)?.(message.node);
+        session.nodes.delete(message.request);
+        return;
       case 'revealInText':
-        // The copy and reveal commands that ask for the node and show it are 018 T3's.
+        // The context menu's "Reveal in Text Editor" (spec 018 S2): pathCommands.ts shows it.
+        this.textReveals.fire({ document, path: message.path });
         return;
       case 'openAsText':
         // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open. From
@@ -548,6 +573,67 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         request,
       });
     });
+  }
+
+  /**
+   * The current node of `document`'s active CHR JSON Editor tab (spec 018 §Terms, S1), as its
+   * webview names it once it has handed over its typing. Undefined when no ready tab is active, or
+   * no answer comes in NODE_TIMEOUT_MS.
+   */
+  currentNode(document: vscode.TextDocument): Promise<CurrentNode | undefined> {
+    const session = [...this.sessions.values()].find(
+      (s) => s.document === document && s.ready && s.panel.active,
+    );
+    if (!session) return Promise.resolve(undefined);
+    const request = nextFlush++;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => done(undefined), NODE_TIMEOUT_MS);
+      function done(node: CurrentNode | undefined) {
+        clearTimeout(timer);
+        session!.nodes.delete(request);
+        resolve(node);
+      }
+      session.nodes.set(request, done);
+      this.post(session, {
+        protocol: PROTOCOL_VERSION,
+        type: 'getNode',
+        docVersion: document.version,
+        request,
+      });
+    });
+  }
+
+  /**
+   * "Reveal in CHR JSON Editor" (spec 018 S5): the active CHR JSON Editor tab of `document` selects
+   * the node of `path` and scrolls to it, in its mode. A tab that just opened gets it once its
+   * webview is ready (up to NODE_TIMEOUT_MS). Resolves false when no such tab shows the document.
+   */
+  async reveal(document: vscode.TextDocument, path: readonly NodePath[number][]): Promise<boolean> {
+    const shown = () =>
+      [...this.sessions.values()].find((s) => s.document === document && s.panel.active);
+    let session = shown();
+    if (!session?.ready) {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(done, NODE_TIMEOUT_MS);
+        const listener = this.readies.event((ready) => {
+          if (ready === document && shown()?.ready) done();
+        });
+        function done() {
+          clearTimeout(timer);
+          listener.dispose();
+          resolve();
+        }
+      });
+      session = shown();
+    }
+    if (!session?.ready) return false;
+    this.post(session, {
+      protocol: PROTOCOL_VERSION,
+      type: 'reveal',
+      docVersion: document.version,
+      path: [...path],
+    });
+    return true;
   }
 
   /** "Open as Text": VS Code's text editor on `document`, at its first bad line when it is JSON
@@ -759,6 +845,15 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return false;
     void session.panel.webview.postMessage({ chrTest: 'select', path });
+    return true;
+  }
+
+  /** Test hook: puts text mode's cursor at `offset` in the webview of `uri` (018 T3). */
+  cursor(uri: string, offset: number): boolean {
+    if (!__CHR_TEST_HOOKS__) throw new Error('test hooks are not built in');
+    const session = this.sessionFor(uri);
+    if (!session) return false;
+    void session.panel.webview.postMessage({ chrTest: 'cursor', offset });
     return true;
   }
 

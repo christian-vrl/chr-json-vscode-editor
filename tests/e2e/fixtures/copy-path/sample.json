@@ -1,0 +1,9 @@
+{
+  "people": [
+    { "name": "Ada", "a.b": 1 },
+    { "name": "Bob", "a.b": 2 }
+  ],
+  "count": 2,
+  "a/b": { "m~n": true },
+  "0": ["zero"]
+}
