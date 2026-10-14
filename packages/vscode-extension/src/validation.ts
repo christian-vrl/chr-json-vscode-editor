@@ -81,7 +81,9 @@ export function selectDialect(
 
 /**
  * Compiles `schema` with the options spec 004 criterion 2 fixes: `strict: false`,
- * `allErrors: true`, `ajv-formats`, and no `loadSchema`, so a remote `$ref` never loads (offline,
+ * `allErrors: true`, `ownProperties: true` (amended by spec 016, 016 T2: keywords look at a
+ * document's own keys only, so a schema naming `constructor` or `toString` reports nothing on an
+ * object that merely inherits them), `ajv-formats`, and no `loadSchema`, so a remote `$ref` never loads (offline,
  * AGENTS.md rule 3) and is reported as {@link REMOTE_REF_REASON} instead. Never throws.
  */
 export function compileSchema(schema: object | boolean, override?: SchemaDialect): CompiledSchema {
@@ -89,7 +91,7 @@ export function compileSchema(schema: object | boolean, override?: SchemaDialect
   schema = nearestNumbers(schema) as object | boolean;
   const dialect = selectDialect(schema, override);
   if (typeof dialect === 'string') return { ok: false, dialect: null, reason: dialect };
-  const options = { strict: false, allErrors: true };
+  const options = { strict: false, allErrors: true, ownProperties: true };
   const ajv =
     dialect.name === '2020-12'
       ? new Ajv2020(options)

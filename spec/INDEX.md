@@ -49,8 +49,9 @@ tasks run in order unless marked `parallel`.
 | 016-generate-schema | Generate JSON Schema: one command writes a schema the document passes, beside it, and links it in one click | our own generator in `core` (keys and types only); dialect per UNK-069, link per UNK-070; amends 004 criterion 2 (`ownProperties: true`); T4 needs 012 T5, T5 needs 013 T4 |
 | 017-yaml-toml-xml-import | YAML, TOML and XML import: "Convert YAML/TOML/XML to JSON" writes a `.json` file beside the source; "Import YAML, TOML or XML…" replaces the open document's data | `yaml` 2.9.1, `smol-toml` 1.9.0, `saxes` 6.0.0 in `core` (ADR-015); XML shape per UNK-075, import only per UNK-076, YAML size limit per UNK-077; T2 needs 015 T2, T3 needs 009 T4, T4 needs 012 T5, T5 needs 013 T4 |
 | 018-copy-path-reveal-node | Copy path and reveal node: copy the node at the cursor or selection as JSONPath or JSON Pointer, and show it in the other editor, from tree, table and text mode and VS Code's text editor | our own path code in `core` (no tree, one partial scan); notations per UNK-080, JSONPath spelling per UNK-081, where a reveal opens per UNK-082; the navigation bar reads and shows JSONPath; T4 needs 012 T5, T5 needs 013 T4 |
+| 019-settings | Settings: VS Code settings for the start mode, the large-file threshold, Smart Format's line length, new-text indentation, the first query language, validation on or off and table and tree display, applied without a reload | `contributes.configuration` read by one host reader, a live `settings` message to the page; threshold per UNK-087, indentation per UNK-088; amends 008's threshold and 010 L8; Restricted Mode left to UNK-086; T5 needs 016 T3 and 017 T3 |
 
-Backlog: 019 Settings · 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
+Backlog: 020 Chrome offline app: MV3 extension page and installable PWA from one build (UNK-009)
 
 ## How an agent picks work
 

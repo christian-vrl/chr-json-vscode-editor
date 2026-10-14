@@ -1,6 +1,7 @@
 // Unit checks for 004 T2's host-side validation: Ajv's errors for a sample schema, documents that
 // cannot be validated, and that every posted result names the document version it describes.
 import { readFileSync } from 'node:fs';
+import Ajv from 'ajv';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PROTOCOL_VERSION, type ValidationMessage } from '@chr-json-editor/app-shell/protocol';
 import { DocumentValidation, compileSchema, validateText } from '../../src/validation';
@@ -88,6 +89,31 @@ describe('compileSchema', () => {
     // `dependencies` is a draft-07 keyword (2019-09 split it into dependentRequired/Schemas).
     const validate = validatorFor({ dependencies: { a: ['b'] } });
     expect(validate({ a: 1 }).map((e) => e.keyword)).toEqual(['dependencies']);
+  });
+});
+
+// Spec 016 criterion 4 (016 T2): the validator runs with `ownProperties: true` (004 criterion 2 as
+// amended), so a schema naming inherited members checks the document's own keys only. That every
+// tests/schema/ fixture keeps its expected errors with the option on is tests/schema/schema.test.ts.
+describe('spec 016 criterion 4: inherited keys', () => {
+  const schema = {
+    properties: { constructor: { type: 'null' }, toString: { type: 'string' } },
+    required: ['hasOwnProperty'],
+  };
+  const where = (errors: { instancePath: string; keyword: string }[]) =>
+    errors.map(({ instancePath, keyword }) => ({ instancePath, keyword }));
+
+  it('reports exactly one error, required at "", on {}', () => {
+    expect(where(validatorFor(schema)({}))).toEqual([{ instancePath: '', keyword: 'required' }]);
+  });
+
+  it("without ownProperties Ajv reads {}'s inherited members instead (the error it fixes)", () => {
+    const validate = new Ajv({ strict: false, allErrors: true }).compile(schema);
+    validate({});
+    expect(where(validate.errors ?? [])).toEqual([
+      { instancePath: '/constructor', keyword: 'type' },
+      { instancePath: '/toString', keyword: 'type' },
+    ]);
   });
 });
 
