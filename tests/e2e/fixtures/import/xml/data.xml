@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A Maven-like file. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <groupId>org.example</groupId>
+  <version>1.50</version>
+  <count>3</count>
+  <dependency scope="test"><artifactId>junit</artifactId></dependency>
+  <dependency><artifactId>slf4j</artifactId></dependency>
+  <empty/>
+</project>

@@ -1,0 +1,7 @@
+{
+  // Kept: the member stays.
+  root: {
+    id: 7,
+    tags: ['a', 'b'],
+  },
+}

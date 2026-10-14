@@ -111,3 +111,9 @@ http://json-schema.org/draft-06/schema#
 # 002 T10: the extension host bundles natural-compare-lite 1.4.1 through core's sort (R13).
 # Its license header names the author's repository; nothing fetches it.
 https://github.com/litejs/natural-compare-lite
+
+# 017 T3 (spec 017 criterion 12): the extension hosts bundle saxes 6.0.0 for XML import. These are
+# the XML and XMLNS namespace names it holds as constants (XML Namespaces 1.0 §3) to check prefixes;
+# nothing fetches them, and DTDs and external entities are never read (XM7).
+http://www.w3.org/XML/1998/namespace
+http://www.w3.org/2000/xmlns/

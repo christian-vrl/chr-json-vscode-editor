@@ -393,6 +393,11 @@ exports.run = async function run() {
     assertCriterion6,
   });
 
+  // Gate (017 T3, criteria 5, 6 and 7, and 12's bundles): the YAML, TOML and XML commands
+  // (import.cjs).
+  await closeAll();
+  await require('./import.cjs').runImport({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
   // Gate (008 T4, criterion 9): VS Code's sync limit and the ceiling message (ceiling.cjs).
   await closeAll();
   await require('./ceiling.cjs').runCeiling({ hooks, waitFor, closeAll, expectOnly, isCustom });

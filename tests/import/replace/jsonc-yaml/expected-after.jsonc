@@ -1,0 +1,5 @@
+{
+  // The service name.
+  "name": "web",
+  "port": 9090, // the port
+}
