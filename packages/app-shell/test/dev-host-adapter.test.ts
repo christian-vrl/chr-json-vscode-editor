@@ -2,6 +2,7 @@
 // page and test:web use.
 import { describe, expect, it } from 'vitest';
 import { DevHostAdapter } from '../src/dev-host-adapter.js';
+import { DEFAULT_EDITOR_SETTINGS, PROTOCOL_VERSION } from '../src/protocol.js';
 import { describeHostAdapterContract } from './host-adapter-contract.js';
 
 describeHostAdapterContract('DevHostAdapter', (text) => {
@@ -50,6 +51,33 @@ describe('DevHostAdapter', () => {
         { type: 'setFormat', format: 'json5', docVersion: doc.docVersion },
       ]);
     expect(host.text).toBe('{}');
+  });
+
+  it('opens with the settings given over the defaults and sends settings changes (spec 019 A2)', async () => {
+    const host = new DevHostAdapter({
+      text: '{}',
+      format: 'json',
+      mode: 'tree',
+      settings: { flattenColumns: false },
+    });
+    const doc = await host.open();
+    expect(doc.settings).toEqual({ ...DEFAULT_EDITOR_SETTINGS, flattenColumns: false });
+    const events: unknown[] = [];
+    host.onExternalChange((e) => events.push(e));
+    host.setSettings({ defaultQueryLanguage: 'jmespath' });
+    const settings = {
+      ...DEFAULT_EDITOR_SETTINGS,
+      flattenColumns: false,
+      defaultQueryLanguage: 'jmespath',
+    };
+    await expect
+      .poll(() => events)
+      .toEqual([
+        { protocol: PROTOCOL_VERSION, type: 'settings', docVersion: doc.docVersion, settings },
+      ]);
+    expect(host.getSettings()).toEqual(settings);
+    expect(host.text).toBe('{}');
+    expect(host.docVersion).toBe(doc.docVersion);
   });
 
   it('a locked large file refuses changes, undo and redo until unlocked (spec 008)', async () => {
