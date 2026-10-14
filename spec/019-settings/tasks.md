@@ -32,7 +32,7 @@
   case unchanged*
 
 ## Phase E — Indentation (risk-free / additive)
-- [ ] **T5** (per UNK-088) Core reports "no indentation found" and takes a fallback indent in
+- [x] **T5** (per UNK-088) Core reports "no indentation found" and takes a fallback indent in
   `applyPatch`, `stringify`, convert and the CSV writer (default 2 spaces); the host passes I1's
   indent to edits, Format, Smart Format, "Convert CSV to JSON", JSON Lines → JSON, "Generate JSON
   Schema" and the YAML/TOML/XML converts; unit and e2e cases. — needs: 019 T1, 016 T3, 017 T3 —

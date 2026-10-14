@@ -306,7 +306,10 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
       ]);
       assert.equal(
         read(path.join(path.dirname(file), 'stack.json')),
-        '[\n  {\n    "name": "web",\n    "port": "Port"\n  },\n  {\n    "name": "db"\n  }\n]\n',
+        reindent(
+          '[\n  {\n    "name": "web",\n    "port": "Port"\n  },\n  {\n    "name": "db"\n  }\n]\n',
+          DEFAULT_UNIT,
+        ),
       );
       await closeAll();
       console.log('import: warnings are listed in the output channel');
