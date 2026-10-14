@@ -9,8 +9,8 @@ import { parseData } from '../formats/parse-data.js';
 const NUMBER = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/;
 
 /** An unquoted cell that I7 reads as a number: RFC 8259 syntax and written back unchanged, or a
- *  big number (`007`, `1.50` and `1e3` stay strings). */
-function asNumber(text: string): number | LosslessNumber | undefined {
+ *  big number (`007`, `1.50` and `1e3` stay strings). Spec 017 XM6 reads XML text the same way. */
+export function asNumber(text: string): number | LosslessNumber | undefined {
   if (!NUMBER.test(text)) return undefined;
   if (!isSafeNumber(text)) return new LosslessNumber(text);
   const value = Number(text);

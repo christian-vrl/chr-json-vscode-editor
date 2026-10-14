@@ -25,8 +25,8 @@ importer: each `expected.json` is in the output style with every number written 
 writes it (002 R8, 015 B2: as `JSON.stringify`, `-0` as `-0`, a big number as its decimal text),
 each tag holds for its case (a `bom` case starts with EF BB BF, a `toml-dates` case has all four
 TM4 forms, and so on), messages name lines that exist and warnings come in line order, and the
-messages the rules fix are used where they apply. The golden test itself comes with the importer
-in 017 T2.
+messages the rules fix are used where they apply. The golden test itself is `import-apply.test.ts`
+(017 T2).
 
 ## Readings the corpus takes where the rules leave a detail open
 
@@ -79,8 +79,9 @@ in 017 T2.
    `xml/too-deep` the XM1 object is level 1 and each of the 1,000 outer elements, having a child
    element, is an object one level deeper, so 1,001 nested elements make 1,001 levels. The limit
    from below (1,000 levels convert) is left to T2's unit tests: its `expected.json` would be
-   about 1 MB of indentation. In the sandbox `yaml` 2.9.1 already reports 1,001 nested `[` as a
-   document error ("Maximum call stack size exceeded") rather than throwing; either way it is A5.
+   about 1 MB of indentation. `yaml` 2.9.1 overflows the stack well before 1,001 levels, so YAML
+   stops at 500 levels with its own message and `yaml/too-deep`, deeper than 1,000, still gives
+   A5's (A5, 017 T2; `packages/core/test/import.test.ts` covers both limits).
 7. **Merge order** (Y5): merged members take the place of the `<<` key, the first merged mapping's
    members first, then the later ones' members not already there; a member written in the
    mapping keeps its value, and its place when written before `<<`, while one written after it
