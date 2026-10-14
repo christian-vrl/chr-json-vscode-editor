@@ -34,8 +34,7 @@ always go through `vscode.env.clipboard`, which works in the desktop and the web
 - `core` stays free of DOM and Node APIs (spec 013).
 - Locating never builds a parse tree and never adds to core's parse cache (criteria 4, 11).
 - Webview messages: the PR that adds them bumps the protocol version by one and adds its changelog
-  row; the number is the next free one on `main` when it merges (13 and 14 are being taken by 012 T4
-  and 010 T3).
+  row; the number is the next free one on `main` when it merges (16, taken by 018 T2).
 
 ## Steps (each with a gate)
 | Step | Goal | Evidence to produce | Gate |
