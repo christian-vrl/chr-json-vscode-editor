@@ -75,7 +75,7 @@ add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
   `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
-  `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''} ${results.imports?.length ? ' or `packages/core/src/import`' : ''} changes speed.`,
+  `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''}${results.imports?.length ? ' or `packages/core/src/import`' : ''} changes speed.`,
   '',
   '## Run',
   '',

@@ -102,6 +102,7 @@ describe('criterion 4: bombs', () => {
   it('allows exactly 1,000,000 values added by aliases and refuses 1,000,001 (Y6)', () => {
     // `a` is a sequence of 999 values, so each alias of it adds 1,000 values (the sequence and its
     // items) and 1,000 aliases add exactly 1,000,000; one more alias of a scalar adds the 1,000,001st.
+    // Four conversions of a million values each take seconds on a loaded runner, hence the timeout.
     const a = `a: &a [${Array(999).fill('0').join(', ')}]`;
     const items = `b: [${Array(1000).fill('*a').join(', ')}]`;
     const oneMore = ['c: &c 0', 'd: *c'];
@@ -114,7 +115,6 @@ describe('criterion 4: bombs', () => {
     const merged = [m, a, `b: [${Array(999).fill('*a').join(', ')}]`, 'x: {<<: *m}'];
     expect(text(merged.join('\n'), 'yaml')).toMatch(/^\{"m":\{"k0":0,/);
     expect(error([...merged, ...oneMore].join('\n'), 'yaml')).toEqual(Y6);
-    // Four conversions of a million values each: seconds, not the default 5 s, on a loaded runner.
   }, 60_000);
 
   it('keeps a DOCTYPE "billion laughs" unexpanded in under 1 s (XM7)', () => {
