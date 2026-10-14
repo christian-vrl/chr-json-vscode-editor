@@ -20,17 +20,27 @@
 //   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB); smart format
 //                                                   always runs at 1 and 5 MiB
 //
+// It also times `importData` on the bench records written as YAML, TOML and XML (017 T4, spec 017
+// criterion 10, UNK-077's evidence rule): see IMPORT_SIZES_MIB.
 // BENCH_CORE=<path to a core build's dist/index.js> measures that build instead, without smart
-// format (spec 015 criterion 11: the bench job also builds the base commit's core);
+// format or import (spec 015 criterion 11: the bench job also builds the base commit's core);
 // BENCH_FORMATS=json,jsonc limits the formats.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { BIG_ID_BASE, documentText, LAST_MARKER, linesText, MIB } from '../generate.mjs';
+import {
+  BIG_ID_BASE,
+  documentText,
+  IMPORT_KINDS,
+  importText,
+  LAST_MARKER,
+  linesText,
+  MIB,
+} from '../generate.mjs';
 
-const { getAdapter, parseData, smartFormat } = await import(
+const { getAdapter, importData, parseData, smartFormat } = await import(
   process.env.BENCH_CORE
     ? pathToFileURL(path.resolve(process.env.BENCH_CORE)).href
     : '@chr-json-editor/core'
@@ -52,6 +62,17 @@ export const ID_SIZES_MIB = [6, 10, 50];
 export const WEBVIEW_MIB = 5;
 export const WEBVIEW_FORMATS = ['json', 'json-ids'];
 const APP_SHELL = new URL('../../packages/app-shell/dist/', import.meta.url);
+// Spec 017 criterion 10: TOML and XML at these sizes; YAML at these and 20 MiB, UNK-077's
+// candidates (5, 10, 20, 50 MiB), in order until the first that misses its rule (IMPORT_RULE): a
+// larger file takes longer still, and measuring a 50 MiB YAML file holds the runner for minutes.
+export const IMPORT_SIZES_MIB = {
+  yaml: [1, 5, 10, 20, 50],
+  toml: [1, 5, 10, 50],
+  xml: [1, 5, 10, 50],
+};
+/** UNK-077's evidence rule: the YAML limit is the largest candidate whose median `importData`
+ *  time is under `ms` and whose result retains under `bytes` of heap. */
+export const IMPORT_RULE = { ms: 10_000, bytes: 1.5 * 2 ** 30 };
 
 const WORDS = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
 
@@ -404,6 +425,52 @@ async function measureWebview(benchFormat) {
   return result;
 }
 
+/** The records `importData` gives for the bench text of `kind` (generate.mjs `importText`). */
+function importedRecords(kind, data) {
+  if (kind === 'yaml') return data;
+  return kind === 'toml' ? data?.records : data?.records?.record;
+}
+
+/** Checks `importData` reads every record of the bench text with no warning, and returns the heap
+ *  its result keeps alive after a full collection. */
+function checkAndMeasureImport(kind, text, records, label) {
+  gc();
+  const before = process.memoryUsage().heapUsed;
+  const imported = importData(text, kind);
+  gc();
+  const bytes = process.memoryUsage().heapUsed - before;
+  if ('error' in imported) throw new Error(`${label}: ${imported.error.message}`);
+  const got = importedRecords(kind, imported.data);
+  if (!Array.isArray(got) || got.length !== records)
+    throw new Error(`${label}: expected ${records} records`);
+  if (imported.warnings.length) throw new Error(`${label}: warnings`);
+  if (!JSON.stringify(got.at(-1)).includes(LAST_MARKER))
+    throw new Error(`${label}: the last record was not read`);
+  return bytes;
+}
+
+/** `importData` of the bench records as `kind` at `mib`, in a process of its own: the heap its
+ *  result retains, then 3 timed runs. */
+function measureImport(kind, mib) {
+  const bytes = mib * MIB;
+  const { text, records } = importText(kind, bytes);
+  const warm = importText(kind, MIB / 4).text;
+  for (let i = 0; i < 3; i++) importData(warm, kind);
+  const retainedHeapBytes = checkAndMeasureImport(kind, text, records, `${kind} ${mib} MiB`);
+  const result = { kind, mib, bytes, records, retainedHeapBytes, importData: [] };
+  for (let run = 0; run < RUNS; run++)
+    result.importData.push(time(() => importData(text, kind)).ms);
+  result.maxRssBytes = process.resourceUsage().maxRSS * 1024;
+  return result;
+}
+
+/** Whether a measured import meets UNK-077's rule. */
+export function meetsImportRule(result) {
+  const sorted = [...result.importData].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  return median < IMPORT_RULE.ms && result.retainedHeapBytes < IMPORT_RULE.bytes;
+}
+
 // Heap ceiling for the measuring processes. Node's default (about 2 GiB on the 8 GiB runner) is too
 // small for one 50 MiB parse; the default is recorded so the report can say which sizes exceed it.
 const HEAP_MIB = 6144;
@@ -417,6 +484,9 @@ if (process.argv[2] === '--child') {
   process.stdout.write(JSON.stringify(measureIds(format, Number(mib))) + '\n');
 } else if (process.argv[2] === '--webview-child') {
   process.stdout.write(JSON.stringify(await measureWebview(process.argv[3])) + '\n');
+} else if (process.argv[2] === '--import-child') {
+  const [kind, mib] = process.argv.slice(3);
+  process.stdout.write(JSON.stringify(measureImport(kind, Number(mib))) + '\n');
 } else if (process.argv[2] === '--smart-child') {
   const [format, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measureSmart(format, Number(mib))) + '\n');
@@ -512,6 +582,32 @@ if (process.argv[2] === '--child') {
         );
         return result;
       });
+  const imports = (process.env.BENCH_CORE ? [] : IMPORT_KINDS).map((kind) => {
+    const measured = [];
+    for (const mib of IMPORT_SIZES_MIB[kind]) {
+      const stdout = execFileSync(
+        process.execPath,
+        [
+          '--expose-gc',
+          `--max-old-space-size=${HEAP_MIB}`,
+          here,
+          '--import-child',
+          kind,
+          String(mib),
+        ],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 20 },
+      );
+      const result = JSON.parse(stdout.trim().split('\n').pop());
+      console.log(
+        `bench core: ${kind} ${mib} MiB importData ${result.importData.map(Math.round).join('/')} ms, ` +
+          `retained heap ${Math.round(result.retainedHeapBytes / MIB)} MiB, ` +
+          `max RSS ${Math.round(result.maxRssBytes / MIB)} MiB`,
+      );
+      measured.push(result);
+      if (kind === 'yaml' && mib >= 5 && !meetsImportRule(result)) break;
+    }
+    return { kind, sizes: measured };
+  });
   writeFileSync(
     out,
     JSON.stringify(
@@ -525,6 +621,8 @@ if (process.argv[2] === '--child') {
         smart,
         ids,
         webview,
+        imports,
+        importRule: IMPORT_RULE,
       },
       null,
       2,

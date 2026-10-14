@@ -1,14 +1,15 @@
-// Gate for 017 T3 (spec 017 criteria 5, 6 for JSON, JSONC and JSON5 tabs, and 7), run by suite.cjs
-// inside VS Code. "Convert YAML / TOML / XML to JSON" from the explorer, the text editor's title
-// menu and the palette write `<name>.json` beside the source, byte for byte as
+// Gate for 017 T3 and T4 (spec 017 criteria 5, 6 for JSON, JSONC, JSON5 and JSON Lines tabs, and
+// 7), run by suite.cjs inside VS Code. "Convert YAML / TOML / XML to JSON" from the explorer, the
+// text editor's title menu and the palette write `<name>.json` beside the source, byte for byte as
 // tests/e2e/fixtures/import/<kind>/expected.json, and open it in the CHR JSON Editor; a taken name
 // opens a save dialog prefilled with it, whose "Cancel" writes nothing; an untitled source gives an
 // untitled JSON document (5). "Import YAML, TOML or XML…" asks, then replaces the document's data
 // byte for byte as tests/import/replace/*/expected-after.* in one undoable edit; "Cancel" changes
-// nothing (6). A malformed file of each kind shows criterion 7's message and changes nothing; a
-// conversion with warnings offers "Show Warnings" for the output channel (7). Also criterion 12's
-// bundles: the three libraries are in both host entries and in no webview script. The fixtures are
-// copied into run.mjs's scratch folder, so the copies never touch the repository's files.
+// nothing; a JSON Lines tab takes an array only (6). A malformed file of each kind shows criterion
+// 7's message and changes nothing; a conversion with warnings offers "Show Warnings" for the output
+// channel (7). Also criterion 12's bundles: the three libraries are in both host entries and in no
+// webview script. The fixtures are copied into run.mjs's scratch folder, so the copies never touch
+// the repository's files.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -337,6 +338,29 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
       assert.deepEqual(hooks.imports(undefined).messages, [MALFORMED.xml]);
       assert.equal(read(target), read(path.join(REPLACE, 'json-toml', 'before.json')));
       await closeAll();
+    }
+
+    // Criterion 6 in a JSON Lines tab (017 T4): an array's items replace the lines (the jsonl-yaml
+    // case above); any other value gives the message, is not asked about and changes nothing.
+    {
+      const before = read(path.join(REPLACE, 'jsonl-yaml', 'before.jsonl'));
+      const target = copy(path.join(REPLACE, 'jsonl-yaml', 'before.jsonl'), 'doc.jsonl');
+      const toml = copy(path.join(REPLACE, 'json-toml', 'data.toml'));
+      const uri = await openCustom(target);
+      const document = await vscode.workspace.openTextDocument(uri);
+      hooks.imports({ pick: () => vscode.Uri.file(toml).toString() });
+      hooks.confirm(() => {
+        throw new Error('asked about data a JSON Lines tab cannot take');
+      });
+      assert.equal(await vscode.commands.executeCommand(IMPORT), false);
+      hooks.confirm(undefined);
+      assert.deepEqual(hooks.imports(undefined).messages, [
+        'CHR JSON Editor: JSON Lines needs an array; data.toml holds an object.',
+      ]);
+      assert.equal(document.getText(), before, 'the JSON Lines document changed');
+      assert.equal(document.isDirty, false, 'the JSON Lines document is dirty');
+      await closeAll();
+      console.log('import: a JSON Lines tab takes an array only');
     }
   } finally {
     hooks.imports(undefined);

@@ -3,12 +3,16 @@
 // protocol (./protocol.ts), DevHostAdapter for the standalone page (003 T2), ChromeHostAdapter
 // later. Nothing else in app-shell knows which host it runs in.
 import type {
+  CurrentNode,
   DocumentChange,
   EditorSettings,
   ErrorMessage,
   FlushMessage,
+  GetNodeMessage,
   GetRowSourceMessage,
   InitMessage,
+  NodePath,
+  RevealMessage,
   SchemaDialect,
   SetFormatMessage,
   SetModeMessage,
@@ -27,7 +31,9 @@ export type HostEvent =
   | ErrorMessage
   | ValidationMessage
   | FlushMessage
-  | GetRowSourceMessage;
+  | GetRowSourceMessage
+  | GetNodeMessage
+  | RevealMessage;
 
 /** A failure the UI asks the host to show (the UI → host `error` message without its envelope). */
 export type HostNotice = Omit<ErrorMessage, 'protocol' | 'type'>;
@@ -46,7 +52,7 @@ export interface HostAdapter {
    */
   save(docVersion: number, change: DocumentChange): void;
   /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation`, `flush`,
-   *  `getRowSource` messages. */
+   *  `getRowSource`, `getNode` and `reveal` messages. */
   onExternalChange(listener: (event: HostEvent) => void): Disposable;
   /** The settings from `init`. Only valid after `open` has resolved. */
   getSettings(): EditorSettings;
@@ -74,4 +80,12 @@ export interface HostAdapter {
   /** Answers the host's `getRowSource` event with the JSON Pointer of what the user is looking at
    *  (spec 009 criterion 7): `''` for the document's data. Maps to `rowSource`. */
   rowSource(docVersion: number, request: number, path: string): void;
+  /** Answers the host's `getNode` event with the current node (spec 018 S1, A6). Maps to `node`. */
+  node(docVersion: number, request: number, node: CurrentNode): void;
+  /** Puts `text` on the clipboard (spec 018 S2, S3: every copy goes through the host). Maps to
+   *  `copyText`. */
+  copyText(docVersion: number, text: string): void;
+  /** "Reveal in Text Editor" in the context menu (spec 018 S2, S5): the host shows the node of
+   *  `path` in its text editor. Maps to `revealInText`. */
+  revealInText(docVersion: number, path: NodePath): void;
 }

@@ -1,7 +1,8 @@
 // Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
 // spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 015 T2,
 // spec 015 criterion 11's core part; 014 T4, spec 014 criterion 10; 015 T6, spec 015 criterion 11's
-// webview part and UNK-068's spec 008 criterion 7 on big ids) from `bench/core/run.mjs`'s raw
+// webview part and UNK-068's spec 008 criterion 7 on big ids; 017 T4, spec 017 criterion 10 and
+// UNK-077) from `bench/core/run.mjs`'s raw
 // results and, when given, `bench/query/run.mjs`'s and the base commit's (`<base.json>`, the same
 // runner measuring the base commit's core build in the same job).
 // Every number in the report comes from that file; the text around them says what each one covers.
@@ -48,6 +49,11 @@ const BASE_SIZE = 10;
 // Spec 015 criterion 11's webview part: the editor page's parser at most this many times
 // `JSON.parse` of the same text.
 const WEBVIEW_FACTORS = { json: 2, 'json-ids': 5 };
+// Spec 017 criterion 10: TOML and XML at 5 MiB in at most this many milliseconds.
+const IMPORT_LIMIT_MS = 2000;
+const IMPORT_JUDGED_MIB = 5;
+// UNK-077's candidates for the YAML limit, and the threshold it falls back to.
+const YAML_CANDIDATES_MIB = [5, 10, 20, 50];
 
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -72,8 +78,8 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.webview?.length ? ', spec 015 criterion 11 (webview part)' : ''}${results.ids?.length ? ', UNK-068 (spec 008 criterion 7 on big ids)' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
-  `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''} changes speed.`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.webview?.length ? ', spec 015 criterion 11 (webview part)' : ''}${results.ids?.length ? ', UNK-068 (spec 008 criterion 7 on big ids)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''}${results.imports?.length ? ' or `packages/core/src/import`' : ''} changes speed.`,
   '',
   '## Run',
   '',
@@ -500,6 +506,64 @@ add(
         : `Verdict: the hypothesis holds in this run (every 5 MiB median is under ${ms(SMART_LIMIT_MS)} ms).`,
 );
 
+if (results.imports?.length) {
+  const rule = results.importRule;
+  add(
+    '',
+    '## Spec 017 criterion 10: YAML, TOML and XML import',
+    '',
+    '`importData(text, kind)` (017 T2) on the bench records written by `bench/generate.mjs`',
+    '`importText`: YAML as a block sequence of mappings, TOML as an array of tables `records`, XML',
+    "as a `records` element of `record` elements; every record has the json file's fields (TOML",
+    'leaves out `note`, a null, but on the last record). Each size is exactly N × 2^20 bytes, padded',
+    "inside the last record's note. Retained heap is what the result keeps alive after a full",
+    'collection; max RSS is the whole process. TOML and XML must take at most',
+    `${ms(IMPORT_LIMIT_MS)} ms at ${IMPORT_JUDGED_MIB} MiB. YAML runs at ${YAML_CANDIDATES_MIB.join(', ')} MiB (UNK-077's candidates) in`,
+    'order until the first size that misses its rule, so no size above that one is measured.',
+    '',
+    '| Kind | Size | Records | importData | retained heap | max RSS |',
+    '|---|---|---|---|---|---|',
+  );
+  let importMissed = false;
+  for (const k of results.imports) {
+    for (const s of k.sizes) {
+      if (
+        k.kind !== 'yaml' &&
+        s.mib === IMPORT_JUDGED_MIB &&
+        median(s.importData) > IMPORT_LIMIT_MS
+      )
+        importMissed = true;
+      add(
+        `| ${k.kind} | ${s.mib} MiB | ${s.records.toLocaleString('en-US')} | ${cell(s.importData)} | ${mib(s.retainedHeapBytes)} MiB | ${mib(s.maxRssBytes)} MiB |`,
+      );
+    }
+  }
+  add(
+    '',
+    !runUrl
+      ? `TOML and XML verdict: not judged (not the CI runner); the ${IMPORT_JUDGED_MIB} MiB medians are ${importMissed ? '**not** ' : ''}within ${ms(IMPORT_LIMIT_MS)} ms on this machine.`
+      : importMissed
+        ? `TOML and XML verdict: **missed**: a ${IMPORT_JUDGED_MIB} MiB median is over ${ms(IMPORT_LIMIT_MS)} ms, so an UNKNOWN records the miss (the bound is not lowered).`
+        : `TOML and XML verdict: both ${IMPORT_JUDGED_MIB} MiB medians are within ${ms(IMPORT_LIMIT_MS)} ms in this run.`,
+  );
+  const yaml = results.imports.find((k) => k.kind === 'yaml');
+  if (yaml && rule) {
+    const meets = (s) => median(s.importData) < rule.ms && s.retainedHeapBytes < rule.bytes;
+    const passing = yaml.sizes.filter((s) => YAML_CANDIDATES_MIB.includes(s.mib) && meets(s));
+    const missed = yaml.sizes.find((s) => YAML_CANDIDATES_MIB.includes(s.mib) && !meets(s));
+    const limit = passing.length ? Math.max(...passing.map((s) => s.mib)) : 5;
+    add(
+      '',
+      `UNK-077 (the YAML limit): the largest of ${YAML_CANDIDATES_MIB.join(', ')} MiB where the median is under`,
+      `${ms(rule.ms)} ms and the retained heap under ${gib(rule.bytes)} GiB; if 5 MiB misses, the limit is the 5 MiB threshold.`,
+      `${runUrl ? 'Result' : 'Result on this machine (not the CI runner, not evidence)'}: **${limit} MiB**` +
+        (missed
+          ? ` (${missed.mib} MiB misses: median ${ms(median(missed.importData))} ms, retained heap ${mib(missed.retainedHeapBytes)} MiB).`
+          : ' (no candidate missed).'),
+    );
+  }
+}
+
 add(
   '',
   "## Against UNK-014's edit budget (< 500 ms)",
@@ -537,7 +601,7 @@ add(
   '',
   'To reproduce: `pnpm --filter @chr-json-editor/core build`, then',
   '`pnpm --filter @chr-json-editor/bench bench:core` (or the `bench` workflow, `.github/workflows/bench.yml`),',
-  'which also runs the query benchmarks (`bench/query/run.mjs`).',
+  'which also runs the query benchmarks (`bench/query/run.mjs`) and the import benchmark (017 T4).',
 );
 
 writeFileSync(out, lines.join('\n') + '\n');

@@ -136,6 +136,83 @@ export function linesText(bytes) {
   return { text, records: lines.length };
 }
 
+/** Spec 017 criterion 10: the kinds `importText` writes. */
+export const IMPORT_KINDS = ['yaml', 'toml', 'xml'];
+
+/** Record `i` as YAML, TOML or XML (spec 017 T4's bench). Every kind holds the same fields as the
+ *  JSON file; TOML has no null, so its records leave out `note` but the last one's. */
+const importRecord = {
+  yaml: (r) =>
+    [
+      `- id: ${r.id}`,
+      `  name: ${r.name}`,
+      `  active: ${r.active}`,
+      `  score: ${r.score}`,
+      '  tags:',
+      ...r.tags.map((t) => `    - ${t}`),
+      '  address:',
+      `    street: ${r.address.street}`,
+      `    zip: "${r.address.zip}"`,
+      `  note: ${r.note === null ? 'null' : r.note}`,
+      '',
+    ].join('\n'),
+  toml: (r) =>
+    [
+      '[[records]]',
+      `id = ${r.id}`,
+      `name = "${r.name}"`,
+      `active = ${r.active}`,
+      `score = ${Number.isInteger(r.score) ? `${r.score}.0` : r.score}`,
+      `tags = [${r.tags.map((t) => `"${t}"`).join(', ')}]`,
+      ...(r.note === null ? [] : [`note = "${r.note}"`]),
+      `address = { street = "${r.address.street}", zip = "${r.address.zip}" }`,
+      '',
+      '',
+    ].join('\n'),
+  xml: (r) =>
+    [
+      '  <record>',
+      `    <id>${r.id}</id>`,
+      `    <name>${r.name}</name>`,
+      `    <active>${r.active}</active>`,
+      `    <score>${r.score}</score>`,
+      ...r.tags.map((t) => `    <tags>${t}</tags>`),
+      `    <address><street>${r.address.street}</street><zip>${r.address.zip}</zip></address>`,
+      r.note === null ? '    <note/>' : `    <note>${r.note}</note>`,
+      '  </record>',
+      '',
+    ].join('\n'),
+};
+
+const IMPORT_FRAME = {
+  yaml: ['', ''],
+  toml: ['', ''],
+  xml: ['<?xml version="1.0" encoding="UTF-8"?>\n<records>\n', '</records>\n'],
+};
+
+/** The bench records as YAML (a block sequence), TOML (an array of tables `records`) or XML (a
+ *  `records` element of `record` elements), exactly `bytes` bytes, padded inside the last record's
+ *  note like `documentText` (spec 017 criterion 10). */
+export function importText(kind, bytes) {
+  const [open, close] = IMPORT_FRAME[kind];
+  const write = importRecord[kind];
+  const last = (i, pad) => write({ ...record(i), note: LAST_MARKER + '.'.repeat(pad) });
+  const parts = [];
+  let length = open.length + close.length;
+  for (let i = 0; ; i++) {
+    const next = write(record(i));
+    if (length + next.length + last(i + 1, 1).length > bytes) break;
+    parts.push(next);
+    length += next.length;
+  }
+  const pad = bytes - length - last(parts.length, 0).length;
+  if (pad < 1) throw new Error(`size ${bytes} is too small`);
+  parts.push(last(parts.length, pad));
+  const text = open + parts.join('') + close;
+  if (text.length !== bytes) throw new Error(`wrote ${text.length} bytes, wanted ${bytes}`);
+  return { text, records: parts.length };
+}
+
 /** The file of a bench format (`json`, …, `json5-ids`) and size. */
 export function fileName(mib, changed = false, format = 'json') {
   if (changed) return `${mib}mib-changed.json`;

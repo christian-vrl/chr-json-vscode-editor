@@ -12,8 +12,10 @@ import {
   decodeToWebview,
   encodeChange,
   PROTOCOL_VERSION,
+  type CurrentNode,
   type DocumentChange,
   type EditorSettings,
+  type NodePath,
   type SchemaDialect,
   type ToHostMessage,
 } from '@chr-json-editor/app-shell/protocol';
@@ -102,6 +104,18 @@ export class VscodeHostAdapter implements HostAdapter {
 
   rowSource(docVersion: number, request: number, path: string): void {
     this.#post({ protocol: PROTOCOL_VERSION, type: 'rowSource', docVersion, request, path });
+  }
+
+  node(docVersion: number, request: number, node: CurrentNode): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'node', docVersion, request, node });
+  }
+
+  copyText(docVersion: number, text: string): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'copyText', docVersion, text });
+  }
+
+  revealInText(docVersion: number, path: NodePath): void {
+    this.#post({ protocol: PROTOCOL_VERSION, type: 'revealInText', docVersion, path });
   }
 
   #receive(data: unknown): void {
