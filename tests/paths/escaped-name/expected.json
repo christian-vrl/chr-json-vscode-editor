@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$['it\\'s']",
+      "pointer": "/it's"
+    },
+    {
+      "offset": 12,
+      "jsonpath": "$['back\\\\slash']",
+      "pointer": "/back\\slash"
+    },
+    {
+      "offset": 30,
+      "jsonpath": "$['line\\nfeed']",
+      "pointer": "/line\nfeed"
+    },
+    {
+      "offset": 47,
+      "jsonpath": "$['tab\\there']",
+      "pointer": "/tab\there"
+    },
+    {
+      "offset": 63,
+      "jsonpath": "$['\\u0001']",
+      "pointer": "/\u0001"
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/it's",
+      "offset": 1
+    },
+    {
+      "pointer": "/back\\slash",
+      "offset": 12
+    },
+    {
+      "pointer": "/line\nfeed",
+      "offset": 30
+    },
+    {
+      "pointer": "/tab\there",
+      "offset": 47
+    },
+    {
+      "pointer": "/\u0001",
+      "offset": 63
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 export const packageName = '@chr-json-editor/core';
 export * from './formats/index.js';
 export * from './schema/index.js';
+export * from './paths/index.js';
 export { diff } from './diff.js';
 export { compare, copyDifference, type CompareSide, type Difference } from './compare.js';
 export { repair, type RepairResult } from './repair/repair.js';

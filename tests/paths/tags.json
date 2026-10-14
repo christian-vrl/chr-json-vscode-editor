@@ -1,0 +1,31 @@
+{
+  "tags": [
+    "root-scalar",
+    "on-key",
+    "on-scalar",
+    "on-bracket",
+    "between",
+    "innermost",
+    "outside",
+    "broken-before",
+    "broken-after",
+    "nested",
+    "empty-containers",
+    "shorthand-name",
+    "quoted-name",
+    "escaped-name",
+    "unicode-name",
+    "empty-name",
+    "index-like-name",
+    "pointer-escapes",
+    "proto-name",
+    "lone-surrogate",
+    "duplicate-name",
+    "jsonc-comments",
+    "json5-syntax",
+    "jsonl",
+    "jsonl-blank-line",
+    "jsonl-bad-line",
+    "no-place"
+  ]
+}

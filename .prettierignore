@@ -38,6 +38,9 @@ tests/csv/
 # Schema generation corpus (016 T1): inputs in each format's own syntax, and expected.schema.json
 # compared byte for byte (spec 016 criterion 1). The loader, its tests and tags.json are ordinary code.
 tests/schema-gen/*/
+# Copy path corpus (018 T1): offsets in expected.json refer to the inputs as written. The loader,
+# its tests and tags.json are ordinary code.
+tests/paths/*/
 
 # Owner-reserved method files (AGENTS.md rule 7).
 governance/

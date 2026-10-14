@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Core (risk-free / additive)
-- [ ] **T1** Write the corpus in `tests/paths/<case>/` (`input.<ext>`, `case.json` with `format` and
+- [x] **T1** Write the corpus in `tests/paths/<case>/` (`input.<ext>`, `case.json` with `format` and
   `tags`, hand-written `expected.json`; the folder added to `.prettierignore`, since the offsets refer to
   the files as written) with a `README.md` naming the layout and P1–P4, A1–A6, R1–R3;
   `jsonPath`, `jsonPointer`, `readPath`, `nodeAt` and `placeOf` in `packages/core/src/paths/`,

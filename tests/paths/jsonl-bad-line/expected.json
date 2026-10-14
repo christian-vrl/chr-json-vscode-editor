@@ -1,0 +1,68 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$[0].a",
+      "pointer": "/0/a"
+    },
+    {
+      "offset": 9,
+      "error": {
+        "line": 2,
+        "column": 1
+      }
+    },
+    {
+      "offset": 13,
+      "error": {
+        "line": 2,
+        "column": 1
+      }
+    },
+    {
+      "offset": 19,
+      "jsonpath": "$[2].b",
+      "pointer": "/2/b"
+    },
+    {
+      "offset": 28,
+      "jsonpath": "$[3].c",
+      "pointer": "/3/c"
+    },
+    {
+      "offset": 34,
+      "jsonpath": "$[3].c",
+      "pointer": "/3/c"
+    },
+    {
+      "offset": 35,
+      "jsonpath": "$[3]",
+      "pointer": "/3"
+    },
+    {
+      "offset": 36,
+      "error": {
+        "line": 4,
+        "column": 10
+      }
+    }
+  ],
+  "places": [
+    {
+      "pointer": "/0/a",
+      "offset": 1
+    },
+    {
+      "pointer": "/2/b",
+      "offset": 19
+    },
+    {
+      "pointer": "/3/c",
+      "none": true
+    },
+    {
+      "pointer": "/1",
+      "none": true
+    }
+  ]
+}
