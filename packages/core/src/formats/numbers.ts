@@ -7,7 +7,7 @@
 // Only `LosslessNumber` instances are numbers: an object of the document that happens to have
 // `isLosslessNumber` and `value` members stays an object (B5), so every check here is `instanceof`,
 // never lossless-json's duck-typed `isLosslessNumber`.
-import { isSafeNumber, LosslessNumber } from 'lossless-json';
+import { isSafeNumber, LosslessNumber, parse as losslessParse } from 'lossless-json';
 
 export { LosslessNumber };
 
@@ -99,6 +99,39 @@ export function mayHoldBigNumber(text: string): boolean {
 
 const isDigitOrDot = (c: number) => (c >= 48 && c <= 57) || c === 46;
 
+/** A key the text may spell `__proto__` with: literally, or with a `\u` escape of one of its
+ *  letters or underscores (U+005F to U+0074). */
+const PROTO_KEY = /__proto__|\\u00[5-7][0-9a-fA-F]/;
+
+/**
+ * Strict JSON (RFC 8259) read with its big numbers exact (B1), through lossless-json's parser,
+ * which reads a document with big numbers several times faster than core's own walk (spike 015 T1
+ * REPORT §3). `big(decimal)` makes the value of each big number (a `LosslessNumber` unless given);
+ * plain numbers are `Number(text)`, as `JSON.parse` reads them. A duplicate key's last value wins
+ * in the first one's place, as `JSON.parse` does. Undefined when the text is not strict JSON, and
+ * for a text that may hold a `__proto__` key, which lossless-json assigns (setting the object's
+ * prototype) where `JSON.parse` defines a member: the caller reads those with core's parser.
+ */
+export function readJsonExact(
+  text: string,
+  big: (decimal: string) => unknown = (decimal) => new LosslessNumber(decimal),
+): { data: unknown } | undefined {
+  if (PROTO_KEY.test(text)) return undefined;
+  const number = (token: string): unknown =>
+    (token.length > 15 || token.includes('e') || token.includes('E')) && !isSafeNumber(token)
+      ? big(token)
+      : Number(token);
+  try {
+    const data = losslessParse(text, null, {
+      parseNumber: number,
+      onDuplicateKey: ({ newValue }) => newValue,
+    });
+    return { data };
+  } catch {
+    return undefined;
+  }
+}
+
 /** Whether `value` holds a `LosslessNumber` or a `BigInt` anywhere. */
 export function holdsBigNumber(value: unknown): boolean {
   if (typeof value === 'bigint' || value instanceof LosslessNumber) return true;
@@ -126,8 +159,13 @@ export function jsonText(value: unknown, unit?: string): string | undefined {
 
 /** `jsonText`'s writer, always taken (exported for the test that it equals `JSON.stringify` on
  *  data with no big number). Follows ECMAScript's SerializeJSONProperty: `toJSON`, boxed
- *  primitives, `undefined`, functions and symbols, non-finite numbers. */
-export function writeJson(value: unknown, unit?: string): string | undefined {
+ *  primitives, `undefined`, functions and symbols, non-finite numbers. `numberText` writes the
+ *  plain numbers (`JSON.stringify`'s way unless given). */
+export function writeJson(
+  value: unknown,
+  unit?: string,
+  numberText: (n: number) => string = JSON.stringify,
+): string | undefined {
   const gap = unit ?? '';
   const property = (key: string, v: unknown, indent: string): string | undefined => {
     if (v instanceof LosslessNumber) return v.value;
@@ -137,8 +175,8 @@ export function writeJson(value: unknown, unit?: string): string | undefined {
     }
     if (v instanceof LosslessNumber) return v.value;
     if (v instanceof Number || v instanceof String || v instanceof Boolean) v = v.valueOf();
-    if (v === null || typeof v === 'boolean' || typeof v === 'string' || typeof v === 'number')
-      return JSON.stringify(v);
+    if (typeof v === 'number') return numberText(v);
+    if (v === null || typeof v === 'boolean' || typeof v === 'string') return JSON.stringify(v);
     if (typeof v === 'bigint') return v.toString();
     if (typeof v !== 'object') return undefined;
     return Array.isArray(v) ? array(v, indent) : object(v as Record<string, unknown>, indent);
@@ -164,6 +202,19 @@ export function writeJson(value: unknown, unit?: string): string | undefined {
       : `{\n${inner}${parts.join(`,\n${inner}`)}\n${indent}}`;
   };
   return property('', value, '');
+}
+
+/**
+ * A document value as one line of JSON text that `parseData('json', text)` reads back as the same
+ * value (spec 015 B5, the protocol's `valueText`): `jsonText` with big numbers as their digits, and
+ * `-0` written as `-0`, where `JSON.stringify` writes `0`. `NaN` and the infinities are written as
+ * JSON5 writes them, so the JSON reader refuses the text rather than reading `null`; so is a value
+ * JSON has no text for (`undefined`, a function), written as `undefined`.
+ */
+export function valueText(value: unknown): string {
+  const numberText = (n: number) =>
+    Object.is(n, -0) ? '-0' : Number.isFinite(n) ? JSON.stringify(n) : String(n);
+  return writeJson(value, undefined, numberText) ?? 'undefined';
 }
 
 /**
@@ -251,7 +302,10 @@ export function bigNumberKey(big: LosslessNumber): string {
 /**
  * Orders two numbers, plain or big, by exact value (B3): -1, 0 or 1. Two plain numbers compare as
  * floats, exactly as before (`-0` equals `0`; `NaN` is neither below nor above anything, so 0). A
- * plain `Infinity` is above every big number and `-Infinity` below; `NaN` against a big number is 0.
+ * plain `Infinity` is above every big number and `-Infinity` below; `NaN` against a big number is 0,
+ * as against a plain number. That 0 is not an order (`NaN` "equals" both `1` and `2`), so a sort of
+ * values holding `NaN` is only as ordered as it was before spec 015; only JSON5 text can hold `NaN`
+ * (JSON and JSON Lines have no token for it), and 015 T3's review left it so (#120 F2).
  */
 export function compareNumbers(a: number | LosslessNumber, b: number | LosslessNumber): number {
   if (typeof a === 'number' && typeof b === 'number') return a > b ? 1 : a < b ? -1 : 0;

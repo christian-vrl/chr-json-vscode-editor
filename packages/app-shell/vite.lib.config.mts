@@ -7,7 +7,7 @@
 // (011 T1 REPORT §3, route (a)) and passes it to `mountApp`. Every page's CSS lands in the
 // one dist/lib/app.css. The extension's esbuild bundles each into its webview script and
 // stylesheet, which the webview loads from its own source with the CSP nonce (spec 003 criterion
-// 6, UNK-029).
+// 6, UNK-029). Core is not bundled here: the extension's esbuild bundles it once per page.
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
@@ -33,5 +33,9 @@ export default defineConfig({
       formats: ['es'],
       cssFileName: 'app',
     },
+    // Core stays an import, so the extension's esbuild bundles one copy of it (and of lossless-json)
+    // for a page and the host adapter around it: a big number made on one side must be an
+    // `instanceof LosslessNumber` on the other (spec 015 B5, 015 T4).
+    rollupOptions: { external: ['@chr-json-editor/core'] },
   },
 });

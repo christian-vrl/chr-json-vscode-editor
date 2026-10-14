@@ -1,0 +1,17 @@
+[
+  {
+    "kind": "changed",
+    "leftPath": "/id",
+    "rightPath": "/id"
+  },
+  {
+    "kind": "changed",
+    "leftPath": "/huge",
+    "rightPath": "/huge"
+  },
+  {
+    "kind": "changed",
+    "leftPath": "/records/1/id",
+    "rightPath": "/records/1/id"
+  }
+]

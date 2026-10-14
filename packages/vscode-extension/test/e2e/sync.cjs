@@ -67,10 +67,10 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
 
   try {
     // Criterion 1: the first 10 golden patch cases per format, in sorted path order (whole-document
-    // actions, tests/golden/load.ts `wholeDocumentOps`, hold no RFC 6902 patch; big-number cases
-    // are left out, see below). The patch goes
-    // through the webview (the test hook hands it to the editor UI as a tree edit), the host applies
-    // it with core, and the document's text must equal expected.* byte for byte.
+    // actions, tests/golden/load.ts `wholeDocumentOps`, hold no RFC 6902 patch). The patch goes
+    // through the webview (the test hook hands its text to the editor UI, which reads it as a tree
+    // edit would hold it, big numbers exactly: spec 015), the host applies it with core, and the
+    // document's text must equal expected.* byte for byte.
     for (const format of FORMATS) {
       const names = fs
         .readdirSync(path.join(GOLDEN, format))
@@ -79,9 +79,7 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
           const tags = JSON.parse(
             fs.readFileSync(path.join(GOLDEN, format, name, 'case.json'), 'utf8'),
           );
-          // Big numbers (spec 015) reach the editor UI exactly from 015 T4 on; this patch is read
-          // with JSON.parse, so its own big numbers would round. 015 T4's criterion 4 covers them.
-          return !WHOLE_DOCUMENT_OPS.includes(tags.op) && tags.special !== 'big-number';
+          return !WHOLE_DOCUMENT_OPS.includes(tags.op);
         })
         .slice(0, CASES_PER_FORMAT);
       assert.equal(names.length, CASES_PER_FORMAT, `${format}: not enough golden cases`);
@@ -92,7 +90,7 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
           `golden/${format}/${name}/input.${format}`,
         );
         const expected = fs.readFileSync(path.join(dir, `expected.${format}`), 'utf8');
-        const patch = JSON.parse(fs.readFileSync(path.join(dir, 'patch.json'), 'utf8'));
+        const patch = fs.readFileSync(path.join(dir, 'patch.json'), 'utf8');
         const document = await open(uri);
         const before = document.version;
         assert.equal(hooks.patch(uri.toString(), patch), true);

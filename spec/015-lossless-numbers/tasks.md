@@ -25,7 +25,7 @@
   with criterion 10's cases. — needs: 015 T2 — *gate: criteria 1, 3, 10 green*
 
 ## Phase C — Editor (risk-free / additive)
-- [ ] **T4** Editor page and host: `parser.ts` (pre-scan per T1, lossless `stringify`), `keyOf`,
+- [x] **T4** Editor page and host: `parser.ts` (pre-scan per T1, lossless `stringify`), `keyOf`,
   the sort comparator, the protocol's `valueText` and version bump, Ajv's nearest-number input,
   compare page and copy-across, the CSV panel's preview and replace-data messages (009 T4, on
   `main` or whichever of the two merges later); criterion 4's `.json`, `.jsonc` and `.json5`

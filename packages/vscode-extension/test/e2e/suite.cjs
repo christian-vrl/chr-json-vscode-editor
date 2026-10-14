@@ -297,6 +297,16 @@ exports.run = async function run() {
   await closeAll();
   await require('./actions.cjs').runActions({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (015 T4, spec 015 criteria 4 and 7): big numbers in the editor (bigNumbers.cjs).
+  await closeAll();
+  await require('./bigNumbers.cjs').runBigNumbers({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (011 T5, spec 011 criterion 7): Transform with JavaScript and Lodash writes back
   // (query.cjs).
   await closeAll();
