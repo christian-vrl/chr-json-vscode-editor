@@ -85,7 +85,10 @@ validates it from then on.
    valid against `d`'s meta-schema, and validating `data` gives no errors. Tightness, same runs:
    deleting a key that the schema lists in `required` from an object in the data gives a `required`
    error at that object's path, and putting `true` where the schema's `type` is `"string"` gives a
-   `type` error at that path.
+   `type` error at that path. *Narrowed by UNK-085 (016 T2; Keep/Revert card
+   cmsg_01Wz9SKzwQD2da69nuNGPcidPrqaLVru3NauMUpV3PkPEs, AGENTS rule 7): keys holding a lone surrogate
+   are out of scope (Ajv cannot compile a `properties` entry so named), and the tightness checks skip
+   places inside a `__proto__` member (Ajv ignores a `properties.__proto__` schema).*
 4. **Inherited keys (unit; amends spec 004 criterion 2, see §Changes):** spec 004's validator
    created with `ownProperties: true` reports exactly one error, `required` at `""`, for the schema
    `{"properties": {"constructor": {"type": "null"}, "toString": {"type": "string"}}, "required":
@@ -194,6 +197,7 @@ validates it from then on.
 |---|---|---|---|
 | UNK-069 | Which dialect the generated schema is written in | G1–G9's `$schema`, criteria 1–3; T1 | resolved (owner): ★ draft-07 |
 | UNK-070 | Whether the notification offers to link the schema to the document | criterion 7; T3 | resolved (owner): ★ "Use for `<name>`" button |
+| UNK-085 | Ajv cannot check keys inside a `__proto__` member or compile lone-surrogate key names | criterion 3; T2 | escalated (Keep/Revert card): ★ narrow criterion 3 · rewrite to `patternProperties` |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
