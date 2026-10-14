@@ -21,7 +21,7 @@ const MIB = 1024 * 1024;
 const THRESHOLD = 5 * MIB;
 const CEILING = 50 * MIB;
 /** UNK-077's YAML limit, as packages/vscode-extension/src/importPlan.ts sets it. */
-const YAML_LIMIT = 5 * MIB;
+const YAML_LIMIT = 10 * MIB;
 const CONVERT = {
   yaml: 'chrJsonEditor.convertYamlToJson',
   toml: 'chrJsonEditor.convertTomlToJson',
@@ -150,7 +150,7 @@ exports.runImportSize = async function runImportSize({
       [
         'over.yaml',
         `a: 1\n#${'.'.repeat(YAML_LIMIT + 1 - 7)}\n`,
-        'CHR JSON Editor: over.yaml is too large to convert (5.1 MiB; the limit for YAML is 5.0 MiB).',
+        'CHR JSON Editor: over.yaml is too large to convert (10.1 MiB; the limit for YAML is 10.0 MiB).',
       ],
     ];
     for (const [name, text, message] of tooLarge) {

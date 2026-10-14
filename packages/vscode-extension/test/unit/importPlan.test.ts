@@ -76,15 +76,15 @@ describe('importPlan (spec 017 T3)', () => {
   });
 
   it('reads YAML up to the YAML limit and the others up to the ceiling (criterion 8, UNK-077)', () => {
-    expect(YAML_LIMIT_BYTES).toBe(5 * 1024 * 1024);
+    expect(YAML_LIMIT_BYTES).toBe(10 * 1024 * 1024);
     expect(importLimit('yaml')).toBe(YAML_LIMIT_BYTES);
     expect(importLimit('toml')).toBe(50 * 1024 * 1024);
     expect(importLimit('xml')).toBe(50 * 1024 * 1024);
   });
 
   it('names a source above its limit with its size and the limit (criterion 8)', () => {
-    expect(tooLargeMessage('big.yaml', 'yaml', 5 * 1024 * 1024 + 1)).toBe(
-      'CHR JSON Editor: big.yaml is too large to convert (5.1 MiB; the limit for YAML is 5.0 MiB).',
+    expect(tooLargeMessage('big.yaml', 'yaml', 10 * 1024 * 1024 + 1)).toBe(
+      'CHR JSON Editor: big.yaml is too large to convert (10.1 MiB; the limit for YAML is 10.0 MiB).',
     );
     expect(tooLargeMessage('big.toml', 'toml', 60 * 1024 * 1024)).toBe(
       'CHR JSON Editor: big.toml is too large to convert (60.0 MiB; the limit for TOML is 50.0 MiB).',

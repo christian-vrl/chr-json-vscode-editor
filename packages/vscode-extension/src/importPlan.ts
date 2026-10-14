@@ -88,9 +88,11 @@ export function jsonLinesMessage(file: string, data: unknown): string {
 
 /**
  * UNK-077 (spec 017 criterion 8): the largest YAML file, in UTF-8 bytes, the commands read. YAML
- * parsing holds the extension host for its whole run; see UNK-077's row for the bench run behind it.
+ * parsing holds the extension host for its whole run. 10 MiB per UNK-077's evidence rule:
+ * `bench/RESULTS.md` (017 T4, run 38576746443) times `importData` at 4.5 / 8.5 / 17.2 s for 5 / 10
+ * / 20 MiB of YAML, retaining 15 / 30 / 60 MiB, so 10 MiB is the largest candidate under 10 s.
  */
-export const YAML_LIMIT_BYTES = 5 * 1024 * 1024;
+export const YAML_LIMIT_BYTES = 10 * 1024 * 1024;
 
 /** The largest source of `kind` the commands read: the YAML limit, else spec 008's ceiling. */
 export function importLimit(kind: ImportKind): number {
