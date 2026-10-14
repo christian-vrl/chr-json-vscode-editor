@@ -104,11 +104,13 @@ class Parser {
   readonly tokens: Token[] = [];
   /** The node of the value parsed last; not set in a data-only parse. */
   node: FormatNode | undefined;
-  private pos = 0;
+  protected pos = 0;
+  /** The kind of the token `scalar` read last. */
+  protected scalarKind: number = Kind.Unknown;
 
   /** `dataOnly`: build the data only, with no tokens and no tree (`parseJson5Data`). */
   constructor(
-    private readonly text: string,
+    protected readonly text: string,
     private readonly dataOnly: boolean,
   ) {}
 
@@ -122,7 +124,7 @@ class Parser {
     return root;
   }
 
-  private fail(expected: string): never {
+  protected fail(expected: string): never {
     const at = this.text.codePointAt(this.pos);
     const got = at === undefined ? 'end of input' : JSON.stringify(String.fromCodePoint(at));
     throw new Json5SyntaxError(
@@ -145,33 +147,40 @@ class Parser {
 
   /** White space, line terminators and comments, each as its own token (`\r\n` is one line break). */
   private trivia(): void {
+    while (this.trivium() !== undefined);
+  }
+
+  /** One white space run, line break or comment, as its token; its kind, or undefined when there
+   *  is none at `pos`. */
+  protected trivium(): number | undefined {
     const t = this.text;
-    for (;;) {
-      const start = this.pos;
-      const c = t.charCodeAt(this.pos);
-      if (Number.isNaN(c)) return;
-      if (isLineTerminator(c)) {
-        this.pos += c === 13 && t.charCodeAt(this.pos + 1) === 10 ? 2 : 1;
-        this.token(Kind.LineBreak, start);
-      } else if (isWhiteSpace(c)) {
-        while (this.pos < t.length && isWhiteSpace(t.charCodeAt(this.pos))) this.pos++;
-        this.token(Kind.Whitespace, start);
-      } else if (c !== 47) {
-        return;
-      } else if (t.startsWith('//', this.pos)) {
-        this.pos += 2;
-        while (this.pos < t.length && !isLineTerminator(t.charCodeAt(this.pos))) this.pos++;
-        this.token(Kind.LineComment, start);
-      } else if (t.startsWith('/*', this.pos)) {
-        const close = t.indexOf('*/', this.pos + 2);
-        if (close < 0) {
-          this.pos = t.length;
-          this.fail('*/');
-        }
-        this.pos = close + 2;
-        this.token(Kind.BlockComment, start);
-      } else return;
-    }
+    const start = this.pos;
+    const c = t.charCodeAt(this.pos);
+    let kind: number;
+    if (Number.isNaN(c)) return undefined;
+    if (isLineTerminator(c)) {
+      this.pos += c === 13 && t.charCodeAt(this.pos + 1) === 10 ? 2 : 1;
+      kind = Kind.LineBreak;
+    } else if (isWhiteSpace(c)) {
+      while (this.pos < t.length && isWhiteSpace(t.charCodeAt(this.pos))) this.pos++;
+      kind = Kind.Whitespace;
+    } else if (c !== 47) {
+      return undefined;
+    } else if (t.startsWith('//', this.pos)) {
+      this.pos += 2;
+      while (this.pos < t.length && !isLineTerminator(t.charCodeAt(this.pos))) this.pos++;
+      kind = Kind.LineComment;
+    } else if (t.startsWith('/*', this.pos)) {
+      const close = t.indexOf('*/', this.pos + 2);
+      if (close < 0) {
+        this.pos = t.length;
+        this.fail('*/');
+      }
+      this.pos = close + 2;
+      kind = Kind.BlockComment;
+    } else return undefined;
+    this.token(kind, start);
+    return kind;
   }
 
   /** A value's data; its node is `this.node`. */
@@ -180,31 +189,40 @@ class Parser {
     if (ch === '{') return this.object();
     if (ch === '[') return this.array();
     const offset = this.pos;
-    let type: FormatNode['type'];
-    let kind: number;
-    let value: unknown;
-    if (ch === '"' || ch === "'") {
-      value = this.string();
-      type = 'string';
-      kind = Kind.StringLiteral;
-    } else if (ch === 'n' && this.word('null')) {
-      value = null;
-      type = 'null';
-      kind = Kind.NullKeyword;
-    } else if ((ch === 't' && this.word('true')) || (ch === 'f' && this.word('false'))) {
-      value = ch === 't';
-      type = 'boolean';
-      kind = value ? Kind.TrueKeyword : Kind.FalseKeyword;
-    } else {
-      value = this.number();
-      type = 'number';
-      kind = Kind.NumericLiteral;
-    }
+    const value = this.scalar();
     if (!this.dataOnly) {
+      const kind = this.scalarKind;
       this.token(kind, offset);
+      const type =
+        kind === Kind.StringLiteral
+          ? 'string'
+          : kind === Kind.NumericLiteral
+            ? 'number'
+            : kind === Kind.NullKeyword
+              ? 'null'
+              : 'boolean';
       this.node = { type, offset, length: this.pos - offset, value };
     }
     return value;
+  }
+
+  /** A string, `null`, `true`, `false` or number at `pos`; its token's kind is `scalarKind`. */
+  protected scalar(): unknown {
+    const ch = this.text[this.pos];
+    if (ch === '"' || ch === "'") {
+      this.scalarKind = Kind.StringLiteral;
+      return this.string();
+    }
+    if (ch === 'n' && this.word('null')) {
+      this.scalarKind = Kind.NullKeyword;
+      return null;
+    }
+    if ((ch === 't' && this.word('true')) || (ch === 'f' && this.word('false'))) {
+      this.scalarKind = ch === 't' ? Kind.TrueKeyword : Kind.FalseKeyword;
+      return ch === 't';
+    }
+    this.scalarKind = Kind.NumericLiteral;
+    return this.number();
   }
 
   private word(w: string): boolean {
@@ -276,7 +294,7 @@ class Parser {
   }
 
   /** JSON5Identifier: an IdentifierName, `\uXXXX` escapes allowed; returns the decoded name. */
-  private identifier(): string {
+  protected identifier(): string {
     const t = this.text;
     const start = this.pos;
     while (isAsciiIdentifier(t.charCodeAt(this.pos), this.pos > start)) this.pos++;
@@ -303,7 +321,7 @@ class Parser {
   }
 
   /** JSON5String: single or double quoted, with JSON5 escapes and line continuations. */
-  private string(): string {
+  protected string(): string {
     const t = this.text;
     const quote = t[this.pos++];
     const q = quote!.charCodeAt(0);
@@ -353,7 +371,7 @@ class Parser {
 
   /** JSON5Number: optional sign, then Infinity, NaN, hex, or a decimal with optional dot ends. A
    *  big number is its `LosslessNumber` (spec 015 B1). */
-  private number(): number | LosslessNumber {
+  protected number(): number | LosslessNumber {
     const start = this.pos;
     NUMBER.lastIndex = start;
     const m = NUMBER.exec(this.text);
@@ -368,6 +386,70 @@ class Parser {
     // in front of hex, so the sign is applied separately.
     const value = sign * Number(/^[+-]/.test(m[0]) ? m[0].slice(1) : m[0]);
     return json5MayBeBig(this.text, start, this.pos) ? json5NumberValue(m[0], value) : value;
+  }
+}
+
+export interface Json5Token extends Token {
+  /** A string's or member name's decoded text. */
+  name?: string;
+  /** Set when the text at `offset` is not a JSON5 token: the parser's error. */
+  error?: { message: string; offset: number };
+}
+
+const PUNCTUATION: Record<string, number> = {
+  '{': Kind.OpenBrace,
+  '}': Kind.CloseBrace,
+  '[': Kind.OpenBracket,
+  ']': Kind.CloseBracket,
+  ',': Kind.Comma,
+  ':': Kind.Colon,
+};
+
+/**
+ * The parser's lexical half, one token at a time (spec 018 plan §Approach), for readers that stop
+ * partway through a text (`paths/locate.ts`). It runs the parser's own routines, so a token reads,
+ * and fails, exactly as it does inside `parseJson5`. JSON5's tokens depend on where they are (an
+ * unquoted member name is an identifier, an unquoted value a number or literal), so the caller
+ * says whether a member name may come next. Records no tokens and builds no tree.
+ */
+export class Json5Lexer extends Parser {
+  constructor(text: string) {
+    super(text, true);
+  }
+
+  /** The next token: white space, a line break, a comment, punctuation, a member name (`key`) or a
+   *  value's string, number or literal; `EOF` at the end. A member name is a `StringLiteral` when
+   *  quoted, else `Unknown`, as in `parseJson5`'s tokens. */
+  next(key: boolean): Json5Token {
+    const offset = this.pos;
+    if (offset >= this.text.length) return { kind: Kind.EOF, offset, end: offset };
+    try {
+      const trivia = this.trivium();
+      if (trivia !== undefined) return { kind: trivia, offset, end: this.pos };
+      const ch = this.text[offset]!;
+      const punctuation = PUNCTUATION[ch];
+      if (punctuation !== undefined) {
+        this.pos++;
+        return { kind: punctuation, offset, end: this.pos };
+      }
+      if (key) {
+        const quoted = ch === '"' || ch === "'";
+        const name = quoted ? this.string() : this.identifier();
+        return { kind: quoted ? Kind.StringLiteral : Kind.Unknown, offset, end: this.pos, name };
+      }
+      const value = this.scalar();
+      return typeof value === 'string'
+        ? { kind: this.scalarKind, offset, end: this.pos, name: value }
+        : { kind: this.scalarKind, offset, end: this.pos };
+    } catch (e) {
+      if (!(e instanceof Json5SyntaxError)) throw e;
+      return {
+        kind: Kind.Unknown,
+        offset,
+        end: Math.max(this.pos, offset + 1),
+        error: { message: e.message, offset: e.offset },
+      };
+    }
   }
 }
 

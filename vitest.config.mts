@@ -31,6 +31,7 @@ export default defineConfig({
             'tests/ci/**/*.test.ts',
             'tests/schema/**/*.test.ts',
             'tests/schema-gen/**/*.test.ts',
+            'tests/paths/**/*.test.ts',
             'tests/query/**/*.test.ts',
           ],
         },

@@ -1,0 +1,36 @@
+{
+  "nodes": [
+    {
+      "offset": 1,
+      "jsonpath": "$.a",
+      "pointer": "/a"
+    },
+    {
+      "offset": 3,
+      "jsonpath": "$.a",
+      "pointer": "/a"
+    },
+    {
+      "offset": 4,
+      "error": {
+        "line": 1,
+        "column": 9
+      }
+    },
+    {
+      "offset": 5,
+      "error": {
+        "line": 1,
+        "column": 9
+      }
+    },
+    {
+      "offset": 11,
+      "error": {
+        "line": 1,
+        "column": 9
+      }
+    }
+  ],
+  "places": []
+}
