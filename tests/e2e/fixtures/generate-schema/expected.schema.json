@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "born": {
+      "type": "integer"
+    },
+    "height": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "null"
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "born": {
+            "type": "integer"
+          },
+          "married": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "born"
+        ]
+      }
+    }
+  },
+  "required": [
+    "name",
+    "tags",
+    "born",
+    "height",
+    "notes",
+    "children"
+  ]
+}

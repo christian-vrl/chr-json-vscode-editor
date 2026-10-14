@@ -43,7 +43,17 @@
   (criterion 8, UNK-051): "Open as Text" asks the host for its text editor, and "Repair Lines" is
   the one change the UI sends then (core's `repairLines`, run by the host). The banner and the
   read-only state follow the document's text, so an edit made elsewhere that leaves no bad line
-  makes the tab editable again.
+  makes the tab editable again. A large JSON Lines file (spec 012 criterion 10, 012 T6) shows
+  both banners: its items are read as on a normal tab, "Edit anyway" is offered only once no bad
+  line is left, and "Repair Lines" runs on the locked tab too (one edit; the tab stays locked).
+
+  Copy path and reveal node (spec 018, 018 T2): the tree and table context menus offer "Copy
+  JSONPath", "Copy JSON Pointer" and "Reveal in Text Editor" next to Copy (S2), for the node the
+  selection names (S1, paths.ts); the navigation bar's edit box shows and reads JSONPath, and reads
+  JSON Pointer too (S3, the library's `pathParser`); every copy goes to the host. A mode switch
+  keeps the place (S4): the node the old mode names is selected and scrolled to in the new one, and
+  the host's `reveal` does the same in the current mode. The host asks for the current node with
+  `getNode` (the copy and reveal commands, 018 T3).
 -->
 <script lang="ts">
   import { onMount } from 'svelte';
@@ -60,6 +70,7 @@
     parseJSONPath,
     type Content,
     createMultiSelection,
+    createValueSelection,
     isMenuButton,
     isMultiSelection,
     isValueSelection,
@@ -69,18 +80,30 @@
     type Mode as LibraryMode,
     type OnChangeStatus,
     type QueryLanguage,
+    type RenderContextMenuContext,
     type RenderMenuContext,
+    SelectionType,
     type ValidationError,
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { getAdapter } from '@chr-json-editor/core';
+  import { jsonPath, jsonPointer, nodeAt, placeOf } from '@chr-json-editor/core';
   import { compileJSONPointer, getIn, parseJSONPointer, type JSONPath } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer, reordering } from './data-change.js';
   import { editorNumber, editorNumbers } from './editor-numbers.js';
   import type { HostAdapter, HostEvent } from './host-adapter.js';
-  import { parserFor, validationParserFor } from './parser.js';
+  import { badLinesOf, parserFor, validationParserFor } from './parser.js';
+  import {
+    libraryPath,
+    PathTextError,
+    readNavigationPath,
+    selectedPath,
+    SEVERAL_NODES,
+    stepsOf,
+    type LibrarySelection,
+    type PathView,
+  } from './paths.js';
   import { columnPath, exactOrder, onlyNestedPath, type SortRequest } from './sort-order.js';
   import { exactNumbersLanguage } from './query/exact-numbers.js';
   import { jsonpathRfc9535QueryLanguage } from './query/jsonpath-rfc9535.js';
@@ -96,6 +119,7 @@
   import {
     isEditError,
     MODES,
+    type CurrentNode,
     SCHEMA_DIALECTS,
     type DocumentAction,
     type DocumentChange,
@@ -103,6 +127,7 @@
     type JsonPatchOperation,
     type LargeFile,
     type Mode,
+    type NodePath,
     type SchemaDialect,
     type ValidationMessage,
   } from './protocol.js';
@@ -229,6 +254,12 @@
       'M0 96h192v64H0zM256 96h192v64H256zM64 224h128v64H64zM256 224h192v64H256zM64 352h128v64H64zM256 352h192v64H256z',
     ],
   } as unknown as NonNullable<Extract<MenuItem, { type: 'button' }>['icon']>;
+  /** "Reveal in Text Editor"'s icon (spec 018 S2): lines of text, drawn as SMART_FORMAT_ICON is. */
+  const REVEAL_IN_TEXT_ICON = {
+    prefix: 'fas',
+    iconName: 'align-left',
+    icon: [448, 512, [], '', 'M0 96h448v64H0zM0 224h320v64H0zM0 352h384v64H0z'],
+  } as unknown as NonNullable<Extract<MenuItem, { type: 'button' }>['icon']>;
   /** The buttons for whole-document actions (003 T8), hidden on a locked large file. */
   const ACTION_BUTTONS = [
     'jse-format',
@@ -332,9 +363,11 @@
           onChangeQueryLanguage: (id: string) => (chosenQueryLanguageId = id),
           onRenderMenu: renderMenu,
           onRenderContextMenu: renderContextMenu,
+          pathParser: PATH_PARSER,
+          onError,
           onChange,
           onChangeMode,
-          onSelect: (next: JSONEditorSelection | undefined) => (selection = next),
+          onSelect,
         },
       });
       // Criterion 10's test hook: the editor shows the document (the engine is not loaded yet).
@@ -343,11 +376,13 @@
     // Capture phase: these run before the library's own handlers and can stop them.
     target.addEventListener('keydown', interceptShortcut, true);
     target.addEventListener('click', interceptRepair, true);
+    target.addEventListener('click', interceptPathCopy, true);
     target.addEventListener('click', recordSort, true);
     return () => {
       disposed = true;
       target.removeEventListener('keydown', interceptShortcut, true);
       target.removeEventListener('click', interceptRepair, true);
+      target.removeEventListener('click', interceptPathCopy, true);
       target.removeEventListener('click', recordSort, true);
       subscription.dispose();
       window.removeEventListener('keydown', onKeydown, true);
@@ -374,6 +409,7 @@
    *  JSON Lines one has Table and Tree, and no format or compact (spec 012 criterion 6). */
   function renderMenu(items: MenuItem[], context: RenderMenuContext): MenuItem[] {
     let routed = onRenderMenu(items, context);
+    if (!context.modal) routed = routeModeButtons(routed);
     if (modes !== MODES && !context.modal) routed = offeredModes(routed);
     if (format === 'jsonl' && !context.modal) {
       routed = routed.filter(
@@ -431,10 +467,22 @@
     });
   }
 
-  /** The context menu's Transform (tree and table mode) waits for the query engine too. */
-  function renderContextMenu(items: ContextMenuItem[]): ContextMenuItem[] {
-    return items.map(function route<T>(item: T): T {
-      if (isContextMenuRow(item) || isContextMenuColumn(item)) {
+  /** The context menu's Transform (tree and table mode) waits for the query engine too, and the
+   *  path items follow Copy (spec 018 S2). */
+  function renderContextMenu(
+    items: ContextMenuItem[],
+    context: RenderContextMenuContext,
+  ): ContextMenuItem[] {
+    const routed = items.map(function route<T>(item: T): T {
+      if (isContextMenuColumn(item)) {
+        // Table mode: Copy is in a column, and the path items follow it there.
+        const children = item.items.flatMap((child) => {
+          const copy = isCopyGroup(child) ? pathMenuItems(child.main.icon, context.selection) : [];
+          return [route(child), ...copy];
+        });
+        return { ...item, items: children };
+      }
+      if (isContextMenuRow(item)) {
         return { ...item, items: item.items.map(route) };
       }
       if (isMenuButton(item) && item.text === 'Transform') {
@@ -444,6 +492,67 @@
         };
       }
       return item;
+    });
+    // Tree mode: Copy is in a row of buttons (Cut, Copy, Paste); the path items are a column in a
+    // row of their own under it.
+    return routed.flatMap((item) => {
+      const copy = isContextMenuRow(item) ? item.items.find(isCopyGroup) : undefined;
+      if (!copy) return [item];
+      const column = { type: 'column', items: pathMenuItems(copy.main.icon, context.selection) };
+      return [item, { type: 'row', items: [column] } as ContextMenuItem];
+    });
+  }
+
+  /** The library's Copy menu, whose "Copy formatted" and "Copy compacted" the path items follow. */
+  function isCopyGroup(
+    item: unknown,
+  ): item is Extract<ContextMenuItem, { type: 'dropdown-button' }> {
+    const group = item as { type?: unknown; items?: { text?: unknown }[] };
+    return (
+      group.type === 'dropdown-button' &&
+      (group.items ?? []).some((child) => child.text === 'Copy compacted')
+    );
+  }
+
+  /** S2's items for the node `selected` names (S1); offered in a locked large-file tab too. */
+  function pathMenuItems(
+    icon: MenuButtonIcon,
+    selected: JSONEditorSelection | undefined,
+  ): Extract<MenuItem, { type: 'button' }>[] {
+    return [
+      {
+        type: 'button',
+        icon,
+        text: 'Copy JSONPath',
+        title: 'Copy the JSONPath of the selected node',
+        onClick: () => copyPath(jsonPath, selected),
+      },
+      {
+        type: 'button',
+        icon,
+        text: 'Copy JSON Pointer',
+        title: 'Copy the JSON Pointer of the selected node',
+        onClick: () => copyPath(jsonPointer, selected),
+      },
+      {
+        type: 'button',
+        icon: REVEAL_IN_TEXT_ICON,
+        text: 'Reveal in Text Editor',
+        title: 'Show the selected node in the text editor',
+        onClick: () => {
+          const node = pathOf(currentNode(selected));
+          if (node) host.revealInText(docVersion, node);
+        },
+      },
+    ];
+  }
+
+  /** The library's mode buttons switch through `selectMode`, so the place goes along (S4). */
+  function routeModeButtons(items: MenuItem[]): MenuItem[] {
+    return items.map((item) => {
+      if (!isMenuButton(item)) return item;
+      const to = MODES.find((m) => item.title?.startsWith(`Switch to ${m} mode`));
+      return to ? { ...item, onClick: () => selectMode(to) } : item;
     });
   }
 
@@ -483,25 +592,12 @@
     queue({ kind: 'action', action: { name: 'repairLines' } });
   }
 
-  /** The document's bad lines when it is JSON Lines (criterion 8). Core's parse is the one the
-   *  library's parser reads the same text with (core keeps the last parse per format), so this
-   *  costs no second parse. Large JSON Lines files are 012 T6's (spec 012 criterion 10). */
+  /** The document's bad lines when it is JSON Lines (criterion 8), on a large-file tab too (spec
+   *  012 criterion 10), read as its parser reads them (parser.ts). */
   function findBadLines(): number[] | null {
     if (format !== 'jsonl') return null;
-    const errors = getAdapter('jsonl')
-      .parse(docText)
-      .diagnostics.filter((d) => d.severity === 'error');
-    if (errors.length === 0) return null;
-    // Each error spans its line (L1), in order: count the line feeds before each one.
-    let line = 1;
-    let lf = docText.indexOf('\n');
-    return errors.map(({ offset }) => {
-      while (lf >= 0 && lf < offset) {
-        line += 1;
-        lf = docText.indexOf('\n', lf + 1);
-      }
-      return line;
-    });
+    const bad = badLinesOf(docText, largeFile !== null);
+    return bad.length === 0 ? null : bad;
   }
 
   /** After "Repair Lines": the bad lines left are the ones it could not repair (L10). */
@@ -526,10 +622,11 @@
   /** "Edit anyway" in the large-file banner (criterion 4): editable until the tab closes. The host
    *  hears it before any change made after it, since messages keep their order. */
   function unlock(): void {
-    if (!largeFile || largeFile.unlocked) return;
+    // Not while a JSON Lines bad line is left (spec 012 criterion 10): the button is disabled then.
+    if (!largeFile || largeFile.unlocked || badLines) return;
     largeFile = { ...largeFile, unlocked: true };
     host.unlock(docVersion);
-    editor?.updateProps({ readOnly: false });
+    editor?.updateProps({ readOnly });
   }
 
   /** Text mode's transform: the library's dialog, with its result sent as data, not as text. */
@@ -566,10 +663,11 @@
 
   /** Queues `change` for the host; `shown` when the library already shows its result. */
   function queue(change: DocumentChange, shown = false): void {
-    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line but
-    // its repair (spec 012 criterion 8); the editor shows the document again.
-    if (locked) return;
-    if (badLines && !(change.kind === 'action' && change.action.name === 'repairLines')) return;
+    // A locked large file sends nothing (spec 008 criterion 2), nor JSON Lines with a bad line, but
+    // "Repair Lines" in either case (spec 012 criteria 8 and 10); the editor shows the document
+    // again.
+    const repair = change.kind === 'action' && change.action.name === 'repairLines';
+    if ((locked || badLines) && !(repair && badLines)) return;
     queued.push({ change, shown });
     sendNext();
   }
@@ -813,6 +911,167 @@
     return '';
   }
 
+  type MenuButtonIcon = Extract<MenuItem, { type: 'button' }>['icon'];
+
+  /** What the library shows, to read its paths against (paths.ts). */
+  function pathView(): PathView | undefined {
+    const content = editor?.get();
+    if (!content || !format) return undefined;
+    const json = (content as { json?: unknown }).json;
+    if (json !== undefined) return { json };
+    const text = (content as { text?: unknown }).text;
+    return typeof text === 'string' ? { text, format } : undefined;
+  }
+
+  /**
+   * The current node (spec 018 §Terms): in text mode the node at the main cursor (A1–A6), else the
+   * node `selected` names (S1). The text is the text mode shows, typing included.
+   */
+  function currentNode(selected = selection): CurrentNode {
+    const view = pathView();
+    if (!view) return { kind: 'path', path: [] };
+    if (mode === 'text' && 'text' in view) {
+      const range =
+        selected?.type === SelectionType.text ? selected.ranges[selected.main] : undefined;
+      const offset = Math.min(Math.max(range?.head ?? 0, 0), view.text.length);
+      const found = nodeAt(view.format, view.text, offset);
+      if ('path' in found) return { kind: 'path', path: found.path };
+      const { message, line, column } = found.error;
+      return { kind: 'error', message, line, column };
+    }
+    const path = selectedPath(selected as LibrarySelection | undefined);
+    if (path === 'several') return { kind: 'several' };
+    return { kind: 'path', path: stepsOf(view, path ?? []) };
+  }
+
+  /** The node's path, or none with S1's message for several nodes. */
+  function pathOf(node: CurrentNode): NodePath | undefined {
+    if (node.kind === 'several') showPathNotice(SEVERAL_NODES);
+    return node.kind === 'path' ? node.path : undefined;
+  }
+
+  /** S2: the node's path as `write` writes it, on the host's clipboard. */
+  function copyPath(
+    write: (path: NodePath) => string,
+    selected: JSONEditorSelection | undefined,
+  ): void {
+    const path = pathOf(currentNode(selected));
+    if (path) host.copyText(docVersion, write(path));
+  }
+
+  /** A path message in the notice line, gone with the next selection. */
+  let pathNotice: string | undefined;
+  function showPathNotice(message: string): void {
+    notice = pathNotice = message;
+  }
+
+  function onSelect(next: JSONEditorSelection | undefined): void {
+    selection = next;
+    if (pathNotice !== undefined && notice === pathNotice) notice = undefined;
+    pathNotice = undefined;
+  }
+
+  /**
+   * S3: the navigation bar's edit box shows the node's JSONPath and reads JSONPath or JSON Pointer
+   * (P3). The library calls these with its own paths (strings), relative to the data it shows.
+   */
+  const PATH_PARSER = {
+    parse(text: string): string[] {
+      const view = pathView();
+      if (!view) throw new PathTextError('The document is not shown yet');
+      return readNavigationPath(view, text);
+    },
+    stringify(path: string[]): string {
+      const view = pathView();
+      return jsonPath(view ? stepsOf(view, path) : path);
+    },
+  };
+
+  /** The library's errors: a path the navigation bar cannot read goes to the notice line (S3);
+   *  any other is reported as the library's default `onError` reports it. */
+  function onError(error: Error): void {
+    if (error instanceof PathTextError) {
+      showPathNotice(error.message);
+      return;
+    }
+    console.error(error);
+    alert(error.toString());
+  }
+
+  /** The navigation bar's copy button (its title in vanilla-jsoneditor 3.13.0's
+   *  NavigationBarPathEditor) sends the edit box's text to the host's clipboard (S3). */
+  function interceptPathCopy(event: MouseEvent): void {
+    const button = (event.target as Element | null)?.closest('button');
+    if (button?.getAttribute('title') !== 'Copy selected path to the clipboard') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const input = button.parentElement?.querySelector<HTMLInputElement>(
+      'input.jse-navigation-bar-text',
+    );
+    if (input) host.copyText(docVersion, input.value);
+  }
+
+  /** Selects `next` in the library and keeps it as the selection (the library does not report its
+   *  own `select` to `onSelect`). */
+  function selectInLibrary(next: JSONEditorSelection | undefined): void {
+    onSelect(next);
+    editor?.select(next);
+  }
+
+  /**
+   * Shows the node of `path` in the current mode, once that mode is mounted (S4, and the host's
+   * `reveal`): tree mode selects it, its parents expanded, and scrolls to it; table mode selects its
+   * cell when the table shows one and otherwise nothing; text mode puts the cursor at its place
+   * (R1) and scrolls to it.
+   */
+  async function showNode(path: NodePath): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (!editor) return;
+    if (mode === 'text') {
+      showPlace(path);
+      return;
+    }
+    const at = libraryPath(path);
+    if (mode === 'table') {
+      // A cell is a member (or deeper) of one of the root array's items.
+      if (typeof path[0] !== 'number' || path.length < 2) {
+        selectInLibrary(undefined);
+        return;
+      }
+      await editor.scrollTo(at);
+      selectInLibrary(editor.findElement(at) ? createValueSelection(at) : undefined);
+      return;
+    }
+    // `scrollTo` does not expand collapsed parents (plan 018 risk R4): `expand` opens the way.
+    if (at.length > 0) editor.expand(at.slice(0, -1));
+    selectInLibrary(createValueSelection(at));
+    await editor.scrollTo(at);
+  }
+
+  /** Text mode's cursor at the place of `path` (R1), scrolled into view; nothing without one. */
+  function showPlace(path: NodePath): void {
+    const view = pathView();
+    if (!view || !('text' in view)) return;
+    const place = placeOf(view.format, view.text, path);
+    if (place === undefined) return;
+    selectInLibrary({
+      type: SelectionType.text,
+      ranges: [{ anchor: place, head: place }],
+      main: 0,
+    });
+    // The library applies a selection without scrolling. CodeMirror 6 keeps its view on the
+    // content element (`EditorView.findFromDOM`, @codemirror/view 6.43's `cmTile.root.view`).
+    const content = target.querySelector('.cm-content') as
+      | (Element & {
+          cmTile?: { root?: { view?: { dispatch(spec: object): void } } };
+        })
+      | null;
+    content?.cmTile?.root?.view?.dispatch({
+      selection: { anchor: place, head: place },
+      scrollIntoView: true,
+    });
+  }
+
   /** What the editor holds now, for tests. */
   export function content(): Content | undefined {
     return editor?.get();
@@ -823,11 +1082,16 @@
     return editor !== undefined && !inFlight && queued.length === 0;
   }
 
+  /** Switches to mode `next`, keeping the place (S4): the node the old mode names is shown in the
+   *  new one. A text that stops reading before the cursor (A6) names none. */
   function selectMode(next: Mode): void {
     if (!modes.includes(next)) return;
+    const node = editor && next !== mode ? currentNode() : undefined;
     mode = next;
     editor?.updateProps({ mode: next as LibraryMode });
     showDocument();
+    if (node?.kind === 'path') void showNode(node.path);
+    else if (node) selectInLibrary(undefined);
   }
 
   function onChangeMode(next: LibraryMode): void {
@@ -1120,6 +1384,13 @@
       case 'getRowSource':
         host.rowSource(docVersion, event.request, rowSourcePath());
         return;
+      case 'getNode':
+        flushText();
+        host.node(docVersion, event.request, currentNode());
+        return;
+      case 'reveal':
+        void showNode(event.path);
+        return;
     }
   }
 </script>
@@ -1171,7 +1442,12 @@
       </span>
       <button type="button" onclick={openAsText}>Open as Text</button>
       {#if locked}
-        <button type="button" onclick={unlock}>Edit anyway</button>
+        <button
+          type="button"
+          onclick={unlock}
+          disabled={badLines !== null}
+          title={badLines ? 'Repair or fix the bad lines first' : undefined}>Edit anyway</button
+        >
       {/if}
     </div>
   {/if}

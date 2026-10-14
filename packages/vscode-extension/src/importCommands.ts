@@ -11,7 +11,9 @@
 // A file that does not convert shows criterion 7's error and nothing changes; warnings show a
 // notification whose "Show Warnings" opens the "CHR JSON Editor" output channel. The source's text
 // and file are never changed. In a tab locked in large-file mode the import is not offered (the
-// `chrJsonEditor.customEditorLocked` key, csvCommands.ts) and run anyway it says why.
+// `chrJsonEditor.customEditorLocked` key, csvCommands.ts) and run anyway it says why (criterion 9).
+// Sizes (criterion 8, 017 T4): a source above spec 008's ceiling, or a YAML source above the YAML
+// limit (UNK-077), is not read; one above the threshold converts under a progress notification.
 import * as vscode from 'vscode';
 import {
   detect,
@@ -29,16 +31,20 @@ import { VIEW_TYPE, type JsonEditorProvider } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import {
   errorMessage,
+  importLimit,
   IMPORT_KINDS,
   jsonLinesMessage,
   jsonName,
   KIND_EXTENSIONS,
   KIND_LABELS,
   kindOf,
+  progressTitle,
   replaceQuestion,
+  tooLargeMessage,
   warningLines,
   warningsMessage,
 } from './importPlan';
+import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
 import { basename } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -58,8 +64,8 @@ export const LOCKED_IMPORT_MESSAGE =
   'CHR JSON Editor: this large file is read-only. Choose "Edit anyway" to import into it.';
 
 /** Test hooks only: the answers to the open and save dialogs and to "Show Warnings" (undefined:
- *  show them), and what the commands showed: messages, the save dialogs' prefilled URIs and the
- *  lines written to the output channel. */
+ *  show them), and what the commands showed: messages (progress titles included), the save
+ *  dialogs' prefilled URIs and the lines written to the output channel. */
 export const testImport: {
   pick: (() => string | undefined) | undefined;
   saveAs: ((defaultUri: string) => string | undefined) | undefined;
@@ -126,12 +132,16 @@ async function convertFile(
 ): Promise<vscode.Uri | undefined> {
   const source = uri ?? activeSource(kind) ?? (await pick([kind]));
   if (!source) return undefined;
-  const read = await readSource(source);
+  const name = basename(source.path);
+  const read = await readSource(source, kind);
   if (!read) return undefined;
-  const name = read.untitled ? 'Untitled' : basename(source.path);
-  const converted = convert(read.text, kind, name);
-  if (!converted) return undefined;
-  const text = stringify(converted.data, 'json', IMPORT_OUTPUT_STYLE);
+  const shown = read.untitled ? 'Untitled' : name;
+  const done = await progress(shown, read.bytes, () => {
+    const converted = convert(read.text, kind, shown);
+    return converted && { converted, text: stringify(converted.data, 'json', IMPORT_OUTPUT_STYLE) };
+  });
+  if (!done) return undefined;
+  const { converted, text } = done;
   let target: vscode.Uri | undefined;
   if (read.untitled || vscode.workspace.fs.isWritableFileSystem(source.scheme) !== true) {
     // No file on a writable file system to put the new one beside (criterion 5).
@@ -147,7 +157,7 @@ async function convertFile(
     await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(text));
     await vscode.commands.executeCommand(OPEN_COMMAND, target);
   }
-  warn(output, name, converted.warnings);
+  warn(output, shown, converted.warnings);
   return target;
 }
 
@@ -185,9 +195,9 @@ async function importFile(
     show('error', `CHR JSON Editor: can't convert ${name}: it is not a YAML, TOML or XML file.`);
     return false;
   }
-  const read = await readSource(file);
+  const read = await readSource(file, kind);
   if (!read) return false;
-  const converted = convert(read.text, kind, name);
+  const converted = await progress(name, read.bytes, () => convert(read.text, kind, name));
   if (!converted) return false;
   const target = document.isUntitled ? 'Untitled' : basename(document.uri.path);
   const format =
@@ -235,6 +245,24 @@ function convert(text: string, kind: ImportKind, name: string): Converted | unde
   return result;
 }
 
+/**
+ * Criterion 8: `task` under the progress notification "Converting <file>…" when the source is
+ * above the threshold, else at once. The conversion holds the extension host, so the notification
+ * is given a moment to reach the window before it starts.
+ */
+async function progress<T>(name: string, bytes: number, task: () => T): Promise<T> {
+  if (bytes <= LARGE_FILE_THRESHOLD) return task();
+  const title = progressTitle(name);
+  if (__CHR_TEST_HOOKS__) testImport.messages.push(title);
+  return vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title },
+    async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return task();
+    },
+  );
+}
+
 /** Criterion 7: the warnings go to the output channel, and a notification offers to show them. */
 function warn(output: Output, name: string, warnings: readonly ImportWarning[]): void {
   if (!warnings.length) return;
@@ -251,23 +279,37 @@ function warn(output: Output, name: string, warnings: readonly ImportWarning[]):
 }
 
 /**
- * The source's text: an untitled or changed document's as the editor holds it, else the file's
- * bytes decoded as UTF-8 (so a UTF-16 file meets rule A1 instead of VS Code's own decoding).
+ * The source's text and its size in UTF-8 bytes: an untitled or changed document's as the editor
+ * holds it, else the file's bytes decoded as UTF-8 (so a UTF-16 file meets rule A1 instead of VS
+ * Code's own decoding). A source above `kind`'s limit (criterion 8) is not read: a file's size
+ * comes from the file system first.
  */
 async function readSource(
   uri: vscode.Uri,
-): Promise<{ text: string; untitled: boolean } | undefined> {
+  kind: ImportKind,
+): Promise<{ text: string; bytes: number; untitled: boolean } | undefined> {
+  const name = basename(uri.path);
+  const fits = (bytes: number) => {
+    if (bytes <= importLimit(kind)) return true;
+    show('error', tooLargeMessage(name, kind, bytes));
+    return false;
+  };
   const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
-  if (open && (open.isUntitled || open.isDirty)) {
-    return { text: open.getText(), untitled: open.isUntitled };
-  }
+  const fromEditor = (untitled: boolean) => {
+    const text = open!.getText();
+    const bytes = utf8Length(text);
+    return fits(bytes) ? { text, bytes, untitled } : undefined;
+  };
+  if (open && (open.isUntitled || open.isDirty)) return fromEditor(open.isUntitled);
   try {
-    return {
-      text: new TextDecoder().decode(await vscode.workspace.fs.readFile(uri)),
-      untitled: false,
-    };
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (!fits(stat.size)) return undefined;
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    // The file may have grown between the two calls.
+    if (!fits(bytes.length)) return undefined;
+    return { text: new TextDecoder().decode(bytes), bytes: bytes.length, untitled: false };
   } catch (error) {
-    if (open) return { text: open.getText(), untitled: false };
+    if (open) return fromEditor(false);
     show(
       'error',
       `CHR JSON Editor: can't read ${basename(uri.path)}: ` +
