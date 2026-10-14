@@ -22,6 +22,7 @@ import type { HostPlatform } from './platform';
 import type { HeadResult } from './gitHead';
 import { cachedParseTexts, detect } from '@chr-json-editor/core';
 import { testValidationLimit, VALIDATION_LIMIT_BYTES } from './largeFile';
+import { registerOpenSettingsCommand, testOpenSettings } from './settingsVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -152,6 +153,8 @@ export interface TestHooks {
   hostMemory(): NodeJS.MemoryUsage;
   /** 008 T5 benchmark: the webview's JavaScript heap in bytes, or null if Chromium hides it. */
   webviewHeap(uri: string): Promise<number | null>;
+  /** 019 T1: the searches "Open Settings" opened the Settings editor with since the previous call. */
+  openSettingsQueries(): string[];
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -193,6 +196,7 @@ export function activateShared(
     ...registerCsvCommands(csvPanels, formatBadge, provider),
     ...registerImportCommands(formatBadge, provider),
     registerSmartFormatCommand(formatBadge, provider),
+    registerOpenSettingsCommand(),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -304,6 +308,7 @@ export function activateShared(
           return VALIDATION_LIMIT_BYTES;
         },
         pausedValidation: () => provider.pausedItem.snapshot(),
+        openSettingsQueries: () => testOpenSettings.queries.splice(0),
         timeValidation: (uri) => provider.timeValidation(uri),
         hostMemory: () => process.memoryUsage(),
         webviewHeap: (uri) => provider.webviewHeap(uri),

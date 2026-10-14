@@ -48,6 +48,89 @@
         "priority": "option"
       }
     ],
+    "configuration": {
+      "title": "CHR JSON Editor",
+      "properties": {
+        "chrJsonEditor.defaultMode": {
+          "type": "string",
+          "enum": [
+            "tree",
+            "text",
+            "table"
+          ],
+          "enumDescriptions": [
+            "Tree mode.",
+            "Text mode.",
+            "Table mode."
+          ],
+          "default": "tree",
+          "scope": "language-overridable",
+          "markdownDescription": "The mode a JSON, JSONC or JSON5 tab opens in. Set it per language with `[json]`, `[jsonc]` and the like. A large file (above `#chrJsonEditor.largeFileThreshold#`) has no Text mode and opens in Tree; a JSON Lines tab always opens in Table. Switching mode in a tab changes that tab only."
+        },
+        "chrJsonEditor.largeFileThreshold": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 5,
+          "scope": "resource",
+          "markdownDescription": "Size in MiB above which a document opens in large-file mode: read-only until you choose \"Edit anyway\", with Smart Format and the slower query languages turned off. A tab keeps the mode it opened in."
+        },
+        "chrJsonEditor.smartFormat.maxLineLength": {
+          "type": "integer",
+          "minimum": 20,
+          "maximum": 1000,
+          "default": 120,
+          "scope": "language-overridable",
+          "markdownDescription": "The longest line **Smart Format** writes, in characters."
+        },
+        "chrJsonEditor.transform.defaultQueryLanguage": {
+          "type": "string",
+          "enum": [
+            "jsonquery",
+            "jmespath",
+            "jsonpath-rfc9535",
+            "jsonpath",
+            "javascript",
+            "lodash"
+          ],
+          "enumItemLabels": [
+            "JSONQuery",
+            "JMESPath",
+            "JSONPath (RFC 9535)",
+            "JSONPath",
+            "JavaScript",
+            "Lodash"
+          ],
+          "default": "jsonquery",
+          "scope": "resource",
+          "markdownDescription": "The query language a tab's first Transform dialog starts with. A language you pick in the dialog stays picked in that tab. When the language is not offered (for example JavaScript above the large-file threshold), the dialog starts with the first one listed."
+        },
+        "chrJsonEditor.validation.enable": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "Validate documents against their JSON Schema and show the errors in the editor. Does not change VS Code's own `#json.validate.enable#`."
+        },
+        "chrJsonEditor.table.flattenColumns": {
+          "type": "boolean",
+          "default": true,
+          "scope": "resource",
+          "markdownDescription": "In Table mode, show a nested object's members in their own columns. Off, the object shows in one column."
+        },
+        "chrJsonEditor.escapeControlCharacters": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "In Tree and Table mode, show control characters in strings escaped, as `\\n`, `\\t` and the like. The document is never changed."
+        },
+        "chrJsonEditor.escapeUnicodeCharacters": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "In Tree and Table mode, show characters outside ASCII escaped, as `\\uXXXX`. The document is never changed."
+        }
+      }
+    },
     "commands": [
       {
         "command": "chrJsonEditor.openInEditor",
@@ -147,6 +230,11 @@
       {
         "command": "chrJsonEditor.importFile",
         "title": "Import YAML, TOML or XML…",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.openSettings",
+        "title": "Open Settings",
         "category": "CHR JSON Editor"
       }
     ],

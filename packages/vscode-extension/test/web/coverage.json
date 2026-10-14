@@ -60,6 +60,9 @@
     },
     "chrJsonEditor.importFile": {
       "test": "Import YAML, TOML or XML… replaces the document's data in one undoable edit"
+    },
+    "chrJsonEditor.openSettings": {
+      "test": "Open Settings opens the Settings editor on the extension’s settings"
     }
   }
 }

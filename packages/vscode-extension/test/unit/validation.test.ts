@@ -331,6 +331,91 @@ describe('DocumentValidation', () => {
     ]);
   });
 
+  it('with validation off, posts nothing, never pauses, and clears or validates on a switch (spec 019 V1, A5)', () => {
+    vi.useFakeTimers();
+    const doc = { text: '{"name": "Ada", "age": -1}', docVersion: 1 };
+    const posted: ValidationMessage[] = [];
+    let enabled = false;
+    let changes = 0;
+    const validation = new DocumentValidation({
+      snapshot: () => ({ ...doc }),
+      format: () => 'json',
+      enabled: () => enabled,
+      paused: () => true,
+      post: (m) => posted.push(m),
+      schemaChanged: () => changes++,
+    });
+    validation.setSchema(schema);
+    validation.schedule();
+    validation.run();
+    validation.runOnce();
+    vi.runAllTimers();
+    expect(posted).toEqual([]);
+    // Off, no "Schema validation paused" item either (spec 008 criterion 10's item reads this).
+    expect(validation.paused).toBe(false);
+    // Nothing changed: no event, nothing posted.
+    validation.enabledChanged();
+    expect(posted).toEqual([]);
+    changes = 0;
+
+    // Turned on: the document validates at once, here as a paused large file does: not at all
+    // until the click, and the item shows.
+    enabled = true;
+    validation.enabledChanged();
+    expect(changes).toBe(1);
+    expect(validation.paused).toBe(true);
+    validation.runOnce();
+    expect(keys(posted.at(-1)!.result)).toEqual([{ instancePath: '/age', keyword: 'minimum' }]);
+
+    // Turned off: one `none` with no dialect, so the errors and the "assumed draft-07" notice go.
+    enabled = false;
+    validation.enabledChanged();
+    expect(changes).toBe(2);
+    expect(posted.at(-1)).toMatchObject({ dialect: null, result: { kind: 'none' } });
+    const count = posted.length;
+    validation.setSchema(undefined);
+    validation.setSchema(schema);
+    validation.setUnavailable('unreadable');
+    vi.runAllTimers();
+    expect(posted).toHaveLength(count);
+  });
+
+  it('does not ask whether validation is on while it is being built (the tab is not ready yet)', () => {
+    let ready = false;
+    const validation = new DocumentValidation({
+      snapshot: () => ({ text: '{}', docVersion: 1 }),
+      format: () => 'json',
+      enabled: () => {
+        if (!ready) throw new Error('asked before the tab was ready');
+        return true;
+      },
+      post: () => {},
+    });
+    ready = true;
+    validation.setSchema(schema);
+  });
+
+  it('validates at once when turned on with the tab open (spec 019 A5)', () => {
+    let enabled = false;
+    const posted: ValidationMessage[] = [];
+    const validation = new DocumentValidation({
+      snapshot: () => ({ text: '{"name": "Ada", "age": -1}', docVersion: 3 }),
+      format: () => 'json',
+      enabled: () => enabled,
+      post: (m) => posted.push(m),
+    });
+    validation.setSchema(schema);
+    expect(posted).toEqual([]);
+    enabled = true;
+    validation.enabledChanged();
+    expect(posted).toHaveLength(1);
+    expect(posted[0]).toMatchObject({
+      docVersion: 3,
+      dialect: { name: 'draft-07', assumed: true, switchable: true },
+    });
+    expect(keys(posted[0]!.result)).toEqual([{ instancePath: '/age', keyword: 'minimum' }]);
+  });
+
   it('stops after dispose', () => {
     vi.useFakeTimers();
     const { posted, validation } = setup('{}');
