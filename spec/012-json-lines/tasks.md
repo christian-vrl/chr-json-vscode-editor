@@ -29,7 +29,7 @@
   requests to the host, protocol bump); whole-document actions hidden per criterion 6; dev host
   fixtures; web tests. — needs: 012 T2, 008 T2 — *gate: criterion 8's banner and read-only parts and
   the theme part of criterion 13 green in `pnpm test:web`*
-- [ ] **T5** VS Code: `*.jsonl` and `*.ndjson` in the custom editor selector and in every
+- [x] **T5** VS Code: `*.jsonl` and `*.ndjson` in the custom editor selector and in every
   `resourceExtname` and format `when` clause; "JSON Lines" in the format badge and picker; open in
   Table mode; "Repair Lines" as one `WorkspaceEdit` and "Open as Text" at the first bad line; "Convert
   to JSON Lines" and the `jsonl` sources of "Convert to JSON / JSONC / JSON5"; e2e. — needs: 012 T3,
@@ -47,6 +47,8 @@
 - Schema validation of each item (a schema that describes one record) could be a later spec; it
   needs a way to bind a schema to a JSON Lines file, which 004's `$schema`/settings lookup lacks.
 - Compare of two JSON Lines files (007) should work through the adapter once T2 merges; 007 adds no
-  criterion for it here.
+  criterion for it here. 012 T5 left the compare menus' `resourceExtname` clauses at JSON, JSONC
+  and JSON5, and `compareModel.parseSide` still tries `JSON.parse` first, so a one-line JSON Lines
+  side reads as the item instead of `[item]` (plan R2); a compare spec for JSON Lines would fix both.
 - Opening `.csv` files directly in table mode (009 §Off the critical path) could reuse T4's Table-first
   state.

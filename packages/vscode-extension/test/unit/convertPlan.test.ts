@@ -47,6 +47,27 @@ describe('plan', () => {
     });
     expect(plan(`${BOM}{,}`, 'json', 'json5')).toMatchObject({ kind: 'broken', offset: 2 });
   });
+
+  // Spec 012 criterion 9 (J1, J2).
+  it('converts to and from JSON Lines', () => {
+    expect(plan('[{"a": 1},\n 2]\n', 'json', 'jsonl')).toEqual({
+      kind: 'converted',
+      text: '{"a":1}\n2\n',
+      losses: [],
+    });
+    expect(plan(`${BOM}{"a":1}\r\n2\r\n`, 'jsonl', 'json')).toEqual({
+      kind: 'converted',
+      text: `${BOM}[\r\n  {"a":1},\r\n  2\r\n]\r\n`,
+      losses: [],
+    });
+  });
+
+  it('refuses a root that is not an array as JSON Lines, apart from a broken source', () => {
+    expect(plan('{"a": 1}', 'json', 'jsonl')).toEqual({ kind: 'not-array' });
+    expect(plan('{a: 1} // c', 'json5', 'jsonl')).toEqual({ kind: 'not-array' });
+    expect(plan('[1,', 'json', 'jsonl')).toMatchObject({ kind: 'broken' });
+    expect(plan('{"a":1}\n{"b":\n', 'jsonl', 'json')).toMatchObject({ kind: 'broken', offset: 8 });
+  });
 });
 
 describe('convertedName', () => {
@@ -54,6 +75,8 @@ describe('convertedName', () => {
     expect(convertedName('data.json5', 'json')).toBe('data.json');
     expect(convertedName('a.b.json', 'jsonc')).toBe('a.b.jsonc');
     expect(convertedName('tsconfig.json', 'json')).toBe('tsconfig.json');
+    expect(convertedName('data.json', 'jsonl')).toBe('data.jsonl');
+    expect(convertedName('log.ndjson', 'json5')).toBe('log.json5');
   });
 
   it('adds one to a name without', () => {
@@ -67,6 +90,13 @@ describe('messages', () => {
     expect(brokenMessage('json5', 'json', 3, 7)).toBe(
       "CHR JSON Editor: can't convert to JSON: the document is not valid JSON5 (error at line 3, " +
         'column 7). Fix it or run "Repair JSON" first.',
+    );
+  });
+
+  it('names "Repair Lines" for a JSON Lines source (spec 012 criterion 9)', () => {
+    expect(brokenMessage('jsonl', 'json5', 2, 1)).toBe(
+      "CHR JSON Editor: can't convert to JSON5: the document is not valid JSON Lines (error at " +
+        'line 2, column 1). Fix it or run "Repair Lines" first.',
     );
   });
 

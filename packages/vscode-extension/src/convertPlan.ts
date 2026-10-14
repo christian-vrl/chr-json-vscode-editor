@@ -18,6 +18,9 @@ export const FORMAT_LABELS: Readonly<Record<Format, string>> = {
 
 const BOM = '﻿';
 
+/** Core's message for J2's refusal (spec 012 criterion 9), which convertCommand.ts shows. */
+export const NOT_ARRAY_MESSAGE = 'JSON Lines needs an array at the root.';
+
 /** What converting a document's text gives. */
 export type Plan =
   | { kind: 'same' }
@@ -27,6 +30,8 @@ export type Plan =
       text: string;
       losses: ConversionLoss[];
     }
+  /** To JSON Lines from a source whose root is not an array (spec 012 criterion 9, J2). */
+  | { kind: 'not-array' }
   | {
       kind: 'broken';
       diagnostic: Diagnostic;
@@ -51,6 +56,8 @@ export function plan(text: string, from: Format, to: Format, bom = false): Plan 
     };
   } catch (error) {
     if (!(error instanceof ConvertError)) throw error;
+    if (to === 'jsonl' && error.diagnostic.message === NOT_ARRAY_MESSAGE)
+      return { kind: 'not-array' };
     return {
       kind: 'broken',
       diagnostic: error.diagnostic,
@@ -65,12 +72,13 @@ export function convertedName(base: string, to: Format): string {
   return `${dot > 0 ? base.slice(0, dot) : base}.${to}`;
 }
 
-/** Criterion 7: why a broken document is not converted. `line` and `column` count from 1. */
+/** Criterion 7: why a broken document is not converted. `line` and `column` count from 1. A JSON
+ *  Lines document names "Repair Lines", the repair its tab offers (spec 012 criterion 9). */
 export function brokenMessage(from: Format, to: Format, line: number, column: number): string {
   return (
     `CHR JSON Editor: can't convert to ${FORMAT_LABELS[to]}: the document is not valid ` +
     `${FORMAT_LABELS[from]} (error at line ${line}, column ${column}). ` +
-    `Fix it or run "Repair JSON" first.`
+    `Fix it or run "${from === 'jsonl' ? 'Repair Lines' : 'Repair JSON'}" first.`
   );
 }
 
