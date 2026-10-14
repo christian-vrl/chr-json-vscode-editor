@@ -16,7 +16,15 @@
 // the node at the cursor, or a path's place) runs under the progress notification "Finding the
 // node…" (criterion 11, 018 T4).
 import * as vscode from 'vscode';
-import { detect, placeOf, type Format, type Path } from '@chr-json-editor/core';
+import {
+  badItems,
+  detect,
+  placeOf,
+  tablePath,
+  textPath,
+  type Format,
+  type Path,
+} from '@chr-json-editor/core';
 import type { CurrentNode } from '@chr-json-editor/app-shell/protocol';
 import { isCustomTab, isTextTab, OPEN_COMMAND, REOPEN_AS_TEXT_COMMAND } from './commands';
 import { textFormat } from './convertCommand';
@@ -31,9 +39,6 @@ import {
   nodeOutcome,
   notInDocumentMessage,
   pathText,
-  tablePath,
-  textPath,
-  badItems,
   type Notation,
 } from './pathPlan';
 
@@ -144,9 +149,15 @@ async function copyPath(
   provider: JsonEditorProvider,
   notation: Notation,
 ): Promise<void> {
-  const located = badge.activeDocument() ? await customNode(badge, provider) : await textNode();
-  const path = pathOf(located);
-  if (!path) return;
+  const custom = badge.activeDocument() !== undefined;
+  const located = custom ? await customNode(badge, provider) : await textNode();
+  let path = pathOf(located);
+  if (!located || !path) return;
+  // JSON Lines: the table's row is copied as the text's item, bad lines counted (UNK-090 ★).
+  if (custom && located.format === 'jsonl') {
+    const source = located.document.getText();
+    path = textPath(path, await finding(source, () => badItems(source)));
+  }
   const text = pathText(notation, path);
   await vscode.env.clipboard.writeText(text);
   const message = copiedMessage(notation, text);

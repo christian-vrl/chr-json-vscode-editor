@@ -95,7 +95,16 @@
     type Validator,
     ValidationSeverity,
   } from 'vanilla-jsoneditor';
-  import { jsonPath, jsonPointer, nodeAt, placeOf } from '@chr-json-editor/core';
+  import {
+    badItems,
+    jsonPath,
+    jsonPointer,
+    nodeAt,
+    placeOf,
+    tablePath,
+    textPath,
+    type Path as CorePath,
+  } from '@chr-json-editor/core';
   import { compileJSONPointer, getIn, parseJSONPointer, type JSONPath } from 'immutable-json-patch';
   import './theme.css';
   import { dataChange, isContainer, reordering } from './data-change.js';
@@ -1016,7 +1025,7 @@
     }
     const path = selectedPath(selected as LibrarySelection | undefined);
     if (path === 'several') return { kind: 'several' };
-    return { kind: 'path', path: stepsOf(view, path ?? []) };
+    return { kind: 'path', path: rowPath(textSteps(view, path ?? [])) };
   }
 
   /** The node's path, or none with S1's message for several nodes. */
@@ -1031,7 +1040,41 @@
     selected: JSONEditorSelection | undefined,
   ): void {
     const path = pathOf(currentNode(selected));
-    if (path) host.copyText(docVersion, write(path));
+    if (path) host.copyText(docVersion, write(itemPath(path)));
+  }
+
+  /** JSON Lines with bad lines: the items' indices, as the text counts them (A5), of the bad
+   *  lines, kept for the bad lines they were counted from. */
+  let counted: { lines: number[]; items: number[] } | undefined;
+  function badItemsNow(): number[] {
+    if (format !== 'jsonl' || !badLines) return [];
+    if (counted?.lines !== badLines)
+      counted = { lines: badLines, items: badItems(docText, badLines) };
+    return counted.items;
+  }
+
+  /** A path of what the library shows as the text names it (UNK-090 ★): in JSON Lines the table
+   *  and tree leave bad lines out of their items (spec 012 L1), the text counts them (A5). */
+  function itemPath(path: NodePath): NodePath {
+    const bad = badItemsNow();
+    return bad.length ? (textPath(path as CorePath, bad) as NodePath) : path;
+  }
+
+  /**
+   * The path as the text names it (A5) of a library path. A text view reads its steps against the
+   * text, so a JSON Lines row there becomes the text's item before they are read.
+   */
+  function textSteps(view: PathView, path: readonly string[]): NodePath {
+    if ('json' in view) return itemPath(stepsOf(view, path));
+    const [row, ...rest] = path;
+    if (row === undefined || !/^(?:0|[1-9][0-9]*)$/.test(row)) return stepsOf(view, path);
+    return stepsOf(view, [String(itemPath([Number(row)])[0]), ...rest]);
+  }
+
+  /** The library's path of a path as the text names it (`itemPath` back). */
+  function rowPath(path: readonly NodePath[number][]): NodePath {
+    const bad = badItemsNow();
+    return bad.length ? (tablePath(path as CorePath, bad) as NodePath) : [...path];
   }
 
   /** A path message in the notice line, gone with the next selection. */
@@ -1054,11 +1097,11 @@
     parse(text: string): string[] {
       const view = pathView();
       if (!view) throw new PathTextError('The document is not shown yet');
-      return readNavigationPath(view, text);
+      return readNavigationPath(view, text, rowPath);
     },
     stringify(path: string[]): string {
       const view = pathView();
-      return jsonPath(view ? stepsOf(view, path) : path);
+      return jsonPath(view ? textSteps(view, path) : path);
     },
   };
 

@@ -56,10 +56,11 @@
   context menu's item, which keeps the selection the menu opened on (018 T3).
 - JSON Lines with a bad line (018 T4): A5 counts every non-blank line as an item, the bad one too,
   while the CHR editor's table (spec 012 L1) leaves a bad line out of its rows. Both reveals map the
-  item to the row and back (`pathPlan.ts` `tablePath`, `textPath`; `middle.jsonl` in
-  `copyPath.cjs`), so they land on the same item. The copy commands still write each editor's own
-  index: after a bad line, the text editor's `$[i]` and the table's `$[i-1]` name the same item
-  until "Repair Lines" makes the bad line an item.
+  item to the row and back (`tablePath`, `textPath`; `middle.jsonl` in
+  `copyPath.cjs`), so they land on the same item. Per UNK-090 ★ (awaiting the owner's Keep/Revert)
+  the copy commands in both editors write the text's A5 index, and the page's nav bar shows and
+  accepts it; the helpers live in core (`packages/core/src/paths/lines.ts`), and `badItems` treats a
+  lone CR at the end of a line as blank space, as `readLines` does (018 T3 review, L4).
 - "Reveal in Text Editor" from a tab with unsaved edits: "Reopen as Text" keeps that tab open, so the
   command now takes the text tab from `showTextDocument` (018 T3 review, L4; covered in
   `copyPath.cjs`).

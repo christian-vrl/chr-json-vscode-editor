@@ -534,16 +534,21 @@ exports.runCopyPath = async function runCopyPath({
     }
 
     // ...also past a bad line, which the table leaves out of its rows: the text's item 2 (Grace,
-    // after the bad line 2 and a blank line) is the table's row 1, both ways.
+    // after the bad line 2 and a blank line) is the table's row 1, both ways, and both editors
+    // copy it as item 2 (UNK-090).
     {
       await closeAll();
       const middle = fixture('middle.jsonl');
       const { document, editor } = await openText(middle);
       putCursor(editor, document.getText().indexOf('1906'));
+      assert.equal(await copied(COPY_PATH), '$[2].year', 'the text copies its item');
       await vscode.commands.executeCommand(REVEAL_IN_EDITOR);
       await expectOnly(middle, 'custom', isCustom);
       const cell = `.jse-table-mode td[data-path="${encodeURIComponent('/1/year')}"] .jse-value-outer`;
       await hooks.dom(middle.toString(), [{ waitFor: `${cell}.jse-selected-value` }]);
+      // Both editors copy the text's item index (UNK-090 ★): the table's row 1 is item 2.
+      assert.equal(await copied(COPY_PATH), '$[2].year', 'the table copies the text item');
+      assert.equal(await copied(COPY_POINTER), '/2/year', 'the table copies the text item');
 
       await selectCell(middle, '/2/name');
       await vscode.commands.executeCommand(REVEAL_IN_TEXT);

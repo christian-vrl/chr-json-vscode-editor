@@ -107,15 +107,23 @@ export function hasNode(view: PathView, path: readonly PathStep[]): boolean {
  * S3: the library path the navigation bar's edit box names: a JSONPath or JSON Pointer read as P3
  * reads it (a pointer's steps against what the library shows), of a node it shows. Throws a
  * PathTextError with P3's refusal, or the library's own message for a path not in the data.
+ * `shown` turns a path as the text names it into the library's (JSON Lines items past a bad line,
+ * UNK-090).
  */
-export function readNavigationPath(view: PathView, text: string): string[] {
+export function readNavigationPath(
+  view: PathView,
+  text: string,
+  shown: (path: PathStep[]) => PathStep[] = (path) => path,
+): string[] {
   const pointer = /^[ \t\r\n]*\//.test(text);
   const read = readPath(text, 'json' in view ? view.json : undefined);
   if ('error' in read) throw new PathTextError(read.error);
   // Against the text, a pointer's steps come back as names: those into arrays are indices.
   const steps = pointer && !('json' in view) ? stepsOf(view, read.path.map(String)) : read.path;
-  if (!hasNode(view, steps)) throw new PathTextError(NOT_IN_DOCUMENT);
-  return steps.map(String);
+  // The text counts items as the path does; the data counts them as the library does.
+  if (!hasNode(view, 'json' in view ? shown(steps) : steps))
+    throw new PathTextError(NOT_IN_DOCUMENT);
+  return shown(steps).map(String);
 }
 
 /** The library path of core's path. */
