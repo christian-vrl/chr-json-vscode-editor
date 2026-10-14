@@ -3,6 +3,7 @@
 import { LosslessNumber, parseData, valueText } from '@chr-json-editor/core';
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_EDITOR_SETTINGS,
   PROTOCOL_VERSION,
   decodeChange,
   encodeChange,
@@ -30,7 +31,13 @@ const toWebview: ToWebviewMessage[] = [
     text: '{\n  // note\n  "a": 1,\n}\n',
     format: 'jsonc',
     mode: 'tree',
-    settings: { indent: 2, nested: { list: [true, null, 'x'] } },
+    settings: {
+      thresholdBytes: 6 * 1024 * 1024,
+      defaultQueryLanguage: 'jsonpath-rfc9535',
+      flattenColumns: false,
+      escapeControlCharacters: true,
+      escapeUnicodeCharacters: true,
+    },
     largeFile: null,
   },
   {
@@ -40,7 +47,7 @@ const toWebview: ToWebviewMessage[] = [
     text: '[]',
     format: 'json5',
     mode: 'table',
-    settings: {},
+    settings: { ...DEFAULT_EDITOR_SETTINGS },
     largeFile: { bytes: 5_242_881, unlocked: false },
   },
   {
@@ -52,6 +59,12 @@ const toWebview: ToWebviewMessage[] = [
   },
   { protocol: PROTOCOL_VERSION, type: 'update', docVersion: 2, text: '{}', origin: 'edit' },
   { protocol: PROTOCOL_VERSION, type: 'setMode', docVersion: 2, mode: 'table' },
+  {
+    protocol: PROTOCOL_VERSION,
+    type: 'settings',
+    docVersion: 2,
+    settings: { ...DEFAULT_EDITOR_SETTINGS, defaultQueryLanguage: 'lodash', thresholdBytes: 1 },
+  },
   { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'json5' },
   { protocol: PROTOCOL_VERSION, type: 'setFormat', docVersion: 2, format: 'jsonl' },
   { protocol: PROTOCOL_VERSION, type: 'error', docVersion: 3, code: 'stale', message: 'Edit on 2' },
@@ -161,7 +174,7 @@ describe('protocol round trip', () => {
     expect(decodeToHost(structuredClone(m))).toEqual({ ok: true, message: m });
   });
 
-  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2; getRowSource, rowSource: 009 T4)', () => {
+  it('covers every message type (003 T1; validation, setDialect: 004; ready: 003 T5; undo, redo, flush, flushed: 003 T7; openAsText, unlock: 008 T2; getRowSource, rowSource: 009 T4; settings: 019 T2)', () => {
     const types = new Set([...toWebview, ...toHost].map((m) => m.type));
     expect([...types].sort()).toEqual(
       [
@@ -180,22 +193,19 @@ describe('protocol round trip', () => {
         'setDialect',
         'setFormat',
         'setMode',
+        'settings',
         'update',
         'validation',
       ].sort(),
     );
   });
 
-  it('keeps a "__proto__" settings key as data', () => {
+  it('refuses a settings key the page does not know, __proto__ included (019 T2)', () => {
     const data: unknown = JSON.parse(
       `{"protocol":${PROTOCOL_VERSION},"type":"init","docVersion":0,"text":"","format":"json",` +
-        `"mode":"text","settings":{"__proto__":{"polluted":true}},"largeFile":null}`,
+        `"mode":"text","settings":${JSON.stringify({ ...DEFAULT_EDITOR_SETTINGS, ['__proto__']: {} })},"largeFile":null}`,
     );
-    const result = decodeToWebview(data);
-    expect(result.ok).toBe(true);
-    const settings = result.ok && result.message.type === 'init' ? result.message.settings : {};
-    expect(Object.keys(settings)).toEqual(['__proto__']);
-    expect(Object.getPrototypeOf(settings)).toBe(Object.prototype);
+    expect(decodeToWebview(data)).toMatchObject({ ok: false });
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 
@@ -319,7 +329,35 @@ describe('protocol rejects malformed messages', () => {
       validation({ kind: 'errors', errors: [] }, { name: 'draft-07', assumed: true }),
     ],
     ['a none result with a reason', validation({ kind: 'none', reason: 'r' })],
-    ['init settings that are not JSON', { ...toWebview[0], settings: { f: Number.NaN } }],
+    ['untyped init settings (protocol 15)', { ...toWebview[0], settings: {} }],
+    [
+      'init settings without a key',
+      { ...toWebview[0], settings: { ...DEFAULT_EDITOR_SETTINGS, flattenColumns: undefined } },
+    ],
+    [
+      'init settings with an unknown key',
+      { ...toWebview[0], settings: { ...DEFAULT_EDITOR_SETTINGS, indent: 2 } },
+    ],
+    [
+      'a zero threshold',
+      { ...toWebview[0], settings: { ...DEFAULT_EDITOR_SETTINGS, thresholdBytes: 0 } },
+    ],
+    [
+      'a fractional threshold',
+      { ...toWebview[0], settings: { ...DEFAULT_EDITOR_SETTINGS, thresholdBytes: 1.5 } },
+    ],
+    [
+      'an unknown query language',
+      { ...toWebview[0], settings: { ...DEFAULT_EDITOR_SETTINGS, defaultQueryLanguage: 'jq' } },
+    ],
+    [
+      'a display setting that is not a boolean',
+      { ...toWebview[0], settings: { ...DEFAULT_EDITOR_SETTINGS, escapeUnicodeCharacters: 1 } },
+    ],
+    [
+      'a settings message without settings',
+      { protocol: PROTOCOL_VERSION, type: 'settings', docVersion: 2 },
+    ],
     ['an init without largeFile (protocol 10)', { ...toWebview[0], largeFile: undefined }],
     ['an init from protocol 10 (before large files)', { ...toWebview[0], protocol: 10 }],
     ['a largeFile without bytes', { ...toWebview[0], largeFile: { unlocked: false } }],
@@ -775,8 +813,8 @@ describe('patch values (spec 015 criterion 5)', () => {
     }
   });
 
-  it('is version 15, and a receiver of another version rejects the message', () => {
-    expect(PROTOCOL_VERSION).toBe(15);
+  it('is version 17, and a receiver of another version rejects the message', () => {
+    expect(PROTOCOL_VERSION).toBe(17);
     const edit = {
       protocol: PROTOCOL_VERSION,
       type: 'edit',

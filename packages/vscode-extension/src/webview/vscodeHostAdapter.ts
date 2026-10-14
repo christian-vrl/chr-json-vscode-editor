@@ -128,6 +128,10 @@ export class VscodeHostAdapter implements HostAdapter {
         this.#resolveOpen = undefined;
         return;
       }
+      case 'settings':
+        this.#settings = message.settings;
+        for (const listener of [...this.#listeners]) listener(message);
+        return;
       default:
         for (const listener of [...this.#listeners]) listener(message);
     }

@@ -12,6 +12,7 @@ import type {
   SchemaDialect,
   SetFormatMessage,
   SetModeMessage,
+  SettingsMessage,
   UpdateMessage,
   ValidationMessage,
 } from './protocol.js';
@@ -27,7 +28,8 @@ export type HostEvent =
   | ErrorMessage
   | ValidationMessage
   | FlushMessage
-  | GetRowSourceMessage;
+  | GetRowSourceMessage
+  | SettingsMessage;
 
 /** A failure the UI asks the host to show (the UI → host `error` message without its envelope). */
 export type HostNotice = Omit<ErrorMessage, 'protocol' | 'type'>;
@@ -46,9 +48,10 @@ export interface HostAdapter {
    */
   save(docVersion: number, change: DocumentChange): void;
   /** Subscribes to the host's `update`, `setMode`, `setFormat`, `error`, `validation`, `flush`,
-   *  `getRowSource` messages. */
+   *  `getRowSource`, `settings` messages. */
   onExternalChange(listener: (event: HostEvent) => void): Disposable;
-  /** The settings from `init`. Only valid after `open` has resolved. */
+  /** The page's settings: `init`'s, then each `settings` message's (spec 019 A2). Only valid after
+   *  `open` has resolved. */
   getSettings(): EditorSettings;
   /** Asks the host to show a failure to the user; maps to the UI → host `error` message. */
   showMessage(notice: HostNotice): void;

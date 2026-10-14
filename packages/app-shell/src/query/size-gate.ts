@@ -1,11 +1,13 @@
 // Transform's query languages on large documents (spec 011 criterion 11, UNK-049 ★, and spec 014
-// criterion 8, UNK-065 ★: "not above 5 MiB"). The size is the document text's UTF-8 length when the Transform dialog opens, not the
+// criterion 8, UNK-065 ★: "not above 5 MiB", spec 008's threshold, which spec 019 T1 makes the
+// `chrJsonEditor.largeFileThreshold` setting; the page gets it in bytes as `thresholdBytes`). The size is the document text's UTF-8 length when the Transform dialog opens, not the
 // size the tab opened with: an unlocked large-file tab whose text shrank gets every language back,
 // and a normal tab whose text grew past the threshold loses the gated ones. Pure functions over the
 // text, no DOM, so the page and unit tests share them.
 import type { QueryLanguage } from 'vanilla-jsoneditor';
 
-/** Spec 008's threshold (UNK-014): 5 MiB, the extension host's `LARGE_FILE_THRESHOLD`. */
+/** Spec 008's threshold at its default (UNK-014): 5 MiB, the extension host's
+ *  `LARGE_FILE_THRESHOLD`. The page uses its `thresholdBytes` setting (spec 019 T1). */
 export const QUERY_SIZE_LIMIT_BYTES = 5 * 1024 * 1024;
 
 /**
@@ -48,9 +50,14 @@ export function isAboveQuerySizeLimit(text: string, limit = QUERY_SIZE_LIMIT_BYT
   return false;
 }
 
-/** The languages Transform lists for a document whose text is `text`, in `languages`' order. */
-export function queryLanguagesFor(languages: QueryLanguage[], text: string): QueryLanguage[] {
+/** The languages Transform lists for a document whose text is `text`, in `languages`' order, with
+ *  the threshold at `limit` bytes. */
+export function queryLanguagesFor(
+  languages: QueryLanguage[],
+  text: string,
+  limit = QUERY_SIZE_LIMIT_BYTES,
+): QueryLanguage[] {
   if (!languages.some((language) => SIZE_GATED_QUERY_LANGUAGES.has(language.id))) return languages;
-  if (!isAboveQuerySizeLimit(text)) return languages;
+  if (!isAboveQuerySizeLimit(text, limit)) return languages;
   return languages.filter((language) => !SIZE_GATED_QUERY_LANGUAGES.has(language.id));
 }
