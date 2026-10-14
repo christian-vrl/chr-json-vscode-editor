@@ -26,17 +26,6 @@ const COMMANDS = {
 };
 /** VS Code keeps a leading BOM out of the document's text. */
 const withoutBom = (text) => text.replace(/^\uFEFF/, '');
-/** Whether JSON `text` holds a number JavaScript cannot write back exactly (spec 015 §Terms):
- *  beyond double range, or an integer beyond 2^53. */
-function bigNumbers(text) {
-  const tokens = text
-    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
-    .match(/-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g);
-  return (tokens ?? []).some((token) => {
-    const n = Number(token);
-    return !Number.isFinite(n) || (Number.isInteger(n) && !Number.isSafeInteger(n));
-  });
-}
 /** Criterion 7's count of golden cases. */
 const GOLDEN_CASES = 10;
 
@@ -231,24 +220,22 @@ exports.runJsonLines = async function runJsonLines({
     }
     console.log('JSON Lines: .jsonl and .ndjson open in Table mode, Table and Tree only');
 
-    // Criterion 7: the first 10 golden patch cases in sorted path order, through the webview. VS
-    // Code keeps a leading BOM out of the document's text and writes it back on save.
+    // Criterion 7: the first 10 golden patch cases in sorted path order, through the webview (the
+    // test hook hands the patch text to the editor UI, which reads big numbers exactly: spec 015).
+    // VS Code keeps a leading BOM out of the document's text and writes it back on save.
     const names = fs
       .readdirSync(GOLDEN)
       .sort()
       .filter((name) =>
         ['patch.json', 'expected.jsonl'].every((f) => fs.existsSync(path.join(GOLDEN, name, f))),
       )
-      // Big numbers (spec 015) reach the editor UI exactly from 015 T4 on; the patch is read with
-      // JSON.parse here, so its own big numbers would round (as sync.cjs leaves them out).
-      .filter((name) => !bigNumbers(fs.readFileSync(path.join(GOLDEN, name, 'patch.json'), 'utf8')))
       .slice(0, GOLDEN_CASES);
     assert.equal(names.length, GOLDEN_CASES, 'not enough golden cases');
     for (const name of names) {
       const dir = path.join(GOLDEN, name);
       const input = fs.readFileSync(path.join(dir, 'input.jsonl'), 'utf8');
       const expected = fs.readFileSync(path.join(dir, 'expected.jsonl'), 'utf8');
-      const patch = JSON.parse(fs.readFileSync(path.join(dir, 'patch.json'), 'utf8'));
+      const patch = fs.readFileSync(path.join(dir, 'patch.json'), 'utf8');
       const { file, uri } = write('input.jsonl', input);
       const document = await openCustom(uri);
       assert.equal(document.getText(), withoutBom(input), `${name}: opened text`);
