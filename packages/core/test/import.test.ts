@@ -178,6 +178,12 @@ describe('YAML', () => {
 });
 
 describe('TOML', () => {
+  it('writes the integer -0 as 0 and the float -0.0 as -0', () => {
+    // `smol-toml` 1.9.0 gives the integer -0 as the number 0 (TOML 1.0.0: -0 and +0 are 0); only
+    // the float keeps its sign (TM3). Pinned at the #122 review's request.
+    expect(text('a = -0\nb = -0.0\nc = +0\n', 'toml')).toBe('{"a":0,"b":-0,"c":0}');
+  });
+
   it('finds values under arrays of tables, inline tables, dotted and quoted keys', () => {
     const input = [
       'x.y = inf',

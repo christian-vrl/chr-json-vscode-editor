@@ -42,6 +42,18 @@
     },
     "chrJsonEditor.convertCsvToJson": {
       "test": "Convert CSV to JSON creates a JSON file opened in the CHR JSON Editor"
+    },
+    "chrJsonEditor.convertYamlToJson": {
+      "test": "Convert YAML, TOML and XML to JSON write a new JSON file beside the source"
+    },
+    "chrJsonEditor.convertTomlToJson": {
+      "test": "Convert YAML, TOML and XML to JSON write a new JSON file beside the source"
+    },
+    "chrJsonEditor.convertXmlToJson": {
+      "test": "Convert YAML, TOML and XML to JSON write a new JSON file beside the source"
+    },
+    "chrJsonEditor.importFile": {
+      "test": "Import YAML, TOML or XML… replaces the document's data in one undoable edit"
     }
   }
 }

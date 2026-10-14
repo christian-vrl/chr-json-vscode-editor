@@ -9,6 +9,7 @@ import { ComparePanels, type CompareSnapshot } from './comparePanel';
 import { registerConvertCommands, testConvert } from './convertCommand';
 import { OPEN_COMMAND } from './commands';
 import { registerCsvCommands, testCsvCommands } from './csvCommands';
+import { registerImportCommands, testImport } from './importCommands';
 import { registerSmartFormatCommand, testSmartFormat } from './smartFormatCommand';
 import { CsvPanels, testCsvPanel, type CsvSnapshot } from './csvPanel';
 import type { Mode } from '@chr-json-editor/app-shell/protocol';
@@ -104,6 +105,20 @@ export interface TestHooks {
         }
       | undefined,
   ): { saveAs: string[]; messages: string[] };
+  /** 017 T3: answers every later open dialog of the YAML, TOML and XML commands with
+   *  `answers.pick()`, save dialog with `answers.saveAs(prefilled URI)`, and warnings notification
+   *  with `answers.showWarnings` (true: "Show Warnings", false: dismiss); undefined shows them.
+   *  Returns the save dialogs' prefilled URIs, the messages shown and the lines written to the
+   *  output channel since the previous call. */
+  imports(
+    answers:
+      | {
+          pick?: () => string | undefined;
+          saveAs?: (defaultUri: string) => string | undefined;
+          showWarnings?: boolean;
+        }
+      | undefined,
+  ): { saveAs: string[]; messages: string[]; output: string[] };
   /** What `csv` returns, without changing its answers. */
   csvSeen(): { saveAs: string[]; messages: string[] };
   /** 009 T5: the value the CSV commands gave the `chrJsonEditor.customEditorLocked` context key
@@ -163,6 +178,7 @@ export function activateShared(
     ...registerConvertCommands(formatBadge),
     ...registerCompareCommands(compares, formatBadge, platform),
     ...registerCsvCommands(csvPanels, formatBadge, provider),
+    ...registerImportCommands(formatBadge, provider),
     registerSmartFormatCommand(formatBadge, provider),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
@@ -225,6 +241,16 @@ export function activateShared(
           return {
             saveAs: testCsvPanel.asked.splice(0),
             messages: testCsvCommands.messages.splice(0),
+          };
+        },
+        imports(answers) {
+          testImport.pick = answers?.pick;
+          testImport.saveAs = answers?.saveAs;
+          testImport.showWarnings = answers?.showWarnings;
+          return {
+            saveAs: testImport.asked.splice(0),
+            messages: testImport.messages.splice(0),
+            output: testImport.output.splice(0),
           };
         },
         comparePick(answer) {

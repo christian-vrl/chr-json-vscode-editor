@@ -17,6 +17,7 @@ export async function run(): Promise<void> {
   await import('./convert');
   await import('./compare');
   await import('./csv');
+  await import('./import');
   await import('./query');
   await import('./largeFile');
   await new Promise<void>((resolve, reject) => {

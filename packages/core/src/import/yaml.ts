@@ -101,9 +101,13 @@ export function importYaml(text: string): ImportResult {
   const warnings = new Warnings(lines);
   const tags = new Map<string, { offset: number; nodes: Set<Node> }>();
   const aliases = { added: 0 };
-  const values = docs.map((doc) =>
-    new Walk(doc, text, warnings, tags, aliases).value(doc.contents, [], 0),
-  );
+  const walks = docs.map((doc) => new Walk(doc, text, warnings, tags, aliases));
+  // Y6 before any copy: when the aliases surely add more values than the limit, the walk would
+  // fail the same way, but only after building up to a million values (criterion 4's 1 s).
+  let least = 0;
+  for (const [i, walk] of walks.entries()) least += walk.aliasesAdd(docs[i]!.contents);
+  if (least > MAX_ALIAS_VALUES) throw new ImportFailure(Y6_MESSAGE, 1);
+  const values = walks.map((walk, i) => walk.value(docs[i]!.contents, [], 0));
   for (const [tag, { offset, nodes }] of tags) {
     const n = nodes.size;
     warnings.add(`Tag ${tag} was ignored (${n} ${n === 1 ? 'place' : 'places'})`, offset);
@@ -126,6 +130,9 @@ class Walk {
   private inAlias = 0;
   /** Alias targets: `Alias.resolve` searches the whole document each time it is called. */
   private readonly targets = new Map<Node, Node | undefined>();
+  /** `leastAdded` of alias targets, and the targets being counted (a guard against cycles). */
+  private readonly counts = new Map<Node, number>();
+  private readonly counting = new Set<Node>();
 
   constructor(
     private readonly doc: Document.Parsed,
@@ -297,6 +304,55 @@ class Walk {
     uses.nodes.add(node);
     if (offset < uses.offset) uses.offset = offset;
     return true;
+  }
+
+  /** A lower bound of the values the aliases in `node` (not inside an alias) add to the data:
+   *  aliases in sequence items and mapping values; keys and merge keys are left out. */
+  aliasesAdd(node: unknown): number {
+    let total = 0;
+    const stack: unknown[] = [node];
+    while (stack.length > 0 && total <= MAX_ALIAS_VALUES) {
+      const next = stack.pop();
+      if (isAlias(next)) total += this.leastAdded(next);
+      else if (isSeq(next))
+        for (const item of next.items) stack.push(isPair(item) ? item.value : item);
+      else if (isMap(next)) {
+        for (const pair of next.items) {
+          const key = pair.key as Node | null;
+          if (!(isScalar(key) && typeof key.value === 'symbol')) stack.push(pair.value);
+        }
+      }
+    }
+    return total;
+  }
+
+  /** Values the walk surely counts for `node` inside an alias (a lower bound: merge keys and
+   *  collection keys are left out), with each alias target's count kept. */
+  private leastAdded(node: unknown): number {
+    if (isAlias(node)) {
+      const target = this.resolve(node);
+      if (!target || this.counting.has(target)) return 0;
+      let count = this.counts.get(target);
+      if (count === undefined) {
+        this.counting.add(target);
+        count = this.leastAdded(target);
+        this.counting.delete(target);
+        this.counts.set(target, count);
+      }
+      return count;
+    }
+    let count = 1;
+    if (isSeq(node)) {
+      for (const item of node.items)
+        count += isPair(item) ? this.leastAdded(item.value) : this.leastAdded(item);
+    } else if (isMap(node)) {
+      for (const pair of node.items) {
+        const key = pair.key as Node | null;
+        if (isScalar(key) && typeof key.value === 'symbol') continue;
+        count += this.leastAdded(pair.value);
+      }
+    }
+    return count > MAX_ALIAS_VALUES ? MAX_ALIAS_VALUES + 1 : count;
   }
 
   private resolve(alias: Alias): Node | undefined {
