@@ -11,7 +11,7 @@
 // - 6: a broken document gives spec 006 criterion 7's wording and nothing changes.
 // - 7: the notification, the button only for a document in the folder with no schema today, its
 //   `json.schemas` entry appended to the folder's settings (existing entries kept), and the open
-//   document validated against the new schema with no errors.
+//   document validated against the new schema with no errors, also in a path with spaces (016 T5).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -111,8 +111,8 @@ exports.run = async function run() {
   let cases = 0;
 
   /** Copies fixture `name` (or writes `text`) into a new folder under `parent`, and opens it. */
-  async function open(name, { custom, parent = folder.uri.fsPath, text } = {}) {
-    const dir = path.join(parent, `case-${++cases}`);
+  async function open(name, { custom, parent = folder.uri.fsPath, text, prefix = 'case' } = {}) {
+    const dir = path.join(parent, `${prefix}-${++cases}`);
     fs.mkdirSync(dir);
     const file = path.join(dir, name);
     if (text === undefined) fs.copyFileSync(path.join(FIXTURES, name), file);
@@ -383,6 +383,52 @@ exports.run = async function run() {
       );
       await closeAll();
       console.log('Generate JSON Schema: "Use for data.json5" links the schema; no errors');
+    }
+
+    // Criterion 7 with spaces in the folder and file names (016 T3 review): the entry's paths keep
+    // the spaces unencoded, which is how spec 004's resolver spells the document's URI
+    // (`Uri.toString(true)`), so the document is validated against the new schema with no errors.
+    {
+      const configuration = () => vscode.workspace.getConfiguration('json', folder.uri);
+      const name = 'my data.json';
+      const { dir, uri } = await open(name, {
+        custom: true,
+        prefix: 'case with spaces',
+        text: fs.readFileSync(path.join(FIXTURES, 'data.json'), 'utf8'),
+      });
+      const view = () => hooks.webviews().find((w) => w.uri === uri.toString());
+      await waitFor(`the ${name} webview script to run`, () => view()?.scriptLoaded);
+      assert.deepEqual(view().validationsShown, [], 'validated before it had a schema');
+      hooks.generateSchema({ link: true });
+      await vscode.commands.executeCommand(COMMAND);
+      assert.deepEqual(hooks.generateSchema(undefined).notifications, [
+        { message: `Generated my data.schema.json from ${name}.`, button: `Use for ${name}` },
+      ]);
+      assert.equal(fs.readFileSync(path.join(dir, 'my data.schema.json'), 'utf8'), expected);
+      const relative = path.relative(folder.uri.fsPath, dir).split(path.sep).join('/');
+      assert.ok(relative.includes(' '), relative);
+      assert.deepEqual(configuration().inspect('schemas')?.workspaceFolderValue, [
+        { fileMatch: [`/${relative}/my data.json`], url: `./${relative}/my data.schema.json` },
+      ]);
+      await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE);
+      await waitFor(
+        `${name} active again`,
+        () => isCustom(activeTab()) && activeTab().input.uri.toString() === uri.toString(),
+      );
+      await waitFor(`${name} validated against its new schema`, () => {
+        const last = view().validationsShown.at(-1);
+        return last !== undefined && last.reason === null;
+      });
+      const last = view().validationsShown.at(-1);
+      assert.deepEqual(last.errors, [], 'errors against the new schema');
+      assert.deepEqual(last.dialect, { name: 'draft-07', assumed: false, switchable: false });
+      await configuration().update(
+        'schemas',
+        undefined,
+        vscode.ConfigurationTarget.WorkspaceFolder,
+      );
+      await closeAll();
+      console.log('Generate JSON Schema: "Use for" links a schema in a path with spaces');
     }
   } finally {
     hooks.generateSchema(undefined);

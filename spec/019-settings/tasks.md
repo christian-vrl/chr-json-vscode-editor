@@ -13,7 +13,7 @@
   unchanged and green*
 
 ## Phase B — The page (risk-free / additive)
-- [ ] **T2** Typed `EditorSettings` in `init.settings` and the `settings` host → page message (one
+- [x] **T2** Typed `EditorSettings` in `init.settings` and the `settings` host → page message (one
   protocol bump); `App.svelte`: D1 and D2 library props with `updateProps`, Q1's starting language,
   `size-gate.ts` reading `thresholdBytes`; the host posts `settings` to open tabs on change (A2); the
   dev host takes settings; `tests/web` cases. — needs: 019 T1 — *gate: criteria 7, 9 green; the

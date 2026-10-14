@@ -1,7 +1,7 @@
 // VscodeHostAdapter (003 T5): the webview's side of the protocol, over a fake webview API. The
 // HostAdapter contract suite runs against it once the host applies edits (003 T5, document sync).
 import { describe, expect, it } from 'vitest';
-import { PROTOCOL_VERSION } from '@chr-json-editor/app-shell/protocol';
+import { DEFAULT_EDITOR_SETTINGS, PROTOCOL_VERSION } from '@chr-json-editor/app-shell/protocol';
 import { LosslessNumber } from '@chr-json-editor/core';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
@@ -22,7 +22,7 @@ const init = {
   text: '{}',
   format: 'jsonc',
   mode: 'tree',
-  settings: { indent: 2 },
+  settings: { ...DEFAULT_EDITOR_SETTINGS, flattenColumns: false },
   largeFile: { bytes: 6_291_456, unlocked: false },
 } as const;
 
@@ -39,10 +39,10 @@ describe('VscodeHostAdapter', () => {
       text: '{}',
       format: 'jsonc',
       mode: 'tree',
-      settings: { indent: 2 },
+      settings: { ...DEFAULT_EDITOR_SETTINGS, flattenColumns: false },
       largeFile: { bytes: 6_291_456, unlocked: false },
     });
-    expect(adapter.getSettings()).toEqual({ indent: 2 });
+    expect(adapter.getSettings()).toEqual({ ...DEFAULT_EDITOR_SETTINGS, flattenColumns: false });
   });
 
   it('has no settings before open resolves', () => {
@@ -77,6 +77,24 @@ describe('VscodeHostAdapter', () => {
     deliver({ ...update, docVersion: 6 });
     await Promise.resolve();
     expect(events).toEqual([update, validation, flush]);
+  });
+
+  it('passes a settings message on and answers getSettings with it from then on (019 T2)', async () => {
+    const { adapter, deliver } = fakeWebview();
+    const events: unknown[] = [];
+    adapter.onExternalChange((e) => events.push(e));
+    const opened = adapter.open();
+    deliver(init);
+    await opened;
+    const settings = {
+      protocol: PROTOCOL_VERSION,
+      type: 'settings',
+      docVersion: 4,
+      settings: { ...DEFAULT_EDITOR_SETTINGS, escapeUnicodeCharacters: true },
+    };
+    deliver(settings);
+    expect(events).toEqual([settings]);
+    expect(adapter.getSettings()).toEqual(settings.settings);
   });
 
   it('posts edits and notices as protocol messages', () => {

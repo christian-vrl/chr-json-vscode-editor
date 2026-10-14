@@ -4,7 +4,11 @@
 // type or out of range as the default (A6), so a hand-edited settings.json never stops a tab from
 // opening. No `vscode` import, so the unit tests run it directly; settingsVscode.ts reads the
 // `inspect` results for a document.
-import type { Mode } from '@chr-json-editor/app-shell/protocol';
+import {
+  QUERY_LANGUAGE_IDS,
+  type EditorSettings,
+  type Mode,
+} from '@chr-json-editor/app-shell/protocol';
 import type { SmartFormatOptions } from '@chr-json-editor/core';
 
 /** What a key holds, as `contributes.configuration` declares it (spec 019 §Settings). */
@@ -26,14 +30,7 @@ interface KeyRule<T> {
 export const MODES = ['tree', 'text', 'table'] as const satisfies readonly Mode[];
 
 /** The query languages of the Transform dialog, by the page's ids (App.svelte `QUERY_LANGUAGES`). */
-export const QUERY_LANGUAGES = [
-  'jsonquery',
-  'jmespath',
-  'jsonpath-rfc9535',
-  'jsonpath',
-  'javascript',
-  'lodash',
-] as const;
+export const QUERY_LANGUAGES = QUERY_LANGUAGE_IDS;
 export type QueryLanguage = (typeof QUERY_LANGUAGES)[number];
 
 /** The section every key is under. */
@@ -206,4 +203,25 @@ export const DEFAULT_SETTINGS: Settings = settingsFrom(
 export function openingMode(settings: Pick<Settings, 'defaultMode'>, largeFile: boolean): Mode {
   if (largeFile && settings.defaultMode === 'text') return 'tree';
   return settings.defaultMode;
+}
+
+/** Bytes in a MiB: the threshold setting is in whole MiB (spec 019 Terms). */
+const MIB = 1024 * 1024;
+
+/** The settings the page uses (019 T2), sent in `init` and in `settings` when they change (A2):
+ *  T1's threshold in bytes, Q1, D1 and D2. */
+export function pageSettings(settings: Settings): EditorSettings {
+  return {
+    thresholdBytes: settings.largeFileThreshold * MIB,
+    defaultQueryLanguage: settings['transform.defaultQueryLanguage'],
+    flattenColumns: settings['table.flattenColumns'],
+    escapeControlCharacters: settings.escapeControlCharacters,
+    escapeUnicodeCharacters: settings.escapeUnicodeCharacters,
+  };
+}
+
+/** Whether two page settings differ, so the host sends `settings` only for a change the page
+ *  sees. */
+export function samePageSettings(a: EditorSettings, b: EditorSettings): boolean {
+  return (Object.keys(a) as (keyof EditorSettings)[]).every((key) => a[key] === b[key]);
 }
