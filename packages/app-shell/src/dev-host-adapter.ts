@@ -19,6 +19,10 @@
 // A JSON Lines document (spec 012) takes patches through core's `jsonl` adapter, which writes one
 // line per item and refuses any patch while a bad line is left (L9), as the extension host does;
 // "Repair Lines" runs core's `repairLines`.
+//
+// Copy path and reveal node (spec 018, 018 T2): the page's copy requests and "Reveal in Text Editor"
+// are recorded (`copies`, `textReveals`), as the page has no clipboard or text editor of its own to
+// hand them to; `requestNode` and `reveal` play the host's side of the copy and reveal commands.
 import { getAdapter, repair, repairLines, smartFormat } from '@chr-json-editor/core';
 import { immutableJSONPatch } from 'immutable-json-patch';
 import type {
@@ -30,6 +34,7 @@ import type {
 } from './host-adapter.js';
 import {
   PROTOCOL_VERSION,
+  type CurrentNode,
   type DocumentAction,
   type DocumentChange,
   type EditErrorCode,
@@ -38,6 +43,7 @@ import {
   type JsonPatchOperation,
   type LargeFile,
   type Mode,
+  type NodePath,
   type SchemaDialect,
   type UpdateOrigin,
   type ValidationMessage,
@@ -87,6 +93,12 @@ export class DevHostAdapter implements HostAdapter {
   #nextFlush = 1;
   /** `getRowSource` requests sent and waiting for `rowSource`, by request number (009 T4). */
   readonly #rowSources = new Map<number, (path: string) => void>();
+  /** `getNode` requests sent and waiting for `node`, by request number (018 T2). */
+  readonly #nodes = new Map<number, (node: CurrentNode) => void>();
+  /** Every text `copyText` received, oldest first (spec 018 S2, S3). */
+  readonly copies: string[] = [];
+  /** Every path `revealInText` received, oldest first (spec 018 S2). */
+  readonly textReveals: NodePath[] = [];
 
   constructor(document: DevDocument) {
     this.#text = document.text;
@@ -242,6 +254,38 @@ export class DevHostAdapter implements HostAdapter {
         request,
       });
     });
+  }
+
+  node(_docVersion: number, request: number, node: CurrentNode): void {
+    this.#nodes.get(request)?.(structuredClone(node));
+    this.#nodes.delete(request);
+  }
+
+  copyText(_docVersion: number, text: string): void {
+    this.copies.push(text);
+  }
+
+  revealInText(_docVersion: number, path: NodePath): void {
+    this.textReveals.push([...path]);
+  }
+
+  /** Plays a copy command (spec 018 S5): sends `getNode` and resolves with the UI's answer. */
+  requestNode(): Promise<CurrentNode> {
+    const request = this.#nextFlush++;
+    return new Promise((resolve) => {
+      this.#nodes.set(request, resolve);
+      this.#emit({
+        protocol: PROTOCOL_VERSION,
+        type: 'getNode',
+        docVersion: this.#docVersion,
+        request,
+      });
+    });
+  }
+
+  /** Plays "Reveal in CHR JSON Editor" (spec 018 S5): sends `reveal` for `path`. */
+  reveal(path: NodePath): void {
+    this.#emit({ protocol: PROTOCOL_VERSION, type: 'reveal', docVersion: this.#docVersion, path });
   }
 
   unlock(): void {

@@ -441,6 +441,14 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         session.rowSources.get(message.request)?.(message.path);
         session.rowSources.delete(message.request);
         return;
+      case 'copyText':
+        // The page's "Copy JSONPath", "Copy JSON Pointer" and navigation bar copy (spec 018 S2, S3).
+        void vscode.env.clipboard.writeText(message.text);
+        return;
+      case 'node':
+      case 'revealInText':
+        // The copy and reveal commands that ask for the node and show it are 018 T3's.
+        return;
       case 'openAsText':
         // "Reopen as Text" (commands.ts) on this document; a tab with unsaved edits stays open. From
         // a JSON Lines tab's bad-line banner the cursor goes to the start of the first bad line
