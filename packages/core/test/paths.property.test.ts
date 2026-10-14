@@ -1,6 +1,7 @@
 // Spec 018 criteria 3 and 4 (018 T1), fast-check with the committed seed. Criterion 3: for any
 // data and any node in it, reading the node's P1 and P2 text back (P3, against that data) gives
-// its path (P4), and both texts match their grammars. Its engine check (json-p3) is 018 T2's.
+// its path (P4), and both texts match their grammars. Its engine check (json-p3) is app-shell's
+// test/paths-engine.property.test.ts (018 T2), on the same arbitrary and seed.
 // Criterion 4: for any document core's `stringify` writes, `nodeAt` at the place of every node
 // gives that node (R3), every offset gives a node with a place, and neither function adds an entry
 // to core's parse cache.
@@ -20,96 +21,10 @@ import {
 } from '../src/index.js';
 import { tokenize } from '../src/formats/tokens.js';
 import { dataArbitrary, SEED, styleArbitrary } from './arbitraries.js';
+import { dataAndPath, hasLoneSurrogate, nodePaths } from './path-arbitraries.js';
 
 const RUNS = Number(process.env.PATHS_RUNS ?? 10_000);
 const MAX_TEXT = 300;
-
-/** Every node's path in `data`, the root first, in document order. */
-function nodePaths(data: unknown, prefix: PathStep[] = [], out: PathStep[][] = []): PathStep[][] {
-  out.push(prefix);
-  if (Array.isArray(data)) data.forEach((item, i) => nodePaths(item, [...prefix, i], out));
-  else if (data !== null && typeof data === 'object')
-    for (const key of Object.keys(data))
-      nodePaths((data as Record<string, unknown>)[key], [...prefix, key], out);
-  return out;
-}
-
-/** Names of any string, lone surrogates included, beside those the corpus tags name. */
-const name = fc.oneof(
-  fc.string({ unit: 'binary', maxLength: 6 }),
-  fc.string({
-    unit: fc.integer({ min: 0, max: 0xffff }).map((c) => String.fromCharCode(c)),
-    maxLength: 4,
-  }),
-  fc.constantFrom(
-    '',
-    '0',
-    '01',
-    '-1',
-    'a.b',
-    "it's",
-    '\\',
-    '~',
-    '/',
-    '~0~1',
-    '$',
-    '@',
-    '*',
-    '__proto__',
-  ),
-);
-
-/** A chain of 1 to 64 steps (the criterion's depth), with a sibling beside each name: the data
- *  and the chain's path. */
-const deep = fc
-  .integer({ min: 1, max: 64 })
-  .chain((depth) =>
-    fc.tuple(
-      fc.array(fc.oneof(name, fc.integer({ min: 0, max: 3 })), {
-        minLength: depth,
-        maxLength: depth,
-      }),
-      fc.array(name, { minLength: depth, maxLength: depth }),
-    ),
-  )
-  .map(([steps, siblings]) => {
-    let data: unknown = null;
-    for (let i = steps.length - 1; i >= 0; i--) {
-      const step = steps[i]!;
-      if (typeof step === 'number') {
-        const array: unknown[] = Array.from({ length: step + 1 }, () => 0);
-        array[step] = data;
-        data = array;
-      } else {
-        const object: Record<string, unknown> = {};
-        const define = (key: string, value: unknown) =>
-          Object.defineProperty(object, key, {
-            value,
-            writable: true,
-            enumerable: true,
-            configurable: true,
-          });
-        define(siblings[i]!, 1);
-        define(step, data);
-        data = object;
-      }
-    }
-    return { data, path: steps };
-  });
-
-/** Data with one of its nodes' paths: the end of a deep chain, or any node of either kind. */
-const dataAndPath: fc.Arbitrary<[unknown, PathStep[]]> = fc.oneof(
-  deep.map(({ data, path }): [unknown, PathStep[]] => [data, path]),
-  fc
-    .oneof(
-      dataArbitrary('json5'),
-      deep.map(({ data }) => data),
-    )
-    .chain((data) => fc.tuple(fc.constant(data), fc.constantFrom(...nodePaths(data)))),
-);
-
-const hasLoneSurrogate = (s: string) =>
-  /(?:[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff])/.test(s);
 
 // RFC 9535 §2.7 normalized paths, with `.name` for member-name-shorthand (§2.5.1.1). A lone
 // surrogate cannot be written in that grammar; P1 writes it as `\uxxxx`, lowercase (LONE).

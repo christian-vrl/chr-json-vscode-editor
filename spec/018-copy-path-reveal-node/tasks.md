@@ -14,7 +14,7 @@
   every 002 golden and property suite unchanged and green; Reviewer PASS on the rules per case*
 
 ## Phase B — The page (risk-free / additive)
-- [ ] **T2** app-shell: S1's selection rule, S2's menu items, S3's `pathParser` and the copy-button
+- [x] **T2** app-shell: S1's selection rule, S2's menu items, S3's `pathParser` and the copy-button
   interception, S4's mode switch; the messages (copy request, the current node's path on request,
   `reveal`) with one protocol bump; the dev host records copy requests; criterion 3's engine check
   with json-p3 (app-shell's dependency); `tests/web` cases. — needs: 018 T1 — *gate: criteria 3, 5, 6
