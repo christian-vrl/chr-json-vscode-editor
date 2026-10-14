@@ -1,0 +1,7 @@
+name: first
+port: 80
+name: second
+nested:
+  a: 1
+  b: 2
+  a: 3

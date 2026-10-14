@@ -1,0 +1,13 @@
+plain = 42
+plus = +99
+negative = -17
+grouped = 1_000_000
+hex = 0xDEADBEEF
+hex-grouped = 0xdead_beef
+octal = 0o755
+binary = 0b1101
+safe = 9007199254740991
+big = 9007199254740993
+min = -9223372036854775808
+max = 9223372036854775807
+big-hex = 0x7FFF_FFFF_FFFF_FFFF

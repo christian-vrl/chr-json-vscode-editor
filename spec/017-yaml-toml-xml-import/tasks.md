@@ -4,7 +4,7 @@
 > No gate is crossed with open UNKNOWNS that affect the result.
 
 ## Phase A — Corpus (risk-free / additive)
-- [ ] **T1** Write the corpus in `tests/golden/import/<kind>/<case>/` (`input.<ext>`, `case.json`
+- [x] **T1** Write the corpus in `tests/golden/import/<kind>/<case>/` (`input.<ext>`, `case.json`
   with `rules` and `tags`, hand-written `expected.json` with `warnings.json`, or `error.json`; the
   folder added to `.prettierignore`, since files compare byte for byte) with a `README.md` naming
   the layout, the rules A1–A6, Y1–Y8, TM1–TM5, XM1–XM8 and any reading a rule needed; the `import`

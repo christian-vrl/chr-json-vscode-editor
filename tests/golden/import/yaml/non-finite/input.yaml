@@ -1,0 +1,8 @@
+values:
+  - .inf
+  - -.Inf
+  - +.INF
+  - .nan
+  - .NaN
+limits:
+  max: .inf

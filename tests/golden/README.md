@@ -11,7 +11,7 @@ change (`AGENTS.md` rule 5). Line endings are kept as written (`.gitattributes`,
 | Command | Runs |
 |---|---|
 | `pnpm test:golden` | every test in this folder |
-| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2), `smart-format-coverage.test.ts` (spec 010 criterion 2) and `jsonl-coverage.test.ts` (spec 012 criterion 2) |
+| `pnpm test:golden -- --coverage-only` | only `coverage.test.ts` (criterion 4), `convert-coverage.test.ts` (spec 006 criterion 2), `csv-coverage.test.ts` (spec 009 criterion 2), `smart-format-coverage.test.ts` (spec 010 criterion 2) `jsonl-coverage.test.ts` (spec 012 criterion 2) and `import-coverage.test.ts` (spec 017 criterion 2) |
 | `pnpm test:golden -- --format json,jsonc --op add,remove` | per-case tests for those cases only; fails if a named format, op, or (format, op) pair has no case; the conversion corpus tests still run |
 
 Any other argument, or an unknown format or op, exits 2 before a test runs (`scripts/test-golden.mjs`).
@@ -35,13 +35,16 @@ Any other argument, or an unknown format or op, exits 2 before a test runs (`scr
 - `corpus.test.ts` — checks the hand-written bytes against references independent of our format
   code: `JSON5.parse(expected)` deep-equals `immutable-json-patch` applied to `JSON5.parse(input)`
   (criterion 2), with every big number (spec 015) read as a marked string holding its decimal
-  digits, so they are compared digit for digit (`facts.ts` `parseData`); a `test-fail` patch throws there and `expected` equals `input` (R9); `expected` keeps
+  digits, so they are compared digit for digit (`facts.ts` `parseData`); a `test` whose value or
+  target holds a big number compares by exact value (spec 015 B3: `1e20` equals
+  `100000000000000000000`), with BigInt arithmetic (`facts.ts` `referencePatch`); a `test-fail` patch throws there and `expected` equals `input` (R9); `expected` keeps
   the input's line endings and final newline (R10; R15 cases on a text with no line break get `\n` and a final newline); `json` cases are strict JSON; each case's tags
   match its input and patch (`facts.ts`: op present in the patch, location derived from the path,
   comments present, trailing comma, and for json5 majority quote, key style and literal kind). For
   `compact` the data and its key order are unchanged and every comment is there, with `//` comments
   written as block comments; for `sort` the data equals the sort `vanilla-jsoneditor` 3.13.0 does
-  (`sort-reference.ts`), with every comment kept; `compact` leaves no line break outside a string
+  (`sort-reference.ts`; spec 015 B3: a big number is a number, and numbers of which one is big
+  compare by exact value), with every comment kept; `compact` leaves no line break outside a string
   or block comment and keeps the final newline. For `format` (003 T8) the data, its key order and
   every comment, as written, are unchanged.
 
@@ -194,6 +197,10 @@ deep-equal to `expected.json` (`isDeepStrictEqual`, key order checked) and `warn
 `warnings.json`; otherwise the error equals `error.json` (criterion 1, 009 T2). Every expected file
 was written by hand from rules X1–X7 and I1–I7 of `spec/009-csv/spec.md` and changes only with a
 spec change.
+`input.json` and `expected.json` are read with core's `parseData('json')`, so their big numbers are
+big numbers (spec 015 B1). Spec 015 B9 (per UNK-067, which amended 009 I7) changed one expected
+value: `i7-values` reads the unquoted cell `12345678901234567890` as that big number, no longer a
+string. `x5-big-numbers` and `i7-big-numbers` are spec 015 criterion 10's cases.
 
 - `options.json`: the options of spec 009 §Options that differ from their defaults. Export:
   `delimiter` (`","`, `";"`, `"\t"`, `"|"`; default `","`), `header` (true), `flattenObjects`
@@ -446,3 +453,11 @@ Readings:
    C6 makes it a space (reading 4 above), and J2 writes no white space outside the items
    (`json5-to-jsonl/j2-c6-byte-order-mark`). Only a JSON5 source can hold one: JSON and JSONC read
    a BOM as an error, so they do not convert. J1, by its own words, keeps a BOM.
+
+## Import corpus (spec 017)
+
+`import/<kind>/<case>/` (`yaml`, `toml`, `xml`) holds `input.<kind>`, `case.json` and either
+`expected.json` with `warnings.json`, or `error.json`, written by hand from rules A1–A6, Y1–Y8,
+TM1–TM5 and XM1–XM8 of `spec/017-yaml-toml-xml-import/spec.md`. `import/README.md` gives the
+layout, the tests (`import.ts`, `import-coverage.test.ts` under `--coverage-only`,
+`import-load.test.ts`, `import-corpus.test.ts`) and the readings the corpus takes.

@@ -26,7 +26,7 @@
   Reviewer naming the new entry*
 
 ## Phase D — VS Code and size (risk-free / additive)
-- [ ] **T4** e2e write-back fixtures in `tests/e2e/fixtures/query/jsonpath-rfc9535-*` (criterion
+- [x] **T4** e2e write-back fixtures in `tests/e2e/fixtures/query/jsonpath-rfc9535-*` (criterion
   7); leave the language out above the threshold (criterion 8) on 008's 6 MiB fixture, sharing 011
   T6's set of size-gated language ids if it has merged; `bench/query/jsonpath-*.jsonpath` and the
   RFC 9535 and Goessner columns in `bench/RESULTS.md` (criterion 10). Needs UNK-065 resolved. —

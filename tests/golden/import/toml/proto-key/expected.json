@@ -1,0 +1,11 @@
+{
+  "__proto__": "value",
+  "constructor": {
+    "prototype": 1
+  },
+  "a": {
+    "__proto__": {
+      "b": 2
+    }
+  }
+}

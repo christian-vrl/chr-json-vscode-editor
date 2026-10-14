@@ -1,0 +1,11 @@
+{
+  "rules": [
+    "Y1",
+    "Y4",
+    "A2"
+  ],
+  "tags": [
+    "yaml-1.1-booleans",
+    "hex-octal-binary"
+  ]
+}

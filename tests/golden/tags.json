@@ -92,5 +92,56 @@
     "rules": ["L1", "L2", "L3", "L4", "L5", "L6", "L7", "L8", "L9", "L10"],
     "op": ["add", "replace", "remove", "move", "copy", "test", "test-fail"],
     "location": ["item", "nested", "root"]
+  },
+  "import": {
+    "kinds": ["yaml", "toml", "xml"],
+    "rules": {
+      "all": ["A1", "A2", "A3", "A4", "A5", "A6"],
+      "yaml": ["Y1", "Y2", "Y3", "Y4", "Y5", "Y6", "Y7", "Y8"],
+      "toml": ["TM1", "TM2", "TM3", "TM4", "TM5"],
+      "xml": ["XM1", "XM2", "XM3", "XM4", "XM5", "XM6", "XM7", "XM8"]
+    },
+    "tags": {
+      "all": [
+        "big-integer",
+        "big-decimal",
+        "hex-octal-binary",
+        "non-finite",
+        "proto-key",
+        "too-deep",
+        "bom",
+        "utf16-bom",
+        "malformed"
+      ],
+      "yaml": [
+        "yaml-1.1-booleans",
+        "yaml-github-actions-on",
+        "yaml-multi-document",
+        "yaml-empty",
+        "yaml-merge-key",
+        "yaml-alias-bomb",
+        "yaml-cloudformation-tags",
+        "yaml-duplicate-key",
+        "yaml-complex-key"
+      ],
+      "toml": ["toml-dates", "toml-array-of-tables", "toml-int64-overflow"],
+      "xml": [
+        "xml-attributes",
+        "xml-repeated",
+        "xml-interleaved",
+        "xml-mixed-content",
+        "xml-cdata",
+        "xml-namespaces",
+        "xml-entity-bomb",
+        "xml-external-entity",
+        "xml-encoding-latin1",
+        "xml-empty-element"
+      ]
+    },
+    "perKind": {
+      "too-deep": ["yaml", "toml", "xml"],
+      "malformed": ["yaml", "toml", "xml"],
+      "big-decimal": ["yaml", "xml"]
+    }
   }
 }

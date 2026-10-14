@@ -2,6 +2,7 @@
 // as minimal text edits computed from a parse tree's offsets and its token stream, following rules
 // R1–R10 and R15 of spec 002 and the readings in tests/golden/README.md. Each adapter supplies the
 // tree and tokens from its own parser, and a `Writer` for the bytes it adds (R4, R8).
+import { equalNumbers, LosslessNumber } from './numbers.js';
 import { parseIndex, parsePointer } from './pointer.js';
 import { isComment, Kind, tokenAt, tokenFrom, type Token } from './tokens.js';
 import { PatchError, type FormatNode, type PatchOperation, type Style } from './types.js';
@@ -574,9 +575,11 @@ export function dataOf(node: FormatNode): unknown {
   return node.value;
 }
 
-/** RFC 6902 §4.6 equality: same type; numbers by value; arrays item by item; objects with the same
- *  members, in any order. */
+/** RFC 6902 §4.6 equality: same type; numbers by value, a big number by its exact value (spec 015
+ *  B3); arrays item by item; objects with the same members, in any order. */
 export function equal(a: unknown, b: unknown): boolean {
+  if (isNumber(a) && isNumber(b)) return equalNumbers(a, b);
+  if (a instanceof LosslessNumber || b instanceof LosslessNumber) return false;
   if (typeof a !== 'object' || a === null || typeof b !== 'object' || b === null) return a === b;
   if (Array.isArray(a) || Array.isArray(b)) {
     return (
@@ -596,6 +599,9 @@ export function equal(a: unknown, b: unknown): boolean {
     )
   );
 }
+
+const isNumber = (v: unknown): v is number | LosslessNumber =>
+  typeof v === 'number' || v instanceof LosslessNumber;
 
 function isPrefix(prefix: readonly string[], tokens: readonly string[]): boolean {
   return prefix.length < tokens.length && prefix.every((t, i) => t === tokens[i]);

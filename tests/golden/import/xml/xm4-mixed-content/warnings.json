@@ -1,0 +1,10 @@
+[
+  {
+    "message": "Text in <p> is mixed with elements; it became \"#text\" and its place is lost",
+    "line": 2
+  },
+  {
+    "message": "Text in <q> is mixed with elements; it became \"#text\" and its place is lost",
+    "line": 3
+  }
+]

@@ -18,7 +18,7 @@
     type MenuItem,
     Mode as LibraryMode,
   } from 'vanilla-jsoneditor';
-  import { csvToJson, detectDelimiter, jsonToCsv } from '@chr-json-editor/core';
+  import { csvToJson, detectDelimiter, jsonToCsv, nearestNumbers } from '@chr-json-editor/core';
   import {
     CSV_EXPORT_DEFAULTS,
     CSV_IMPORT_DEFAULTS,
@@ -76,7 +76,9 @@
     if ('error' in result) return { kind: 'error', error: result.error };
     return {
       kind: 'rows',
-      rows: result.data.slice(0, CSV_PREVIEW_ROWS),
+      // Import keeps big numbers exact (spec 015 B9); the preview table shows their nearest numbers
+      // until the page's parser writes big numbers (015 T4), as the editor does.
+      rows: nearestNumbers(result.data.slice(0, CSV_PREVIEW_ROWS)) as unknown[],
       warnings: result.warnings,
     };
   });

@@ -13,9 +13,10 @@
 // position (003 T8, 002 T9 review): still a correct patch, only a longer one.
 //
 // Equality is `node:util` `isDeepStrictEqual` on data: key order is ignored, `NaN` equals `NaN`,
-// `-0` differs from `0`. A big number (`LosslessNumber`, spec 015) is a scalar, equal to another
-// with the same digits.
-import { LosslessNumber } from './formats/numbers.js';
+// `-0` differs from `0`; and numbers are equal by exact value (spec 015 B3): a big number
+// (`LosslessNumber`) is a scalar, equal to a number of the same exact value (`1e20` and
+// `100000000000000000000`), whatever digits either is written with.
+import { bigNumberKey, LosslessNumber } from './formats/numbers.js';
 import type { PatchOperation } from './formats/types.js';
 
 /**
@@ -278,7 +279,7 @@ function canonical(root: unknown, keys: Keys): string {
       case 'string':
         return JSON.stringify(x);
       case 'object':
-        if (x instanceof LosslessNumber) return `b${x.value}`;
+        if (x instanceof LosslessNumber) return bigNumberKey(x);
         return keys.ids.get(x);
       default:
         // Not JSON data (undefined, a function): equal only to the same kind.

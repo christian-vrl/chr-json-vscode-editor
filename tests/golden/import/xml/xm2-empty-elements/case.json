@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "XM2",
+    "XM4"
+  ],
+  "tags": [
+    "xml-empty-element"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "x-defaults": {
+    "restart": "always",
+    "environment": {
+      "LOG": "info"
+    }
+  },
+  "x-limits": {
+    "restart": "on-failure",
+    "cpus": 2
+  },
+  "services": {
+    "web": {
+      "restart": "unless-stopped",
+      "environment": {
+        "LOG": "info"
+      },
+      "image": "nginx"
+    },
+    "worker": {
+      "image": "worker",
+      "cpus": 4,
+      "restart": "on-failure",
+      "environment": {
+        "LOG": "info"
+      }
+    }
+  }
+}

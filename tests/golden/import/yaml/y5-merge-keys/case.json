@@ -1,0 +1,9 @@
+{
+  "rules": [
+    "Y5",
+    "Y6"
+  ],
+  "tags": [
+    "yaml-merge-key"
+  ]
+}
