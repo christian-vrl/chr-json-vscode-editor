@@ -11,7 +11,7 @@
 // callFunction (:1495), newString (:1117), getString (:1330), getProp (:1392), dump.
 import type { QuickJSContext, QuickJSHandle, QuickJSWASMModule } from 'quickjs-emscripten-core';
 import { decodeResult, encodeData } from './bridge.js';
-import { BIGINT_SENTINEL, CYCLE_SENTINEL, ENGINE_HELPERS, wrapQuery } from './engine-source.js';
+import { CYCLE_SENTINEL, ENGINE_HELPERS, wrapQuery } from './engine-source.js';
 
 export type QueryLanguageId = 'javascript' | 'lodash';
 
@@ -27,7 +27,6 @@ export const MEMORY_LIMIT_BYTES = 256 * 1024 * 1024;
 export const MAX_STACK_BYTES = 64 * 1024;
 export const TIME_MESSAGE = 'The query was stopped after 5 seconds.';
 export const MEMORY_MESSAGE = 'The query used more than 256 MiB and was stopped.';
-export const BIGINT_MESSAGE = "The result has a BigInt, which JSON can't hold.";
 export const CYCLE_MESSAGE = 'The result refers to itself.';
 export const NOT_LOADED_MESSAGE = 'The query engine is not loaded yet.';
 /** A run after the engine failed outside JavaScript, while a fresh one compiles (011 T4). */
@@ -219,7 +218,6 @@ function engineError(ctx: QuickJSContext, error: QuickJSHandle, interrupted: boo
   } catch (dumpError) {
     raw = `The query failed, and its error can't be read: ${String(dumpError)}`;
   }
-  if (raw === BIGINT_SENTINEL) return new QueryError(BIGINT_MESSAGE);
   if (raw === CYCLE_SENTINEL) return new QueryError(CYCLE_MESSAGE);
   const limit = limitMessage(raw, interrupted);
   return limit ? new QueryError(limit, raw) : new QueryError(raw);

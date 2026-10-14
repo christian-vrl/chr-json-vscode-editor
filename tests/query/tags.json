@@ -1,5 +1,5 @@
 {
-  "languages": ["javascript", "lodash", "jsonpath-rfc9535"],
+  "languages": ["javascript", "lodash", "jsonpath-rfc9535", "jsonquery", "jmespath", "jsonpath"],
   "tags": [
     "filter",
     "sort",
@@ -21,7 +21,11 @@
     "bigint-result",
     "cyclic-result",
     "date-result",
-    "function-result"
+    "function-result",
+    "big-passthrough",
+    "big-computed",
+    "big-overflow",
+    "big-mixed"
   ],
   "q2": [
     "nan",
@@ -38,14 +42,16 @@
     "thrown-error",
     "missing-query",
     "chain-without-value",
-    "bigint-result",
     "cyclic-result",
     "sort-refused",
     "multi-pick-refused",
     "type-error",
     "unknown-function",
     "too-deep",
-    "goessner-only"
+    "goessner-only",
+    "big-ambiguous",
+    "big-overflow",
+    "big-mixed"
   ],
   "wizard": ["filter", "sort", "pick"],
   "lodashOnly": ["chain-without-value"],
@@ -68,7 +74,11 @@
     "bigint-result",
     "cyclic-result",
     "date-result",
-    "function-result"
+    "function-result",
+    "big-passthrough",
+    "big-computed",
+    "big-overflow",
+    "big-mixed"
   ],
   "rfc9535": [
     "filter",
@@ -98,6 +108,18 @@
     "infinity",
     "deep",
     "too-deep",
-    "goessner-only"
+    "goessner-only",
+    "big-passthrough",
+    "big-ambiguous"
+  ],
+  "library": ["big-passthrough", "big-aggregate", "big-computed", "big-ambiguous"],
+  "goessner": ["big-passthrough", "big-ambiguous"],
+  "big": [
+    "big-passthrough",
+    "big-aggregate",
+    "big-computed",
+    "big-ambiguous",
+    "big-overflow",
+    "big-mixed"
   ]
 }

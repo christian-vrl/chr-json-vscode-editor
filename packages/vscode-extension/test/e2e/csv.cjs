@@ -463,6 +463,31 @@ exports.runCsv = async function runCsv({
       fs.rmSync(path.dirname(wide), { recursive: true, force: true });
       console.log('CSV: large CSV files import in full; the ceiling holds both ways');
     }
+
+    // Spec 015 B9 in the panel (015 T5, from the 015 T4 review): the export preview writes big
+    // numbers as their digits, unquoted, and the import preview's table shows them, as "Create JSON
+    // File" writes them.
+    {
+      const json = write('big.json', '[{"id": 12345678901234567890, "small": 1E-400, "n": 4.0}]\n');
+      await openText(json);
+      const exported = await panelFrom(EXPORT);
+      assert.equal(lf(exported.probe.csv ?? ''), 'id,small,n\n12345678901234567890,1E-400,4\n');
+      await closeAll();
+
+      const csv = write('big.csv', 'id,name\r\n12345678901234567891,second\r\n1e400,huge\r\n');
+      const imported = await panelFrom(CONVERT, vscode.Uri.file(csv));
+      assert.equal(imported.probe.table, true, 'big.csv: the preview table');
+      const [cells] = await hooks.domCsv(imported.snapshot.title, [
+        { readAll: '.csv .table .jse-table-mode td .jse-value' },
+      ]);
+      assert.deepEqual(JSON.parse(cells), ['12345678901234567891', 'second', '1e400', 'huge']);
+      await clickAndWait(imported.snapshot, 'Create JSON File');
+      const created = fs.readFileSync(path.join(path.dirname(csv), 'big.json'), 'utf8');
+      assert.match(created, /"id": 12345678901234567891,/);
+      assert.match(created, /"id": 1e400,/);
+      await closeAll();
+      console.log('CSV: the panel previews big numbers with their digits (spec 015 B9)');
+    }
   } finally {
     hooks.csv(undefined);
     hooks.ceiling(undefined);
