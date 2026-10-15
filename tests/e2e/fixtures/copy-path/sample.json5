@@ -1,0 +1,9 @@
+// JSON5
+{
+  people: [
+    { name: 'Ada', 'a.b': 1 },
+    { name: 'Bob', 'a.b': 2, },
+  ],
+  count: 0x2,
+  big: Infinity,
+}

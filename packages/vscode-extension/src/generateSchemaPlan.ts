@@ -19,7 +19,8 @@ const BOM = '﻿';
 export type SchemaPlan =
   | {
       kind: 'schema';
-      /** The schema file (spec 016 §Terms): `JSON.stringify(schema, null, 2)` and a final `\n`. */
+      /** The schema file (spec 016 §Terms): `JSON.stringify(schema, null, indent)` and a final
+       *  `\n`, `indent` being spec 019 I1's (2 by default). */
       text: string;
       /** The data's own top-level `$schema` member, what spec 004's resolver reads first. */
       documentSchema: unknown;
@@ -32,9 +33,9 @@ export type SchemaPlan =
 /**
  * The schema file for `text` read as `format`. A leading byte order mark is the file's encoding
  * mark, not content, as for the convert commands; a JSON Lines document gives the schema of one
- * line (G8).
+ * line (G8). `indent` is the schema file's indent unit (spec 019 I1: VS Code's for JSON).
  */
-export function planSchema(text: string, format: Format): SchemaPlan {
+export function planSchema(text: string, format: Format, indent: '\t' | number = 2): SchemaPlan {
   const shift = text.startsWith(BOM) ? 1 : 0;
   const parsed = parseData(format, text.slice(shift));
   if ('error' in parsed) return { kind: 'broken', offset: parsed.error.offset + shift };
@@ -45,7 +46,7 @@ export function planSchema(text: string, format: Format): SchemaPlan {
       format !== 'jsonl' && typeof data === 'object' && data !== null && !Array.isArray(data)
         ? (Object.getOwnPropertyDescriptor(data, '$schema')?.value as unknown)
         : undefined;
-    return { kind: 'schema', text: `${JSON.stringify(schema, null, 2)}\n`, documentSchema };
+    return { kind: 'schema', text: `${JSON.stringify(schema, null, indent)}\n`, documentSchema };
   } catch (error) {
     if (!(error instanceof SchemaTooDeepError)) throw error;
     return { kind: 'too-deep', message: error.message };

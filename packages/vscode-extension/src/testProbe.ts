@@ -47,6 +47,8 @@ export interface RenderedProbe {
  * - `read`: reads its text content, or the attribute `attr`, into the hook's answer.
  * - `readAll`: reads the trimmed text content of every match, as one JSON array of strings.
  * - `select`: picks the option `value` of a `<select>` and fires `change`, as a person would.
+ * - `inView`: reads "in view" when the element's box lies between the top and the bottom of the
+ *   page's viewport, else "out of view" (018 T3: the revealed node's row).
  */
 export type DomStep =
   | { click: string; text?: string }
@@ -57,6 +59,7 @@ export type DomStep =
   | { read: string; text?: string; attr?: string }
   | { readAll: string }
   | { select: string; value: string }
+  | { inView: string }
   /** 013 T4 (spec 013 criterion 11): the page fetches `fetch`; reads "status <code>", or
    *  "blocked <error>" when the request is refused (the CSP's `connect-src 'none'`). */
   | { fetch: string };

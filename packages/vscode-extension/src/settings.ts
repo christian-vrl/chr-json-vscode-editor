@@ -9,6 +9,7 @@ import {
   type EditorSettings,
   type Mode,
 } from '@chr-json-editor/app-shell/protocol';
+import type { SmartFormatOptions } from '@chr-json-editor/core';
 import { thresholdBytes } from './largeFile';
 
 /** What a key holds, as `contributes.configuration` declares it (spec 019 §Settings). */
@@ -165,16 +166,30 @@ export function settingsFrom(
     const value = effectiveValue(inspect(key), scope === 'language-overridable');
     settings[key] = isValid(rule, value) ? value : fallback;
   }
+  return { ...(settings as Omit<Settings, 'indent'>), indent: indentFrom(editor) };
+}
+
+/** I1 (UNK-088 ★): the indent unit of new text from VS Code's `inspect` results for
+ *  `editor.insertSpaces` and `editor.tabSize` (read for the document's or the new file's URI and
+ *  language): a tab when `insertSpaces` is `false`, else `tabSize` spaces. */
+export function indentFrom(
+  editor: (key: 'tabSize' | 'insertSpaces') => Inspected | undefined,
+): Settings['indent'] {
   const insertSpaces = effectiveValue(editor('insertSpaces'));
   const tabSize = effectiveValue(editor('tabSize'));
   // VS Code clamps `editor.tabSize` to 1–100 (its schema's range); an invalid one reads as 4.
   const spaces = isValid({ type: 'integer', minimum: 1, maximum: 100 }, tabSize)
     ? (tabSize as number)
     : EDITOR_TAB_SIZE;
-  const indent = (typeof insertSpaces === 'boolean' ? insertSpaces : EDITOR_INSERT_SPACES)
-    ? spaces
-    : '\t';
-  return { ...(settings as Omit<Settings, 'indent'>), indent };
+  return (typeof insertSpaces === 'boolean' ? insertSpaces : EDITOR_INSERT_SPACES) ? spaces : '\t';
+}
+
+/** Smart Format's options from a document's settings (F1's line length, I1's indent for a text
+ *  with no indentation; A4: the caller reads the settings when the run starts). */
+export function smartFormatOptionsFrom(
+  settings: Pick<Settings, 'smartFormat.maxLineLength' | 'indent'>,
+): SmartFormatOptions {
+  return { maxLineLength: settings['smartFormat.maxLineLength'], indent: settings.indent };
 }
 
 /** Every setting at its default, VS Code's indentation defaults included. */
