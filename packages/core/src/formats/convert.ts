@@ -12,7 +12,7 @@ import { getAdapter } from './adapters.js';
 import { jsonlAdapter } from './jsonl-adapter.js';
 import { parseJson5 } from './json5-parser.js';
 import { isComment, Kind, tokenize, type Token } from './tokens.js';
-import type { Diagnostic, Format, FormatNode } from './types.js';
+import type { Diagnostic, Format, FormatNode, Style, WriteOptions } from './types.js';
 
 export interface ConversionLoss {
   kind: 'comment' | 'value';
@@ -54,11 +54,17 @@ const JSON_NUMBER = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
 /**
  * `text` in format `to`. Throws a `ConvertError` when `text` has an error in format `from`. For a
  * superset pair (and for `from === to`) the text comes back unchanged with no losses.
+ * `options.indent` is J1's indent unit (spec 019 I1); the other conversions keep the text's layout.
  */
-export function convert(text: string, from: Format, to: Format): ConvertResult {
+export function convert(
+  text: string,
+  from: Format,
+  to: Format,
+  options: WriteOptions = {},
+): ConvertResult {
   if (from === 'jsonl') {
     const items = readLines(text);
-    return { text: to === 'jsonl' ? text : arrayOf(text, items), losses: [] };
+    return { text: to === 'jsonl' ? text : arrayOf(text, items, options.indent ?? 2), losses: [] };
   }
   const source = read(text, from);
   if (to === 'jsonl') return lines(text, source, from === 'json');
@@ -97,13 +103,15 @@ function readLines(text: string): readonly FormatNode[] {
   return tree!.children ?? [];
 }
 
-/** J1: `[` + eol + each item's value bytes indented by two spaces, joined by `,` + eol, then eol +
- *  `]` + eol; `[]` + eol with no item. A leading BOM is kept. */
-function arrayOf(text: string, items: readonly FormatNode[]): string {
+/** J1: `[` + eol + each item's value bytes indented by one `indent` unit (two spaces by default;
+ *  spec 019 I1's fallback indent when the caller gives one), joined by `,` + eol, then eol + `]` +
+ *  eol; `[]` + eol with no item. A leading BOM is kept. */
+function arrayOf(text: string, items: readonly FormatNode[], indent: Style['indent']): string {
   const { eol } = jsonlAdapter.parse(text).style;
   const bom = text.startsWith(BOM) ? BOM : '';
   if (items.length === 0) return `${bom}[]${eol}`;
-  const values = items.map((n) => `  ${text.slice(n.offset, n.offset + n.length)}`);
+  const unit = indent === '\t' ? '\t' : ' '.repeat(indent);
+  const values = items.map((n) => `${unit}${text.slice(n.offset, n.offset + n.length)}`);
   return `${bom}[${eol}${values.join(`,${eol}`)}${eol}]${eol}`;
 }
 

@@ -7,6 +7,7 @@ import {
   type ConversionLoss,
   type Diagnostic,
   type Format,
+  type WriteOptions,
 } from '@chr-json-editor/core';
 
 export const FORMAT_LABELS: Readonly<Record<Format, string>> = {
@@ -43,12 +44,19 @@ export type Plan =
  * content: it is kept in front of the result and not passed to `convert`, which would
  * reject it in JSON and JSONC and turn it into a space for JSON5 (C6). `bom` says whether the
  * source file starts with one even when the document's text does not (VS Code drops it on load).
+ * `options.indent` is the indent of new text (spec 019 I1: JSON Lines → JSON's items, J1).
  */
-export function plan(text: string, from: Format, to: Format, bom = false): Plan {
+export function plan(
+  text: string,
+  from: Format,
+  to: Format,
+  bom = false,
+  options: WriteOptions = {},
+): Plan {
   if (from === to) return { kind: 'same' };
   const shift = text.startsWith(BOM) ? 1 : 0;
   try {
-    const result = convert(text.slice(shift), from, to);
+    const result = convert(text.slice(shift), from, to, options);
     return {
       kind: 'converted',
       text: (bom || shift ? BOM : '') + result.text,

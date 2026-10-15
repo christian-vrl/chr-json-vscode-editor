@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vscode = require('vscode');
+const { withIndent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
@@ -24,7 +25,14 @@ const CASES_PER_FORMAT = 10;
  * @param {(uri: vscode.Uri, kind: string, check: (tab: vscode.Tab) => boolean) => Promise<void>} t.expectOnly
  * @param {(tab: vscode.Tab) => boolean} t.isCustom
  */
-exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly, isCustom }) {
+exports.runSync = async function runSync(t) {
+  // The golden expected bytes are core's, written with core's default indent of 2 spaces where the
+  // input has none (R1, R15: e.g. json/add-document-empty); the host passes VS Code's indent instead
+  // (spec 019 I1), so this suite runs with `editor.tabSize` 2 to replay the corpus as written.
+  await withIndent(t.waitFor, [], { tabSize: 2, insertSpaces: true }, () => replay(t));
+};
+
+async function replay({ hooks, waitFor, closeAll, expectOnly, isCustom }) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'chr-json-editor-sync-'));
   const copy = (source, name) => {
     const target = path.join(work, name);
@@ -225,4 +233,4 @@ exports.runSync = async function runSync({ hooks, waitFor, closeAll, expectOnly,
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
   }
-};
+}

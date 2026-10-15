@@ -21,6 +21,7 @@ import {
   sleep,
   view,
   waitFor,
+  withIndent,
 } from './util';
 
 const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
@@ -34,36 +35,41 @@ describe('editing on the virtual scheme (spec 013 criterion 4)', () => {
       string,
       string[]
     >;
-    for (const format of FORMATS) {
-      equal(cases[format]?.length, 10, `${format}: golden cases`);
-      for (const name of cases[format]!) {
-        const from = fixture('golden', format, name);
-        const uri = await copyToCase('golden', vscode.Uri.joinPath(from, `input.${format}`));
-        const expected = await readText(vscode.Uri.joinPath(from, `expected.${format}`));
-        // As text: the editor reads it, big numbers exactly (spec 015).
-        const patch = await readText(vscode.Uri.joinPath(from, 'patch.json'));
-        const document = await openCustom(hooks, uri);
-        const before = document.version;
-        equal(hooks.patch(uri.toString(), patch), true, `${format}/${name}: patch`);
-        await waitFor(`${format}/${name} to be edited`, () => document.version > before);
-        equal(document.getText(), expected, `${format}/${name}: document text`);
-        await waitFor(`${format}/${name} to be dirty`, () => document.isDirty);
-        // Text mode shows the host's new text, not an echo of its own (spec 003 criterion 10).
-        await hooks.whenSettled(uri.toString());
-        equal(hooks.setMode(uri.toString(), 'text'), true, 'setMode');
-        await probeUntil(
-          hooks,
-          uri,
-          `${format}/${name} in the webview`,
-          (p) => p.mode === 'text' && (p.content as { text?: string })?.text === expected,
-        );
-        equal(view(hooks, uri).editsReceived, 1, `${format}/${name}: edits sent`);
-        equal(await document.save(), true, `${format}/${name}: save`);
-        equal(await readText(uri), expected, `${format}/${name}: saved bytes`);
-        await closeAll();
+    // The golden expected bytes are core's, with its default 2-space indent where the input has
+    // none (R1, R15: json/add-document-empty); the host passes VS Code's indent instead (spec 019
+    // I1), so the corpus is replayed with `editor.tabSize` 2.
+    await withIndent({ tabSize: 2, insertSpaces: true }, async () => {
+      for (const format of FORMATS) {
+        equal(cases[format]?.length, 10, `${format}: golden cases`);
+        for (const name of cases[format]!) {
+          const from = fixture('golden', format, name);
+          const uri = await copyToCase('golden', vscode.Uri.joinPath(from, `input.${format}`));
+          const expected = await readText(vscode.Uri.joinPath(from, `expected.${format}`));
+          // As text: the editor reads it, big numbers exactly (spec 015).
+          const patch = await readText(vscode.Uri.joinPath(from, 'patch.json'));
+          const document = await openCustom(hooks, uri);
+          const before = document.version;
+          equal(hooks.patch(uri.toString(), patch), true, `${format}/${name}: patch`);
+          await waitFor(`${format}/${name} to be edited`, () => document.version > before);
+          equal(document.getText(), expected, `${format}/${name}: document text`);
+          await waitFor(`${format}/${name} to be dirty`, () => document.isDirty);
+          // Text mode shows the host's new text, not an echo of its own (spec 003 criterion 10).
+          await hooks.whenSettled(uri.toString());
+          equal(hooks.setMode(uri.toString(), 'text'), true, 'setMode');
+          await probeUntil(
+            hooks,
+            uri,
+            `${format}/${name} in the webview`,
+            (p) => p.mode === 'text' && (p.content as { text?: string })?.text === expected,
+          );
+          equal(view(hooks, uri).editsReceived, 1, `${format}/${name}: edits sent`);
+          equal(await document.save(), true, `${format}/${name}: save`);
+          equal(await readText(uri), expected, `${format}/${name}: saved bytes`);
+          await closeAll();
+        }
+        console.log(`criterion 4: 10 ${format} golden cases applied through the webview and saved`);
       }
-      console.log(`criterion 4: 10 ${format} golden cases applied through the webview and saved`);
-    }
+    });
   });
 
   it('shows an external WorkspaceEdit in the webview and echoes nothing back', async () => {
