@@ -298,7 +298,7 @@ if (results.webview?.length) {
     `\`JSON.parse\` of the same ${w.mib} MiB text, in one Node process per document: at most`,
     `${WEBVIEW_FACTORS.json}× on the json document (no big number: the parser scans for a big-number`,
     `candidate, then calls \`JSON.parse\`) and at most ${WEBVIEW_FACTORS['json-ids']}× on the json-ids document (every`,
-    "record's id a big number: lossless-json's parser through core's `readJsonExact`).",
+    "record's id a big number: core's `readJsonExact`, `JSON.parse` of the text with its big numbers marked).",
     '',
     "| Document | JSON.parse | parserFor('json') | parser ÷ JSON.parse | Limit | Result |",
     '|---|---|---|---|---|---|',

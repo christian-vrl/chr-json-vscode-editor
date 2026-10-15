@@ -59,7 +59,7 @@ describe('parserFor', () => {
   });
 
   it.each([
-    // lossless-json's parser takes these; the ones it would read differently go to core.
+    // `readJsonExact` refuses these (a `__proto__` key); they go to core.
     '{"__proto__": {"x": 12345678901234567890}, "a": 1}',
     '{"\\u005f_proto__": [1e400], "a": 1}',
     '{"a": 12345678901234567890, "a": 2, "b": 3}',
@@ -273,8 +273,8 @@ describe("parserFor('jsonl')", () => {
   });
 });
 
-// Strict JSON with a big number goes through lossless-json's parser (core `readJsonExact`), not
-// core's: for documents of big and plain numbers, strings that look like numbers, duplicate keys
+// Strict JSON with a big number goes through core's `readJsonExact`, not the adapter's walk: for
+// documents of big and plain numbers, strings that look like numbers, duplicate keys
 // and odd whitespace, the data is core's, big numbers as EditorNumbers.
 describe('parserFor: strict JSON with big numbers (spec 015 B4, property)', () => {
   const token = fc.oneof(

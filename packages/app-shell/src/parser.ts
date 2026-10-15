@@ -15,8 +15,8 @@
 // table show them, search finds them, a value typed or pasted with more digits than a float holds
 // becomes one, and copy puts the exact digits on the clipboard. Strict JSON with no big-number
 // candidate (core's `mayHoldBigNumber`, a scan of number-token shapes, spike 015 T1 REPORT §3)
-// keeps `JSON.parse`; strict JSON with one goes through lossless-json's parser (`readJsonExact`),
-// which reads it several times faster than core. A large-file tab shows big numbers' digits too
+// keeps `JSON.parse`; strict JSON with one goes through core's `readJsonExact` (`JSON.parse` of the
+// text with its big numbers marked, UNK-089), which reads it many times faster than core's walk. A large-file tab shows big numbers' digits too
 // (spec 015 criterion 12, UNK-068 ★ from 015 T6's bench, `bench/large-file.md`): its strict JSON
 // with a big-number candidate goes through `readJsonExact` as well, the rest through `parseData`.
 // Only the parser that hands the library's validator its data (`validationParserFor`) gives nearest
