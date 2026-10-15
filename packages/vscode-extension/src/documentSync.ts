@@ -37,6 +37,8 @@ import {
   repair,
   repairLines,
   type Format,
+  type SmartFormatOptions,
+  type WriteOptions,
 } from '@chr-json-editor/core';
 import { JSONL_MESSAGE, plan as smartFormatPlan } from './smartFormatPlan';
 
@@ -55,6 +57,13 @@ export interface SyncTarget {
   post(message: ToWebviewMessage): void;
   /** Asks whether to write a repair that removes `lostComments` (VS Code: a modal warning). */
   confirmRepair(lostComments: readonly string[]): Promise<boolean>;
+  /** Spec 019 T1's threshold in bytes for a run starting now (Smart Format's size guard, A4). */
+  thresholdBytes(): number;
+  /** Smart Format's options for a run starting now (spec 019 F1: the line length setting). */
+  smartFormatOptions(): SmartFormatOptions;
+  /** How edits and Format lay out new text for an edit starting now (spec 019 I1: VS Code's indent
+   *  for the document's language, where the text has none to follow). */
+  writeOptions(): WriteOptions;
 }
 
 export class DocumentSync {
@@ -106,7 +115,11 @@ export class DocumentSync {
       const change = decodeChange(wire, readValue);
       if (change.kind === 'text') next = change.text;
       else if (change.kind === 'patch')
-        next = getAdapter(this.target.format()).applyPatch(text, change.patch);
+        next = getAdapter(this.target.format()).applyPatch(
+          text,
+          change.patch,
+          this.target.writeOptions(),
+        );
       else next = await this.runAction(text, change.action);
     } catch (error) {
       if (!(error instanceof PatchError)) throw error;
@@ -149,12 +162,17 @@ export class DocumentSync {
     const adapter = getAdapter(format);
     switch (action.name) {
       case 'format':
-        return adapter.prettyPrint(text);
+        return adapter.prettyPrint(text, this.target.writeOptions());
       case 'smartFormat': {
         // JSON Lines is not laid out (spec 010 §Scope); the webview offers no button for it.
         if (format === 'jsonl') throw new PatchError(JSONL_MESSAGE);
         // Spec 010 criteria 9 and 10: the reason it did not run reaches the webview's notice.
-        const result = smartFormatPlan(text, format);
+        const result = smartFormatPlan(
+          text,
+          format,
+          this.target.smartFormatOptions(),
+          this.target.thresholdBytes(),
+        );
         if (result.kind === 'refused') throw new PatchError(result.message);
         return result.kind === 'formatted' ? result.text : text;
       }

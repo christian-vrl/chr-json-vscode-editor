@@ -226,12 +226,12 @@ function makeAdapter(format: 'json' | 'jsonc'): FormatAdapter {
   return {
     format,
     parse: parsed,
-    applyPatch: (text, patch) =>
-      patch.reduce((current, op) => applyOperation(current, op, edited), text),
-    stringify: (data, style) => stringify(data, format, style),
+    applyPatch: (text, patch, options) =>
+      patch.reduce((current, op) => applyOperation(current, op, edited, options), text),
+    stringify: (data, style, options) => stringify(data, format, style, options),
     compact: (text) => compact(text, edited),
     sort: (text, options) => sort(text, edited, options),
-    prettyPrint: (text) => prettyPrint(text, edited),
+    prettyPrint: (text, options) => prettyPrint(text, edited, options),
   };
 }
 

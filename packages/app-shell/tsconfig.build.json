@@ -1,8 +1,10 @@
 // Emits dist/index.js and its .d.ts: the protocol, the HostAdapter types and DevHostAdapter. The
 // Svelte UI (app.ts, App.svelte, main.ts) is bundled by Vite instead, so it is not listed here.
+// query/exact-numbers.ts is emitted for the core bench (spec 015 criterion 11, bench/core/run.mjs),
+// which times the per-query big-number scan in Node.
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "noEmit": false, "rootDir": "src", "paths": {} },
   "include": [],
-  "files": ["src/index.ts"]
+  "files": ["src/index.ts", "src/query/exact-numbers.ts"]
 }

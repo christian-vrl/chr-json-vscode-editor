@@ -36,6 +36,7 @@ with urls relative to the folder. It also writes `large/`: ASCII JSON of exactly
 | `validation.ts` | 5, 6: relative `$schema`, folder `json.schemas`, `https:` never loaded, absolute `$schema` |
 | `convert.ts`, `compare.ts`, `csv.ts`, `query.ts` | 7, 9: each command's own spec cases (plan R6 for queries) |
 | `largeFile.ts` | 10 (013 T5): large-file mode at 5,242,881 bytes and not at 5,242,880; the web ceiling (UNK-054) opens, one byte more shows spec 008's message |
+| `bigNumbers.ts` | spec 015 criterion 13 (015 T6): criterion 4's big-number fixtures open with their digits shown, and the edit writes the desktop's `expected-edit.*` |
 
 `coverage.json` maps every command to the test that runs it or to "desktop-only" (criterion 7);
 `test/unit/webCoverage.test.ts` checks it against `package.json` and the suite's `it` titles. A

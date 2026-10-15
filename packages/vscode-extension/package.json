@@ -236,6 +236,26 @@
         "command": "chrJsonEditor.openSettings",
         "title": "Open Settings",
         "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.copyJsonPath",
+        "title": "Copy JSONPath",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.copyJsonPointer",
+        "title": "Copy JSON Pointer",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.revealInEditor",
+        "title": "Reveal in CHR JSON Editor",
+        "category": "CHR JSON Editor"
+      },
+      {
+        "command": "chrJsonEditor.revealInText",
+        "title": "Reveal in Text Editor",
+        "category": "CHR JSON Editor"
       }
     ],
     "menus": {
@@ -307,6 +327,22 @@
         {
           "command": "chrJsonEditor.importFile",
           "when": "activeCustomEditorId == chrJsonEditor.editor && !chrJsonEditor.customEditorLocked"
+        },
+        {
+          "command": "chrJsonEditor.copyJsonPath",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)"
+        },
+        {
+          "command": "chrJsonEditor.copyJsonPointer",
+          "when": "activeCustomEditorId == chrJsonEditor.editor || (activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)"
+        },
+        {
+          "command": "chrJsonEditor.revealInEditor",
+          "when": "activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/"
+        },
+        {
+          "command": "chrJsonEditor.revealInText",
+          "when": "activeCustomEditorId == chrJsonEditor.editor"
         }
       ],
       "editor/title": [
@@ -391,6 +427,23 @@
           "command": "chrJsonEditor.compareWithHead",
           "when": "!isWeb && !chrJsonEditor.webHost && resourceScheme == file && resourceExtname =~ /^\\.(json|jsonc|json5)$/",
           "group": "3_compare@21"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "chrJsonEditor.copyJsonPath",
+          "when": "activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/",
+          "group": "9_cutcopypaste@20"
+        },
+        {
+          "command": "chrJsonEditor.copyJsonPointer",
+          "when": "activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/",
+          "group": "9_cutcopypaste@21"
+        },
+        {
+          "command": "chrJsonEditor.revealInEditor",
+          "when": "activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/",
+          "group": "navigation@20"
         }
       ],
       "explorer/context": [

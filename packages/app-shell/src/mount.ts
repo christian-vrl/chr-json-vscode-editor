@@ -19,6 +19,8 @@ export interface AppHandle extends Disposable {
   /** Selects the node at JSON Pointer `path` in tree mode, as a click on its row does (e2e test
    *  hooks). */
   select(path: string): void;
+  /** Puts text mode's cursor at `offset` of its text, as a click there does (e2e test hooks). */
+  cursor(offset: number): void;
 }
 
 /** What a host adds to the editor beyond its HostAdapter. */

@@ -45,6 +45,9 @@
   numbers; criterion 4's `.jsonl` fixture in the JSON Lines editor, including its table and the
   protocol's `valueText` on line edits. — needs: 015 T4, 013 T4, 012 T5 — *gate: criteria 4
   (`.jsonl`), 11, 12, 13 green; UNK-068 resolved per the delegation rule*
+  - Open on criterion 11's webview part only (UNK-089, owner chose Keep 5×, 2026-10-15): #132 merged
+    the rest; the follow-up writes a faster exact JSON reader in core (`readJsonExact`, now
+    lossless-json's `parse`) and re-runs the bench; T6 turns `[x]` when one CI run holds criterion 11.
 
 ## Off the critical path
 - Exact `maximum`, `multipleOf` and `enum` on big numbers would need a JSON Schema validator with

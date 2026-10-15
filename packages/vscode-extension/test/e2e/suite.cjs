@@ -297,7 +297,8 @@ exports.run = async function run() {
   await closeAll();
   await require('./actions.cjs').runActions({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
-  // Gate (015 T4, spec 015 criteria 4 and 7): big numbers in the editor (bigNumbers.cjs).
+  // Gate (015 T4 and T6, spec 015 criteria 4 and 7): big numbers in the editor, the `.jsonl`
+  // fixture in the JSON Lines editor too (bigNumbers.cjs).
   await closeAll();
   await require('./bigNumbers.cjs').runBigNumbers({
     hooks,
@@ -422,6 +423,17 @@ exports.run = async function run() {
   await closeAll();
   await require('./largeFile.cjs').runLargeFile({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
+  // Gate (015 T6, spec 015 criterion 12): big numbers in a locked large-file tab
+  // (bigNumbersLargeFile.cjs).
+  await closeAll();
+  await require('./bigNumbersLargeFile.cjs').runBigNumbersLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (011 T6, criterion 11): Transform's languages above 5 MiB (queryLargeFile.cjs).
   await closeAll();
   await require('./queryLargeFile.cjs').runQueryLargeFile({
@@ -478,6 +490,33 @@ exports.run = async function run() {
   // Settings (settings.cjs).
   await closeAll();
   await require('./settings.cjs').runSettings({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
+  // Gate (019 T4, spec 019 criterion 5): Smart Format's line length from the settings
+  // (smartFormatSettings.cjs).
+  await closeAll();
+  await require('./smartFormatSettings.cjs').runSmartFormatSettings({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
+  // Gate (019 T5, spec 019 criterion 6): the indentation of new text from VS Code's settings
+  // (indentSettings.cjs; the commands' cases are in csv.cjs, jsonLines.cjs, import.cjs and
+  // generateSchema.cjs).
+  await closeAll();
+  await require('./indentSettings.cjs').runIndentSettings({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
+  // Gate (018 T3, spec 018 criteria 7, 8 and 9): copy path and reveal node (copyPath.cjs).
+  await closeAll();
+  await require('./copyPath.cjs').runCopyPath({ hooks, waitFor, closeAll, expectOnly, isCustom });
 
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse

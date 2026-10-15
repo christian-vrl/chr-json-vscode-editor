@@ -1,0 +1,11 @@
+{
+	name  : 'line-length',
+	flags : [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200, 0x400, 0x800, 0x1000, 0x2000, 0x4000, 0x8000, 0x10000, 0x20000, 0x40000, 0x80000, 0x100000, 0x200000],
+	point : {x: 12.5, y: -3.25, z: 0, label: 'origin offset', visible: true},
+	colors: [
+		{ name: 'red',   rgb: [255,   0,   0], hex: '#ff0000' },
+		{ name: 'green', rgb: [  0, 255,   0], hex: '#00ff00' },
+		{ name: 'blue',  rgb: [  0,   0, 255], hex: '#0000ff' },
+	],
+	note: 'Single-quoted text that runs past sixty columns once its key is in front.',
+}

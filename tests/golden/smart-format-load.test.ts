@@ -42,6 +42,7 @@ describe('loadSmartFormatCases', () => {
         input: '[1,2]',
         expected: '[1, 2]',
         tags: { layout: ['inline'] },
+        options: {},
       },
       {
         format: 'json5',
@@ -49,8 +50,31 @@ describe('loadSmartFormatCases', () => {
         input: '\uFEFF{a: 1}\r\n',
         expected: '\uFEFF{a: 1}\r\n',
         tags: { layout: ['inline'] },
+        options: {},
       },
     ]);
+  });
+
+  it('reads options.json as the case options (spec 019 T4)', () => {
+    const [c] = loadSmartFormatCases(
+      corpus({ ...jsonCase, 'json/a/options.json': '{ "maxLineLength": 60 }\n' }),
+    );
+    expect(c!.options).toEqual({ maxLineLength: 60 });
+  });
+
+  it.each([
+    ['{', /options.json is not valid JSON/],
+    ['[]', /options.json must be/],
+    ['{}', /options.json must be/],
+    ['{"maxLineLength": 19}', /options.json must be/],
+    ['{"maxLineLength": 1001}', /options.json must be/],
+    ['{"maxLineLength": 60.5}', /options.json must be/],
+    ['{"maxLineLength": "60"}', /options.json must be/],
+    ['{"maxLineLength": 60, "indent": 4}', /options.json must be/],
+  ])('rejects options.json %s', (text, error) => {
+    expect(() =>
+      loadSmartFormatCases(corpus({ ...jsonCase, 'json/a/options.json': text })),
+    ).toThrow(error);
   });
 
   it('rejects unknown folders, stray files and incomplete cases', () => {

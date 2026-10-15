@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vscode = require('vscode');
+const { DEFAULT_UNIT, reindent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const MIB = 1024 * 1024;
@@ -127,9 +128,10 @@ exports.runImportSize = async function runImportSize({
         `deep.json is ${mib} MiB. VS Code does not pass files above 50 MB to extensions, so ` +
           `CHR JSON Editor can't open it.`,
       ]);
-      // Every `1` was written: the innermost array's lines.
+      // Every `1` was written: the innermost array's lines, nine levels deep in VS Code's indent
+      // (spec 019 I1, 4 spaces by default).
       const written = fs.readFileSync(target, 'utf8');
-      assert.equal(written.split(`\n${' '.repeat(18)}1`).length - 1, count);
+      assert.equal(written.split(`\n${DEFAULT_UNIT.repeat(9)}1`).length - 1, count);
       assert.ok(
         !vscode.window.tabGroups.all.some((g) =>
           g.tabs.some((t) => t.input?.uri?.fsPath === target),
@@ -202,7 +204,10 @@ exports.runImportSize = async function runImportSize({
       await vscode.commands.executeCommand(CONVERT.yaml, vscode.Uri.file(yaml));
       assert.equal(
         fs.readFileSync(path.join(path.dirname(yaml), 'config.json'), 'utf8'),
-        fs.readFileSync(path.join(FIXTURES, 'yaml', 'expected.json'), 'utf8'),
+        reindent(
+          fs.readFileSync(path.join(FIXTURES, 'yaml', 'expected.json'), 'utf8'),
+          DEFAULT_UNIT,
+        ),
       );
       await vscode.commands.executeCommand('workbench.action.closeActiveEditor');
 

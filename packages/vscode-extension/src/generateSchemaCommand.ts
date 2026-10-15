@@ -33,6 +33,7 @@ import {
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
+import { newFileIndent } from './settingsVscode';
 import { basename } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -74,7 +75,9 @@ async function generate(
   if (!found) return undefined;
   const { document, format, custom } = found;
   const text = document.getText();
-  const result = await withProgress(text, () => planSchema(text, format));
+  // Spec 019 I1: the schema file is indented as VS Code indents JSON beside the document.
+  const indent = newFileIndent(document.uri, 'json');
+  const result = await withProgress(text, () => planSchema(text, format, indent));
   if (result.kind === 'broken') {
     const position = document.positionAt(result.offset);
     show(brokenSchemaMessage(format, position.line + 1, position.character + 1));

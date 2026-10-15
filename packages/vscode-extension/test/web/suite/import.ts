@@ -12,6 +12,7 @@ import {
   closeAll,
   copyToCase,
   deepEqual,
+  DEFAULT_UNIT,
   dirname,
   equal,
   expectOnly,
@@ -19,6 +20,7 @@ import {
   isText,
   openCustom,
   readText,
+  reindent,
   waitFor,
 } from './util';
 
@@ -41,7 +43,11 @@ describe('YAML, TOML and XML commands on the virtual scheme (spec 017 criterion 
           fixture('fixtures', 'import', kind, SOURCES[kind]),
         );
         const original = await readText(source);
-        const expected = await readText(fixture('fixtures', 'import', kind, 'expected.json'));
+        // The new file takes VS Code's indent for JSON (spec 019 I1, 4 spaces by default).
+        const expected = reindent(
+          await readText(fixture('fixtures', 'import', kind, 'expected.json')),
+          DEFAULT_UNIT,
+        );
         const target = vscode.Uri.joinPath(
           dirname(source),
           SOURCES[kind].replace(/\.\w+$/, '.json'),

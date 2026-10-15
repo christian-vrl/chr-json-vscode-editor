@@ -41,14 +41,15 @@ const PEOPLE_CSV_SEMICOLON =
   'Ada;London;NW1;"[""math"",""poetry""]";\r\n' +
   'Grace;New York;;"[""navy""]";\r\n' +
   'Linus, Jr.;;;[];{}\r\n';
-/** csvToJson of tests/csv/import/people.csv, as "Create JSON File" writes it. */
+/** csvToJson of tests/csv/import/people.csv, as "Create JSON File" writes it: with VS Code's indent
+ *  for JSON (spec 019 I1), 4 spaces by default. */
 const PEOPLE_JSON = `${JSON.stringify(
   [
     { name: 'Ada', address: { city: 'London', zip: 'NW1' }, tags: ['math', 'poetry'] },
     { name: 'Grace', address: { city: 'New York', zip: null }, tags: ['navy', null] },
   ],
   null,
-  2,
+  4,
 )}\n`;
 
 const lf = (text: string) => text.replace(/\r\n/g, '\n');

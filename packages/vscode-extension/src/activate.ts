@@ -23,6 +23,7 @@ import type { HeadResult } from './gitHead';
 import { cachedParseTexts, detect } from '@chr-json-editor/core';
 import { testValidationLimit, VALIDATION_LIMIT_BYTES } from './largeFile';
 import { registerOpenSettingsCommand, testOpenSettings } from './settingsVscode';
+import { registerPathCommands, testPathCommands } from './pathCommands';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -103,6 +104,8 @@ export interface TestHooks {
   comparePick(answer: ((listed: string[]) => string | undefined) | undefined): string[];
   /** 009 T4: selects the node at JSON Pointer `path` in the tree of `uri`'s webview. */
   select(uri: string, path: string): boolean;
+  /** 018 T3: puts text mode's cursor at `offset` in the webview of `uri`. */
+  cursor(uri: string, offset: number): boolean;
   /** 009 T4: every CSV panel opened so far, closed ones included. */
   csvs(): CsvSnapshot[];
   /** What the open CSV panel titled `title` renders. */
@@ -157,6 +160,9 @@ export interface TestHooks {
   webviewHeap(uri: string): Promise<number | null>;
   /** 019 T1: the searches "Open Settings" opened the Settings editor with since the previous call. */
   openSettingsQueries(): string[];
+  /** 018 T3: the messages the copy path and reveal commands showed, and the status bar messages
+   *  they set, since the previous call. */
+  pathCommands(): { messages: string[]; status: string[] };
 }
 
 /** The save dialogs the convert commands opened, by prefilled URI (test hooks). */
@@ -199,6 +205,7 @@ export function activateShared(
     ...registerImportCommands(formatBadge, provider),
     registerSmartFormatCommand(formatBadge, provider),
     registerOpenSettingsCommand(),
+    ...registerPathCommands(formatBadge, provider),
     // core keeps the parse of the last text per format (UNK-014); a closed document's can go.
     vscode.workspace.onDidCloseTextDocument((document) => provider.releaseParses(document)),
   );
@@ -234,6 +241,7 @@ export function activateShared(
           return panel ? panel.dom(steps) : Promise.reject(new Error(`no compare panel ${title}`));
         },
         select: (uri, path) => provider.select(uri, path),
+        cursor: (uri, offset) => provider.cursor(uri, offset),
         csvs: () => csvPanels.snapshots,
         probeCsv(title) {
           const panel = csvPanels.find(title);
@@ -312,6 +320,10 @@ export function activateShared(
         },
         pausedValidation: () => provider.pausedItem.snapshot(),
         openSettingsQueries: () => testOpenSettings.queries.splice(0),
+        pathCommands: () => ({
+          messages: testPathCommands.messages.splice(0),
+          status: testPathCommands.status.splice(0),
+        }),
         timeValidation: (uri) => provider.timeValidation(uri),
         hostMemory: () => process.memoryUsage(),
         webviewHeap: (uri) => provider.webviewHeap(uri),

@@ -9,6 +9,7 @@ import {
   closeAll,
   copyToCase,
   deepEqual,
+  DEFAULT_UNIT,
   equal,
   expectOnly,
   fixture,
@@ -19,6 +20,7 @@ import {
   openCustom,
   probeUntil,
   readText,
+  reindent,
   sleep,
   tabsFor,
   view,
@@ -117,7 +119,10 @@ describe('document actions on the virtual scheme (spec 013 criteria 4 and 7)', (
     for (const [feature, { mode, steps }] of Object.entries(FEATURES)) {
       const dir = fixture('fixtures', feature);
       const uri = await copyToCase(feature, vscode.Uri.joinPath(dir, 'input.json'));
-      const expected = await readText(vscode.Uri.joinPath(dir, 'expected.json'));
+      const written = await readText(vscode.Uri.joinPath(dir, 'expected.json'));
+      // Format lays out a one-line input: new lines take VS Code's indent (spec 019 I1, default 4
+      // spaces); expected.json is written with 2.
+      const expected = feature === 'format' ? reindent(written, DEFAULT_UNIT) : written;
       const document = await openCustom(hooks, uri, mode);
       await act(hooks, document, steps);
       equal(document.getText(), expected, `${feature}: not expected.json`);

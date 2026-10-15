@@ -11,10 +11,17 @@ import {
   type DocumentChange,
   type ToWebviewMessage,
 } from '@chr-json-editor/app-shell/protocol';
-import { LosslessNumber, valueText, type Format } from '@chr-json-editor/core';
+import {
+  LosslessNumber,
+  valueText,
+  type Format,
+  type SmartFormatOptions,
+  type WriteOptions,
+} from '@chr-json-editor/core';
 import { describeHostAdapterContract } from '../../../app-shell/test/host-adapter-contract';
 import { DocumentSync, minimalReplacement } from '../../src/documentSync';
-import { JSONL_MESSAGE } from '../../src/smartFormatPlan';
+import { LARGE_FILE_THRESHOLD } from '../../src/largeFile';
+import { JSONL_MESSAGE, tooLargeMessage } from '../../src/smartFormatPlan';
 import { VscodeHostAdapter } from '../../src/webview/vscodeHostAdapter';
 
 /** A document like VS Code's: each replacement bumps the version and fires a change event. */
@@ -39,6 +46,12 @@ function memoryDocument(initial: string, format: Format = 'json') {
     /** The answer to a repair that removes comments, and the comments each question named. */
     confirm: (() => Promise.resolve(true)) as (lostComments: readonly string[]) => Promise<boolean>,
     asked: [] as (readonly string[])[],
+    /** Spec 019 T1's threshold in bytes, read by each Smart Format run. */
+    threshold: LARGE_FILE_THRESHOLD,
+    /** Smart Format's options, read at each run (spec 019 F1). */
+    smartFormatOptions: {} as SmartFormatOptions,
+    /** How new text is indented, read at each edit (spec 019 I1). */
+    writeOptions: {} as WriteOptions,
     get text() {
       return text;
     },
@@ -81,6 +94,9 @@ function memoryDocument(initial: string, format: Format = 'json') {
       doc.asked.push(lostComments);
       return doc.confirm(lostComments);
     },
+    thresholdBytes: () => doc.threshold,
+    smartFormatOptions: () => doc.smartFormatOptions,
+    writeOptions: () => doc.writeOptions,
   });
   return doc;
 }
@@ -284,6 +300,36 @@ describe('DocumentSync actions (003 T8)', () => {
   });
 });
 
+describe('DocumentSync indentation of new text (spec 019 I1)', () => {
+  const NESTED = { a: { b: 1 } };
+
+  it('indents edits on a one-line document by the options read at each edit', async () => {
+    const doc = memoryDocument('{"x": 1}', 'json');
+    doc.writeOptions = { indent: 4 };
+    await doc.sync.edit(
+      edit(1, { kind: 'patch', patch: [{ op: 'replace', path: '', value: NESTED }] }),
+    );
+    expect(doc.text).toBe('{\n    "a": {\n        "b": 1\n    }\n}');
+    // A document with indentation keeps following it (002 R1).
+    doc.writeOptions = { indent: '\t' };
+    await doc.sync.edit(edit(2, { kind: 'patch', patch: [{ op: 'add', path: '/c', value: [2] }] }));
+    expect(doc.text).toBe('{\n    "a": {\n        "b": 1\n    },\n    "c": [\n        2\n    ]\n}');
+  });
+
+  it("writes an empty document's first edit (R15) and Format with the options", async () => {
+    const doc = memoryDocument('', 'json');
+    doc.writeOptions = { indent: '\t' };
+    await doc.sync.edit(
+      edit(1, { kind: 'patch', patch: [{ op: 'add', path: '', value: NESTED }] }),
+    );
+    expect(doc.text).toBe('{\n\t"a": {\n\t\t"b": 1\n\t}\n}\n');
+    const line = memoryDocument('{"a": {"b": 1}}', 'jsonc');
+    line.writeOptions = { indent: 3 };
+    await line.sync.edit(edit(1, { kind: 'action', action: { name: 'format' } }));
+    expect(line.text).toBe('{\n   "a": {\n      "b": 1\n   }\n}');
+  });
+});
+
 describe('DocumentSync smart format (010 T3)', () => {
   const INPUT = '{\n  "a": [\n    1,\n    2\n  ], // two\n  "b": {"c": 3},\n}\n';
 
@@ -297,6 +343,16 @@ describe('DocumentSync smart format (010 T3)', () => {
     expect(doc.posted.map((m) => m.type)).toEqual(['update', 'update']);
   });
 
+  it('lays out to the line length read when the action runs (spec 019 F1)', async () => {
+    const doc = memoryDocument(INPUT, 'jsonc');
+    doc.smartFormatOptions = { maxLineLength: 20 };
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [\n    1,\n    2\n  ],  // two\n  "b": {"c": 3},\n}\n');
+    doc.smartFormatOptions = { maxLineLength: 25 };
+    await doc.sync.edit(edit(2, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('{\n  "a": [1, 2],  // two\n  "b": {"c": 3},\n}\n');
+  });
+
   it("answers a document that does not parse with criterion 9's message", async () => {
     const doc = memoryDocument('{"a": [1, 2,\n"b": 3}', 'json5');
     await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
@@ -307,6 +363,28 @@ describe('DocumentSync smart format (010 T3)', () => {
         message: 'Smart Format needs valid JSON5. Fix the errors or run Repair JSON first.',
       }),
     ]);
+  });
+
+  it('reads the threshold when each run starts (spec 019 T1, A4)', async () => {
+    const MIB = 1024 * 1024;
+    // `[1]` padded to 1 MiB + 1 byte; smart-formatted it is `[1]\n`.
+    const over = `[${' '.repeat(MIB - 3)}1]\n`;
+    expect(Buffer.byteLength(over)).toBe(MIB + 1);
+    const doc = memoryDocument(over);
+    doc.threshold = MIB;
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe(over);
+    expect(doc.posted).toEqual([
+      expect.objectContaining({
+        type: 'error',
+        code: 'patch-failed',
+        message: tooLargeMessage(MIB),
+      }),
+    ]);
+    expect(tooLargeMessage(MIB)).toContain('above 1 MiB');
+    doc.threshold = 2 * MIB;
+    await doc.sync.edit(edit(1, { kind: 'action', action: { name: 'smartFormat' } }));
+    expect(doc.text).toBe('[1]\n');
   });
 
   it('refuses a JSON Lines document (spec 010 §Scope)', async () => {

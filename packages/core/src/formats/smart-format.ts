@@ -10,6 +10,8 @@
 //   container that had one and whose closing bracket is on its own line;
 // - criterion 6: a compact array with an item wider than its line is written expanded instead.
 // The rest (L1, L2: indent, line endings, final newline, BOM) comes from the document's `Style`.
+// The line length is the one option a caller sets (`SmartFormatOptions`, spec 019 F1); every other
+// option of §Layout stays fixed.
 //
 // fracturedjsonjs is pinned to exactly 5.1.0 (packages/core/package.json, spec 010 criterion 12),
 // and must stay so: besides being the golden corpus's contract, this file overrides private
@@ -28,18 +30,36 @@ import { json5Tokens } from './json5-adapter.js';
 import { parsedTokens } from './jsonc-adapter.js';
 import { parseJson5 } from './json5-parser.js';
 import { isComment, Kind, type Token } from './tokens.js';
-import { PatchError, type Format } from './types.js';
+import { indentUnit } from './style.js';
+import { PatchError, type Format, type WriteOptions } from './types.js';
 
 /** The formats smart format lays out (spec 010 §Scope): not JSON Lines. */
 export type SmartFormatFormat = Exclude<Format, 'jsonl'>;
+
+/** The default of `SmartFormatOptions.maxLineLength`: spec 010 §Layout's 120 columns. */
+export const SMART_FORMAT_MAX_LINE_LENGTH = 120;
+
+export interface SmartFormatOptions {
+  /** FracturedJson's `MaxTotalLineLength`, in columns (a tab counted as 4); spec 019 F1. Default
+   *  `SMART_FORMAT_MAX_LINE_LENGTH`. */
+  maxLineLength?: number;
+  /** The indent unit for a text with no indentation to follow (spec 019 I1, `WriteOptions`): a
+   *  text with indentation keeps its own (L1). Default 2 spaces. */
+  indent?: WriteOptions['indent'];
+}
 
 /**
  * `text` laid out by FracturedJson 5.1.0 with spec 010 §Layout's options, changing only white space,
  * line breaks and commas (criterion 3). Throws a `PatchError` when the text has a parse `error`
  * diagnostic (criterion 9); a text with no value (empty, white space or comments only) comes back
- * unchanged (criterion 5).
+ * unchanged (criterion 5). `options.maxLineLength` replaces the 120-column line length (spec 019 F1),
+ * and `options.indent` is the indent unit of a text with no indentation (spec 019 I1).
  */
-export function smartFormat(text: string, format: SmartFormatFormat): string {
+export function smartFormat(
+  text: string,
+  format: SmartFormatFormat,
+  { maxLineLength = SMART_FORMAT_MAX_LINE_LENGTH, indent }: SmartFormatOptions = {},
+): string {
   const bom = text.startsWith('\uFEFF') ? '\uFEFF' : '';
   const body = text.slice(bom.length);
   const adapter = getAdapter(format);
@@ -57,7 +77,7 @@ export function smartFormat(text: string, format: SmartFormatFormat): string {
 
   const bridged = bridge(body, tokens, format);
   const formatter = new Formatter();
-  formatter.Options = options(style.indent, style.eol);
+  formatter.Options = options(indentUnit(style, indent), style.eol, maxLineLength);
   const { widths, marker } = bridged;
   const width = (s: string) =>
     widths.get(s) ?? columns(s.includes(marker) ? bridged.restore(s) : s);
@@ -91,10 +111,15 @@ function hasNoValue(text: string, format: SmartFormatFormat): boolean {
   return tree?.type === 'null' && errors.length === 0;
 }
 
-/** §Layout: `Recommended()` with comments and blank lines kept, trailing commas read, and the
- *  document's indent unit and line ending (L1–L4). */
-function options(indent: '\t' | number, eol: '\n' | '\r\n'): FracturedJsonOptions {
+/** §Layout: `Recommended()` with comments and blank lines kept, trailing commas read, the
+ *  document's indent unit and line ending (L1–L4), and the line length (spec 019 F1). */
+function options(
+  indent: '\t' | number,
+  eol: '\n' | '\r\n',
+  maxLineLength: number,
+): FracturedJsonOptions {
   const o = FracturedJsonOptions.Recommended();
+  o.MaxTotalLineLength = maxLineLength;
   o.CommentPolicy = CommentPolicy.Preserve;
   o.PreserveBlankLines = true;
   o.AllowTrailingCommas = true;

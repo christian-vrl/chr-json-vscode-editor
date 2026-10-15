@@ -8,6 +8,11 @@
 // text → table → tree leaves the bytes unchanged. Criterion 7: an integer schema on big integers
 // reports no error, and validation does not throw. Criterion 6 is compare.cjs's. Each case works on
 // a copy in a temporary folder.
+// The `.jsonl` fixture (015 T6, once the JSON Lines editor is on `main`): each line is a record whose
+// `id` is one of the `ids` above, plus 9007199254740993, 1E-400 and 4.0, so the root array of lines
+// plays the part of `ids`; the edit sets the first line's `id` (`/0/id`, a line edit whose value
+// travels as the protocol's `valueText`); the sort dialog and the table's `id` header sort the lines.
+// JSON Lines offers Table and Tree only, so the mode round trip is table → tree → table.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -34,6 +39,11 @@ const SEARCHED = '12345678901234567890';
 /** Where SEARCHED shows: /a, two ids, a record's id, and the json5 hex member. */
 const SEARCH_HITS = { json: 4, jsonc: 4, json5: 5 };
 const EDIT = `[{"op": "replace", "path": "/a", "value": 98765432109876543210}]`;
+/** The `.jsonl` fixture's ids, as the tree and table must show them. */
+const LINE_IDS = [...BIG, '5', '0.1', '4'];
+const LINE_EDIT = `[{"op": "replace", "path": "/0/id", "value": 98765432109876543210}]`;
+/** Where SEARCHED shows in the `.jsonl` fixture: line 6, and line 2's negative id. */
+const LINE_SEARCH_HITS = 2;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -98,8 +108,13 @@ exports.runBigNumbers = async function runBigNumbers({
     await expectOnly(uri, 'custom', isCustom);
     const view = () => hooks.webviews().find((w) => w.uri === uri.toString());
     await waitFor(`the webview of ${path.basename(source)}`, () => view()?.scriptLoaded === true);
-    await probeUntil(uri, 'the document in the editor', (p) => p.mode !== null && !!p.content);
-    if (mode !== 'tree') {
+    const opened = await probeUntil(
+      uri,
+      'the document in the editor',
+      (p) => p.mode !== null && !!p.content,
+    );
+    // JSON Lines opens in Table mode, the other formats in Tree mode.
+    if (opened.mode !== mode) {
       assert.equal(hooks.setMode(uri.toString(), mode), true);
       await probeUntil(uri, `${mode} mode`, (p) => p.mode === mode);
     }
@@ -277,6 +292,128 @@ exports.runBigNumbers = async function runBigNumbers({
         );
         await finish(uri, document);
         console.log(`criterion 4: ${name} header sort descending = expected-sort-desc`);
+      }
+    }
+
+    // Criterion 4's `.jsonl` fixture in the JSON Lines editor (015 T6).
+    {
+      const name = 'input.jsonl';
+      const source = path.join(FIXTURES, name);
+      const bytes = fs.readFileSync(source, 'utf8');
+      const expected = (kind) => fs.readFileSync(path.join(FIXTURES, `${kind}.jsonl`), 'utf8');
+
+      // The table and the tree show each id's digits; search finds one; copy puts its digits on the
+      // clipboard; table → tree → table writes nothing.
+      {
+        const { uri, document, view } = await open(source, 'table');
+        const [cells] = await hooks.dom(uri.toString(), [
+          { readAll: '.jse-table-mode td .jse-value' },
+        ]);
+        for (const id of LINE_IDS)
+          assert.ok(JSON.parse(cells).includes(id), `${name}: the table shows no ${id}`);
+        assert.equal(hooks.setMode(uri.toString(), 'tree'), true);
+        await probeUntil(uri, 'tree mode', (p) => p.mode === 'tree');
+        const [shown] = await hooks.dom(uri.toString(), [{ readAll: '.jse-tree-mode .jse-value' }]);
+        for (const id of LINE_IDS)
+          assert.ok(JSON.parse(shown).includes(id), `${name}: the tree shows no ${id}`);
+
+        const count = await readUntil(
+          uri,
+          [
+            { key: 'f', ctrl: true, on: '.jse-tree-mode .jse-hidden-input' },
+            { fill: '.jse-search-input', value: SEARCHED },
+            { read: '.jse-search-count' },
+          ],
+          `${name}: the search count`,
+          (text) => text?.trim() === `1/${LINE_SEARCH_HITS}`,
+        );
+        assert.equal(count.trim(), `1/${LINE_SEARCH_HITS}`);
+        await hooks.dom(uri.toString(), [{ click: '.jse-search-clear' }]);
+
+        // The switch to tree mode shows the node the table named (spec 018 S4) once the tree is
+        // drawn, maybe after the click below: select and copy again until the copy holds. Escape
+        // first drops any selection, as a click inside a selected root selects nothing (the library
+        // takes it for the start of a drag); since 018 T3 the switch selects no root, so it is a guard.
+        const deadline = Date.now() + 10000;
+        let copied = '';
+        while (copied !== SEARCHED && Date.now() < deadline) {
+          await vscode.env.clipboard.writeText('');
+          await hooks.dom(uri.toString(), [
+            { key: 'Escape', on: '.jse-tree-mode .jse-hidden-input' },
+            { mousedown: `.jse-tree-mode [data-path="${encodeURIComponent('/5/id')}"] .jse-value` },
+            { key: 'c', ctrl: true, on: '.jse-tree-mode .jse-hidden-input' },
+          ]);
+          for (let i = 0; i < 10 && copied !== SEARCHED; i++) {
+            await sleep(100);
+            copied = await vscode.env.clipboard.readText();
+          }
+        }
+        if (copied !== SEARCHED) {
+          const read = (step) => hooks.dom(uri.toString(), [step]).then(([text]) => text, String);
+          const selected = await read({
+            read: '.jse-tree-mode [data-path][class*="jse-selected"]',
+            attr: 'data-path',
+          });
+          const bar = await read({ read: '.jse-tree-mode .jse-navigation-bar' });
+          console.log(`${name}: selected ${selected}, navigation bar "${bar}"`);
+        }
+        assert.equal(copied, SEARCHED, `${name}: Copy put another text on the clipboard`);
+
+        assert.equal(hooks.setMode(uri.toString(), 'table'), true);
+        await probeUntil(uri, 'table mode', (p) => p.mode === 'table');
+        await sleep(500);
+        assert.equal(document.getText(), bytes, `${name}: switching modes changed the document`);
+        assert.equal(document.isDirty, false, `${name}: switching modes made it dirty`);
+        assert.equal(view().editsReceived, 0, `${name}: switching modes sent an edit`);
+        await finish(uri, document);
+        console.log(
+          `criterion 4: ${name} shows, finds and copies big numbers; modes write nothing`,
+        );
+      }
+
+      // A line edit whose value is typed text with more digits than a float holds.
+      {
+        const { uri, document } = await open(source, 'table');
+        assert.equal(hooks.patch(uri.toString(), LINE_EDIT), true);
+        await waitFor(`${name}: the edit`, () => document.getText() !== bytes).catch(() => {});
+        await sleep(300);
+        assert.equal(document.getText(), expected('expected-edit'), `${name}: the edit`);
+        await finish(uri, document);
+        console.log(`criterion 4: ${name} edit writes expected-edit.jsonl byte for byte`);
+      }
+
+      // Sorting the lines by `id` with the sort dialog (the tree's root, from its menu).
+      {
+        const { uri, document } = await open(source, 'tree');
+        await expectWrite(
+          uri,
+          document,
+          [
+            { click: '.jse-tree-mode .jse-menu .jse-sort' },
+            { click: '.jse-modal button.jse-primary', text: 'Sort' },
+            { waitFor: '.jse-modal', gone: true },
+          ],
+          expected('expected-sort'),
+          `${name}: the sort dialog`,
+        );
+        await finish(uri, document);
+        console.log(`criterion 4: ${name} sort dialog writes expected-sort.jsonl`);
+      }
+
+      // The table's `id` header sorts the lines ascending. (Descending, the header clicked twice,
+      // is not checked here: the root table drops its sort icon once the host's edit comes back,
+      // so a second click sorts ascending again; the other formats check it in the nested editor.)
+      {
+        const { uri, document } = await open(source, 'table');
+        await expectWrite(
+          uri,
+          document,
+          [{ click: '.jse-table-mode button.jse-column-header', text: 'id' }],
+          expected('expected-sort'),
+          `${name}: the table header sort`,
+        );
+        await finish(uri, document);
+        console.log(`criterion 4: ${name} table header sort writes expected-sort.jsonl`);
       }
     }
 

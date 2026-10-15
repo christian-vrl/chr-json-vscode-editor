@@ -12,13 +12,15 @@ export function detectStyle(
   format: Format,
   tokens: readonly Token[] = format === 'json5' ? parseJson5(text).tokens : tokenize(text),
 ): Style {
+  const indent = detectIndent(text, tokens);
   const style: Style = {
-    indent: detectIndent(text, tokens),
+    indent: indent ?? 2,
     eol: detectEol(text),
     finalNewline: text.endsWith('\n'),
     quote: '"',
     unquotedKeys: false,
     trailingCommas: format !== 'json' && hasTrailingComma(tokens),
+    ...(indent === undefined && { indentFound: false as const }),
   };
   return format === 'json5' ? { ...style, ...detectJson5Quoting(text, tokens) } : style;
 }
@@ -54,6 +56,12 @@ function detectJson5Quoting(
 const isTrivia = (t: Token) =>
   t.kind === Kind.Whitespace || t.kind === Kind.LineBreak || isComment(t);
 
+/** The indent unit to write with: the style's, or `fallback` (spec 019 I1) when the text had no
+ *  indentation to follow (`indentFound` false). */
+export function indentUnit(style: Style, fallback: Style['indent'] | undefined): Style['indent'] {
+  return style.indentFound === false && fallback !== undefined ? fallback : style.indent;
+}
+
 /** Majority line ending; a text with no line break gets `\n`. */
 function detectEol(text: string): Style['eol'] {
   const crlf = text.split('\r\n').length - 1;
@@ -70,10 +78,11 @@ function detectEol(text: string): Style['eol'] {
  * deeper, and a line of several numbers of an array of numbers once the padding that aligns its
  * first number by decimal point is taken off. The unit is their most frequent indentation per level
  * (the smaller on a tie). With no such line, it is the most frequent increase in width from one
- * line to the next (the smaller on a tie); with none, 2 (R1: a file with no line breaks has indent
- * unit 2 spaces).
+ * line to the next (the smaller on a tie); with none, undefined: the text has no indentation to
+ * follow, and the style gets 2 (R1: a file with no line breaks has indent unit 2 spaces) with
+ * `indentFound: false`, so a writer can use the fallback it was given instead (spec 019 I1).
  */
-function detectIndent(text: string, tokens: readonly Token[]): Style['indent'] {
+function detectIndent(text: string, tokens: readonly Token[]): Style['indent'] | undefined {
   const lines = indentedLines(text, tokens);
   const tabs = lines.filter((l) => l.indent.startsWith('\t')).length;
   const spaces = lines.filter((l) => l.indent.startsWith(' ')).length;
@@ -92,7 +101,7 @@ function detectIndent(text: string, tokens: readonly Token[]): Style['indent'] {
     if (indent.length > previous) increases.push(indent.length - previous);
     previous = indent.length;
   }
-  return increases.length > 0 ? mostFrequent(increases) : 2;
+  return increases.length > 0 ? mostFrequent(increases) : undefined;
 }
 
 function mostFrequent(values: readonly number[]): number {

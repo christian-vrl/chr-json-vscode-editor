@@ -7,11 +7,13 @@ import { DEFAULT_EDITOR_SETTINGS } from '@chr-json-editor/app-shell/protocol';
 import {
   DEFAULT_SETTINGS,
   effectiveValue,
+  indentFrom,
   openingMode,
   pageSettings,
   samePageSettings,
   SETTINGS,
   settingsFrom,
+  smartFormatOptionsFrom,
   type Inspected,
   type SettingKey,
 } from '../../src/settings';
@@ -297,6 +299,29 @@ describe('openingMode (spec 019 M1)', () => {
     expect(openingMode({ defaultMode: 'table' }, false)).toBe('table');
     expect(openingMode({ defaultMode: 'text' }, true)).toBe('tree');
     expect(openingMode({ defaultMode: 'table' }, true)).toBe('table');
+  });
+});
+
+describe('the readers of spec 019 T5 (I1) and T4 (F1)', () => {
+  it("indentFrom reads a new file's indent as the reader does a document's", () => {
+    const editor = (values: Record<string, Inspected>) => (key: 'tabSize' | 'insertSpaces') =>
+      values[key];
+    expect(indentFrom(() => undefined)).toBe(4);
+    expect(indentFrom(editor({ tabSize: { globalValue: 2, workspaceLanguageValue: 3 } }))).toBe(3);
+    expect(indentFrom(editor({ insertSpaces: { globalLanguageValue: false } }))).toBe('\t');
+    expect(indentFrom(editor({ tabSize: { globalValue: 0 } }))).toBe(4);
+  });
+
+  it("smartFormatOptionsFrom passes the language's line length and indent (019 T4 L3)", () => {
+    expect(smartFormatOptionsFrom(DEFAULT_SETTINGS)).toEqual({ maxLineLength: 120, indent: 4 });
+    expect(
+      smartFormatOptionsFrom(
+        read({
+          'chrJsonEditor.smartFormat.maxLineLength': { globalValue: 80, globalLanguageValue: 60 },
+          'editor.insertSpaces': { workspaceLanguageValue: false },
+        }),
+      ),
+    ).toEqual({ maxLineLength: 60, indent: '\t' });
   });
 });
 

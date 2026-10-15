@@ -45,6 +45,7 @@ import {
   replacedText,
 } from './csvPlan';
 import { minimalReplacement } from './documentSync';
+import { newFileIndent, writeOptions } from './settingsVscode';
 import type { CsvPageProbe, DomStep } from './testProbe';
 import { createNonce, renderWebviewHtml } from './webviewHtml';
 
@@ -333,7 +334,7 @@ export class CsvPanel {
       if (!target) return { done: true };
       await vscode.workspace.fs.writeFile(
         target,
-        new TextEncoder().encode(newJsonText(result.data)),
+        new TextEncoder().encode(newJsonText(result.data, newFileIndent(target, 'json'))),
       );
       this.wrote(`createFile ${target.toString()}`);
       await this.host.openJson(target);
@@ -357,7 +358,7 @@ export class CsvPanel {
     const document = await vscode.workspace.openTextDocument(uri);
     const text = document.getText();
     const format = this.host.formatOf(document);
-    const replaced = replacedText(text, format, data);
+    const replaced = replacedText(text, format, data, writeOptions(document));
     if ('error' in replaced) {
       const position = document.positionAt(replaced.error.offset);
       this.show('error', brokenTargetMessage(format, position.line + 1, position.character + 1));
