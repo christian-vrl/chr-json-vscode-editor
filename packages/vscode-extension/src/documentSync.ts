@@ -57,6 +57,8 @@ export interface SyncTarget {
   post(message: ToWebviewMessage): void;
   /** Asks whether to write a repair that removes `lostComments` (VS Code: a modal warning). */
   confirmRepair(lostComments: readonly string[]): Promise<boolean>;
+  /** Spec 019 T1's threshold in bytes for a run starting now (Smart Format's size guard, A4). */
+  thresholdBytes(): number;
   /** Smart Format's options for a run starting now (spec 019 F1: the line length setting). */
   smartFormatOptions(): SmartFormatOptions;
   /** How edits and Format lay out new text for an edit starting now (spec 019 I1: VS Code's indent
@@ -165,7 +167,12 @@ export class DocumentSync {
         // JSON Lines is not laid out (spec 010 §Scope); the webview offers no button for it.
         if (format === 'jsonl') throw new PatchError(JSONL_MESSAGE);
         // Spec 010 criteria 9 and 10: the reason it did not run reaches the webview's notice.
-        const result = smartFormatPlan(text, format, this.target.smartFormatOptions());
+        const result = smartFormatPlan(
+          text,
+          format,
+          this.target.smartFormatOptions(),
+          this.target.thresholdBytes(),
+        );
         if (result.kind === 'refused') throw new PatchError(result.message);
         return result.kind === 'formatted' ? result.text : text;
       }

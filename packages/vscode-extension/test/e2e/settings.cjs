@@ -13,6 +13,12 @@
 //   starts with Lodash, and an open tab with no pick follows the change (A2: the host's `settings`
 //   message); with `"lodash"` a document above the threshold starts with JSONQuery. A tab stays
 //   shown while its pick is checked: a hidden tab's webview reloads from `init`.
+// - Criterion 4 (T1, 019 T3): with `largeFileThreshold` 6, 6,291,456 bytes open in the normal
+//   editor and 6,291,457 in large-file mode; "Smart Format" runs at 6 MiB and above it shows 010
+//   criterion 10's message, naming 6 MiB; with 1, a 2 MiB document opens in large-file mode and,
+//   unlocked, its Transform dialog lists no JavaScript, Lodash or JSONPath (RFC 9535); a 6 MiB
+//   large-file tab still validates on open (UNK-041's own 10 MiB limit). With no setting, 008
+//   criterion 1 is largeFile.cjs's, unchanged.
 // - Criterion 11 (C1): "Open Settings" leaves the Settings editor active, searching for the
 //   extension.
 const assert = require('node:assert/strict');
@@ -25,7 +31,8 @@ const VIEW_TYPE = 'chrJsonEditor.editor';
 const OPEN_SETTINGS_COMMAND = 'chrJsonEditor.openSettings';
 const SETTINGS_QUERY = '@ext:christian-vrl.chr-json-editor';
 const FIXTURES = path.resolve(__dirname, '../../../../tests/e2e/fixtures');
-const SIX_MIB = 6 * 1024 * 1024;
+const MIB = 1024 * 1024;
+const SIX_MIB = 6 * MIB;
 const TWELVE_MIB = 12 * 1024 * 1024;
 /** Long enough for a validation or a mode change that should not happen to have shown. */
 const SETTLE_MS = 1000;
@@ -265,6 +272,89 @@ exports.runSettings = async function runSettings({
     console.log('criterion 7: "lodash" on a document above the threshold starts with JSONQuery');
   } finally {
     await set('transform.defaultQueryLanguage', undefined);
+    await closeAll();
+  }
+
+  // --- Criterion 4: the threshold.
+  /** `[1]` padded with spaces to `bytes` bytes; smart-formatted it is `[1]\n`. */
+  const sized = (bytes) => `[${' '.repeat(bytes - 4)}1]\n`;
+  const tooLarge = (mib) =>
+    `Smart Format is off for documents above ${mib} MiB because it can take a long time. Use Format instead.`;
+  /** Opens Transform from the main menu and reads the languages it lists. */
+  async function listed(uri) {
+    const [names] = await hooks.dom(uri.toString(), [
+      { click: '.jse-tree-mode .jse-transform' },
+      { click: '.jse-modal .jse-config' },
+      { readAll: '.jse-query-language' },
+      { key: 'Escape', on: '.jse-query-language.selected' },
+      { waitFor: '.jse-query-language', gone: true },
+      { click: '.jse-modal .jse-close' },
+      { waitFor: '.jse-modal', gone: true },
+    ]);
+    return JSON.parse(names);
+  }
+  await closeAll();
+  hooks.smartFormatMessages();
+  await set('largeFileThreshold', 6);
+  try {
+    const at = write('threshold-at.json', sized(SIX_MIB));
+    const over = write('threshold-over.json', sized(SIX_MIB + 1));
+    await open(at);
+    await rendered(at, 'tree');
+    assert.equal(view(at).largeFile, null, '6,291,456 bytes at 6 opened in large-file mode');
+    const atDocument = vscode.workspace.textDocuments.find(
+      (d) => d.uri.toString() === at.toString(),
+    );
+    await vscode.commands.executeCommand('chrJsonEditor.smartFormat');
+    await waitFor('6 MiB: smart-formatted', () => atDocument.getText() === '[1]\n', 30000);
+    assert.deepEqual(hooks.smartFormatMessages(), [], '6 MiB: a message');
+    await atDocument.save();
+    await open(over);
+    await rendered(over, 'tree');
+    assert.deepEqual(view(over).largeFile, { bytes: SIX_MIB + 1, unlocked: false });
+    const overDocument = vscode.workspace.textDocuments.find(
+      (d) => d.uri.toString() === over.toString(),
+    );
+    const version = overDocument.version;
+    await vscode.commands.executeCommand('chrJsonEditor.smartFormat');
+    assert.deepEqual(hooks.smartFormatMessages(), [tooLarge(6)], '6 MiB + 1: the message');
+    assert.equal(overDocument.version, version, '6 MiB + 1: an edit was made');
+    console.log(
+      'criterion 4: at 6, 6,291,456 bytes open normally and smart-format; 6,291,457 open in large-file mode and say "above 6 MiB"',
+    );
+    await closeAll();
+
+    await set('largeFileThreshold', 1);
+    const two = write('threshold-two.json', documentText('json', 2 * MIB));
+    await open(two);
+    await rendered(two, 'tree');
+    assert.deepEqual(view(two).largeFile, { bytes: 2 * MIB, unlocked: false });
+    await hooks.dom(two.toString(), [{ click: '.banner button', text: 'Edit anyway' }]);
+    await waitFor('the unlock', () => view(two).largeFile.unlocked);
+    const names = await listed(two);
+    for (const gated of ['JavaScript', 'Lodash', 'JSONPath (RFC 9535)']) {
+      assert.ok(!names.includes(gated), `at 1, a 2 MiB document lists ${gated}`);
+    }
+    for (const allowed of ['JSONQuery', 'JMESPath', 'JSONPath (Goessner)']) {
+      assert.ok(names.includes(allowed), `at 1, a 2 MiB document lists no ${allowed}`);
+    }
+    console.log(
+      `criterion 4: at 1, a 2 MiB document opens in large-file mode; Transform lists ${names.join(', ')}`,
+    );
+    await closeAll();
+
+    // A 6 MiB large-file tab validates on open: UNK-041's 10 MiB is not the threshold.
+    const six = write('threshold-six.json', documentText('json', SIX_MIB));
+    await open(six);
+    assert.deepEqual(view(six).largeFile, { bytes: SIX_MIB, unlocked: false });
+    assert.equal(hooks.setSchema(six.toString(), { type: 'array', maxItems: 1 }), true);
+    await waitFor('the 6 MiB validation', () => view(six).validationsShown.length > 0, 30000);
+    assert.ok(view(six).validationsShown.at(-1).errors?.length > 0, 'no errors at 6 MiB');
+    assert.equal(hooks.pausedValidation(), null, 'validation paused at 6 MiB');
+    console.log('criterion 4: at 1, a 6 MiB large-file tab still validates on open');
+  } finally {
+    await set('largeFileThreshold', undefined);
+    hooks.smartFormatMessages();
     await closeAll();
   }
 

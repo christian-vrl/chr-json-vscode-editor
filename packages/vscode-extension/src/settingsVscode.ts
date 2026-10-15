@@ -11,9 +11,14 @@ import {
   type Settings,
 } from './settings';
 
-/** The settings that apply to `document` now. */
-export function readSettings(document: { uri: vscode.Uri; languageId: string }): Settings {
-  const scope = { uri: document.uri, languageId: document.languageId };
+/** The settings that apply to `document` now. With no `languageId` (a file not open in an editor)
+ *  language values do not count, which changes nothing for a `resource` key such as the
+ *  threshold. */
+export function readSettings(document: { uri: vscode.Uri; languageId?: string }): Settings {
+  const scope: vscode.ConfigurationScope =
+    document.languageId === undefined
+      ? document.uri
+      : { uri: document.uri, languageId: document.languageId };
   const ours = vscode.workspace.getConfiguration(SECTION, scope);
   const editor = vscode.workspace.getConfiguration('editor', scope);
   return settingsFrom(
