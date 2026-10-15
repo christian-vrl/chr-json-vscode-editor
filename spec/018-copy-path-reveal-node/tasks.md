@@ -60,7 +60,7 @@
 - JSON Lines with a bad line (018 T4): A5 counts every non-blank line as an item, the bad one too,
   while the CHR editor's table (spec 012 L1) leaves a bad line out of its rows. Both reveals map the
   item to the row and back (`tablePath`, `textPath`; `middle.jsonl` in
-  `copyPath.cjs`), so they land on the same item. Per UNK-090 ★ (awaiting the owner's Keep/Revert)
+  `copyPath.cjs`), so they land on the same item. Per UNK-090 ★ (the owner chose Keep)
   the copy commands in both editors write the text's A5 index, and the page's nav bar shows and
   accepts it; the helpers live in core (`packages/core/src/paths/lines.ts`), and `badItems` treats a
   lone CR at the end of a line as blank space, as `readLines` does (018 T3 review, L4).
