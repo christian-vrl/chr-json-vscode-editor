@@ -32,13 +32,13 @@ export const largeName = (bytes: number) => `${bytes}.json`;
  *  replaced by "é" (two bytes in UTF-8, one code unit). */
 export const UTF8_OVER = 'utf8-over-threshold.json';
 
-const lockedBanner = (mib: string) => `Large file (${mib} MiB): read-only to stay fast.`;
+export const lockedBanner = (mib: string) => `Large file (${mib} MiB): read-only to stay fast.`;
 const ceilingMessage = (name: string, mib: string) =>
   `${name} is ${mib} MiB. VS Code does not pass files above 50 MB to extensions, ` +
   `so CHR JSON Editor can't open it.`;
 
 /** "Open in CHR JSON Editor" on `uri`, waiting until its webview script runs. */
-async function openWithCommand(hooks: TestHooks, uri: vscode.Uri) {
+export async function openWithCommand(hooks: TestHooks, uri: vscode.Uri) {
   await closeAll();
   await vscode.commands.executeCommand(OPEN_COMMAND, uri);
   await waitFor(
@@ -57,7 +57,7 @@ async function openWithCommand(hooks: TestHooks, uri: vscode.Uri) {
 }
 
 /** The banner's text once the page shows it (the `dom` hook waits 5 s per call: ask again). */
-async function banner(hooks: TestHooks, uri: vscode.Uri): Promise<string> {
+export async function banner(hooks: TestHooks, uri: vscode.Uri): Promise<string> {
   const read = await waitFor(
     'the large-file banner',
     () =>
