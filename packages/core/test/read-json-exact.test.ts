@@ -82,6 +82,8 @@ describe('readJsonExact: big numbers exact through JSON.parse', () => {
     ['a trailing comma', '[12345678901234567890,]'],
     ['a stray backslash', '[\\12345678901234567890]'],
     ['an unclosed string', '["12345678901234567890]'],
+    // lossless-json read a leading dot; JSON does not, so the caller reads it with core.
+    ['a leading-dot number beside a big one', '[.5, 12345678901234567890]'],
   ])('refuses %s', (_, text) => {
     expect(readJsonExact(text)).toBeUndefined();
   });
