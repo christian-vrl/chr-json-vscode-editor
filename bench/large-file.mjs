@@ -1,5 +1,6 @@
 // `pnpm --filter @chr-json-editor/bench bench:large-file` (008 T5: spec 008 criterion 11, UNK-041,
-// plan R5 and R6): generates the JSON, JSONC and JSON5 files, times large-file mode in VS Code's
+// plan R5 and R6; 015 T6: UNK-068's evidence rule): generates the JSON, JSONC and JSON5 files, and the
+// same with every record's id a 19-digit big number, times large-file mode in VS Code's
 // custom editor (vscode/large-file-suite.cjs) and writes bench/large-file.md. Needs `pnpm build`,
 // the e2e .vsix (`CHR_TEST_HOOKS=1 pnpm package`) and a display (`xvfb-run -a` on Linux). Run from
 // any directory.
@@ -24,8 +25,9 @@ const node = (script, scriptArgs, env = {}) =>
   });
 
 node('generate.mjs', ['--formats', data, ...sizes]);
+node('generate.mjs', ['--formats', '--big-ids', data, ...sizes]);
 node('vscode/run.mjs', [data, path.join(results, 'large-file.json'), ...sizes], {
   CHR_BENCH_SUITE: 'large-file-suite.cjs',
-  CHR_BENCH_FORMATS: 'json,jsonc,json5',
+  CHR_BENCH_FORMATS: 'json,jsonc,json5,json-ids,jsonc-ids,json5-ids',
 });
 node('large-file-report.mjs', [results, path.join(here, 'large-file.md')]);

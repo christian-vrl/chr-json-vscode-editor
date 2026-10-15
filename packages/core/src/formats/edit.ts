@@ -5,7 +5,13 @@
 import { equalNumbers, LosslessNumber } from './numbers.js';
 import { parseIndex, parsePointer } from './pointer.js';
 import { isComment, Kind, tokenAt, tokenFrom, type Token } from './tokens.js';
-import { PatchError, type FormatNode, type PatchOperation, type Style } from './types.js';
+import {
+  PatchError,
+  type FormatNode,
+  type PatchOperation,
+  type Style,
+  type WriteOptions,
+} from './types.js';
 
 /** How an adapter writes new keys and values. */
 export interface Writer {
@@ -125,6 +131,21 @@ export class Doc {
     const root = shift(this.root);
     if (!ok || !root) return undefined;
     return this.rebuild(this.apply([...edits]), root, tokens);
+  }
+
+  /** This document with `indent` as its indent unit when its text has none to follow
+   *  (`Style.indentFound` false, spec 019 I1); itself otherwise. */
+  withIndent(indent: Style['indent'] | undefined): Doc {
+    if (indent === undefined || this.style.indentFound !== false) return this;
+    return new Doc(
+      this.text,
+      this.root,
+      this.tokens,
+      { ...this.style, indent },
+      this.writer,
+      this.lineBreaks,
+      this.rebuild,
+    );
   }
 
   apply(edits: Edit[]): string {
@@ -608,8 +629,9 @@ function isPrefix(prefix: readonly string[], tokens: readonly string[]): boolean
 }
 
 /** A document with no value (R15, UNK-026): `add` or `replace` at `""` writes the value as the
- *  whole document, after any comments; every other operation is an error (R9). */
-function writeDocument(doc: Doc, op: PatchOperation): string {
+ *  whole document, after any comments, indented by `indent` (spec 019 I1; 2 spaces by default);
+ *  every other operation is an error (R9). */
+function writeDocument(doc: Doc, op: PatchOperation, indent: Style['indent'] = 2): string {
   if ((op.op !== 'add' && op.op !== 'replace') || op.path !== '') {
     const path = op.op === 'move' || op.op === 'copy' ? op.from : op.path;
     throw new PatchError(`path "${path}" does not exist: the document has no value`);
@@ -619,7 +641,8 @@ function writeDocument(doc: Doc, op: PatchOperation): string {
   const finalNewline = lineBreak ? doc.style.finalNewline : true;
   const comments = doc.tokens.filter(isComment);
   const prefix = comments.length > 0 ? doc.text.slice(0, comments.at(-1)!.end) + eol : '';
-  const value = doc.writer.value(op.value, '  ').replace(/\n/g, eol);
+  const unit = indent === '\t' ? '\t' : ' '.repeat(indent);
+  const value = doc.writer.value(op.value, unit).replace(/\n/g, eol);
   return `${prefix}${value}${finalNewline ? eol : ''}`;
 }
 
@@ -627,11 +650,17 @@ function writeDocument(doc: Doc, op: PatchOperation): string {
 export type Open = (text: string) => Doc;
 
 /** Applies one operation to the text and returns the new text. Throws a `PatchError` when it
- *  cannot apply; the caller keeps its text (R9). */
-export function applyOperation(text: string, op: PatchOperation, open: Open): string {
-  const doc = open(text);
+ *  cannot apply; the caller keeps its text (R9). `options.indent` is the indent unit of new lines
+ *  in a text with no indentation to follow (spec 019 I1). */
+export function applyOperation(
+  text: string,
+  op: PatchOperation,
+  open: Open,
+  options: WriteOptions = {},
+): string {
+  const doc = open(text).withIndent(options.indent);
   const root = doc.root;
-  if (!root) return writeDocument(doc, op);
+  if (!root) return writeDocument(doc, op, options.indent);
   switch (op.op) {
     case 'add':
       return add(doc, resolve(root, op.path), dataPiece(doc, op.value));
@@ -659,7 +688,9 @@ export function applyOperation(text: string, op: PatchOperation, open: Open): st
       const piece = movedPiece(doc, source);
       // The document without the member, from this parse rather than a second one (UNK-014).
       const edits = removal(doc, source);
-      const after = doc.without(edits, source.member!) ?? open(doc.apply(edits));
+      const after = (doc.without(edits, source.member!) ?? open(doc.apply(edits))).withIndent(
+        options.indent,
+      );
       return add(after, resolve(after.root!, op.path), piece);
     }
     default:

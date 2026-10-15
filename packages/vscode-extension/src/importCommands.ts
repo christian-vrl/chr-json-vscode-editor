@@ -44,7 +44,8 @@ import {
   warningLines,
   warningsMessage,
 } from './importPlan';
-import { LARGE_FILE_THRESHOLD, utf8Length } from './largeFile';
+import { thresholdBytes, utf8Length } from './largeFile';
+import { newFileIndent, readSettings, writeOptions } from './settingsVscode';
 import { basename } from './uriPath';
 
 declare const __CHR_TEST_HOOKS__: boolean;
@@ -136,9 +137,11 @@ async function convertFile(
   const read = await readSource(source, kind);
   if (!read) return undefined;
   const shown = read.untitled ? 'Untitled' : name;
-  const done = await progress(shown, read.bytes, () => {
+  const done = await progress(shown, source, read.bytes, () => {
     const converted = convert(read.text, kind, shown);
-    return converted && { converted, text: stringify(converted.data, 'json', IMPORT_OUTPUT_STYLE) };
+    // Spec 019 I1: the new file is indented as VS Code indents JSON beside the source.
+    const style = { ...IMPORT_OUTPUT_STYLE, indent: newFileIndent(source, 'json') };
+    return converted && { converted, text: stringify(converted.data, 'json', style) };
   });
   if (!done) return undefined;
   const { converted, text } = done;
@@ -197,7 +200,7 @@ async function importFile(
   }
   const read = await readSource(file, kind);
   if (!read) return false;
-  const converted = await progress(name, read.bytes, () => convert(read.text, kind, name));
+  const converted = await progress(name, file, read.bytes, () => convert(read.text, kind, name));
   if (!converted) return false;
   const target = document.isUntitled ? 'Untitled' : basename(document.uri.path);
   const format =
@@ -210,7 +213,7 @@ async function importFile(
   if (!(await confirm(replaceQuestion(target, name), 'Replace'))) return false;
   if (document.isClosed) return false;
   const text = document.getText();
-  const replaced = replacedText(text, format, converted.data);
+  const replaced = replacedText(text, format, converted.data, writeOptions(document));
   if ('error' in replaced) {
     const position = document.positionAt(replaced.error.offset);
     show('error', brokenTargetMessage(format, position.line + 1, position.character + 1));
@@ -247,11 +250,17 @@ function convert(text: string, kind: ImportKind, name: string): Converted | unde
 
 /**
  * Criterion 8: `task` under the progress notification "Converting <file>…" when the source is
- * above the threshold, else at once. The conversion holds the extension host, so the notification
- * is given a moment to reach the window before it starts.
+ * above the threshold (the setting for `source`), else at once. The conversion holds the
+ * extension host, so the notification is given a moment to reach the window before it starts.
  */
-async function progress<T>(name: string, bytes: number, task: () => T): Promise<T> {
-  if (bytes <= LARGE_FILE_THRESHOLD) return task();
+async function progress<T>(
+  name: string,
+  source: vscode.Uri,
+  bytes: number,
+  task: () => T,
+): Promise<T> {
+  // The threshold for the source when the run starts (spec 019 T1, A4).
+  if (bytes <= thresholdBytes(readSettings({ uri: source }))) return task();
   const title = progressTitle(name);
   if (__CHR_TEST_HOOKS__) testImport.messages.push(title);
   return vscode.window.withProgress(

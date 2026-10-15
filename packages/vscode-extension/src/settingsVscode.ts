@@ -2,12 +2,23 @@
 // for the document's URI and language, so folder, workspace, user and `[language]` values all
 // count, and the same calls work in the web extension host (spec 013).
 import * as vscode from 'vscode';
-import type { SmartFormatOptions } from '@chr-json-editor/core';
-import { SECTION, settingsFrom, type Settings } from './settings';
+import type { Format, SmartFormatOptions, WriteOptions } from '@chr-json-editor/core';
+import {
+  indentFrom,
+  SECTION,
+  settingsFrom,
+  smartFormatOptionsFrom,
+  type Settings,
+} from './settings';
 
-/** The settings that apply to `document` now. */
-export function readSettings(document: { uri: vscode.Uri; languageId: string }): Settings {
-  const scope = { uri: document.uri, languageId: document.languageId };
+/** The settings that apply to `document` now. With no `languageId` (a file not open in an editor)
+ *  language values do not count, which changes nothing for a `resource` key such as the
+ *  threshold. */
+export function readSettings(document: { uri: vscode.Uri; languageId?: string }): Settings {
+  const scope: vscode.ConfigurationScope =
+    document.languageId === undefined
+      ? document.uri
+      : { uri: document.uri, languageId: document.languageId };
   const ours = vscode.workspace.getConfiguration(SECTION, scope);
   const editor = vscode.workspace.getConfiguration('editor', scope);
   return settingsFrom(
@@ -17,12 +28,29 @@ export function readSettings(document: { uri: vscode.Uri; languageId: string }):
 }
 
 /** Smart Format's options for `document` now (F1, A4: read when the run starts): the line length
- *  for its language. The "Smart Format" command and the webview's action both use it. */
+ *  for its language, and I1's indent for a text with no indentation. The "Smart Format" command
+ *  and the webview's action both use it. */
 export function smartFormatOptions(document: {
   uri: vscode.Uri;
   languageId: string;
 }): SmartFormatOptions {
-  return { maxLineLength: readSettings(document)['smartFormat.maxLineLength'] };
+  return smartFormatOptionsFrom(readSettings(document));
+}
+
+/** I1 (UNK-088 ★) for edits and actions on `document` now (A4): the indent unit VS Code's
+ *  `editor.insertSpaces` and `editor.tabSize` give its language, which core uses only where the
+ *  text has no indentation to follow (spec 002 R1, R15). */
+export function writeOptions(document: { uri: vscode.Uri; languageId: string }): WriteOptions {
+  return { indent: readSettings(document).indent };
+}
+
+/** I1 for a new file a command writes as `format`: VS Code's indent for the new file's language
+ *  (VS Code's language id is the format's name), read for `near`, the file it goes beside, so a
+ *  folder's settings count. */
+export function newFileIndent(near: vscode.Uri | undefined, format: Format): '\t' | number {
+  const scope = near ? { uri: near, languageId: format } : { languageId: format };
+  const editor = vscode.workspace.getConfiguration('editor', scope);
+  return indentFrom((key) => editor.inspect(key));
 }
 
 /** Whether `event` changes a setting `readSettings` reads for `document` (A1). */

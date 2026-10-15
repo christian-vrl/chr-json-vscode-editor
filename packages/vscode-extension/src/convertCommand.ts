@@ -22,6 +22,7 @@ import {
 } from './convertPlan';
 import { VIEW_TYPE } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
+import { newFileIndent } from './settingsVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -131,7 +132,8 @@ async function convertActive(
   for (;;) {
     const version = document.version;
     const text = document.getText();
-    const result = plan(text, from, to, bom);
+    // Spec 019 I1: new text is indented as VS Code indents the new file's language beside it.
+    const result = plan(text, from, to, bom, { indent: newFileIndent(document.uri, to) });
     if (result.kind === 'same') {
       show('info', `CHR JSON Editor: the document is already ${FORMAT_LABELS[to]}.`);
       return undefined;

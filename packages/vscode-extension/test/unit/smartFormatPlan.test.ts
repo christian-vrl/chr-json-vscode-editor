@@ -2,7 +2,13 @@
 // action and the command.
 import { describe, expect, it } from 'vitest';
 import { LARGE_FILE_THRESHOLD } from '../../src/largeFile';
-import { brokenMessage, plan, TOO_LARGE_MESSAGE, tooLarge } from '../../src/smartFormatPlan';
+import {
+  brokenMessage,
+  plan,
+  TOO_LARGE_MESSAGE,
+  tooLarge,
+  tooLargeMessage,
+} from '../../src/smartFormatPlan';
 
 describe('Smart Format plan', () => {
   it('lays the text out with core smartFormat', () => {
@@ -58,5 +64,26 @@ describe('Smart Format plan', () => {
     const text = `"${'é'.repeat(LARGE_FILE_THRESHOLD / 2)}"`;
     expect(text.length).toBeLessThan(LARGE_FILE_THRESHOLD);
     expect(tooLarge(text)).toBe(true);
+  });
+
+  it('takes the threshold setting in bytes and names it in the message (spec 019 T1)', () => {
+    const MIB = 1024 * 1024;
+    expect(tooLargeMessage(5 * MIB)).toBe(TOO_LARGE_MESSAGE);
+    expect(tooLargeMessage(6 * MIB)).toBe(
+      'Smart Format is off for documents above 6 MiB because it can take a long time. Use Format instead.',
+    );
+    // At 6 MiB: 6,291,456 bytes runs, one more is refused with the 6 MiB message.
+    const at = `"${'a'.repeat(6 * MIB - 2)}"`;
+    expect(plan(at, 'json', {}, 6 * MIB)).toEqual({ kind: 'same' });
+    expect(plan(`${at} `, 'json', {}, 6 * MIB)).toEqual({
+      kind: 'refused',
+      reason: 'too-large',
+      message: tooLargeMessage(6 * MIB),
+    });
+    // At 1 MiB a 2 MiB text is refused, and the default lets it run.
+    const two = `[${' '.repeat(2 * MIB - 4)}1]\n`;
+    expect(tooLarge(two, MIB)).toBe(true);
+    expect(plan(two, 'json', {}, MIB)).toMatchObject({ kind: 'refused', reason: 'too-large' });
+    expect(plan(two, 'json')).toEqual({ kind: 'formatted', text: '[1]\n' });
   });
 });

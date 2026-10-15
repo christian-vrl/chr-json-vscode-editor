@@ -20,7 +20,7 @@
   existing web suite unchanged and green*
 
 ## Phase C — Threshold (risk-free / additive)
-- [ ] **T3** The threshold from the setting in `largeFile.ts`, `smartFormatPlan.ts` and every other
+- [x] **T3** The threshold from the setting in `largeFile.ts`, `smartFormatPlan.ts` and every other
   host gate on `main` that uses spec 008's threshold, and in the page's settings; plan R6's guard
   test; e2e on 008's fixtures with the setting at 6 and 1. — needs: 019 T2 — *gate: criterion 4
   green; 008, 010 and 011 large-file e2e unchanged and green at the default*
@@ -32,7 +32,7 @@
   case unchanged*
 
 ## Phase E — Indentation (risk-free / additive)
-- [ ] **T5** (per UNK-088) Core reports "no indentation found" and takes a fallback indent in
+- [x] **T5** (per UNK-088) Core reports "no indentation found" and takes a fallback indent in
   `applyPatch`, `stringify`, convert and the CSV writer (default 2 spaces); the host passes I1's
   indent to edits, Format, Smart Format, "Convert CSV to JSON", JSON Lines → JSON, "Generate JSON
   Schema" and the YAML/TOML/XML converts; unit and e2e cases. — needs: 019 T1, 016 T3, 017 T3 —

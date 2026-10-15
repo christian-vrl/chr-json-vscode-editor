@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vscode = require('vscode');
+const { DEFAULT_UNIT, reindent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const REPAIR_COMMAND = 'chrJsonEditor.repairJson';
@@ -155,7 +156,10 @@ exports.runActions = async function runActions({ hooks, waitFor, closeAll, expec
     for (const [feature, { mode, steps }] of Object.entries(FEATURES)) {
       const dir = path.join(FIXTURES, feature);
       const { uri, document } = await open(path.join(dir, 'input.json'), mode);
-      const expected = fs.readFileSync(path.join(dir, 'expected.json'), 'utf8');
+      const written = fs.readFileSync(path.join(dir, 'expected.json'), 'utf8');
+      // Format lays out a one-line input: new lines take VS Code's indent (spec 019 I1, default 4
+      // spaces); expected.json is written with 2.
+      const expected = feature === 'format' ? reindent(written, DEFAULT_UNIT) : written;
       await act(uri, document, steps, feature);
       assert.equal(document.getText(), expected, `${feature}: not expected.json`);
       await finish(uri, document);

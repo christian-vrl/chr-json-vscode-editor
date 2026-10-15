@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vscode = require('vscode');
+const { CRITERION_6, DEFAULT_UNIT, reindent, withIndent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const FIXTURES = path.resolve(__dirname, '../../../../tests/e2e/fixtures/import');
@@ -132,7 +133,9 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
     hooks.imports({ saveAs: () => undefined, showWarnings: false });
     for (const [kind, command] of Object.entries(COMMANDS)) {
       const source = path.join(FIXTURES, kind, SOURCES[kind]);
-      const expected = read(path.join(FIXTURES, kind, 'expected.json'));
+      // The new file takes VS Code's indent for JSON (spec 019 I1, 4 spaces by default); the
+      // fixture is written with 2.
+      const expected = reindent(read(path.join(FIXTURES, kind, 'expected.json')), DEFAULT_UNIT);
       const original = read(source);
 
       // Criterion 5 from the explorer: the file beside, opened in the CHR JSON Editor.
@@ -186,6 +189,24 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
       console.log(`import: Convert ${LABELS[kind]} to JSON from the explorer, title and palette`);
     }
 
+    // Spec 019 criterion 6: "Convert YAML to JSON" takes "[json]"'s indent, 4 spaces or a tab.
+    for (const [values, unit] of CRITERION_6) {
+      await withIndent(waitFor, ['json'], values, async () => {
+        hooks.imports({ saveAs: () => undefined, showWarnings: false });
+        const file = copy(path.join(FIXTURES, 'yaml', SOURCES.yaml));
+        const target = path.join(path.dirname(file), SOURCES.yaml.replace(/\.\w+$/, '.json'));
+        await vscode.commands.executeCommand(COMMANDS.yaml, vscode.Uri.file(file));
+        assert.equal(
+          read(target),
+          reindent(read(path.join(FIXTURES, 'yaml', 'expected.json')), unit),
+          `yaml with ${JSON.stringify(values)}: bytes`,
+        );
+        hooks.imports(undefined);
+        await closeAll();
+      });
+    }
+    console.log('criterion 6: "Convert YAML to JSON" writes "[json]"\'s 4 spaces or a tab');
+
     // Criterion 5: an untitled source gives an untitled JSON document in the CHR JSON Editor.
     {
       const yaml = read(path.join(FIXTURES, 'yaml', SOURCES.yaml));
@@ -203,7 +224,10 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
       );
       assert.ok(created, 'no untitled JSON document');
       assert.equal(created.languageId, 'json');
-      assert.equal(created.getText(), read(path.join(FIXTURES, 'yaml', 'expected.json')));
+      assert.equal(
+        created.getText(),
+        reindent(read(path.join(FIXTURES, 'yaml', 'expected.json')), DEFAULT_UNIT),
+      );
       assert.equal(untitled.getText(), yaml, 'the untitled source changed');
       await vscode.commands.executeCommand('workbench.action.files.revert');
       await closeAll();
@@ -257,7 +281,10 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
         const shown = vscode.workspace.textDocuments.find(
           (d) => d.uri.toString() === activeTab().input.uri.toString(),
         );
-        assert.equal(shown.getText(), read(path.join(FIXTURES, 'yaml', 'expected.json')));
+        assert.equal(
+          shown.getText(),
+          reindent(read(path.join(FIXTURES, 'yaml', 'expected.json')), DEFAULT_UNIT),
+        );
         await vscode.commands.executeCommand('workbench.action.files.revert');
         await closeAll();
       } finally {
@@ -279,7 +306,10 @@ exports.runImport = async function runImport({ hooks, waitFor, closeAll, expectO
       ]);
       assert.equal(
         read(path.join(path.dirname(file), 'stack.json')),
-        '[\n  {\n    "name": "web",\n    "port": "Port"\n  },\n  {\n    "name": "db"\n  }\n]\n',
+        reindent(
+          '[\n  {\n    "name": "web",\n    "port": "Port"\n  },\n  {\n    "name": "db"\n  }\n]\n',
+          DEFAULT_UNIT,
+        ),
       );
       await closeAll();
       console.log('import: warnings are listed in the output channel');

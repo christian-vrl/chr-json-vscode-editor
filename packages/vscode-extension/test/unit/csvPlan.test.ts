@@ -89,6 +89,20 @@ describe('csvPlan', () => {
     );
   });
 
+  it('writes a new JSON file with the indent it is given (spec 019 I1)', () => {
+    expect(newJsonText([{ a: 1 }], 4)).toBe('[\n    {\n        "a": 1\n    }\n]\n');
+    expect(newJsonText([{ a: 1 }], '\t')).toBe('[\n\t{\n\t\t"a": 1\n\t}\n]\n');
+  });
+
+  it('replaces the data of a document with no indentation with the options (spec 019 I1)', () => {
+    expect(replacedText('[\n]', 'json', [{ a: 1 }], { indent: 4 })).toEqual({
+      text: '[\n    {\n        "a": 1\n    }\n]',
+    });
+    expect(replacedText('{\n}', 'jsonc', { a: [1] }, { indent: '\t' })).toEqual({
+      text: '{\n\t"a": [\n\t\t1\n\t]\n}',
+    });
+  });
+
   it('replaces document data through diff and applyPatch, keeping comments (criterion 4)', () => {
     const text = '[\n  // first\n  {"a": 1}, // one\n  {"a": 2}\n]\n';
     expect(replacedText(text, 'jsonc', [{ a: 1 }, { a: 3 }])).toEqual({

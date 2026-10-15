@@ -5,6 +5,14 @@
 // `parseData('json')` on the same records written as one JSON array (spec 012 criterion 12). It
 // times `smartFormat` next to `prettyPrint` at 1 and 5 MiB (010 T2, spec 010 criterion 11).
 // `json-ids` is the json document with 19-digit ids (spec 015 criterion 11), parsed as json.
+// 015 T6 adds two more measurements, each in its own process too. UNK-068's evidence rule: `parse`
+// and `parseData` (time and retained heap, spec 008 criterion 7) of the large-file benchmark's big-id
+// JSONC and JSON5 files (`bench/generate.mjs --formats --big-ids`) at 6, 10 and 50 MiB. Spec 015
+// criterion 11's webview part, at 5 MiB: the editor page's parser (`parserFor('json')`, app-shell's
+// dist) against `JSON.parse` on the json and json-ids documents, and the big-number scan B7 adds to
+// each library query (`exactNumbersLanguage`: `bigNumberOrigins` on the input, then `nearestNumbers`
+// of it and `restoreBigNumbers` of the result, timed on the identity query's result, the whole
+// document). Both need `pnpm --filter @chr-json-editor/app-shell exec tsc -p tsconfig.build.json`.
 // Writes the raw results as JSON; `bench/core/report.mjs` turns them into bench/RESULTS.md.
 // Needs `pnpm --filter @chr-json-editor/core build` (it imports core's dist). Each format and size
 // runs in its own Node process with `--expose-gc`, so every timed call starts from a collected heap.
@@ -25,6 +33,7 @@ import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
+  BIG_ID_BASE,
   documentText,
   IMPORT_KINDS,
   importText,
@@ -48,6 +57,13 @@ const coreFormat = (format) => (format === 'json-ids' ? 'json' : format);
 // The formats smart format covers (spec 010 §Scope).
 export const SMART_FORMATS = ['json', 'jsonc', 'json5'];
 export const RUNS = 3;
+// UNK-068's evidence rule: spec 008 criterion 7 on these big-id files, at these sizes.
+export const ID_FORMATS = ['jsonc', 'json5'];
+export const ID_SIZES_MIB = [6, 10, 50];
+// Spec 015 criterion 11: the webview parser at this size.
+export const WEBVIEW_MIB = 5;
+export const WEBVIEW_FORMATS = ['json', 'json-ids'];
+const APP_SHELL = new URL('../../packages/app-shell/dist/', import.meta.url);
 // Spec 017 criterion 10: TOML and XML at these sizes; YAML at these and 20 MiB, UNK-077's
 // candidates (5, 10, 20, 50 MiB), in order until the first that misses its rule (IMPORT_RULE): a
 // larger file takes longer still, and measuring a 50 MiB YAML file holds the runner for minutes.
@@ -306,6 +322,115 @@ function measureSmart(format, mib) {
   return result;
 }
 
+/** UNK-068: `parse` and `parseData` of the large-file benchmark's big-id file of `format` and `mib`
+ *  (time, and retained heap as `measure` takes it), in a process of its own. */
+function measureIds(format, mib) {
+  const bytes = mib * MIB;
+  const text = documentText(bytes, false, format, true);
+  const records = text.match(/^\s*"?id"?: /gm).length;
+  const adapter = getAdapter(format);
+  const warm = documentText(MIB / 4, false, format, true);
+  for (let i = 0; i < 3; i++) {
+    adapter.parse(warm);
+    parseData(format, warm);
+  }
+  const label = `${format}-ids ${mib} MiB`;
+  const parseDataRetainedHeapBytes = measureDataRetained(format, text, records, label);
+  const retainedHeapBytes = checkAndMeasureRetained(adapter, text, records, label);
+  const first = parseData(format, text).data[0].id;
+  if (first?.value !== String(BIG_ID_BASE)) throw new Error(`${label}: the first id is not exact`);
+  const at = text.lastIndexOf('.');
+  const texts = [text, `${text.slice(0, at)}-${text.slice(at + 1)}`];
+  let last = 0;
+  const unparsed = () => texts[(last = 1 - last)];
+  const result = {
+    format: `${format}-ids`,
+    mib,
+    bytes,
+    records,
+    retainedHeapBytes,
+    parseDataRetainedHeapBytes,
+    parse: [],
+    parseData: [],
+  };
+  for (let run = 0; run < RUNS; run++) result.parse.push(time(() => adapter.parse(unparsed())).ms);
+  for (let run = 0; run < RUNS; run++)
+    result.parseData.push(time(() => parseData(format, text)).ms);
+  return result;
+}
+
+/** Spec 015 criterion 11's webview part for one bench format at WEBVIEW_MIB, in a process of its
+ *  own: `JSON.parse`, the page's parser and B7's per-query scan. */
+async function measureWebview(benchFormat) {
+  const { parserFor } = await import(new URL('parser.js', APP_SHELL).href);
+  const { bigNumberOrigins, restoreBigNumbers } = await import(
+    new URL('query/exact-numbers.js', APP_SHELL).href
+  );
+  const { nearestNumbers } = await import('@chr-json-editor/core');
+  const bytes = WEBVIEW_MIB * MIB;
+  const { text, records } = benchDocument(benchFormat, bytes);
+  const parser = parserFor('json');
+  const scan = (data) => {
+    const origins = bigNumberOrigins(data);
+    if (!origins) return { origins };
+    return { origins, input: nearestNumbers(data) };
+  };
+  const warm = benchDocument(benchFormat, MIB / 4).text;
+  for (let i = 0; i < 3; i++) {
+    JSON.parse(warm);
+    const data = parser.parse(warm);
+    const { origins, input } = scan(data);
+    try {
+      if (origins) restoreBigNumbers(input, origins);
+    } catch {
+      // Ambiguous, as below.
+    }
+  }
+  const data = parser.parse(text);
+  if (!Array.isArray(data) || data.length !== records)
+    throw new Error(`${benchFormat}: expected ${records} records`);
+  const result = {
+    format: benchFormat,
+    mib: WEBVIEW_MIB,
+    bytes,
+    records,
+    bigNumbers: benchFormat === 'json-ids',
+    jsonParse: [],
+    parser: [],
+    scan: [],
+    restore: [],
+  };
+  for (let run = 0; run < RUNS; run++) result.jsonParse.push(time(() => JSON.parse(text)).ms);
+  for (let run = 0; run < RUNS; run++) result.parser.push(time(() => parser.parse(text)).ms);
+  let scanned;
+  for (let run = 0; run < RUNS; run++) {
+    const timed = time(() => scan(data));
+    scanned = timed.result;
+    result.scan.push(timed.ms);
+  }
+  if (Boolean(scanned.origins) !== result.bigNumbers)
+    throw new Error(`${benchFormat}: the scan found ${scanned.origins ? 'a' : 'no'} big number`);
+  if (scanned.origins) {
+    // The bench's ids are consecutive, and 19-digit integers 128 apart share a nearest number, so
+    // B7 refuses the identity query's result as ambiguous (plan R4); it throws once it has walked
+    // the whole result, which is what is timed.
+    for (let run = 0; run < RUNS; run++) {
+      const timed = time(() => {
+        try {
+          return { restored: restoreBigNumbers(scanned.input, scanned.origins) };
+        } catch (error) {
+          return { error: error.message };
+        }
+      });
+      result.restoreOutcome = timed.result.error ?? 'restored';
+      if (timed.result.restored && timed.result.restored[0].id.value !== String(BIG_ID_BASE))
+        throw new Error(`${benchFormat}: the restored first id is not exact`);
+      result.restore.push(timed.ms);
+    }
+  }
+  return result;
+}
+
 /** The offset of the last record's last key (`note`, first character, quote included) and its
  *  path: where criterion 11 runs `nodeAt`, and the path it runs `placeOf` on. */
 export function lastKey(format, text, records) {
@@ -413,6 +538,11 @@ const here = fileURLToPath(import.meta.url);
 if (process.argv[2] === '--child') {
   const [format, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measure(format, Number(mib))) + '\n');
+} else if (process.argv[2] === '--ids-child') {
+  const [format, mib] = process.argv.slice(3);
+  process.stdout.write(JSON.stringify(measureIds(format, Number(mib))) + '\n');
+} else if (process.argv[2] === '--webview-child') {
+  process.stdout.write(JSON.stringify(await measureWebview(process.argv[3])) + '\n');
 } else if (process.argv[2] === '--import-child') {
   const [kind, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measureImport(kind, Number(mib))) + '\n');
@@ -484,23 +614,41 @@ if (process.argv[2] === '--child') {
       return result;
     }),
   }));
+  const child = (args) => {
+    const stdout = execFileSync(
+      process.execPath,
+      ['--expose-gc', `--max-old-space-size=${HEAP_MIB}`, here, ...args],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 20 },
+    );
+    return JSON.parse(stdout.trim().split('\n').pop());
+  };
+  const round = (runs) => runs.map(Math.round).join('/');
+  // Spec 015 (015 T6): the base commit's core (BENCH_CORE) is not measured for these.
+  const ids = process.env.BENCH_CORE
+    ? []
+    : ID_FORMATS.flatMap((format) =>
+        ID_SIZES_MIB.map((mib) => {
+          const result = child(['--ids-child', format, String(mib)]);
+          console.log(
+            `bench core: ${result.format} ${mib} MiB parse ${round(result.parse)} ms, parseData ${round(result.parseData)} ms`,
+          );
+          return result;
+        }),
+      );
+  const webview = process.env.BENCH_CORE
+    ? []
+    : WEBVIEW_FORMATS.map((format) => {
+        const result = child(['--webview-child', format]);
+        console.log(
+          `bench core: webview ${format} ${WEBVIEW_MIB} MiB JSON.parse ${round(result.jsonParse)} ms, parser ${round(result.parser)} ms, query scan ${round(result.scan)} ms`,
+        );
+        return result;
+      });
+  // Spec 018 criterion 11 (018 T4): the base commit's core (BENCH_CORE) is not measured for these.
   const paths = (process.env.BENCH_CORE ? [] : PATH_FORMATS).map((format) => ({
     format,
     sizes: PATH_SIZES_MIB.map((mib) => {
-      const stdout = execFileSync(
-        process.execPath,
-        [
-          '--expose-gc',
-          `--max-old-space-size=${HEAP_MIB}`,
-          here,
-          '--paths-child',
-          format,
-          String(mib),
-        ],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 1 << 20 },
-      );
-      const result = JSON.parse(stdout.trim().split('\n').pop());
-      const round = (runs) => runs.map(Math.round).join('/');
+      const result = child(['--paths-child', format, String(mib)]);
       console.log(
         `bench core: ${format} ${mib} MiB parse ${round(result.parse)} ms, nodeAt ${round(result.nodeAt)} ms, placeOf ${round(result.placeOf)} ms`,
       );
@@ -544,6 +692,8 @@ if (process.argv[2] === '--child') {
         defaultHeapLimitBytes,
         formats,
         smart,
+        ids,
+        webview,
         paths,
         imports,
         importRule: IMPORT_RULE,

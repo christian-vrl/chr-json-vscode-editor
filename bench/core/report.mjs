@@ -1,7 +1,8 @@
 // Writes bench/RESULTS.md (002 T8, spec 002 criterion 7; 008 T1, spec 008 criterion 7; 010 T2,
 // spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 015 T2,
-// spec 015 criterion 11's core part; 014 T4, spec 014 criterion 10; 017 T4, spec 017 criterion 10
-// and UNK-077) from `bench/core/run.mjs`'s raw
+// spec 015 criterion 11's core part; 014 T4, spec 014 criterion 10; 015 T6, spec 015 criterion 11's
+// webview part and UNK-068's spec 008 criterion 7 on big ids; 017 T4, spec 017 criterion 10 and
+// UNK-077) from `bench/core/run.mjs`'s raw
 // results and, when given, `bench/query/run.mjs`'s and the base commit's (`<base.json>`, the same
 // runner measuring the base commit's core build in the same job).
 // Every number in the report comes from that file; the text around them says what each one covers.
@@ -45,6 +46,9 @@ const LINES_FACTOR = 1.25;
 // commit's, in the same run.
 const BASE_FACTOR = 1.1;
 const BASE_SIZE = 10;
+// Spec 015 criterion 11's webview part: the editor page's parser at most this many times
+// `JSON.parse` of the same text.
+const WEBVIEW_FACTORS = { json: 2, 'json-ids': 5 };
 // Spec 017 criterion 10: TOML and XML at 5 MiB in at most this many milliseconds.
 const IMPORT_LIMIT_MS = 2000;
 const IMPORT_JUDGED_MIB = 5;
@@ -77,7 +81,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}${results.paths?.length ? ', spec 018 criterion 11' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.webview?.length ? ', spec 015 criterion 11 (webview part)' : ''}${results.ids?.length ? ', UNK-068 (spec 008 criterion 7 on big ids)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}${results.paths?.length ? ', spec 018 criterion 11' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
   `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''}${results.imports?.length ? ' or `packages/core/src/import`' : ''}${results.paths?.length ? ' or `packages/core/src/paths`' : ''} changes speed.`,
   '',
   '## Run',
@@ -284,6 +288,95 @@ if (base) {
       : baseFailed
         ? 'Verdict: **criterion 11 (core part) does not hold** in this run.'
         : 'Verdict: criterion 11 (core part) holds in this run.',
+  );
+}
+
+if (results.webview?.length) {
+  const [w] = results.webview;
+  add(
+    '',
+    "## Spec 015 criterion 11 (webview part): the editor page's parser",
+    '',
+    `The page's parser (\`parserFor('json')\`, app-shell's \`parser.ts\` built by \`tsc\`) against`,
+    `\`JSON.parse\` of the same ${w.mib} MiB text, in one Node process per document: at most`,
+    `${WEBVIEW_FACTORS.json}× on the json document (no big number: the parser scans for a big-number`,
+    `candidate, then calls \`JSON.parse\`) and at most ${WEBVIEW_FACTORS['json-ids']}× on the json-ids document (every`,
+    "record's id a big number: lossless-json's parser through core's `readJsonExact`).",
+    '',
+    "| Document | JSON.parse | parserFor('json') | parser ÷ JSON.parse | Limit | Result |",
+    '|---|---|---|---|---|---|',
+  );
+  let webviewFailed = false;
+  for (const r of results.webview) {
+    const ratio = median(r.parser) / median(r.jsonParse);
+    const limit = WEBVIEW_FACTORS[r.format];
+    const ok = ratio <= limit;
+    if (!ok) webviewFailed = true;
+    add(
+      `| ${r.format} ${r.mib} MiB | ${cell(r.jsonParse)} | ${cell(r.parser)} | ${ratio.toFixed(2)} | ${limit}× | ${ok ? 'pass' : '**fail**'} |`,
+    );
+  }
+  add(
+    '',
+    webviewFailed
+      ? 'Verdict: **criterion 11 (webview part) does not hold** in this run.'
+      : 'Verdict: criterion 11 (webview part) holds in this run.',
+    '',
+    '### The big-number scan of each library query (spec 015 B7)',
+    '',
+    "What `exactNumbersLanguage` (app-shell's `query/exact-numbers.ts`) adds to each JSONQuery,",
+    'JMESPath and JSONPath query on the same data, as the page holds it: **scan** is',
+    '`bigNumberOrigins` on the input (it walks every number; on data with no big number it stops',
+    "after `holdsBigNumber`'s walk) and, when there is a big number, `nearestNumbers` of the input;",
+    "**restore** is `restoreBigNumbers` on the identity query's result (the whole document, the",
+    'worst case). Shown, not judged: criterion 11 sets no bound on it.',
+    '',
+    '| Document | scan | restore | restore outcome |',
+    '|---|---|---|---|',
+  );
+  for (const r of results.webview) {
+    add(
+      `| ${r.format} ${r.mib} MiB | ${cell(r.scan)} | ${r.restore.length ? cell(r.restore) : '— (nothing to restore)'} | ${r.restoreOutcome ?? '—'} |`,
+    );
+  }
+  add(
+    '',
+    "On json-ids the identity query is refused as ambiguous: the bench's ids are consecutive, and",
+    '19-digit integers less than 128 apart share one nearest number, so B7 cannot tell which id a',
+    'result number came from (plan R4); JavaScript and Lodash keep the digits (B8). Independent of',
+    "this scan, `1e400` through JSONQuery and JMESPath still comes back `null`: the library's own",
+    '`JSON.parse(parser.stringify(json))` round trip turns `Infinity` into `null` before B7 runs',
+    '(pre-existing, disclosed in 015 T5).',
+  );
+}
+
+if (results.ids?.length) {
+  add(
+    '',
+    '## UNK-068: spec 008 criterion 7 on big-id documents',
+    '',
+    "The large-file benchmark's big-id JSONC and JSON5 files (`bench/generate.mjs --formats --big-ids`,",
+    "every record's `id` 19 digits, the files `bench/large-file.md` opens), one process per file:",
+    `\`parseData\`'s median time and retained heap must each be at most ${LIGHT_SHARE * 100}% of \`parse\`'s.`,
+    '',
+    '| Format | Size | time parseData ÷ parse | heap parseData ÷ parse | Result |',
+    '|---|---|---|---|---|',
+  );
+  let idsFailed = false;
+  for (const s of results.ids) {
+    const time = median(s.parseData) / median(s.parse);
+    const heap = s.parseDataRetainedHeapBytes / s.retainedHeapBytes;
+    const ok = time <= LIGHT_SHARE && heap <= LIGHT_SHARE;
+    if (!ok) idsFailed = true;
+    add(
+      `| ${s.format} | ${s.mib} MiB | ${pct(time)} (${ms(median(s.parseData))} ÷ ${ms(median(s.parse))} ms) | ${pct(heap)} (${mib(s.parseDataRetainedHeapBytes)} ÷ ${mib(s.retainedHeapBytes)} MiB) | ${ok ? 'pass' : '**fail**'} |`,
+    );
+  }
+  add(
+    '',
+    idsFailed
+      ? 'Verdict: **criterion 7 does not hold with big ids** in this run.'
+      : 'Verdict: criterion 7 holds with big ids in this run.',
   );
 }
 

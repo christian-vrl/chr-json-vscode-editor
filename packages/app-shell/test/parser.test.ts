@@ -3,6 +3,7 @@
 import {
   cachedParseTexts,
   getAdapter,
+  holdsBigNumber,
   LosslessNumber,
   nearestNumbers,
   releaseParse,
@@ -190,13 +191,36 @@ describe('parserFor(format, large)', () => {
     expect(() => parserFor(format, true).parse(text)).toThrow(SyntaxError);
   });
 
-  it('gives big numbers as nearest numbers until UNK-068 is settled (015 T6)', () => {
-    const text = '{"a": 12345678901234567890, /* c */ "b": [1e400, 0.1000000000000000000001]}';
-    for (const format of ['jsonc', 'json5'] as const)
-      expect(parserFor(format, true).parse(text)).toStrictEqual({
-        a: 12345678901234567000,
-        b: [Infinity, 0.1],
-      });
+  // Spec 015 criterion 12 (UNK-068 ★, 015 T6): a large-file tab shows big numbers' digits.
+  it.each([
+    ['json', '{"a": 12345678901234567890, "b": [1e400, 0.1000000000000000000001], "c": 5}'],
+    ['json', '{"__proto__": 12345678901234567890, "a": 1, "a": 1e400}'],
+    ['jsonc', '{"a": 12345678901234567890, /* c */ "b": [1e400, 0.1000000000000000000001],}'],
+    [
+      'json5',
+      '{a: 12345678901234567890, b: [1e400, 0.1000000000000000000001], h: 0xAB54A98CEB1F0AD2,}',
+    ],
+    ['jsonl', '{"a": 12345678901234567890}\n[1e400, 0.1000000000000000000001]\n5\n'],
+  ] as const)('reads big numbers in %s exactly, as EditorNumbers: %j', (format, text) => {
+    const data = parserFor(format, true).parse(text);
+    expect(data).toStrictEqual(parserFor(format).parse(text));
+    expect(holdsBigNumber(data)).toBe(true);
+    expect(holdsBigNumber(nearestNumbers(data))).toBe(false);
+    const numbers: unknown[] = [];
+    JSON.stringify(data, (_key, value: unknown) => {
+      if (value instanceof LosslessNumber) numbers.push(value);
+      return value instanceof LosslessNumber ? null : value;
+    });
+    expect(numbers.length).toBeGreaterThan(0);
+    for (const number of numbers) expect(number).toBeInstanceOf(EditorNumber);
+    // The validator's data is the parser's own (the host validates; the library never reads it twice).
+    expect(validationParserFor(format, true)).toBe(parserFor(format, true));
+  });
+
+  it('keeps plain data as parseData gives it, with no big-number candidate', () => {
+    const text = '{"a": [1, 2.5, -0, 1e2], "b": "12345678901234567890"}';
+    for (const format of ['json', 'jsonc', 'json5', 'jsonl'] as const)
+      expect(parserFor(format, true).parse(text)).toStrictEqual(parserFor(format).parse(text));
   });
 
   it('is its own object per format, kept until asked for another', () => {

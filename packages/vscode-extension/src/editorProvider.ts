@@ -16,8 +16,9 @@
 // keys and buttons send `undo` and `redo`, which run VS Code's own commands on the document's undo
 // stack, and before VS Code saves the document the webview is asked to `flush` the typing it holds.
 //
-// Large-file mode (spec 008 T3): a tab whose document text is above 5 MiB in UTF-8 when it opens
-// is a large-file tab for its whole life (criterion 1), and starts locked: `init` says so, the host
+// Large-file mode (spec 008 T3): a tab whose document text is above the threshold in UTF-8 when it
+// opens (5 MiB by default, the `chrJsonEditor.largeFileThreshold` setting, spec 019 T1) is a
+// large-file tab for its whole life (criterion 1), and starts locked: `init` says so, the host
 // answers any `edit` with the `read-only` error and ignores undo and redo from it (plan R3), and
 // the format badge, validation and `$schema` read the text with core's data-only parse
 // (largeFile.ts, criterion 8). "Edit anyway" (`unlock`) puts the tab on the normal path until it
@@ -41,13 +42,19 @@ import {
 import { detect, parseData, releaseParse } from '@chr-json-editor/core';
 import { confirmRepair } from './confirm';
 import { DocumentSync, minimalReplacement } from './documentSync';
-import { largeFileFor, READ_ONLY_MESSAGE, releaseData, validationPaused } from './largeFile';
+import {
+  largeFileFor,
+  READ_ONLY_MESSAGE,
+  releaseData,
+  thresholdBytes,
+  validationPaused,
+} from './largeFile';
 import { PausedValidationItem } from './pausedValidation';
 import { parseToRelease } from './parseRelease';
 import type { FormatBadgeController } from './formatBadgeVscode';
 import { SchemaBinding, schemaFileParts } from './schemaBinding';
 import { openingMode, pageSettings, samePageSettings, type Settings } from './settings';
-import { affectsSettings, readSettings, smartFormatOptions } from './settingsVscode';
+import { affectsSettings, readSettings, smartFormatOptions, writeOptions } from './settingsVscode';
 import { collectSchemaScopes } from './schemaSettings';
 import { vscodeSchemaWorkspace } from './schemaSettingsVscode';
 import type { DomStep, RenderedProbe } from './testProbe';
@@ -223,10 +230,11 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       )}"></main>`,
       wasm: true,
     });
-    // Measured once: the mode stays whatever later edits do to the size (criterion 1).
-    const largeFile = largeFileFor(document.getText());
-    const locked = () => isLocked(session);
+    // Measured once, against the threshold setting when the tab opens (spec 019 A3): the mode
+    // stays whatever later edits do to the size or to the setting (criterion 1).
     const openedWith = readSettings(document);
+    const largeFile = largeFileFor(document.getText(), thresholdBytes(openedWith));
+    const locked = () => isLocked(session);
 
     const validation = new DocumentValidation({
       snapshot: () => ({ text: document.getText(), docVersion: document.version }),
@@ -293,6 +301,8 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
         post: (message) => this.post(session, message),
         confirmRepair,
         smartFormatOptions: () => smartFormatOptions(document),
+        writeOptions: () => writeOptions(document),
+        thresholdBytes: () => thresholdBytes(readSettings(document)),
       }),
     };
     let snapshot: WebviewSnapshot | undefined;

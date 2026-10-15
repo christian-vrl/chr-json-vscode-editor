@@ -11,6 +11,7 @@ import {
   closeAll,
   copyToCase,
   deepEqual,
+  DEFAULT_UNIT,
   dirname,
   equal,
   expectOnly,
@@ -18,6 +19,7 @@ import {
   list,
   openCustom,
   readText,
+  reindent,
   writeText,
 } from './util';
 
@@ -32,8 +34,10 @@ describe('Generate JSON Schema on the virtual scheme (spec 016 criterion 10)', (
         fixture('fixtures', 'generate-schema', 'data.json'),
       );
       const original = await readText(source);
-      const expected = await readText(
-        fixture('fixtures', 'generate-schema', 'expected.schema.json'),
+      // The schema file takes VS Code's indent for JSON (spec 019 I1, 4 spaces by default).
+      const expected = reindent(
+        await readText(fixture('fixtures', 'generate-schema', 'expected.schema.json')),
+        DEFAULT_UNIT,
       );
       await openCustom(hooks, source);
       hooks.generateSchema({ link: false });

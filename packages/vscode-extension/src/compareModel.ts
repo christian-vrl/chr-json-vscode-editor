@@ -17,6 +17,7 @@ import {
   getAdapter,
   mayHoldBigNumber,
   type Difference,
+  type WriteOptions,
 } from '@chr-json-editor/core';
 
 /** One side as the panel read it. */
@@ -120,7 +121,12 @@ export type CopyResult =
  * a side that is not writable, when a side does not parse, and for a difference that is not one of
  * the model's (the page's copy names the model's version, which the panel checks first).
  */
-export function copyInto(model: CompareModel, difference: Difference, to: CompareSide): CopyResult {
+export function copyInto(
+  model: CompareModel,
+  difference: Difference,
+  to: CompareSide,
+  options?: WriteOptions,
+): CopyResult {
   const target = model[to];
   const from: CompareSide = to === 'left' ? 'right' : 'left';
   const source = model[from];
@@ -143,7 +149,10 @@ export function copyInto(model: CompareModel, difference: Difference, to: Compar
   }
   try {
     const patch = copyDifference(source.parsed.data, target.parsed.data, difference, from);
-    return { kind: 'text', text: getAdapter(target.format).applyPatch(target.text, patch) };
+    return {
+      kind: 'text',
+      text: getAdapter(target.format).applyPatch(target.text, patch, options),
+    };
   } catch (e) {
     return { kind: 'failed', message: e instanceof Error ? e.message : String(e) };
   }

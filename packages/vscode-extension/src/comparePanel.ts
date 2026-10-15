@@ -27,6 +27,7 @@ import {
   type CompareSideInput,
 } from './compareModel';
 import { minimalReplacement } from './documentSync';
+import { writeOptions } from './settingsVscode';
 import type { ComparePageProbe, DomStep } from './testProbe';
 import { createNonce, renderWebviewHtml } from './webviewHtml';
 
@@ -295,14 +296,16 @@ export class ComparePanel {
       this.show('The documents changed before the copy; it was not applied. Try again.');
       return;
     }
-    const result = copyInto(model, difference, to);
+    const target = this[to];
+    const document =
+      target.kind === 'document' ? await vscode.workspace.openTextDocument(target.uri) : undefined;
+    // Spec 019 I1: new lines in a target with no indentation follow VS Code's indent for it.
+    const result = copyInto(model, difference, to, document && writeOptions(document));
     if (result.kind !== 'text') {
       this.show(`Cannot copy: ${result.message}`);
       return;
     }
-    const target = this[to];
-    if (target.kind !== 'document') return;
-    const document = await vscode.workspace.openTextDocument(target.uri);
+    if (target.kind !== 'document' || !document) return;
     // The text the copy was computed from is what the document must still hold.
     if (document.getText() !== model[to].text) {
       this.show('The documents changed before the copy; it was not applied. Try again.');

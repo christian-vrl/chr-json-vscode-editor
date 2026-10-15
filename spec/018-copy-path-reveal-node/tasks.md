@@ -36,7 +36,7 @@
   committed `bench/RESULTS.md`*
 
 ## Phase E — Web (risk-free / additive)
-- [ ] **T5** Criterion 12's cases in the web e2e suite and the four commands in spec 013's coverage
+- [x] **T5** Criterion 12's cases in the web e2e suite and the four commands in spec 013's coverage
   map. `parallel` with T4. — needs: 018 T3, 013 T4 — *gate: criterion 12 green in the web e2e
   suite*
 
@@ -45,6 +45,9 @@
   verdict is read on its own head SHA.
 - If criterion 11's bound misses on the CI runner, T4 records an owner UNKNOWN before it merges
   instead of relaxing the bound.
+- "Reveal in Text Editor" on a CHR JSON Editor tab with unsaved edits: "Reopen as Text" keeps that
+  tab and opens the text editor beside it, which gets the cursor (018 T3 review, L4); the web suite
+  covers it (018 T5).
 - json-p3 2.3.2 refuses `\u0001`-style escapes that RFC 9535 §2.7 requires (§Current evidence):
   whoever next updates json-p3 re-runs criterion 3's engine check without the exclusion.
 - README (spec 005): one line naming the four commands and the two notations.

@@ -6,10 +6,13 @@ import { reparse, type FormatCore } from '../../src/formatBadge';
 import {
   dataOf,
   dataOrError,
+  aboveThreshold,
   LARGE_FILE_THRESHOLD,
   largeFileFor,
   releaseData,
   testValidationLimit,
+  thresholdBytes,
+  thresholdLabel,
   utf8Length,
   VALIDATION_LIMIT_BYTES,
   validationPaused,
@@ -53,6 +56,38 @@ describe('largeFileFor (criterion 1: above 5 MiB of UTF-8)', () => {
 
   it('leaves small texts alone', () => {
     expect(largeFileFor('{"a": 1}')).toBeNull();
+  });
+});
+
+describe('the threshold setting (spec 019 T1, UNK-087 ★)', () => {
+  const ascii = (bytes: number) => `"${'a'.repeat(bytes - 2)}"`;
+
+  it('is the setting in MiB × 1,048,576, 5 MiB by default', () => {
+    expect(thresholdBytes({ largeFileThreshold: 5 })).toBe(LARGE_FILE_THRESHOLD);
+    expect(thresholdBytes({ largeFileThreshold: 6 })).toBe(6_291_456);
+    expect(thresholdBytes({ largeFileThreshold: 1 })).toBe(1_048_576);
+    expect(thresholdBytes({ largeFileThreshold: 50 })).toBe(52_428_800);
+    expect(thresholdLabel(LARGE_FILE_THRESHOLD)).toBe('5 MiB');
+    expect(thresholdLabel(6_291_456)).toBe('6 MiB');
+  });
+
+  it('at 6 opens 6,291,456 bytes in the normal editor and one more in large-file mode', () => {
+    const six = thresholdBytes({ largeFileThreshold: 6 });
+    expect(largeFileFor(ascii(6_291_456), six)).toBeNull();
+    expect(largeFileFor(ascii(6_291_457), six)).toEqual({ bytes: 6_291_457, unlocked: false });
+    expect(aboveThreshold(ascii(6_291_456), six)).toBe(false);
+    expect(aboveThreshold(ascii(6_291_457), six)).toBe(true);
+  });
+
+  it('at 1 opens 2 MiB in large-file mode, counted in UTF-8', () => {
+    const one = thresholdBytes({ largeFileThreshold: 1 });
+    expect(largeFileFor(ascii(2 * 1_048_576), one)).toEqual({
+      bytes: 2_097_152,
+      unlocked: false,
+    });
+    // 524,289 two-byte characters: 1 MiB + 2 bytes in half as many code units.
+    expect(aboveThreshold('é'.repeat(524_289), one)).toBe(true);
+    expect(aboveThreshold('é'.repeat(524_288), one)).toBe(false);
   });
 });
 

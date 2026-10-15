@@ -15,7 +15,8 @@
 //   heap   — the extension host's and the webview's JavaScript heap after that (plan R6);
 //   edit   — at EDIT_MIB only, plan R5: "Edit anyway", then one tree edit timed as suite.cjs times
 //            it (on the webview's clock until the editor is free again), with validation paused,
-//            and the host's heap after it.
+//            and the host's heap after it. Not for the big-id files (`json-ids`, `jsonc-ids`,
+//            `json5-ids`, 015 T6), which UNK-068's rule measures on open only.
 // Results go to the JSON file named by CHR_BENCH_OUT. A failure is recorded, not thrown.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -70,6 +71,9 @@ function message(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** The first big id (generate.mjs BIG_ID_BASE): a big-id file's record i has the id 10^18 + i. */
+const BIG_ID_BASE = 10n ** 18n;
+
 /** The number of records, from the last record's id (generate.mjs numbers them from 0). */
 function recordCount(file) {
   const fd = fs.openSync(file, 'r');
@@ -78,7 +82,8 @@ function recordCount(file) {
   fs.readSync(fd, tail, 0, tail.length, size - tail.length);
   fs.closeSync(fd);
   const ids = [...tail.toString('latin1').matchAll(/"?id"?: (\d+)/g)];
-  return Number(ids.at(-1)[1]) + 1;
+  const last = BigInt(ids.at(-1)[1]);
+  return Number(last >= BIG_ID_BASE ? last - BIG_ID_BASE : last) + 1;
 }
 
 /** `json.schemas` for the JSON and JSONC files and `json5.schemas` for the JSON5 ones, written to
@@ -89,7 +94,9 @@ async function associateSchema(files) {
   if (!settingsFile) throw new Error('CHR_BENCH_USER_SETTINGS is not set');
   const url = vscode.Uri.file(SCHEMA).toString();
   const match = (formats) =>
-    files.filter((f) => formats.includes(f.format)).map((f) => `/${path.basename(f.path)}`);
+    files
+      .filter((f) => formats.includes(f.format.replace(/-ids$/, '')))
+      .map((f) => `/${path.basename(f.path)}`);
   const settings = fs.existsSync(settingsFile)
     ? JSON.parse(fs.readFileSync(settingsFile, 'utf8'))
     : {};
@@ -225,7 +232,7 @@ exports.run = async function run() {
         entry.errors.push({ run: run + 1, error: message(error) });
         continue;
       }
-      if (file.mib === EDIT_MIB) {
+      if (file.mib === EDIT_MIB && !file.format.endsWith('-ids')) {
         // Plan R5 with validation paused, as above UNK-041's limit.
         hooks.validationLimit(0);
         try {
