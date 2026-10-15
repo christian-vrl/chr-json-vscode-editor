@@ -276,7 +276,7 @@ host, while files with no such number open as fast as today.
 | UNK-066 | What JavaScript and Lodash queries see for a big number | B8, criterion 9; T5 | resolved (owner): ★ Like the site |
 | UNK-067 | What CSV import does with `12345678901234567890` | B9, criterion 10; T3 | resolved (owner): ★ Exact number |
 | UNK-068 | Big numbers in large-file mode | criterion 12; T6 | resolved (delegated: ★ exact at every size, 015 T6 bench run 38611914239) |
-| UNK-089 | The page parser on big-id json misses criterion 11's 5× (5.61×) | criterion 11; T6 | open (owner): ★ Keep 5×, faster exact reader in a follow-up |
+| UNK-089 | The page parser on big-id json misses criterion 11's 5× (5.61×) | criterion 11; T6 | resolved (owner, 2026-10-15): ★ Keep 5×, faster exact reader in a follow-up; T6 stays open until it holds |
 
 ## Gate (this spec's Definition of Done)
 - [x] Acceptance criterion defined and falsifiable
