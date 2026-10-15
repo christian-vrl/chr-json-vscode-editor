@@ -60,7 +60,7 @@ that folder is a frozen pre-repo copy.
   edited spans is unchanged (comments, quoting, trailing commas, whitespace).
 - **FormatAdapter:** `core/formats` interface: `detect`, `parse → {data, tree, style, diagnostics}`,
   `applyPatch(text, patch) → text`, `stringify(data, style)`.
-- **Style:** `{indent: '\t' | number, eol: '\n' | '\r\n', finalNewline: boolean, quote: '"' | "'", unquotedKeys: boolean, trailingCommas: boolean}`.
+- **Style:** `{indent: '\t' | number, eol: '\n' | '\r\n', finalNewline: boolean, quote: '"' | "'", unquotedKeys: boolean, trailingCommas: boolean}`; `indentFound: false` when the text has no indentation to follow, so writers use the fallback indent they are given (spec 019 I1).
 - **HostAdapter:** `app-shell` interface each host implements: `open`, `save`, `onExternalChange`, `getSettings`, `showMessage`, `setSchemaDialect`.
 - **Golden case:** folder with `input.<ext>`, `patch.json` (RFC 6902), `expected.<ext>`, `case.json`
   (machine-readable coverage tags). Pass = byte-equal output.

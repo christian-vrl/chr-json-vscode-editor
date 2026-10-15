@@ -14,6 +14,18 @@ export interface Style {
   quote: '"' | "'";
   unquotedKeys: boolean;
   trailingCommas: boolean;
+  /** `false` when the text has no indentation to follow (R1: no line breaks or no indented line;
+   *  R15: no value): `indent` is then core's default, 2, and a writer given a fallback indent
+   *  (`WriteOptions.indent`, spec 019 I1) uses that instead. Absent when the indent was found. */
+  indentFound?: false;
+}
+
+/** How a writer lays out text the document has no indentation for (spec 019 I1). */
+export interface WriteOptions {
+  /** The indent unit of new text where the text has none to follow (`Style.indentFound` is
+   *  `false`, and R15's empty document): a tab or a number of spaces. Default 2 spaces. A text
+   *  with indentation keeps following it (R1). */
+  indent?: '\t' | number;
 }
 
 export interface Diagnostic {
@@ -55,9 +67,10 @@ export interface FormatAdapter {
   parse(text: string): ParseResult;
   /** Applies the operations in order and returns the new text. Throws a `PatchError` (and the
    *  caller keeps its text) when an operation cannot apply. */
-  applyPatch(text: string, patch: readonly PatchOperation[]): string;
-  /** Writes data as a new document in this format and style (002 T7, see `stringify.ts`). */
-  stringify(data: unknown, style: Style): string;
+  applyPatch(text: string, patch: readonly PatchOperation[], options?: WriteOptions): string;
+  /** Writes data as a new document in this format and style (002 T7, see `stringify.ts`); a style
+   *  whose `indentFound` is `false` writes with `options.indent` when given. */
+  stringify(data: unknown, style: Style, options?: WriteOptions): string;
   /** R12: the text with no white space between tokens, keeping its comments (002 T10, `actions.ts`).
    *  Throws a `PatchError` when the text does not parse. */
   compact(text: string): string;
@@ -67,8 +80,9 @@ export interface FormatAdapter {
   sort(text: string, options?: SortOptions): string;
   /** The text laid out like `JSON.stringify(data, null, indent)` in the document's indent unit,
    *  keeping every token as written and every comment (003 T8, `actions.ts` `prettyPrint`).
-   *  Throws a `PatchError` when the text does not parse. */
-  prettyPrint(text: string): string;
+   *  Throws a `PatchError` when the text does not parse. A text with no indentation is laid out
+   *  with `options.indent` (spec 019 I1), else 2 spaces. */
+  prettyPrint(text: string, options?: WriteOptions): string;
 }
 
 /** What `FormatAdapter.sort` sorts and how (002 T10). */

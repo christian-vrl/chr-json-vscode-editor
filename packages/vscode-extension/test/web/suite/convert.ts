@@ -206,7 +206,12 @@ describe('convert commands on the virtual scheme (spec 013 criterion 7)', () => 
         await vscode.commands.executeCommand(COMMANDS.json5);
         const json5 = vscode.Uri.joinPath(dirname(back.uri), 'data.json5');
         await waitFor(`jsonl → json5 (${where}): the new file`, () => exists(json5));
-        equal(await readText(json5), '[\n  {"a":1},\n  2\n]\n', `jsonl → json5 (${where}): bytes`);
+        // J1's items take VS Code's indent for the new file (spec 019 I1, 4 spaces by default).
+        equal(
+          await readText(json5),
+          '[\n    {"a":1},\n    2\n]\n',
+          `jsonl → json5 (${where}): bytes`,
+        );
         await expectOnly(json5, custom ? 'custom' : 'text');
         deepEqual(hooks.convert(undefined).messages, [], `${where}: messages`);
         await closeAll();

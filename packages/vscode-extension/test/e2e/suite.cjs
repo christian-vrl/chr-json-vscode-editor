@@ -490,6 +490,18 @@ exports.run = async function run() {
     isCustom,
   });
 
+  // Gate (019 T5, spec 019 criterion 6): the indentation of new text from VS Code's settings
+  // (indentSettings.cjs; the commands' cases are in csv.cjs, jsonLines.cjs, import.cjs and
+  // generateSchema.cjs).
+  await closeAll();
+  await require('./indentSettings.cjs').runIndentSettings({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
+
   // Gate (018 T3, spec 018 criteria 7, 8 and 9): copy path and reveal node (copyPath.cjs).
   await closeAll();
   await require('./copyPath.cjs').runCopyPath({ hooks, waitFor, closeAll, expectOnly, isCustom });

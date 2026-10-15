@@ -275,3 +275,41 @@ export async function revert(document: vscode.TextDocument): Promise<void> {
   await vscode.commands.executeCommand('workbench.action.files.revert');
   await waitFor(`${basename(document.uri)} to revert`, () => !document.isDirty);
 }
+
+// --- Indentation of new text (spec 019 I1, UNK-088 ★).
+
+/** VS Code's default indent unit (`editor.tabSize` 4, `editor.insertSpaces` true), which new text
+ *  gets where the document has none to follow. */
+export const DEFAULT_UNIT = '    ';
+
+/** `text`, written with a two-space unit, with `unit` instead (leading white space only). */
+export function reindent(text: string, unit: string): string {
+  return text.replace(/^(?: {2})+/gm, (spaces) => unit.repeat(spaces.length / 2));
+}
+
+/** Runs `fn` with the user settings `editor.tabSize` and `editor.insertSpaces` set to `values`, and
+ *  removes them afterwards. */
+export async function withIndent<T>(
+  values: { tabSize: number; insertSpaces: boolean },
+  fn: () => Promise<T>,
+): Promise<T> {
+  const set = async (on: boolean) => {
+    const editor = vscode.workspace.getConfiguration('editor');
+    for (const [key, value] of Object.entries(values)) {
+      await editor.update(key, on ? value : undefined, vscode.ConfigurationTarget.Global);
+    }
+    await waitFor(`editor indentation ${on ? JSON.stringify(values) : 'cleared'}`, () =>
+      Object.entries(values).every(
+        ([key, value]) =>
+          vscode.workspace.getConfiguration('editor').inspect(key)?.globalValue ===
+          (on ? value : undefined),
+      ),
+    );
+  };
+  await set(true);
+  try {
+    return await fn();
+  } finally {
+    await set(false);
+  }
+}
