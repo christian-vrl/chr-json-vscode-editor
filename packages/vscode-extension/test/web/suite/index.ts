@@ -21,6 +21,7 @@ export async function run(): Promise<void> {
   await import('./generateSchema');
   await import('./query');
   await import('./largeFile');
+  await import('./bigNumbers');
   await import('./settings');
   await import('./copyPath');
   await new Promise<void>((resolve, reject) => {

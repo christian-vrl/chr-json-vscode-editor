@@ -20,7 +20,16 @@ const RENDER_LIMIT_MS = 5000;
 // UNK-041's evidence rule: one validation (data-only parse plus Ajv) under 1 s.
 const VALIDATION_LIMIT_MS = 1000;
 const FORMATS = ['json', 'jsonc', 'json5'];
-const LABELS = { json: 'JSON', jsonc: 'JSONC', json5: 'JSON5' };
+// 015 T6 (UNK-068's evidence rule): the same files with every record's id a 19-digit big number.
+const ID_FORMATS = FORMATS.map((format) => `${format}-ids`);
+const LABELS = {
+  json: 'JSON',
+  jsonc: 'JSONC',
+  json5: 'JSON5',
+  'json-ids': 'JSON big ids',
+  'jsonc-ids': 'JSONC big ids',
+  'json5-ids': 'JSON5 big ids',
+};
 const MIB = 2 ** 20;
 
 function median(values) {
@@ -60,7 +69,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Large-file mode benchmark (008 T5)',
   '',
-  '> Evidence for spec 008 criterion 11, UNK-041 and plan risks R5 and R6. Written by',
+  '> Evidence for spec 008 criterion 11, UNK-041 and plan risks R5 and R6, and for UNK-068 (spec 015 criterion 12). Written by',
   '> `bench/large-file-report.mjs` from one benchmark run (`bench/large-file.mjs`); do not edit by hand.',
   '',
   '## Run',
@@ -107,6 +116,47 @@ for (const format of FORMATS) {
   add(`| ${LABELS[format]} | ${ms(value)} | ${pass ? 'pass' : 'miss'} |`);
 }
 add('', `Criterion 11: **${criterion11 ? 'holds' : 'does not hold'}**.`, '');
+
+const idFiles = files.filter((f) => ID_FORMATS.includes(f.format));
+let idCriterion11;
+if (idFiles.length) {
+  add(
+    '## UNK-068: big numbers on in large-file mode (spec 015 criterion 12)',
+    '',
+    "The same files with every record's `id` written as 19 digits (10^18 + i, a big number: `node bench/generate.mjs --formats --big-ids`), opened in large-file mode with big numbers kept exact (015 T6): the webview reads strict JSON with core's `readJsonExact` (lossless-json) and JSONC and JSON5 with core's `parseData`, every big id an `EditorNumber`. UNK-068's rule: in one CI run, spec 008 criterion 7 (in `bench/RESULTS.md`, same run) and criterion 11 below both pass with big numbers on.",
+    '',
+    '| File | Webview ready | First render | Render minus ready | Host busy on open | Webview heap (MiB) |',
+    '|---|---|---|---|---|---|',
+  );
+  for (const size of sizes) {
+    for (const format of ID_FORMATS) {
+      const f = fileOf(format, size);
+      if (!f) continue;
+      add(
+        `| ${LABELS[format]} ${size} MiB | ${cell(f.open, (o) => o.readyMs)} | ${cell(f.open, (o) => o.renderMs)} | ${cell(f.open, extra)} | ${cell(f.busy, (b) => b.ms)} | ${f.heap.some((h) => h.webview == null) ? 'not reported' : cell(f.heap, (h) => h.webview, mib)} |`,
+      );
+    }
+  }
+  add(
+    '',
+    `Spec 008 criterion 11 with big ids (at ${RENDER_MIB} MiB, render minus ready < ${RENDER_LIMIT_MS.toLocaleString('en-US')} ms per format):`,
+    '',
+    '| Format | Render minus ready | Without big ids | Verdict |',
+    '|---|---|---|---|',
+  );
+  idCriterion11 = true;
+  for (const format of ID_FORMATS) {
+    const f = fileOf(format, RENDER_MIB);
+    const plain = fileOf(format.replace(/-ids$/, ''), RENDER_MIB);
+    const value = f ? med(f.open, extra) : undefined;
+    const pass = value !== undefined && value < RENDER_LIMIT_MS;
+    idCriterion11 &&= pass;
+    add(
+      `| ${LABELS[format]} | ${ms(value)} | ${ms(plain ? med(plain.open, extra) : undefined)} | ${pass ? 'pass' : 'miss'} |`,
+    );
+  }
+  add('', `Criterion 11 with big ids: **${idCriterion11 ? 'holds' : 'does not hold'}**.`, '');
+}
 
 add(
   `## UNK-041: validation of one large file (< ${VALIDATION_LIMIT_MS.toLocaleString('en-US')} ms)`,

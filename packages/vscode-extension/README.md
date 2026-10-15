@@ -22,6 +22,14 @@ documents above 5 MiB, where Format still works. Unlike the site, it never reord
 a table, keeps trailing commas on containers that stay on several lines (JSONC and JSON5), and
 writes an array one item per line when an item is wider than a whole line.
 
+Numbers with more digits than JavaScript can hold, such as the id `12345678901234567890`,
+`0.1000000000000000000001` or `1e400`, keep their exact digits, in every format and in large files:
+the views show them, and edits, copy, sort, compare, transform, convert and CSV export write them as
+the file has them. JSONQuery, JMESPath and JSONPath compute with the nearest number JavaScript holds
+and put the original digits back in the result; when the result holds big numbers that can't be told
+apart, the transform says so and changes nothing. JSONQuery and JMESPath still return a number out of
+JavaScript's range, such as `1e400`, as `null`.
+
 The status bar shows the format the file was detected as (JSON, JSONC or JSON5). Click it, or run
 "Change Format", to parse the file as another format; this never changes the file.
 
