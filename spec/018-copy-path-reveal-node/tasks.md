@@ -64,6 +64,8 @@
   the copy commands in both editors write the text's A5 index, and the page's nav bar shows and
   accepts it; the helpers live in core (`packages/core/src/paths/lines.ts`), and `badItems` treats a
   lone CR at the end of a line as blank space, as `readLines` does (018 T3 review, L4).
+- "Finding the node…" (criterion 11) uses the document's `chrJsonEditor.largeFileThreshold` (spec 019
+  T1, merged while T4 was open), 5 MiB by default; `copyPathLargeFile.cjs` checks a 10 MiB setting.
 - "Reveal in Text Editor" from a tab with unsaved edits: "Reopen as Text" keeps that tab open, so the
   command now takes the text tab from `showTextDocument` (018 T3 review, L4; covered in
   `copyPath.cjs`).

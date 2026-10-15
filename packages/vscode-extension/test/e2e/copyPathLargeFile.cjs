@@ -10,7 +10,9 @@
 //   text is read and no progress shows), and "Reveal in Text Editor" puts the text cursor at its
 //   place under the progress notification, replacing the tab or making the open text tab in
 //   another group active while the locked tab stays locked;
-// - the document's text, version and dirty state never change.
+// - the document's text, version and dirty state never change;
+// - the threshold is the `largeFileThreshold` setting (spec 019 T1): at 10 MiB the same copies in
+//   the text editor show no progress.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -87,6 +89,17 @@ exports.runCopyPathLargeFile = async function runCopyPathLargeFile({
     await probeUntil('the document in the editor', (p) => p.mode === 'tree' && !!p.content);
     assert.deepEqual(view().largeFile, LOCKED, 'a locked large-file tab');
     return document;
+  }
+
+  async function setThreshold(value) {
+    const config = vscode.workspace.getConfiguration('chrJsonEditor');
+    await config.update('largeFileThreshold', value, vscode.ConfigurationTarget.Global);
+    await waitFor(`largeFileThreshold = ${value}`, () => {
+      const inspected = vscode.workspace
+        .getConfiguration('chrJsonEditor')
+        .inspect('largeFileThreshold');
+      return inspected?.globalValue === value;
+    });
   }
 
   async function copied(command) {
@@ -223,7 +236,19 @@ exports.runCopyPathLargeFile = async function runCopyPathLargeFile({
       unchanged('both groups', document, version);
       console.log('large file: the reveals between two groups keep the tab locked');
     }
+
+    // With `largeFileThreshold` 10, 6 MiB is under the threshold: no progress (spec 019 T1).
+    {
+      await closeAll();
+      await setThreshold(10);
+      const { document, editor } = await openText();
+      const position = document.positionAt(place);
+      editor.selection = new vscode.Selection(position, position);
+      await expectCopies('threshold 10', document, false);
+      console.log('large file: at a 10 MiB threshold, the copies show no progress');
+    }
   } finally {
+    await setThreshold(undefined);
     await closeAll();
   }
 };

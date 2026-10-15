@@ -30,7 +30,7 @@ import { isCustomTab, isTextTab, OPEN_COMMAND, REOPEN_AS_TEXT_COMMAND } from './
 import { textFormat } from './convertCommand';
 import { VIEW_TYPE, type JsonEditorProvider } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
-import { largeFileFor } from './largeFile';
+import { largeFileFor, thresholdBytes } from './largeFile';
 import {
   COPIED_MS,
   copiedMessage,
@@ -41,6 +41,7 @@ import {
   pathText,
   type Notation,
 } from './pathPlan';
+import { readSettings } from './settingsVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -114,17 +115,21 @@ async function textNode(): Promise<Located | undefined> {
   const { document } = editor;
   const offset = document.offsetAt(editor.selection.active);
   const text = document.getText();
-  return { document, format, node: await finding(text, () => nodeAtCursor(format, text, offset)) };
+  return {
+    document,
+    format,
+    node: await finding(document, text, () => nodeAtCursor(format, text, offset)),
+  };
 }
 
 /**
- * `read` of `text`, under the progress notification "Finding the node…" when the text is above
- * the large-file threshold in UTF-8 (criterion 11), else at once. Reading holds the extension
+ * `read` of `text`, `document`'s text, under the progress notification "Finding the node…" when
+ * the text is above the document's large-file threshold in UTF-8 (criterion 11; spec 019 T1), else at once. Reading holds the extension
  * host, so the notification is given a moment to reach the window first, as the import commands
  * give theirs.
  */
-async function finding<T>(text: string, read: () => T): Promise<T> {
-  if (largeFileFor(text) === null) return read();
+async function finding<T>(document: vscode.TextDocument, text: string, read: () => T): Promise<T> {
+  if (largeFileFor(text, thresholdBytes(readSettings(document))) === null) return read();
   if (__CHR_TEST_HOOKS__) testPathCommands.progress.push(FINDING_NODE_TITLE);
   return vscode.window.withProgress(
     { location: vscode.ProgressLocation.Notification, title: FINDING_NODE_TITLE },
@@ -156,7 +161,7 @@ async function copyPath(
   // JSON Lines: the table's row is copied as the text's item, bad lines counted (UNK-090 ★).
   if (custom && located.format === 'jsonl') {
     const source = located.document.getText();
-    path = textPath(path, await finding(source, () => badItems(source)));
+    path = textPath(path, await finding(located.document, source, () => badItems(source)));
   }
   const text = pathText(notation, path);
   await vscode.env.clipboard.writeText(text);
@@ -174,7 +179,10 @@ async function revealInEditor(provider: JsonEditorProvider): Promise<void> {
   // JSON Lines: the table's row leaves out the bad lines before the item (spec 012 L1).
   const shown =
     located.format === 'jsonl'
-      ? tablePath(path, await finding(document.getText(), () => badItems(document.getText())))
+      ? tablePath(
+          path,
+          await finding(document, document.getText(), () => badItems(document.getText())),
+        )
       : path;
   const open = otherTab(document.uri, isCustomTab);
   if (open) {
@@ -204,7 +212,7 @@ async function revealInText(
  *  `document`, or says it is not there. */
 async function showInText(document: vscode.TextDocument, format: Format, path: Path) {
   const text = document.getText();
-  const place = await finding(text, () =>
+  const place = await finding(document, text, () =>
     // JSON Lines: the item counts the bad lines the table leaves out (spec 012 L1).
     placeOf(format, text, format === 'jsonl' ? textPath(path, badItems(text)) : path),
   );
