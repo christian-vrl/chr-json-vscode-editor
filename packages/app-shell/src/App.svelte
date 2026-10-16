@@ -124,6 +124,7 @@
     type QueryLanguageId,
   } from './query/run-query.js';
   import { queryLanguagesFor } from './query/size-gate.js';
+  import { mapOffset } from './text-mode.js';
   import {
     DEFAULT_EDITOR_SETTINGS,
     isEditError,
@@ -988,6 +989,16 @@
 
   type MenuButtonIcon = Extract<MenuItem, { type: 'button' }>['icon'];
 
+  /** The part of @codemirror/view's `EditorView` that `codeMirror()` callers use. */
+  type CodeMirrorView = {
+    state: {
+      doc: { toString(): string };
+      selection: { ranges: readonly { anchor: number; head: number }[]; mainIndex: number };
+    };
+    scrollDOM: HTMLElement;
+    dispatch(spec: object): void;
+  };
+
   /** What the library shows, to read its paths against (paths.ts). */
   function pathView(): PathView | undefined {
     const content = editor?.get();
@@ -1141,17 +1152,19 @@
       ranges: [{ anchor: place, head: place }],
       main: 0,
     });
-    // The library applies a selection without scrolling. CodeMirror 6 keeps its view on the
-    // content element (`EditorView.findFromDOM`, @codemirror/view 6.43's `cmTile.root.view`).
-    const content = target.querySelector('.cm-content') as
-      | (Element & {
-          cmTile?: { root?: { view?: { dispatch(spec: object): void } } };
-        })
-      | null;
-    content?.cmTile?.root?.view?.dispatch({
+    // The library applies a selection without scrolling.
+    codeMirror()?.dispatch({
       selection: { anchor: place, head: place },
       scrollIntoView: true,
     });
+  }
+
+  /** Text mode's CodeMirror view, which the library does not expose. CodeMirror 6 keeps it on the
+   *  content element (`EditorView.findFromDOM`, @codemirror/view 6.43's `cmTile.root.view`). */
+  function codeMirror(): CodeMirrorView | undefined {
+    const content = target.querySelector('.jse-text-mode .cm-content') as
+      (Element & { cmTile?: { root?: { view?: CodeMirrorView } } }) | null;
+    return content?.cmTile?.root?.view;
   }
 
   /** What the editor holds now, for tests. */
@@ -1391,7 +1404,28 @@
     // Text content, even in tree and table mode: the library parses it with the core parser, and
     // text mode then shows the document's own bytes, comments included (criterion 10).
     ownChanges = true;
+    const view = mode === 'text' ? codeMirror() : undefined;
+    const before = view && {
+      text: view.state.doc.toString(),
+      ranges: view.state.selection.ranges.map(({ anchor, head }) => ({ anchor, head })),
+      main: view.state.selection.mainIndex,
+      scrollTop: view.scrollDOM.scrollTop,
+    };
     editor?.update({ text: docText });
+    // The library replaces the whole text, which puts the cursor at the top of the file (003 T7 F2):
+    // after an undo, a redo or a change made elsewhere, the cursor stays with the text around it.
+    if (!view || !before || codeMirror() !== view) return;
+    const after = view.state.doc.toString();
+    if (after === before.text) return;
+    view.scrollDOM.scrollTop = before.scrollTop;
+    const map = (at: number) => mapOffset(before.text, after, at);
+    selectInLibrary({
+      type: SelectionType.text,
+      ranges: before.ranges.map(({ anchor, head }) => ({ anchor: map(anchor), head: map(head) })),
+      main: before.main,
+    });
+    // The library applies a selection without scrolling; the change is shown, as VS Code shows it.
+    view.dispatch({ scrollIntoView: true });
   }
 
   function onHostEvent(event: HostEvent): void {
