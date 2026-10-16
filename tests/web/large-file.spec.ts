@@ -53,17 +53,17 @@ test('the normal editor has no banner and all three modes', async ({ page }) => 
   await expect(modes).toHaveText(['Tree', 'Text', 'Table']);
 });
 
-test('only Tree and Table are offered, in the toolbar and in the library menu', async ({
+test('only Tree and Table are offered, and the library menu has no mode switch', async ({
   page,
 }) => {
   await open(page, `largeFile=${SIX_MIB}&mode=text`);
   // Asked for text mode, the page opens in tree mode: text mode is not offered.
   const modes = page.getByRole('group', { name: 'Mode' }).getByRole('button');
   await expect(modes).toHaveText(['Tree', 'Table']);
-  await expect(page.locator('.jse-tree-mode .jse-group-button')).toHaveText(['tree', 'table']);
+  await expect(page.locator('.jse-tree-mode .jse-group-button')).toHaveCount(0);
   await modes.getByText('Table').click();
   await expect(page.locator('.jse-table-mode')).toContainText('COBOL');
-  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveText(['tree', 'table']);
+  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveCount(0);
   // The host asking for text mode changes nothing either.
   await page.evaluate(() => window.devHost!.setMode('text'));
   await page.waitForTimeout(100);
@@ -91,7 +91,8 @@ for (const mode of ['tree', 'table'] as const) {
 
   test(`${mode} mode offers no whole-document action and no edit by keyboard`, async ({ page }) => {
     await open(page, `largeFile=${SIX_MIB}&mode=${mode}`, mode);
-    await expect(page.locator(`.jse-${mode}-mode .jse-menu`)).toBeVisible();
+    // The menu is rendered; locked table mode leaves it empty (no mode switch, no action).
+    await expect(page.locator(`.jse-${mode}-mode .jse-menu`)).toHaveCount(1);
     await expect(page.locator(ACTION_BUTTONS)).toHaveCount(0);
     const before = await hostState(page);
     await page.locator(`.jse-${mode}-mode`).getByText('COBOL').click();
@@ -173,7 +174,7 @@ test('"Edit anyway" unlocks the tab: edits reach the host, text mode stays unava
 
   const modes = page.getByRole('group', { name: 'Mode' }).getByRole('button');
   await expect(modes).toHaveText(['Tree', 'Table']);
-  await expect(page.locator('.jse-tree-mode .jse-group-button')).toHaveText(['tree', 'table']);
+  await expect(page.locator('.jse-tree-mode .jse-group-button')).toHaveCount(0);
 });
 
 test('a tab the host says is unlocked opens unlocked (a reloaded webview)', async ({ page }) => {
