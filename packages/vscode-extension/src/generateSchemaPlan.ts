@@ -70,6 +70,9 @@ export function brokenSchemaMessage(format: Format, line: number, column: number
   );
 }
 
+/** Criterion 9: the progress notification's title above spec 008's threshold. */
+export const GENERATING_TITLE = 'Generating JSON Schema…';
+
 /** Criterion 7's notification. */
 export function generatedMessage(schemaFile: string, source: string): string {
   return `Generated ${schemaFile} from ${source}.`;

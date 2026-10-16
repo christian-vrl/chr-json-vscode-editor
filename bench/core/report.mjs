@@ -2,7 +2,7 @@
 // spec 010 criterion 11; 012 T2, spec 012 criterion 12; 011 T5, spec 011 criterion 12; 015 T2,
 // spec 015 criterion 11's core part; 014 T4, spec 014 criterion 10; 015 T6, spec 015 criterion 11's
 // webview part and UNK-068's spec 008 criterion 7 on big ids; 017 T4, spec 017 criterion 10 and
-// UNK-077) from `bench/core/run.mjs`'s raw
+// UNK-077; 016 T4, spec 016 criterion 9) from `bench/core/run.mjs`'s raw
 // results and, when given, `bench/query/run.mjs`'s and the base commit's (`<base.json>`, the same
 // runner measuring the base commit's core build in the same job).
 // Every number in the report comes from that file; the text around them says what each one covers.
@@ -78,7 +78,7 @@ const add = (...l) => lines.push(...l);
 add(
   '# Core benchmark: parse and one edit per format (002 T8)',
   '',
-  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.webview?.length ? ', spec 015 criterion 11 (webview part)' : ''}${results.ids?.length ? ', UNK-068 (spec 008 criterion 7 on big ids)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
+  `> Spec 002 criterion 7, spec 008 criterion 7, spec 010 criterion 11, spec 012 criterion 12${queries ? ', spec 011 criterion 12' : ''}${queries?.jsonpath ? ', spec 014 criterion 10' : ''}${base ? ', spec 015 criterion 11 (core part)' : ''}${results.webview?.length ? ', spec 015 criterion 11 (webview part)' : ''}${results.ids?.length ? ', UNK-068 (spec 008 criterion 7 on big ids)' : ''}${results.imports?.length ? ', spec 017 criterion 10' : ''}${results.schema?.length ? ', spec 016 criterion 9' : ''}. Written by \`bench/core/report.mjs\` from one benchmark run; do not edit`,
   `> by hand. Re-run it (the \`bench\` workflow) whenever \`packages/core/src/formats\`${queries ? ' or `packages/app-shell/src/query`' : ''}${results.imports?.length ? ' or `packages/core/src/import`' : ''} changes speed.`,
   '',
   '## Run',
@@ -505,6 +505,37 @@ add(
         ? `Verdict: **the hypothesis does not hold**: a 5 MiB median is ${ms(SMART_LIMIT_MS)} ms or more, so an UNKNOWN goes to the owner (criterion 11).`
         : `Verdict: the hypothesis holds in this run (every 5 MiB median is under ${ms(SMART_LIMIT_MS)} ms).`,
 );
+
+if (results.schema?.length) {
+  add(
+    '',
+    '## Spec 016 criterion 9: JSON Schema generation',
+    '',
+    "`generateSchema(data, 'draft-07')` (016 T1, the dialect the command writes) on the data",
+    "`parseData('json', text)` gives, beside that `parseData`, on the json file at the 5 MiB",
+    'threshold and at 50 MiB, both in the same process. Criterion 9: at each size the median',
+    '`generateSchema` time is at most the median `parseData` time of the same document in this run.',
+    '',
+    '| Size | Records | generateSchema | parseData | generateSchema ÷ parseData | schema file |',
+    '|---|---|---|---|---|---|',
+  );
+  const schemaMissed = [];
+  for (const s of results.schema) {
+    const share = median(s.generateSchema) / median(s.parseData);
+    if (share > 1) schemaMissed.push(`${s.mib} MiB`);
+    add(
+      `| ${s.mib} MiB | ${s.records.toLocaleString('en-US')} | ${cell(s.generateSchema)} | ${cell(s.parseData)} | ${share.toFixed(2)}× | ${s.schemaBytes.toLocaleString('en-US')} B |`,
+    );
+  }
+  add(
+    '',
+    !runUrl
+      ? `Verdict: not judged (not the CI runner); on this machine the bound ${schemaMissed.length ? `**misses** at ${schemaMissed.join(' and ')}` : 'holds at every size'}.`
+      : schemaMissed.length
+        ? `Verdict: **missed at ${schemaMissed.join(' and ')}**: \`generateSchema\` takes longer than \`parseData\`, so an owner UNKNOWN records the miss before 016 T4 merges (the bound is not relaxed).`
+        : 'Verdict: the bound holds in this run (at 5 and 50 MiB `generateSchema` takes at most the time of `parseData`).',
+  );
+}
 
 if (results.imports?.length) {
   const rule = results.importRule;

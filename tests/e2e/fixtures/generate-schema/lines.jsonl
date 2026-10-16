@@ -1,0 +1,3 @@
+{"id": 1, "name": "alpha", "tags": ["a", "b"], "score": 1.5}
+{"id": 2, "name": "bravo", "tags": [], "score": 2}
+{"id": 3, "name": null, "meta": {"ok": true}}

@@ -77,13 +77,15 @@ export interface TestHooks {
   /** 016 T3: answers every later save dialog of "Generate JSON Schema" with
    *  `answers.saveAs(prefilled URI)` and its "Use for …" button with `answers.link` (true: click
    *  it, false: dismiss); undefined shows them. Returns the save dialogs' prefilled URIs, the
-   *  messages and the notifications (with their button) shown since the previous call. */
+   *  messages, the notifications (with their button) and (016 T4) the progress notifications'
+   *  titles shown since the previous call. */
   generateSchema(
     answers: { saveAs?: (defaultUri: string) => string | undefined; link?: boolean } | undefined,
   ): {
     saveAs: string[];
     messages: string[];
     notifications: { message: string; button: string | undefined }[];
+    progress: string[];
   };
   /** 008 T4: answers every later ceiling message of "Open in CHR JSON Editor" (true: "Open as
    *  Text", false: dismiss; undefined: show it). Returns the messages shown since the previous call. */
@@ -309,6 +311,7 @@ export function activateShared(
             saveAs: testGenerateSchema.asked.splice(0),
             messages: testGenerateSchema.messages.splice(0),
             notifications: testGenerateSchema.notifications.splice(0),
+            progress: testGenerateSchema.progress.splice(0),
           };
         },
         validationLimit(bytes) {

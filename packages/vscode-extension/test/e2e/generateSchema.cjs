@@ -12,12 +12,20 @@
 // - 7: the notification, the button only for a document in the folder with no schema today, its
 //   `json.schemas` entry appended to the folder's settings (existing entries kept), and the open
 //   document validated against the new schema with no errors, also in a path with spaces (016 T5).
+// - 8 (016 T4): fixtures/generate-schema/lines.jsonl in the text editor and the CHR JSON Editor,
+//   from the palette and the title menu (whose entries now list jsonl), writes lines.schema.json
+//   byte for byte as lines.expected.schema.json (G8), with no button (criterion 7).
+// - 9 (016 T4): in a locked large-file tab (spec 008's 6 MiB fixtures, largeFile.cjs
+//   `documentText`) in each format the command writes the schema, shows "Generating JSON Schema…"
+//   while it runs and leaves the tab locked, its text unchanged and no parse of it in core; above
+//   the threshold the text editor shows the same notification, and at or below it none shows.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vscode = require('vscode');
 const { CRITERION_6, DEFAULT_UNIT, reindent, withIndent } = require('./indent.cjs');
+const { documentText } = require('./largeFile.cjs');
 
 const EXTENSION_ID = 'christian-vrl.chr-json-editor';
 const VIEW_TYPE = 'chrJsonEditor.editor';
@@ -25,9 +33,51 @@ const COMMAND = 'chrJsonEditor.generateSchema';
 const FIXTURES = path.resolve(__dirname, '../../../../tests/e2e/fixtures/generate-schema');
 const FORMATS = ['json', 'jsonc', 'json5'];
 const WHEN =
-  '(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5)$/) || ' +
-  '(activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5)$/)';
+  '(activeCustomEditorId == chrJsonEditor.editor && chrJsonEditor.customEditorFormat =~ /^(json|jsonc|json5|jsonl)$/) || ' +
+  '(activeEditor == workbench.editors.files.textFileEditor && chrJsonEditor.textEditorFormat =~ /^(json|jsonc|json5|jsonl)$/)';
 const DRAFT_07 = 'http://json-schema.org/draft-07/schema#';
+const THRESHOLD = 5 * 1024 * 1024;
+const SIX_MIB = 6 * 1024 * 1024;
+const GENERATING = 'Generating JSON Schema…';
+
+/** The schema file of `schema` (spec 016 §Terms), in VS Code's default indent for JSON (spec 019 I1). */
+const schemaFile = (schema) =>
+  reindent(`${JSON.stringify({ $schema: DRAFT_07, ...schema }, null, 2)}\n`, DEFAULT_UNIT);
+const integer = { type: 'integer' };
+const string = { type: 'string' };
+/** Written by hand from G1–G4 for largeFile.cjs's SHAPES: one array of records whose first holds
+ *  `marker`, whose middle ones hold the format's line and whose last holds `id` alone. */
+const LARGE_SCHEMAS = {
+  json: schemaFile({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: {
+        id: integer,
+        marker: string,
+        name: string,
+        tags: { type: 'array', items: string },
+      },
+      required: ['id'],
+    },
+  }),
+  jsonc: schemaFile({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { id: integer, marker: string, name: string },
+      required: ['id'],
+    },
+  }),
+  json5: schemaFile({
+    type: 'array',
+    items: {
+      type: 'object',
+      properties: { id: integer, marker: string, name: string, hex: integer },
+      required: ['id'],
+    },
+  }),
+};
 
 const isCustom = (tab) =>
   tab?.input instanceof vscode.TabInputCustom && tab.input.viewType === VIEW_TYPE;
@@ -162,6 +212,7 @@ exports.run = async function run() {
           notifications: [
             { message: `Generated data.schema.json from ${name}.`, button: `Use for ${name}` },
           ],
+          progress: [],
         });
         await closeAll();
       }
@@ -298,6 +349,7 @@ exports.run = async function run() {
             'at line 3, column 8). Fix it or run "Repair JSON" first.',
         ],
         notifications: [],
+        progress: [],
       });
       assert.deepEqual(fs.readdirSync(dir), ['broken.jsonc']);
       assert.equal(fs.readFileSync(file, 'utf8'), bytes);
@@ -430,6 +482,100 @@ exports.run = async function run() {
       await closeAll();
       console.log('Generate JSON Schema: "Use for" links a schema in a path with spaces');
     }
+
+    // Criterion 8 (016 T4, G8): lines.jsonl in the text editor from the palette and in the CHR
+    // JSON Editor from the title menu; the schema of one line, byte for byte, and no button.
+    {
+      // Written with 2 spaces; the schema file takes VS Code's indent for JSON (spec 019 I1).
+      const linesExpected = reindent(
+        fs.readFileSync(path.join(FIXTURES, 'lines.expected.schema.json'), 'utf8'),
+        DEFAULT_UNIT,
+      );
+      for (const custom of [false, true]) {
+        const label = `lines.jsonl (${custom ? 'CHR JSON Editor' : 'text editor'})`;
+        const { dir, file, uri, document, bytes } = await open('lines.jsonl', { custom });
+        hooks.generateSchema({ link: true });
+        await vscode.commands.executeCommand(COMMAND, ...(custom ? [uri] : []));
+        const target = path.join(dir, 'lines.schema.json');
+        assert.equal(fs.readFileSync(target, 'utf8'), linesExpected, `${label}: bytes`);
+        assert.equal(fs.readFileSync(file, 'utf8'), bytes, `${label}: the source file changed`);
+        assert.equal(document.isDirty, false, `${label}: the source document changed`);
+        assert.deepEqual(fs.readdirSync(dir).sort(), ['lines.jsonl', 'lines.schema.json']);
+        await expectOnly(vscode.Uri.file(target), custom);
+        assert.deepEqual(hooks.generateSchema(undefined), {
+          saveAs: [],
+          messages: [],
+          notifications: [
+            { message: 'Generated lines.schema.json from lines.jsonl.', button: undefined },
+          ],
+          progress: [],
+        });
+        await closeAll();
+      }
+      assert.equal(
+        vscode.workspace.getConfiguration('json', folder.uri).inspect('schemas')
+          ?.workspaceFolderValue,
+        undefined,
+        'json.schemas changed for JSON Lines',
+      );
+      console.log('Generate JSON Schema: lines.jsonl in both editors gives the schema of one line');
+    }
+
+    // Criterion 9 (016 T4): a locked large-file tab in each format, from the palette (json) and
+    // the title menu (jsonc, json5): the schema is written under the progress notification, and
+    // the tab stays locked with its text unchanged and no parse of it kept in core.
+    for (const format of FORMATS) {
+      const name = `six.${format}`;
+      const text = documentText(format, SIX_MIB);
+      const { dir, file, uri, document } = await open(name, { custom: true, text });
+      const view = () => hooks.webviews().find((w) => w.uri === uri.toString());
+      await waitFor(`the ${name} webview script to run`, () => view()?.scriptLoaded, 60000);
+      const locked = { bytes: SIX_MIB, unlocked: false };
+      assert.deepEqual(view().largeFile, locked, `${name}: not a locked large-file tab`);
+      hooks.generateSchema({ link: false });
+      await vscode.commands.executeCommand(COMMAND, ...(format === 'json' ? [] : [uri]));
+      const target = path.join(dir, 'six.schema.json');
+      assert.equal(fs.readFileSync(target, 'utf8'), LARGE_SCHEMAS[format], `${name}: bytes`);
+      const seen = hooks.generateSchema(undefined);
+      assert.deepEqual(seen.progress, [GENERATING], `${name}: progress notification`);
+      assert.deepEqual(seen.messages, [], `${name}: messages`);
+      assert.deepEqual(seen.notifications, [
+        { message: `Generated six.schema.json from ${name}.`, button: `Use for ${name}` },
+      ]);
+      await expectOnly(vscode.Uri.file(target), true);
+      assert.equal(document.getText(), text, `${name}: the text changed`);
+      assert.equal(document.isDirty, false, `${name}: the document changed`);
+      assert.equal(fs.readFileSync(file, 'utf8'), text, `${name}: the file changed`);
+      assert.ok(!hooks.cachedParses().includes(text), `${name}: core keeps a parse of the text`);
+      // Back to the source's tab: still the same locked large-file tab.
+      await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE);
+      await waitFor(
+        `${name} active again`,
+        () => isCustom(activeTab()) && activeTab().input.uri.toString() === uri.toString(),
+      );
+      assert.deepEqual(view().largeFile, locked, `${name}: the tab is no longer locked`);
+      await closeAll();
+    }
+    console.log('Generate JSON Schema: locked 6 MiB tabs in each format, under progress');
+
+    // Criterion 9: the threshold, in UTF-8 bytes of the text, in the text editor too: above it the
+    // progress notification shows; at it, none.
+    for (const [bytes, progress] of [
+      [THRESHOLD + 1, [GENERATING]],
+      [THRESHOLD, []],
+    ]) {
+      const { dir } = await open('size.json', { text: documentText('json', bytes) });
+      hooks.generateSchema({ link: false });
+      await vscode.commands.executeCommand(COMMAND);
+      assert.equal(
+        fs.readFileSync(path.join(dir, 'size.schema.json'), 'utf8'),
+        LARGE_SCHEMAS.json,
+        `${bytes} bytes: schema`,
+      );
+      assert.deepEqual(hooks.generateSchema(undefined).progress, progress, `${bytes} bytes`);
+      await closeAll();
+    }
+    console.log('Generate JSON Schema: progress above the 5 MiB threshold only');
   } finally {
     hooks.generateSchema(undefined);
     fs.rmSync(outside, { recursive: true, force: true });
