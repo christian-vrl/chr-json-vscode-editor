@@ -104,6 +104,31 @@ exports.runCopyPath = async function runCopyPath({
     return vscode.env.clipboard.readText();
   }
 
+  /**
+   * The active text editor when it shows `document`. The tab model can switch to the text tab
+   * before `activeTextEditor` follows, so read it inside each wait, never once after the tab wait.
+   */
+  function activeEditorOf(document) {
+    const editor = vscode.window.activeTextEditor;
+    return editor?.document === document ? editor : undefined;
+  }
+
+  /** Waits for the active text editor to show `document` with its cursor at `place`. */
+  async function cursorAt(document, place) {
+    let editor;
+    await waitFor('the cursor at the place', () => {
+      editor = activeEditorOf(document);
+      return !!editor && document.offsetAt(editor.selection.active) === place;
+    });
+    return editor;
+  }
+
+  /** Whether the active text editor shows `document` with `line` in view. */
+  function inView(document, line) {
+    const editor = activeEditorOf(document);
+    return !!editor && lineVisible(editor, line);
+  }
+
   /** Both copy commands on the current node: the clipboard and the status bar messages. */
   async function expectCopies(label, document, jsonpath, pointer) {
     const { version } = document;
@@ -309,12 +334,10 @@ exports.runCopyPath = async function runCopyPath({
       await vscode.commands.executeCommand(REVEAL_IN_TEXT);
       await expectOnly(long, 'text', isText);
       const place = document.getText().indexOf('"key"');
-      const editor = vscode.window.activeTextEditor;
-      assert.equal(editor?.document, document);
-      assert.equal(document.offsetAt(editor.selection.active), place, 'the cursor at the place');
+      const editor = await cursorAt(document, place);
       assert.ok(editor.selection.isEmpty, 'an empty selection');
       const line = document.positionAt(place).line;
-      await waitFor('the place in view', () => lineVisible(editor, line));
+      await waitFor('the place in view', () => inView(document, line));
       assert.equal(document.version, version, 'reveal in text: the version');
       assert.equal(document.isDirty, false, 'reveal in text: not dirty');
       console.log('reveal in text: the CHR JSON Editor tab is replaced, the cursor at the place');
@@ -332,14 +355,9 @@ exports.runCopyPath = async function runCopyPath({
       await waitFor('the text tab in the other group to be active', () => isText(activeTab()));
       assert.equal(vscode.window.tabGroups.activeTabGroup.viewColumn, vscode.ViewColumn.Two);
       assert.equal(tabsFor(long).filter(isCustom).length, 1, 'the CHR JSON Editor tab stays');
-      const editor = vscode.window.activeTextEditor;
       const place = document.getText().indexOf('"k110"');
-      await waitFor('the cursor at the place', () => {
-        return document.offsetAt(editor.selection.active) === place;
-      });
-      await waitFor('the place in view', () =>
-        lineVisible(editor, document.positionAt(place).line),
-      );
+      await cursorAt(document, place);
+      await waitFor('the place in view', () => inView(document, document.positionAt(place).line));
       console.log('reveal in text: the text tab in the other group is made active');
     }
 
