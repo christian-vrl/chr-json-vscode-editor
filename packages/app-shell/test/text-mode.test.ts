@@ -27,22 +27,43 @@ describe('mapOffset', () => {
     for (let at = 0; at <= plain.length; at++) expect(mapOffset(plain, plain, at)).toBe(at);
   });
 
-  it('never leaves the new text, and keeps the text around the change', () => {
+  it('reads a change in a run of equal characters as one span', () => {
+    // fast-check seed 571599554 (CI run 38900064515): "xx" → "x" reads as the second x removed.
+    expect(mapOffset('xx', 'x', 1)).toBe(1);
+    expect(mapOffset('xx', 'x', 2)).toBe(1);
+  });
+
+  it('never leaves the new text', () => {
     fc.assert(
-      fc.property(fc.string(), fc.string(), fc.string(), fc.string(), (head, gone, added, tail) => {
-        const before = head + gone + tail;
-        const after = head + added + tail;
+      fc.property(fc.string(), fc.string(), (before, after) => {
         for (let at = 0; at <= before.length; at++) {
           const to = mapOffset(before, after, at);
           expect(to).toBeGreaterThanOrEqual(0);
           expect(to).toBeLessThanOrEqual(after.length);
-          // The text before the cursor's new place is a start of the text before its old place,
-          // or the other way round: it never lands inside text the cursor was not next to.
-          if (at <= head.length)
-            expect(after.slice(0, to).startsWith(before.slice(0, at))).toBe(true);
-          if (at >= head.length + gone.length) {
-            expect(after.slice(to)).toBe(before.slice(at));
-          }
+        }
+      }),
+    );
+  });
+
+  it('keeps an offset outside an unambiguous change with its text, and puts one inside at its end', () => {
+    // The removed text, the added text and the text around them share no character, so the span
+    // read as changed is exactly theirs.
+    const around = fc.string({ unit: fc.constantFrom('a', 'b', '\n') });
+    const removed = fc.string({ unit: fc.constantFrom('x', 'X') });
+    const inserted = fc.string({ unit: fc.constantFrom('y', 'Y') });
+    fc.assert(
+      fc.property(around, removed, inserted, around, (head, gone, added, tail) => {
+        fc.pre(gone !== added);
+        const before = head + gone + tail;
+        const after = head + added + tail;
+        for (let at = 0; at <= before.length; at++) {
+          const expected =
+            at < head.length
+              ? at
+              : at > head.length + gone.length
+                ? at - gone.length + added.length
+                : head.length + added.length;
+          expect(mapOffset(before, after, at)).toBe(expected);
         }
       }),
     );
