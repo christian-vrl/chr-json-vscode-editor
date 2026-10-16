@@ -132,3 +132,66 @@ test('a flush with nothing held back is answered at once', async ({ page }) => {
   expect(await hostText(page)).toBe(before);
   expect(await editsOf(page)).toEqual([]);
 });
+
+/** Text mode's CodeMirror cursor, and whether its line is inside the editor's visible area. */
+const cursorOf = (page: Page) =>
+  page.evaluate(() => {
+    type View = {
+      state: { selection: { main: { head: number } } };
+      coordsAtPos(pos: number): { top: number; bottom: number } | null;
+      scrollDOM: HTMLElement;
+    };
+    const content = document.querySelector('.jse-text-mode .cm-content') as Element & {
+      cmTile: { root: { view: View } };
+    };
+    const view = content.cmTile.root.view;
+    const head = view.state.selection.main.head;
+    const coords = view.coordsAtPos(head);
+    const box = view.scrollDOM.getBoundingClientRect();
+    const visible = !!coords && coords.top >= box.top && coords.bottom <= box.bottom;
+    return { head, visible };
+  });
+
+test('undo and redo in text mode keep the cursor at the change, not the top (003 T7 F2)', async ({
+  page,
+}) => {
+  // A document longer than the editor, so the top of the file is out of view at the change.
+  const rows = Array.from({ length: 300 }, (_, i) => `  "key${i}": ${i}`);
+  const text = `{\n${rows.join(',\n')}\n}\n`;
+  await page.goto(`/?mode=text&text=${encodeURIComponent(text)}`);
+  const editor = page.locator('.jse-text-mode .cm-content');
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+End');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('End');
+  const at = (await cursorOf(page)).head;
+  expect(text.slice(at - 3, at)).toBe('299');
+  await page.keyboard.type('0');
+  // The typing reaches the host before the undo key, so the key has it to undo. CI run 38898466613
+  // (602612e) once read the cursor one character late after the undo, which fits a key pressed
+  // before CodeMirror had read the keystroke on a loaded runner (inferred, not reproduced).
+  await expect.poll(() => hostText(page)).toContain('"key299": 2990');
+  await page.keyboard.press('ControlOrMeta+z');
+  await expect.poll(() => hostText(page)).toBe(text);
+  await expect.poll(() => shownText(page)).toBe(text);
+  await expect.poll(() => cursorOf(page)).toEqual({ head: at, visible: true });
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await expect.poll(() => shownText(page)).not.toBe(text);
+  await expect.poll(() => cursorOf(page)).toEqual({ head: at + 1, visible: true });
+  expect(await historyOf(page)).toEqual(['undo', 'redo']);
+  // A change made elsewhere, above the cursor: the cursor stays with the text it was in.
+  const edited = await hostText(page);
+  await page.evaluate(
+    (next) => window.devHost!.externalChange(next),
+    `${edited.slice(0, 2)}  "new": true,\n${edited.slice(2)}`,
+  );
+  await expect.poll(() => shownText(page)).toContain('"new"');
+  await expect
+    .poll(() => cursorOf(page))
+    .toEqual({ head: at + 1 + '  "new": true,\n'.length, visible: true });
+  // Typing goes on at the cursor.
+  await page.keyboard.type('1');
+  await expect.poll(() => hostText(page)).toContain('"key299": 29901');
+});
