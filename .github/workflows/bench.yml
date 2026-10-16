@@ -7,7 +7,9 @@
 #   query engine beside the library's reference, and (014 T4, spec 014 criterion 10) the JSONPath
 #   bench queries in RFC 9535 beside Goessner at 1 and 5 MiB, and (015 T6, spec 015 criterion 11 and
 #   UNK-068) the editor page's parser against JSON.parse at 5 MiB, the per-query big-number scan and
-#   spec 008 criterion 7 on the big-id JSONC and JSON5 files at 6, 10 and 50 MiB; bench/RESULTS.md.
+#   spec 008 criterion 7 on the big-id JSONC and JSON5 files at 6, 10 and 50 MiB, and (016 T4, spec
+#   016 criterion 9) generateSchema beside parseData on the json document at 5 and 50 MiB;
+#   bench/RESULTS.md.
 # - compare (007 T5, evidence for UNK-037): structural compare at 1, 5, 10 and 50 MiB, in core and
 #   end to end in VS Code's compare panel (open, one live refresh); bench/compare.md.
 # - large-file (008 T5, spec 008 criterion 11, evidence for UNK-041): large-file mode for JSON, JSONC

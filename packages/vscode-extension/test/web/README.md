@@ -37,6 +37,7 @@ with urls relative to the folder. It also writes `large/`: ASCII JSON of exactly
 | `convert.ts`, `compare.ts`, `csv.ts`, `query.ts` | 7, 9: each command's own spec cases (plan R6 for queries) |
 | `largeFile.ts` | 10 (013 T5): large-file mode at 5,242,881 bytes and not at 5,242,880; the web ceiling (UNK-054) opens, one byte more shows spec 008's message |
 | `bigNumbers.ts` | spec 015 criterion 13 (015 T6): criterion 4's big-number fixtures open with their digits shown, and the edit writes the desktop's `expected-edit.*` |
+| `settings.ts` | spec 019 criterion 10: Open Settings opens the Settings editor (019 T1); the workspace's `chrJsonEditor.defaultMode` `"text"` opens a `.json` in Text mode and `chrJsonEditor.largeFileThreshold` `1` a 2 MiB file in large-file mode (019 T6; each case writes its key to `.vscode/settings.json` and removes it) |
 
 `coverage.json` maps every command to the test that runs it or to "desktop-only" (criterion 7);
 `test/unit/webCoverage.test.ts` checks it against `package.json` and the suite's `it` titles. A

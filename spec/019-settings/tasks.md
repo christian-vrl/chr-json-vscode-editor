@@ -40,7 +40,7 @@
   unchanged and green*
 
 ## Phase F — Web (risk-free / additive)
-- [ ] **T6** Criterion 10's cases in the web e2e suite (workspace settings in the web test
+- [x] **T6** Criterion 10's cases in the web e2e suite (workspace settings in the web test
   workspace). — needs: 019 T3 — *gate: criterion 10 green in the web e2e suite*
 
 ## Off the critical path

@@ -27,7 +27,7 @@
   5, 6, 7 green in `pnpm test:e2e`*
 
 ## Phase D — JSON Lines and size (risk-free / additive)
-- [ ] **T4** The command on `jsonl` documents (G8, no link button) in both editors; the locked
+- [x] **T4** The command on `jsonl` documents (G8, no link button) in both editors; the locked
   large-file case on spec 008's fixture and the progress notification above the threshold;
   `generateSchema` beside `parseData` in the bench and `bench/RESULTS.md` (criterion 9). — needs:
   016 T3, 012 T5 — *gate: criteria 8, 9 green; criterion 9's bound holds in the committed

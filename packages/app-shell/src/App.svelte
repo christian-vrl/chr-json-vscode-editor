@@ -478,13 +478,12 @@
     if (mode === 'text') editor?.validate();
   }
 
-  /** The library's menus with format, compact, sort and transform routed through core. A large
-   *  file's main menu has no text mode, and a locked one no such actions (spec 008 criterion 2); a
-   *  JSON Lines one has Table and Tree, and no format or compact (spec 012 criterion 6). */
+  /** The library's menus with format, compact, sort and transform routed through core, and without
+   *  the library's mode switch. A locked large file's main menu has no such actions (spec 008
+   *  criterion 2); a JSON Lines one no format or compact (spec 012 criterion 6). */
   function renderMenu(items: MenuItem[], context: RenderMenuContext): MenuItem[] {
     let routed = onRenderMenu(items, context);
-    if (!context.modal) routed = routeModeButtons(routed);
-    if (modes !== MODES && !context.modal) routed = offeredModes(routed);
+    if (!context.modal) routed = withoutModeSwitch(routed);
     if (format === 'jsonl' && !context.modal) {
       routed = routed.filter(
         (item) =>
@@ -621,33 +620,13 @@
     ];
   }
 
-  /** The library's mode buttons switch through `selectMode`, so the place goes along (S4). */
-  function routeModeButtons(items: MenuItem[]): MenuItem[] {
-    return items.map((item) => {
-      if (!isMenuButton(item)) return item;
-      const to = MODES.find((m) => item.title?.startsWith(`Switch to ${m} mode`));
-      return to ? { ...item, onClick: () => selectMode(to) } : item;
-    });
-  }
-
-  /** The library's own mode switch with the offered modes only, in `modes`' order, where the
-   *  library put its group; the first and last of them round the group's corners. */
-  function offeredModes(items: MenuItem[]): MenuItem[] {
-    const modeOf = (item: MenuItem): Mode | undefined =>
-      isMenuButton(item)
-        ? MODES.find((m) => item.title?.startsWith(`Switch to ${m} mode`))
-        : undefined;
-    const at = items.findIndex((item) => modeOf(item) !== undefined);
-    if (at < 0) return items;
-    const group = modes.flatMap((m, i) => {
-      const item = items.find((candidate) => modeOf(candidate) === m);
-      if (!item || !isMenuButton(item)) return [];
-      const className = (item.className ?? '').replace(/\s*\bjse-(first|last)\b/g, '');
-      const edges = `${i === 0 ? ' jse-first' : ''}${i === modes.length - 1 ? ' jse-last' : ''}`;
-      return [{ ...item, className: className + edges }];
-    });
-    const rest = items.filter((item) => modeOf(item) === undefined);
-    return [...rest.slice(0, at), ...group, ...rest.slice(at)];
+  /** The library's menu without its own mode switch (text, tree, table) and the separator after it:
+   *  the toolbar's switch is the one (003 T2), and it offers only the modes in `modes`. */
+  function withoutModeSwitch(items: MenuItem[]): MenuItem[] {
+    const rest = items.filter(
+      (item) => !(item.type === 'button' && item.className?.includes('jse-group-button')),
+    );
+    return rest[0]?.type === 'separator' ? rest.slice(1) : rest;
   }
 
   function isActionButton(item: MenuItem): boolean {

@@ -95,6 +95,11 @@ test('the toolbar switches tree, text and table without changing the document', 
     await toolbar.getByRole('button', { name: label }).click();
     await expect(page.locator(MODE_ROOT[mode])).toBeVisible();
     await expect(page.locator(MODE_ROOT[mode])).toContainText(shows);
+    // The toolbar's switch is the only one: the library's own (text, tree, table) is not shown.
+    await expect(page.locator(`${MODE_ROOT[mode]} .jse-group-button`)).toHaveCount(0);
+    await expect(
+      page.locator(`${MODE_ROOT[mode]} .jse-menu > .jse-separator:first-child`),
+    ).toHaveCount(0);
     for (const other of ['Tree', 'Text', 'Table']) {
       await expect(toolbar.getByRole('button', { name: other })).toHaveAttribute(
         'aria-pressed',
