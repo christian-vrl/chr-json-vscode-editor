@@ -29,6 +29,8 @@ const isAsciiIdentifier = (c: number, part: boolean) =>
   (c >= 97 && c <= 122) ||
   (c >= 65 && c <= 90) ||
   (part && c >= 48 && c <= 57);
+const isHexDigit = (c: number) =>
+  (c >= 48 && c <= 57) || (c >= 97 && c <= 102) || (c >= 65 && c <= 70);
 /** Whether the code point at `at` continues an identifier. */
 const isIdPartAt = (text: string, at: number): boolean => {
   const c = text.codePointAt(at);
@@ -468,9 +470,9 @@ export class Json5Lexer extends Parser {
   /**
    * The token at `offset` when it is one of the ASCII tokens large documents are made of, read
    * from character codes: a run of white space and line breaks (one `Whitespace` token where the
-   * parser reads one token per line break and per white space run), punctuation, a string without
-   * escapes, an identifier member name, or a plain decimal number (no value is computed: the
-   * walker reads none).
+   * parser reads one token per line break and per white space run), a comment, punctuation, a
+   * string without escapes, an identifier member name, `null`, `true` or `false`, or a plain
+   * decimal or hexadecimal number (no value is computed: the walker reads none).
    * Undefined for anything else, which `next` then reads with the parser's own methods, so the
    * tokens and errors are the parser's either way, but for how white space is cut into tokens.
    */
@@ -522,6 +524,21 @@ export class Json5Lexer extends Parser {
         this.pos = pos + 1;
         return this.set(Kind.StringLiteral, offset, t.slice(offset + 1, pos));
       }
+      case 47: {
+        // A comment; an unclosed block comment, or a lone `/`, goes to `trivium`.
+        const d = t.charCodeAt(pos);
+        if (d === 47) {
+          let e = t.charCodeAt(++pos);
+          while (pos < t.length && !isLineTerminator(e)) e = t.charCodeAt(++pos);
+          this.pos = pos;
+          return this.set(Kind.LineComment, offset, undefined);
+        }
+        if (d !== 42) return undefined;
+        const close = t.indexOf('*/', pos + 1);
+        if (close < 0) return undefined;
+        this.pos = close + 2;
+        return this.set(Kind.BlockComment, offset, undefined);
+      }
     }
     if (key) {
       if (!isAsciiIdentifier(c, false)) return undefined;
@@ -532,10 +549,32 @@ export class Json5Lexer extends Parser {
       this.pos = pos;
       return this.set(Kind.Unknown, offset, t.slice(offset, pos));
     }
-    // A decimal integer, `-` allowed, with an optional fraction: `NUMBER` reads the same.
+    // `null`, `true` or `false` not followed by an identifier character, as `word` reads them.
+    const literal = c === 110 ? 'null' : c === 116 ? 'true' : c === 102 ? 'false' : undefined;
+    if (literal !== undefined) {
+      if (!t.startsWith(literal, offset)) return undefined;
+      pos = offset + literal.length;
+      const d = t.charCodeAt(pos);
+      if (isAsciiIdentifier(d, true) || d === 92 || d >= 128) return undefined;
+      this.pos = pos;
+      const kind = c === 110 ? Kind.NullKeyword : c === 116 ? Kind.TrueKeyword : Kind.FalseKeyword;
+      return this.set(kind, offset, undefined);
+    }
+    // A decimal integer, `-` allowed, with an optional fraction, or a hexadecimal integer: `NUMBER`
+    // reads the same.
     pos = offset;
     if (c === 45) pos++;
     let d = t.charCodeAt(pos);
+    if (d === 48 && (t.charCodeAt(pos + 1) | 32) === 120) {
+      pos += 2;
+      d = t.charCodeAt(pos);
+      if (!isHexDigit(d)) return undefined;
+      do d = t.charCodeAt(++pos);
+      while (isHexDigit(d));
+      if (isAsciiIdentifier(d, true) || d === 92 || d === 46 || d >= 128) return undefined;
+      this.pos = pos;
+      return this.set(Kind.NumericLiteral, offset, undefined);
+    }
     if (d === 48) d = t.charCodeAt(++pos);
     else if (d >= 49 && d <= 57) {
       do d = t.charCodeAt(++pos);
