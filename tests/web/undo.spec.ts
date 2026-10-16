@@ -169,13 +169,18 @@ test('undo and redo in text mode keep the cursor at the change, not the top (003
   const at = (await cursorOf(page)).head;
   expect(text.slice(at - 3, at)).toBe('299');
   await page.keyboard.type('0');
+  // The typing reaches the host before the undo key, so the key has it to undo. CI run 38898466613
+  // (602612e) once read the cursor one character late after the undo, which fits a key pressed
+  // before CodeMirror had read the keystroke on a loaded runner (inferred, not reproduced).
+  await expect.poll(() => hostText(page)).toContain('"key299": 2990');
   await page.keyboard.press('ControlOrMeta+z');
   await expect.poll(() => hostText(page)).toBe(text);
   await expect.poll(() => shownText(page)).toBe(text);
-  expect(await cursorOf(page)).toEqual({ head: at, visible: true });
+  await expect.poll(() => cursorOf(page)).toEqual({ head: at, visible: true });
   await page.keyboard.press('ControlOrMeta+Shift+z');
   await expect.poll(() => shownText(page)).not.toBe(text);
-  expect(await cursorOf(page)).toEqual({ head: at + 1, visible: true });
+  await expect.poll(() => cursorOf(page)).toEqual({ head: at + 1, visible: true });
+  expect(await historyOf(page)).toEqual(['undo', 'redo']);
   // A change made elsewhere, above the cursor: the cursor stays with the text it was in.
   const edited = await hostText(page);
   await page.evaluate(
@@ -183,7 +188,9 @@ test('undo and redo in text mode keep the cursor at the change, not the top (003
     `${edited.slice(0, 2)}  "new": true,\n${edited.slice(2)}`,
   );
   await expect.poll(() => shownText(page)).toContain('"new"');
-  expect(await cursorOf(page)).toEqual({ head: at + 1 + '  "new": true,\n'.length, visible: true });
+  await expect
+    .poll(() => cursorOf(page))
+    .toEqual({ head: at + 1 + '  "new": true,\n'.length, visible: true });
   // Typing goes on at the cursor.
   await page.keyboard.type('1');
   await expect.poll(() => hostText(page)).toContain('"key299": 29901');
