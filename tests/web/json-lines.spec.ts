@@ -33,12 +33,12 @@ test('a JSON Lines document opens in Table mode, with Table and Tree only', asyn
   await open(page, LINES);
   await expect(page.locator('.jse-table-mode')).toContainText('Grace');
   await expect(modeButtons(page)).toHaveText(['Table', 'Tree']);
-  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveText(['table', 'tree']);
+  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveCount(0);
   await expect(page.locator('.format')).toHaveText('JSON Lines');
   await expect(banner(page)).toHaveCount(0);
   await modeButtons(page).getByText('Tree').click();
   await expect(page.locator('.jse-tree-mode')).toContainText('Grace');
-  await expect(page.locator('.jse-tree-mode .jse-group-button')).toHaveText(['table', 'tree']);
+  await expect(page.locator('.jse-tree-mode .jse-group-button')).toHaveCount(0);
   // The host asking for text mode changes nothing.
   await page.evaluate(() => window.devHost!.setMode('text'));
   await page.waitForTimeout(100);
@@ -216,15 +216,11 @@ test('choosing JSON Lines in text mode switches to Table; leaving it keeps the b
   await page.evaluate(() => window.devHost!.setFormat('jsonl'));
   await expect(page.locator('.jse-table-mode')).toContainText('Grace');
   await expect(modeButtons(page)).toHaveText(['Table', 'Tree']);
-  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveText(['table', 'tree']);
+  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveCount(0);
   await expect(page.locator('.jse-format, .jse-compact')).toHaveCount(0);
   await page.evaluate(() => window.devHost!.setFormat('json'));
   await expect(modeButtons(page)).toHaveText(['Tree', 'Text', 'Table']);
-  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveText([
-    'text',
-    'tree',
-    'table',
-  ]);
+  await expect(page.locator('.jse-table-mode .jse-group-button')).toHaveCount(0);
   expect((await hostState(page)).text).toBe(LINES);
   expect((await hostState(page)).edits).toBe(0);
 });
