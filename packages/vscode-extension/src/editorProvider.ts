@@ -150,6 +150,17 @@ const ROW_SOURCE_TIMEOUT_MS = 1000;
  *  S5), or for a tab that just opened to be ready for `reveal`, before they give up. */
 const NODE_TIMEOUT_MS = 5000;
 
+/** Test hooks: a call waiting for a webview's answer, and the panel that owes it. */
+interface TestWait<T> {
+  panel: vscode.WebviewPanel;
+  what: string;
+  resolve(result: T): void;
+  reject(error: Error): void;
+}
+
+/** Test hooks: how a waiting call fails when its webview closes first; e2e tests match on it. */
+const WEBVIEW_CLOSED = 'the webview closed before it answered';
+
 export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   /** Filled only when `__CHR_TEST_HOOKS__` is true. */
   readonly snapshots = new Map<vscode.WebviewPanel, WebviewSnapshot>();
@@ -157,10 +168,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
   readonly validations = new Map<vscode.WebviewPanel, DocumentValidation>();
   private readonly sessions = new Map<vscode.WebviewPanel, Session>();
   /** Test hooks: probes and typing waiting for the webview's answer, by id. */
-  private readonly probes = new Map<number, (result: unknown) => void>();
+  private readonly probes = new Map<number, TestWait<unknown>>();
   private nextProbe = 1;
   /** Test hooks: `whenShown` and `whenSettled` calls waiting for the webview's answer, by id. */
-  private readonly shownWaiters = new Map<number, (ms: number | undefined) => void>();
+  private readonly shownWaiters = new Map<number, TestWait<number | undefined>>();
   /** "Schema validation paused: large file" for the active tab (spec 008 criterion 10). */
   readonly pausedItem: PausedValidationItem;
   private readonly lockChanges = new vscode.EventEmitter<vscode.Uri>();
@@ -419,7 +430,23 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       releaseData();
       this.pausedItem.refresh();
       if (session.largeFile) this.lockChanges.fire(document.uri);
+      if (__CHR_TEST_HOOKS__) this.dropTestWaits(panel, document.uri);
     });
+  }
+
+  /** Test hooks: a closed webview answers nothing more, so its waiting calls fail (UNK-091). A click
+   *  that closes its own tab ("Open as Text") races its answer against the close; without this the
+   *  call waited forever and the e2e job hung until CI cancelled it. */
+  private dropTestWaits(panel: vscode.WebviewPanel, uri: vscode.Uri): void {
+    const drop = <T>(waits: Map<number, TestWait<T>>) => {
+      for (const [id, wait] of waits) {
+        if (wait.panel !== panel) continue;
+        waits.delete(id);
+        wait.reject(new Error(`${WEBVIEW_CLOSED}: ${wait.what} on ${uri.toString()}`));
+      }
+    };
+    drop(this.probes);
+    drop(this.shownWaiters);
   }
 
   private receive(session: Session, message: ToHostMessage): void {
@@ -696,7 +723,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const message = data as { chrTest?: unknown; id?: unknown; result?: unknown };
     if (typeof message !== 'object' || message === null || !('chrTest' in message)) return false;
     if (message.chrTest === 'probe' && typeof message.id === 'number') {
-      this.probes.get(message.id)?.(message.result);
+      this.probes.get(message.id)?.resolve(message.result);
       this.probes.delete(message.id);
     }
     if (
@@ -704,7 +731,7 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
       typeof message.id === 'number'
     ) {
       const { ms } = data as { ms?: unknown };
-      this.shownWaiters.get(message.id)?.(typeof ms === 'number' ? ms : undefined);
+      this.shownWaiters.get(message.id)?.resolve(typeof ms === 'number' ? ms : undefined);
       this.shownWaiters.delete(message.id);
     }
     if (message.chrTest === 'validationShown') {
@@ -804,9 +831,15 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
     const id = this.nextProbe++;
-    return new Promise((resolve) => {
-      this.probes.set(id, (result) => resolve(result as T));
-      void session.panel.webview.postMessage({ ...message, id });
+    return new Promise((resolve, reject) => {
+      const { panel } = session;
+      this.probes.set(id, {
+        panel,
+        what: message.chrTest,
+        resolve: (r) => resolve(r as T),
+        reject,
+      });
+      void panel.webview.postMessage({ ...message, id });
     });
   }
 
@@ -817,9 +850,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
     const id = this.nextProbe++;
-    return new Promise((resolve) => {
-      this.shownWaiters.set(id, resolve);
-      void session.panel.webview.postMessage({ chrTest: 'whenShown', id, text });
+    return new Promise((resolve, reject) => {
+      const { panel } = session;
+      this.shownWaiters.set(id, { panel, what: 'whenShown', resolve, reject });
+      void panel.webview.postMessage({ chrTest: 'whenShown', id, text });
     });
   }
 
@@ -830,9 +864,10 @@ export class JsonEditorProvider implements vscode.CustomTextEditorProvider {
     const session = this.sessionFor(uri);
     if (!session) return Promise.reject(new Error(`no CHR JSON Editor shows ${uri}`));
     const id = this.nextProbe++;
-    return new Promise((resolve) => {
-      this.shownWaiters.set(id, resolve);
-      void session.panel.webview.postMessage({ chrTest: 'whenSettled', id });
+    return new Promise((resolve, reject) => {
+      const { panel } = session;
+      this.shownWaiters.set(id, { panel, what: 'whenSettled', resolve, reject });
+      void panel.webview.postMessage({ chrTest: 'whenSettled', id });
     });
   }
 
