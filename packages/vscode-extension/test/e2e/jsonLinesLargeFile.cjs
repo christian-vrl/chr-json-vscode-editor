@@ -15,6 +15,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vscode = require('vscode');
+const { clickClosingTab } = require('./closingClick.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const OPEN_COMMAND = 'chrJsonEditor.openInEditor';
@@ -224,7 +225,7 @@ exports.runJsonLinesLargeFile = async function runJsonLinesLargeFile({
       // 008 criterion 3: "Open as Text" opens the text editor on the same bytes.
       await closeAll();
       await open(uri);
-      await dom(uri, [{ click: `${LARGE_FILE} button`, text: 'Open as Text' }]);
+      await clickClosingTab(hooks, uri, [{ click: `${LARGE_FILE} button`, text: 'Open as Text' }]);
       await expectOnly(uri, 'text', isText);
       assert.equal(document.isDirty, false);
       await closeAll();
@@ -262,7 +263,7 @@ exports.runJsonLinesLargeFile = async function runJsonLinesLargeFile({
       assert.equal(view(uri).largeFile.unlocked, false, '"Edit anyway" unlocked a bad-line tab');
 
       // "Open as Text" from the bad-line banner: the cursor at the start of line 2, no full parse.
-      await dom(uri, [{ click: `${BAD_LINES} button`, text: 'Open as Text' }]);
+      await clickClosingTab(hooks, uri, [{ click: `${BAD_LINES} button`, text: 'Open as Text' }]);
       await expectOnly(uri, 'text', isText);
       const editor = () => vscode.window.activeTextEditor;
       await waitFor('the cursor on the first bad line', () => {

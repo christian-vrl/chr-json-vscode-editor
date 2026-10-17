@@ -9,6 +9,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const vscode = require('vscode');
+const { clickClosingTab } = require('./closingClick.cjs');
 const { CRITERION_6, withIndent } = require('./indent.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
@@ -324,7 +325,7 @@ exports.runJsonLines = async function runJsonLines({
       assert.equal(document.getText(), BAD);
 
       // "Open as Text": VS Code's text editor on the same document, cursor at the start of line 2.
-      await dom(uri, [{ click: `${BANNER} button`, text: 'Open as Text' }]);
+      await clickClosingTab(hooks, uri, [{ click: `${BANNER} button`, text: 'Open as Text' }]);
       await expectOnly(uri, 'text', isText);
       const editor = () => vscode.window.activeTextEditor;
       await waitFor('the cursor on the first bad line', () => {

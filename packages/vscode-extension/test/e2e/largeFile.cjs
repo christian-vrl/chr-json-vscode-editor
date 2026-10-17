@@ -16,6 +16,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vscode = require('vscode');
+const { clickClosingTab } = require('./closingClick.cjs');
 
 const VIEW_TYPE = 'chrJsonEditor.editor';
 const SELECT_FORMAT_COMMAND = 'chrJsonEditor.selectFormat';
@@ -300,7 +301,8 @@ exports.runLargeFile = async function runLargeFile({
   await closeAll();
   const asText = write('as-text.jsonc', documentText('jsonc', SIX_MIB));
   const textDocument = await open(asText);
-  await hooks.dom(asText.toString(), [{ click: '.banner button', text: 'Open as Text' }]);
+  // The click closes the page it runs on, so its answer may never come (UNK-091).
+  await clickClosingTab(hooks, asText, [{ click: '.banner button', text: 'Open as Text' }]);
   await expectOnly(asText, 'text', isText);
   assert.equal(textDocument.getText(), fs.readFileSync(asText.fsPath, 'utf8'));
   assert.equal(textDocument.isDirty, false);
