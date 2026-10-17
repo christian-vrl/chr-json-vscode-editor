@@ -6,7 +6,8 @@
 // node a JSONPath or JSON Pointer names and shows P3's refusal for one it cannot read. Criterion 6:
 // a mode switch keeps the place (S4), in a locked large-file tab between tree and table too. The
 // page's host records copy requests (`copies`) and answers for the extension host's `getNode`
-// (`requestNode`), which reads the node the page has selected.
+// (`requestNode`), which reads the node the page has selected. JSON Lines past a bad line copies and
+// reads the text's item index (018 T4, UNK-090).
 /// <reference lib="dom" />
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
@@ -179,6 +180,28 @@ test.describe('the navigation bar (criterion 5)', () => {
     // `[0]` is an index (P3), and the object holds no index.
     await enter(page, '$.map[0]');
     await expect(notice(page)).toHaveText('Path does not exist in current document');
+  });
+
+  test("JSON Lines past a bad line: the text's item index, both ways (UNK-090)", async ({
+    page,
+  }) => {
+    // Items as the text counts them (A5): 0 Ada, 1 the bad line, 2 Grace; the table shows 2 rows.
+    const lines = '{"name":"Ada","year":1843}\n{name:"bad"}\n\n{"name":"Grace","year":1906}\n';
+    await page.goto(`/?format=jsonl&text=${encodeURIComponent(lines)}`);
+    await expect(page.locator('.jse-table-mode')).toContainText('Grace');
+    await choose(cell(page, '/1/year'), 'Copy JSONPath');
+    await choose(cell(page, '/1/year'), 'Copy JSON Pointer');
+    expect(await copies(page)).toEqual(['$[2].year', '/2/year']);
+    // The host gets the row the table names and maps it itself (pathCommands.ts).
+    expect(await currentNode(page)).toEqual({ kind: 'path', path: [1, 'year'] });
+
+    await switchTo(page, 'Tree');
+    await enter(page, '$[2].name');
+    await expect(node(page, '/1/name')).toHaveClass(/jse-selected/);
+    await openEditBox(page);
+    await expect(editBox(page)).toHaveValue('$[2].name');
+    await enter(page, '/0/year');
+    await expect(node(page, '/0/year')).toHaveClass(/jse-selected/);
   });
 });
 

@@ -3,3 +3,4 @@ export { jsonPath, jsonPointer, readPath } from './text.js';
 export type { Path, PathStep, ReadPathResult } from './text.js';
 export { nodeAt, placeOf } from './locate.js';
 export type { NodeAtResult, PathError } from './locate.js';
+export { badItems, tablePath, textPath } from './lines.js';

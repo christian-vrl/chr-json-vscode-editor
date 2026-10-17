@@ -12,6 +12,9 @@ export type Notation = 'jsonPath' | 'jsonPointer';
 /** How long the status bar shows "Copied …" (S5). */
 export const COPIED_MS = 3000;
 
+/** The progress notification while a command reads a text above the threshold (criterion 11). */
+export const FINDING_NODE_TITLE = 'Finding the node…';
+
 /** S1's message for a selection of several nodes (the page shows the same, paths.ts). */
 export const SEVERAL_NODES_MESSAGE = 'Select one node to copy its path.';
 

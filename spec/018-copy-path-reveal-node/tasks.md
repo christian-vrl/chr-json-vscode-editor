@@ -29,7 +29,7 @@
   `pnpm test:e2e`*
 
 ## Phase D — JSON Lines and size (risk-free / additive)
-- [ ] **T4** The commands and reveals on `jsonl` documents in both editors (criterion 10); the
+- [x] **T4** The commands and reveals on `jsonl` documents in both editors (criterion 10); the
   locked large-file case on spec 008's fixture and the progress notification above the threshold;
   `nodeAt` and `placeOf` beside `parse` in the core bench and `bench/RESULTS.md` (criterion 11).
   — needs: 018 T3, 012 T5 — *gate: criteria 10, 11 green; criterion 11's bound holds in the
@@ -57,5 +57,17 @@
 - Criterion 9's second case: the library drops a selection whose node an external edit removed, so
   the palette's "Reveal in Text Editor" then names the root; the stale path reaches the host from the
   context menu's item, which keeps the selection the menu opened on (018 T3).
+- JSON Lines with a bad line (018 T4): A5 counts every non-blank line as an item, the bad one too,
+  while the CHR editor's table (spec 012 L1) leaves a bad line out of its rows. Both reveals map the
+  item to the row and back (`tablePath`, `textPath`; `middle.jsonl` in
+  `copyPath.cjs`), so they land on the same item. Per UNK-090 ★ (the owner chose Keep)
+  the copy commands in both editors write the text's A5 index, and the page's nav bar shows and
+  accepts it; the helpers live in core (`packages/core/src/paths/lines.ts`), and `badItems` treats a
+  lone CR at the end of a line as blank space, as `readLines` does (018 T3 review, L4).
+- "Finding the node…" (criterion 11) uses the document's `chrJsonEditor.largeFileThreshold` (spec 019
+  T1, merged while T4 was open), 5 MiB by default; `copyPathLargeFile.cjs` checks a 10 MiB setting.
+- "Reveal in Text Editor" from a tab with unsaved edits: "Reopen as Text" keeps that tab open, so the
+  command now takes the text tab from `showTextDocument` (018 T3 review, L4; covered in
+  `copyPath.cjs`).
 - Settings (a default notation, keybindings) belong to 019; the compare panel and CSV preview could
   reuse S2's menu items later.

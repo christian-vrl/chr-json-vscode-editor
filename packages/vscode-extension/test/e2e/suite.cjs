@@ -514,9 +514,20 @@ exports.run = async function run() {
     isCustom,
   });
 
-  // Gate (018 T3, spec 018 criteria 7, 8 and 9): copy path and reveal node (copyPath.cjs).
+  // Gate (018 T3 and T4, spec 018 criteria 7 to 10): copy path and reveal node (copyPath.cjs).
   await closeAll();
   await require('./copyPath.cjs').runCopyPath({ hooks, waitFor, closeAll, expectOnly, isCustom });
+
+  // Gate (018 T4, spec 018 criterion 11): copy path and reveal node on a locked 6 MiB tab and in the
+  // text editor (copyPathLargeFile.cjs).
+  await closeAll();
+  await require('./copyPathLargeFile.cjs').runCopyPathLargeFile({
+    hooks,
+    waitFor,
+    closeAll,
+    expectOnly,
+    isCustom,
+  });
 
   // Gate (003 T10, criterion 8): the status-bar badge shows the detected format; choosing another
   // format re-parses in the host without changing the document's bytes. The webview's own re-parse

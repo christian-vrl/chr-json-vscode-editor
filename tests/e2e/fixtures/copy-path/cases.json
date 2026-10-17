@@ -1,5 +1,5 @@
 {
-  "$comment": "Spec 018 criterion 7 (018 T3), written by hand from P1, P2 and A1-A5. `text`: the cursor at the first character of `at` in the file (its first occurrence), in VS Code's text editor and in the CHR JSON Editor's text mode. `tree`: the node at JSON Pointer `select` selected in tree mode. `table` (rows.json): the cell at `select` selected in table mode.",
+  "$comment": "Spec 018 criterion 7 (018 T3), written by hand from P1, P2 and A1-A5. `text`: the cursor at the first character of `at` in the file (its first occurrence), in VS Code's text editor and in the CHR JSON Editor's text mode. `tree`: the node at JSON Pointer `select` selected in tree mode. `table` (rows.json): the cell at `select` selected in table mode. `lines.jsonl` (018 T4, criterion 10): `text` as above, `after` added to the offset when given; `table` as rows.json, in the Table mode JSON Lines opens in; `bad` the cursor on the bad line and the line and column S6 names.",
   "sample.json": {
     "text": [
       { "at": "{\n  \"people\"", "jsonpath": "$", "pointer": "" },
@@ -45,5 +45,22 @@
       { "select": "/1/language", "jsonpath": "$[1].language", "pointer": "/1/language" },
       { "select": "/0/name", "jsonpath": "$[0].name", "pointer": "/0/name" }
     ]
+  },
+  "lines.jsonl": {
+    "text": [
+      { "at": "1843", "jsonpath": "$[0].year", "pointer": "/0/year" },
+      { "at": "\"fr\"", "jsonpath": "$[0].langs[1]", "pointer": "/0/langs/1" },
+      { "at": "\n\n", "after": 1, "jsonpath": "$", "pointer": "" },
+      { "at": "\n   \n", "after": 2, "jsonpath": "$", "pointer": "" },
+      { "at": "\"Grace\"", "jsonpath": "$[1].name", "pointer": "/1/name" },
+      { "at": "1906}", "after": 5, "jsonpath": "$[1]", "pointer": "/1" },
+      { "at": "\"a.b\"", "jsonpath": "$[2].tags['a.b']", "pointer": "/2/tags/a.b" }
+    ],
+    "table": [
+      { "select": "/0/name", "jsonpath": "$[0].name", "pointer": "/0/name" },
+      { "select": "/1/year", "jsonpath": "$[1].year", "pointer": "/1/year" },
+      { "select": "/2/name", "jsonpath": "$[2].name", "pointer": "/2/name" }
+    ],
+    "bad": { "at": "\"Linus\"", "line": 6, "column": 2 }
   }
 }

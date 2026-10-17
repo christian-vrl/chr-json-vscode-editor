@@ -12,23 +12,36 @@
 //   its place (core's `placeOf`) and reveals that line in the center when it is outside the view.
 // Without a node (S6: the text stops reading before the cursor, or the path has no place in the
 // text) a command shows why and copies nothing and changes no tab. The commands never change the
-// document; the clipboard is the only write.
+// document; the clipboard is the only write. Reading a text above the large-file threshold (to find
+// the node at the cursor, or a path's place) runs under the progress notification "Finding the
+// node…" (criterion 11, 018 T4).
 import * as vscode from 'vscode';
-import { detect, placeOf, type Format, type Path } from '@chr-json-editor/core';
+import {
+  badItems,
+  detect,
+  placeOf,
+  tablePath,
+  textPath,
+  type Format,
+  type Path,
+} from '@chr-json-editor/core';
 import type { CurrentNode } from '@chr-json-editor/app-shell/protocol';
 import { isCustomTab, isTextTab, OPEN_COMMAND, REOPEN_AS_TEXT_COMMAND } from './commands';
 import { textFormat } from './convertCommand';
 import { VIEW_TYPE, type JsonEditorProvider } from './editorProvider';
 import type { FormatBadgeController } from './formatBadgeVscode';
+import { largeFileFor, thresholdBytes } from './largeFile';
 import {
   COPIED_MS,
   copiedMessage,
+  FINDING_NODE_TITLE,
   nodeAtCursor,
   nodeOutcome,
   notInDocumentMessage,
   pathText,
   type Notation,
 } from './pathPlan';
+import { readSettings } from './settingsVscode';
 
 declare const __CHR_TEST_HOOKS__: boolean;
 
@@ -37,10 +50,12 @@ export const COPY_JSON_POINTER_COMMAND = 'chrJsonEditor.copyJsonPointer';
 export const REVEAL_IN_EDITOR_COMMAND = 'chrJsonEditor.revealInEditor';
 export const REVEAL_IN_TEXT_COMMAND = 'chrJsonEditor.revealInText';
 
-/** Test hooks only: the messages the commands showed and the status bar messages they set. */
-export const testPathCommands: { messages: string[]; status: string[] } = {
+/** Test hooks only: the messages the commands showed, the status bar messages they set and the
+ *  progress notifications they showed. */
+export const testPathCommands: { messages: string[]; status: string[]; progress: string[] } = {
   messages: [],
   status: [],
+  progress: [],
 };
 
 export function registerPathCommands(
@@ -93,13 +108,36 @@ async function customNode(
 }
 
 /** The active text editor's current node: the node at its main cursor. */
-function textNode(): Located | undefined {
+async function textNode(): Promise<Located | undefined> {
   const editor = vscode.window.activeTextEditor;
   const format = textFormat(editor);
   if (!editor || !format) return undefined;
   const { document } = editor;
   const offset = document.offsetAt(editor.selection.active);
-  return { document, format, node: nodeAtCursor(format, document.getText(), offset) };
+  const text = document.getText();
+  return {
+    document,
+    format,
+    node: await finding(document, text, () => nodeAtCursor(format, text, offset)),
+  };
+}
+
+/**
+ * `read` of `text`, `document`'s text, under the progress notification "Finding the node…" when
+ * the text is above the document's large-file threshold in UTF-8 (criterion 11; spec 019 T1), else at once. Reading holds the extension
+ * host, so the notification is given a moment to reach the window first, as the import commands
+ * give theirs.
+ */
+async function finding<T>(document: vscode.TextDocument, text: string, read: () => T): Promise<T> {
+  if (largeFileFor(text, thresholdBytes(readSettings(document))) === null) return read();
+  if (__CHR_TEST_HOOKS__) testPathCommands.progress.push(FINDING_NODE_TITLE);
+  return vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: FINDING_NODE_TITLE },
+    async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return read();
+    },
+  );
 }
 
 /** The node's path, or undefined after showing why there is none (S1, S6). */
@@ -116,9 +154,15 @@ async function copyPath(
   provider: JsonEditorProvider,
   notation: Notation,
 ): Promise<void> {
-  const located = badge.activeDocument() ? await customNode(badge, provider) : textNode();
-  const path = pathOf(located);
-  if (!path) return;
+  const custom = badge.activeDocument() !== undefined;
+  const located = custom ? await customNode(badge, provider) : await textNode();
+  let path = pathOf(located);
+  if (!located || !path) return;
+  // JSON Lines: the table's row is copied as the text's item, bad lines counted (UNK-090 ★).
+  if (custom && located.format === 'jsonl') {
+    const source = located.document.getText();
+    path = textPath(path, await finding(located.document, source, () => badItems(source)));
+  }
   const text = pathText(notation, path);
   await vscode.env.clipboard.writeText(text);
   const message = copiedMessage(notation, text);
@@ -128,10 +172,18 @@ async function copyPath(
 
 /** "Reveal in CHR JSON Editor": the text editor's current node in the CHR JSON Editor. */
 async function revealInEditor(provider: JsonEditorProvider): Promise<void> {
-  const located = textNode();
+  const located = await textNode();
   const path = pathOf(located);
   if (!located || !path) return;
   const { document } = located;
+  // JSON Lines: the table's row leaves out the bad lines before the item (spec 012 L1).
+  const shown =
+    located.format === 'jsonl'
+      ? tablePath(
+          path,
+          await finding(document, document.getText(), () => badItems(document.getText())),
+        )
+      : path;
   const open = otherTab(document.uri, isCustomTab);
   if (open) {
     await vscode.commands.executeCommand('vscode.openWith', document.uri, VIEW_TYPE, {
@@ -142,7 +194,7 @@ async function revealInEditor(provider: JsonEditorProvider): Promise<void> {
     // Checks VS Code's sync limit first, as from the editor title (spec 008 criterion 9).
     await vscode.commands.executeCommand(OPEN_COMMAND, document.uri);
   }
-  await provider.reveal(document, path);
+  await provider.reveal(document, shown);
 }
 
 /** "Reveal in Text Editor" from the palette: the CHR JSON Editor's current node in the text. */
@@ -156,9 +208,14 @@ async function revealInText(
   await showInText(located.document, located.format, path);
 }
 
-/** Shows the node of `path` in VS Code's text editor on `document`, or says it is not there. */
+/** Shows the node of `path` (as the CHR JSON Editor names it) in VS Code's text editor on
+ *  `document`, or says it is not there. */
 async function showInText(document: vscode.TextDocument, format: Format, path: Path) {
-  const place = placeOf(format, document.getText(), path);
+  const text = document.getText();
+  const place = await finding(document, text, () =>
+    // JSON Lines: the item counts the bad lines the table leaves out (spec 012 L1).
+    placeOf(format, text, format === 'jsonl' ? textPath(path, badItems(text)) : path),
+  );
   if (place === undefined) {
     show('error', notInDocumentMessage(path));
     return;
@@ -172,9 +229,13 @@ async function showInText(document: vscode.TextDocument, format: Format, path: P
     });
   } else {
     await vscode.commands.executeCommand(REOPEN_AS_TEXT_COMMAND, document.uri);
-    editor = [vscode.window.activeTextEditor, ...vscode.window.visibleTextEditors].find(
-      (e) => e?.document === document,
-    );
+    // "Reopen as Text" keeps a CHR JSON Editor tab with unsaved edits open beside the text tab it
+    // opens (commands.ts `swapEditor`); either way the text tab is in the active group now.
+    if (document.isClosed) return;
+    editor = await vscode.window.showTextDocument(document, {
+      viewColumn: vscode.window.tabGroups.activeTabGroup.viewColumn,
+      preview: false,
+    });
   }
   if (!editor || document.isClosed) return;
   const position = document.positionAt(place);

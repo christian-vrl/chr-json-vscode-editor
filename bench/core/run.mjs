@@ -20,6 +20,8 @@
 //   node bench/core/run.mjs <out.json> [sizes...]   default sizes: 1 10 50 (MiB); smart format
 //                                                   always runs at 1 and 5 MiB
 //
+// It also times core's `nodeAt` at the last record's last key and `placeOf` of that path beside
+// `parse` of the same document, at 5 and 50 MiB (018 T4, spec 018 criterion 11): see PATH_SIZES_MIB.
 // It also times `importData` on the bench records written as YAML, TOML and XML (017 T4, spec 017
 // criterion 10, UNK-077's evidence rule): see IMPORT_SIZES_MIB, and `generateSchema` beside
 // `parseData` on the json document at 5 and 50 MiB (016 T4, spec 016 criterion 9).
@@ -41,11 +43,12 @@ import {
   MIB,
 } from '../generate.mjs';
 
-const { generateSchema, getAdapter, importData, parseData, smartFormat } = await import(
-  process.env.BENCH_CORE
-    ? pathToFileURL(path.resolve(process.env.BENCH_CORE)).href
-    : '@chr-json-editor/core'
-);
+const { generateSchema, getAdapter, importData, nodeAt, parseData, placeOf, smartFormat } =
+  await import(
+    process.env.BENCH_CORE
+      ? pathToFileURL(path.resolve(process.env.BENCH_CORE)).href
+      : '@chr-json-editor/core'
+  );
 
 export const SIZES_MIB = [1, 10, 50];
 // Spec 010 criterion 11: 1 MiB and the 5 MiB threshold above which smart format is off.
@@ -76,6 +79,10 @@ export const IMPORT_SIZES_MIB = {
 /** UNK-077's evidence rule: the YAML limit is the largest candidate whose median `importData`
  *  time is under `ms` and whose result retains under `bytes` of heap. */
 export const IMPORT_RULE = { ms: 10_000, bytes: 1.5 * 2 ** 30 };
+
+// Spec 018 criterion 11: `nodeAt` and `placeOf` beside `parse` on the 5 and 50 MiB documents.
+export const PATH_SIZES_MIB = [5, 50];
+export const PATH_FORMATS = ['json', 'jsonc', 'json5', 'jsonl'];
 
 const WORDS = ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel'];
 
@@ -458,6 +465,59 @@ async function measureWebview(benchFormat) {
   return result;
 }
 
+/** The offset of the last record's last key (`note`, first character, quote included) and its
+ *  path: where criterion 11 runs `nodeAt`, and the path it runs `placeOf` on. */
+export function lastKey(format, text, records) {
+  const key = format === 'json5' ? 'note:' : '"note"';
+  return { offset: text.lastIndexOf(key), path: [records - 1, 'note'] };
+}
+
+/** `nodeAt` and `placeOf` beside `parse` of one format and size, in a process of its own (spec
+ *  018 criterion 11). Like `measure`, `parse` alternates between two texts so each call parses;
+ *  neither path function reads core's parse cache, so they run on the one text. */
+function measurePaths(format, mib) {
+  const bytes = mib * MIB;
+  const { text, records } = benchDocument(format, bytes);
+  const adapter = getAdapter(format);
+  const target = lastKey(format, text, records);
+  const warm = benchDocument(format, MIB / 4);
+  const warmTarget = lastKey(format, warm.text, warm.records);
+  for (let i = 0; i < 3; i++) {
+    adapter.parse(warm.text);
+    nodeAt(format, warm.text, warmTarget.offset);
+    placeOf(format, warm.text, warmTarget.path);
+  }
+  // The functions find the key: the node at its offset is its path, and its path's place is it.
+  const found = nodeAt(format, text, target.offset);
+  if (JSON.stringify(found.path) !== JSON.stringify(target.path))
+    throw new Error(`${format} ${mib} MiB nodeAt: ${JSON.stringify(found)}`);
+  if (placeOf(format, text, target.path) !== target.offset)
+    throw new Error(`${format} ${mib} MiB placeOf: not at the key`);
+  const at = text.lastIndexOf('.');
+  const texts = [text, `${text.slice(0, at)}-${text.slice(at + 1)}`];
+  let last = 0;
+  const unparsed = () => texts[(last = 1 - last)];
+  const result = {
+    format,
+    mib,
+    bytes,
+    records,
+    offset: target.offset,
+    parse: [],
+    nodeAt: [],
+    placeOf: [],
+  };
+  for (let run = 0; run < RUNS; run++) {
+    const input = unparsed();
+    result.parse.push(time(() => adapter.parse(input)).ms);
+  }
+  for (let run = 0; run < RUNS; run++)
+    result.nodeAt.push(time(() => nodeAt(format, text, target.offset)).ms);
+  for (let run = 0; run < RUNS; run++)
+    result.placeOf.push(time(() => placeOf(format, text, target.path)).ms);
+  return result;
+}
+
 /** The records `importData` gives for the bench text of `kind` (generate.mjs `importText`). */
 function importedRecords(kind, data) {
   if (kind === 'yaml') return data;
@@ -520,6 +580,9 @@ if (process.argv[2] === '--child') {
 } else if (process.argv[2] === '--import-child') {
   const [kind, mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measureImport(kind, Number(mib))) + '\n');
+} else if (process.argv[2] === '--paths-child') {
+  const [format, mib] = process.argv.slice(3);
+  process.stdout.write(JSON.stringify(measurePaths(format, Number(mib))) + '\n');
 } else if (process.argv[2] === '--schema-child') {
   const [mib] = process.argv.slice(3);
   process.stdout.write(JSON.stringify(measureSchema(Number(mib))) + '\n');
@@ -627,6 +690,17 @@ if (process.argv[2] === '--child') {
         );
         return result;
       });
+  // Spec 018 criterion 11 (018 T4): the base commit's core (BENCH_CORE) is not measured for these.
+  const paths = (process.env.BENCH_CORE ? [] : PATH_FORMATS).map((format) => ({
+    format,
+    sizes: PATH_SIZES_MIB.map((mib) => {
+      const result = child(['--paths-child', format, String(mib)]);
+      console.log(
+        `bench core: ${format} ${mib} MiB parse ${round(result.parse)} ms, nodeAt ${round(result.nodeAt)} ms, placeOf ${round(result.placeOf)} ms`,
+      );
+      return result;
+    }),
+  }));
   const imports = (process.env.BENCH_CORE ? [] : IMPORT_KINDS).map((kind) => {
     const measured = [];
     for (const mib of IMPORT_SIZES_MIB[kind]) {
@@ -667,6 +741,7 @@ if (process.argv[2] === '--child') {
         schema,
         ids,
         webview,
+        paths,
         imports,
         importRule: IMPORT_RULE,
       },

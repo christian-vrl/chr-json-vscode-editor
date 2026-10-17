@@ -21,3 +21,6 @@ tests/query/jsonpath-cts/** -text
 
 # Copy path corpus (018 T1): expected.json offsets refer to the inputs byte for byte; jsonl-items is CRLF on purpose.
 tests/paths/*/** -text
+
+# Copy path JSON Lines fixture (018 T4): one item ends in CR LF on purpose.
+tests/e2e/fixtures/copy-path/*.jsonl -text
