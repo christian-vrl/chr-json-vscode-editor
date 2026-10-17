@@ -104,19 +104,24 @@ const isDigitOrDot = (c: number) => (c >= 48 && c <= 57) || c === 46;
 const PROTO_KEY = /__proto__|\\u00[5-7][0-9a-fA-F]/;
 
 /**
- * Strict JSON (RFC 8259) read with its big numbers exact (B1), through lossless-json's parser,
- * which reads a document with big numbers several times faster than core's own walk (spike 015 T1
- * REPORT §3). `big(decimal)` makes the value of each big number (a `LosslessNumber` unless given);
- * plain numbers are `Number(text)`, as `JSON.parse` reads them. A duplicate key's last value wins
- * in the first one's place, as `JSON.parse` does. Undefined when the text is not strict JSON, and
- * for a text that may hold a `__proto__` key, which lossless-json assigns (setting the object's
- * prototype) where `JSON.parse` defines a member: the caller reads those with core's parser.
+ * Strict JSON (RFC 8259) read with its big numbers exact (B1). `big(decimal)` makes the value of each
+ * big number (a `LosslessNumber` unless given); plain numbers are `Number(text)`, as `JSON.parse`
+ * reads them. A duplicate key's last value wins in the first one's place, as `JSON.parse` does.
+ * Undefined when the text is not strict JSON, and for a text that may hold a `__proto__` key, which
+ * lossless-json assigns (setting the object's prototype) where `JSON.parse` defines a member: the
+ * caller reads those with core's parser.
+ *
+ * `JSON.parse` does the reading (spec 015 criterion 11, UNK-089): each big number token outside a
+ * string is first written as a marked string (`readMarked`). Texts that path cannot decide go to
+ * lossless-json's parser, as before.
  */
 export function readJsonExact(
   text: string,
   big: (decimal: string) => unknown = (decimal) => new LosslessNumber(decimal),
 ): { data: unknown } | undefined {
   if (PROTO_KEY.test(text)) return undefined;
+  const read = readMarked(text, big);
+  if (read !== UNDECIDED) return read;
   const number = (token: string): unknown =>
     (token.length > 15 || token.includes('e') || token.includes('E')) && !isSafeNumber(token)
       ? big(token)
@@ -130,6 +135,96 @@ export function readJsonExact(
   } catch {
     return undefined;
   }
+}
+
+const UNDECIDED = Symbol('undecided');
+
+/** A number token that may be big (`mayBeBig`): 16 or more characters, or an exponent. It starts
+ *  after no digit or dot, so outside strings of valid JSON it matches whole tokens. */
+const BIG_CANDIDATE = /(?<![\d.])-?\d(?:[\d.eE+-]{15,}|[\d.]*[eE][+-]?\d+)/g;
+
+/** The mark a big number's string starts with: U+0001, which JSON can only write as this escape
+ *  (a raw control character is not allowed in a string). */
+const MARK = '\\u0001';
+
+/**
+ * `readJsonExact` through `JSON.parse`: each big number token outside a string is written as the
+ * string `"\u0001<token>"`, the text is read by `JSON.parse`, and a walk turns each string starting
+ * with U+0001 back into `big(token)`. When the text holds no `\u0001` escape, such strings are
+ * exactly the marked numbers, so the rewritten text is valid exactly when the text is: undefined
+ * when `JSON.parse` refuses it. `UNDECIDED` when the text holds that escape, or when fewer marked
+ * strings come back than were written (a duplicate key's dropped value, or one marked in a key
+ * place, which only an invalid text has): lossless-json's parser decides those.
+ */
+function readMarked(
+  text: string,
+  big: (decimal: string) => unknown,
+): { data: unknown } | undefined | typeof UNDECIDED {
+  if (text.includes(MARK)) return UNDECIDED;
+  let marked = '';
+  let last = 0;
+  let count = 0;
+  // Whether the scan is inside a string at `quote`, the next `"` not yet passed.
+  let inString = false;
+  let quote = text.indexOf('"');
+  const candidates = new RegExp(BIG_CANDIDATE);
+  for (let match = candidates.exec(text); match; match = candidates.exec(text)) {
+    const at = match.index;
+    while (quote !== -1 && quote < at) {
+      if (!inString || !isEscaped(text, quote)) inString = !inString;
+      quote = text.indexOf('"', quote + 1);
+    }
+    const token = match[0];
+    if (inString || !DECIMAL.test(token) || isSafeNumber(token)) continue;
+    marked += `${text.slice(last, at)}"${MARK}${token}"`;
+    last = candidates.lastIndex;
+    count++;
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(count === 0 ? text : marked + text.slice(last));
+  } catch {
+    return undefined;
+  }
+  if (count === 0) return { data };
+  let found = 0;
+  const unmark = (value: unknown): unknown => {
+    if (typeof value !== 'string' || value.charCodeAt(0) !== 1) return value;
+    found++;
+    return big(value.slice(1));
+  };
+  // A document that is one big number.
+  if (typeof data === 'string') data = unmark(data);
+  const stack: unknown[] = typeof data === 'object' ? [data] : [];
+  for (let next = stack.pop(); next !== undefined; next = stack.pop()) {
+    if (typeof next !== 'object' || next === null) continue;
+    if (Array.isArray(next)) {
+      for (let i = 0; i < next.length; i++) {
+        const value: unknown = next[i];
+        if (typeof value === 'object') stack.push(value);
+        else if (typeof value === 'string') next[i] = unmark(value);
+      }
+      continue;
+    }
+    const record = next as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      const value = record[key];
+      if (typeof value === 'object') stack.push(value);
+      else if (typeof value === 'string' && value.charCodeAt(0) === 1) {
+        // A `__proto__` member is defined, not assigned, so it stays a member.
+        if (key === '__proto__') Object.defineProperty(record, key, { value: unmark(value) });
+        else record[key] = unmark(value);
+      }
+    }
+  }
+  return found === count ? { data } : UNDECIDED;
+}
+
+/** Whether the `"` at `quote`, inside a string, is escaped: an odd run of backslashes before it. */
+function isEscaped(text: string, quote: number): boolean {
+  let before = quote - 1;
+  while (text.charCodeAt(before) === 92) before--;
+  return (quote - 1 - before) % 2 === 1;
 }
 
 /** Whether `value` holds a `LosslessNumber` or a `BigInt` anywhere. */
