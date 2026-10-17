@@ -159,16 +159,27 @@ exports.runCopyPathLargeFile = async function runCopyPathLargeFile({
     }
   }
 
-  async function expectCursor(label, document) {
+  /** The active text editor when it shows `document`: a tab can be active before
+   *  `activeTextEditor` follows, so it is read inside each wait (as in copyPath.cjs). */
+  function activeEditorOf(document) {
     const editor = vscode.window.activeTextEditor;
-    assert.equal(editor?.document, document, `${label}: the text editor`);
+    return editor?.document === document ? editor : undefined;
+  }
+
+  async function expectCursor(label, document) {
     await waitFor(`${label}: the cursor at the place`, () => {
-      return document.offsetAt(editor.selection.active) === place && editor.selection.isEmpty;
+      const editor = activeEditorOf(document);
+      return (
+        !!editor && document.offsetAt(editor.selection.active) === place && editor.selection.isEmpty
+      );
     });
     const line = document.positionAt(place).line;
-    await waitFor(`${label}: the place in view`, () =>
-      editor.visibleRanges.some((r) => r.start.line <= line && line <= r.end.line),
-    );
+    await waitFor(`${label}: the place in view`, () => {
+      const editor = activeEditorOf(document);
+      return (
+        !!editor && editor.visibleRanges.some((r) => r.start.line <= line && line <= r.end.line)
+      );
+    });
   }
 
   try {

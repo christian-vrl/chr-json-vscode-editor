@@ -471,15 +471,9 @@ exports.runCopyPath = async function runCopyPath({
       await vscode.commands.executeCommand(REVEAL_IN_TEXT);
       await waitFor('the text tab to be active', () => isText(activeTab()));
       assert.equal(tabsFor(long).filter(isCustom).length, 1, 'the dirty CHR JSON Editor tab stays');
-      const editor = vscode.window.activeTextEditor;
-      assert.equal(editor?.document, document);
       const place = document.getText().indexOf('"key"');
-      await waitFor('the cursor at the place', () => {
-        return document.offsetAt(editor.selection.active) === place;
-      });
-      await waitFor('the place in view', () =>
-        lineVisible(editor, document.positionAt(place).line),
-      );
+      await cursorAt(document, place);
+      await waitFor('the place in view', () => inView(document, document.positionAt(place).line));
       await vscode.commands.executeCommand('workbench.action.files.revert');
       await waitFor('the edit to revert', () => !document.isDirty);
       console.log('reveal in text: from a tab with unsaved edits, the cursor at the place');
@@ -542,10 +536,7 @@ exports.runCopyPath = async function runCopyPath({
       await selectCell(lines, '/2/name');
       await vscode.commands.executeCommand(REVEAL_IN_TEXT);
       await expectOnly(lines, 'text', isText);
-      const place = document.getText().indexOf('"name":"Barbara"');
-      const shown = vscode.window.activeTextEditor;
-      assert.equal(shown?.document, document);
-      assert.equal(document.offsetAt(shown.selection.active), place, 'the cursor at the place');
+      await cursorAt(document, document.getText().indexOf('"name":"Barbara"'));
       assert.equal(document.version, version, 'lines.jsonl reveals: the version');
       assert.equal(document.isDirty, false, 'lines.jsonl reveals: not dirty');
       console.log('reveal: lines.jsonl, both ways on the same item and member');
@@ -571,12 +562,8 @@ exports.runCopyPath = async function runCopyPath({
       await selectCell(middle, '/2/name');
       await vscode.commands.executeCommand(REVEAL_IN_TEXT);
       await expectOnly(middle, 'text', isText);
-      const shown = vscode.window.activeTextEditor;
-      assert.equal(
-        document.offsetAt(shown.selection.active),
-        document.getText().indexOf('"name":"Barbara"'),
-        'the cursor at the place of the row past the bad line',
-      );
+      // The cursor at the place of the row past the bad line.
+      await cursorAt(document, document.getText().indexOf('"name":"Barbara"'));
       assert.equal(document.isDirty, false, 'middle.jsonl: not dirty');
       console.log('reveal: middle.jsonl, past a bad line both ways');
     }
